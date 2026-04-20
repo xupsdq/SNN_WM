@@ -1,0 +1,124 @@
+# =========================
+# 1) OS / IDE
+# =========================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# =========================
+# 2) Python cache / build
+# =========================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# 3) Virtual env / local env
+# =========================
+.venv/
+venv/
+env/
+ENV/
+.python-version
+.env
+.env.*
+
+# =========================
+# 4) Runtime caches
+# =========================
+.mplconfig/
+cache/
+cache_data/
+
+# =========================
+# 5) Local datasets
+# =========================
+MNIST/
+FashionMNIST/
+data/raw/
+data/processed/
+data/interim/
+
+# =========================
+# 6) Model weights / checkpoints
+# =========================
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.bin
+*.h5
+*.pkl
+*.pickle
+*.joblib
+checkpoints/
+models/
+weights/
+
+# =========================
+# 7) Experiment outputs / logs / figures
+# =========================
+results/
+artifacts/
+logs/
+outputs/
+mlruns/
+not_use/
+useful_fig_results/
+
+*.log
+*.tmp
+*.bak
+status.jsonl
+summary.json
+
+# 默认不跟踪图片和数据产物
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.svg
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.npy
+*.npz
+
+# =========================
+# 8) Paper / Office 临时文件
+# =========================
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.nav
+*.snm
+~$*.docx
+*.tmp.docx
+
+# =========================
+# 9) Mixed paper workspace
+# =========================
+论文1/
+sandbox_document.xml
