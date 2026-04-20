@@ -883,9 +883,11 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     layout = prepare_result_layout(args.output_dir)
     result_root = layout.root
-    output_dir = layout.data_dir
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
     figures_dir = layout.figure_dir
     logs_dir = layout.log_dir
+    meta_dir = layout.meta_dir
 
     dataset = _load_dataset(dataset_root=args.dataset_root, split=args.split)
     images, labels, flat_normalized = build_dataset_arrays(dataset)
@@ -1133,8 +1135,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         "full_pair_trace_and_snapshot_save": True,
     }
 
-    pair_csv = save_tidy_csv(df_results, output_dir / "pair_results.csv", sort_by=["pair_id"])
-    pair_vectors_npz = output_dir / "pair_vectors.npz"
+    pair_csv = save_tidy_csv(df_results, data_dir / "pair_results.csv", sort_by=["pair_id"])
+    pair_vectors_npz = data_dir / "pair_vectors.npz"
     np.savez_compressed(
         pair_vectors_npz,
         pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
@@ -1144,7 +1146,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         Delta_hat_plus=delta_hat_plus_arr,
         Delta_hat_minus=delta_hat_minus_arr,
     )
-    pair_deletion_npz = output_dir / "pair_l3_deletion_maps.npz"
+    pair_deletion_npz = data_dir / "pair_l3_deletion_maps.npz"
     np.savez_compressed(
         pair_deletion_npz,
         pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
@@ -1153,7 +1155,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         D_sta=d_sta_arr,
         D_dyn=d_dyn_arr,
     )
-    pair_replacement_npz = output_dir / "pair_l3_replacement_maps.npz"
+    pair_replacement_npz = data_dir / "pair_l3_replacement_maps.npz"
     np.savez_compressed(
         pair_replacement_npz,
         pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
@@ -1162,7 +1164,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         R_plus_tilde=r_plus_tilde_arr,
         R_minus_tilde=r_minus_tilde_arr,
     )
-    pair_trace_npz = output_dir / "pair_traces_or_snapshots.npz"
+    pair_trace_npz = data_dir / "pair_traces_or_snapshots.npz"
     np.savez_compressed(
         pair_trace_npz,
         pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
@@ -1192,7 +1194,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         region_col_end=np.asarray([region.col_end for region in regions], dtype=np.int64),
         readout_step=np.asarray([int(readout_step)], dtype=np.int64),
     )
-    summary_json = _save_json(summary_metrics, output_dir / "summary_metrics.json")
+    summary_json = _save_json(summary_metrics, metrics_dir / "summary_metrics.json")
 
     empty_paths = {"png": "", "pdf": "", "svg": ""}
     fig1_paths = empty_paths.copy()
@@ -1238,8 +1240,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         fig4_paths = save_figure_all_formats(fig4, figures_dir / "figure_4_pair_level_scatter")
         plt.close(fig4)
 
-    run_config_path = save_run_config(
-        {
+    run_config_payload = {
             "model_path": str(Path(args.model_path).resolve()),
             "dataset_root": str(Path(args.dataset_root).resolve()),
             "split": str(args.split),
@@ -1279,11 +1280,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "argmax_reconstruction_pdf": argmax_reconstruction_paths["pdf"],
                 "argmax_reconstruction_svg": argmax_reconstruction_paths["svg"],
             },
-        },
-        result_root,
-    )
-    summary_path = save_summary_json(
-        {
+    }
+    run_config_path = save_run_config(run_config_payload, result_root)
+    _save_json(run_config_payload, meta_dir / "run_config.snapshot.json")
+    summary_payload = {
             "experiment": "l3_accumulator_mechanism_experiment",
             "pair_count": int(len(df_results)),
             "mean_bias_magnitude": float(df_results["bias_magnitude"].mean()) if len(df_results) else None,
@@ -1292,9 +1292,19 @@ def main(argv: Sequence[str] | None = None) -> None:
             "primary_figure_1": "reconstruction_cosine",
             "primary_figure_2": "argmax_reconstruction",
             "summary_text": "L3/s2p-based reconstruction recovers both the continuous bias-vector similarity and the dominant argmax direction of the final decision bias.",
+    }
+    summary_path = save_summary_json(summary_payload, result_root)
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
+    _save_json(
+        {
+            "experiment": "l3_accumulator_mechanism_experiment",
+            "pair_count": int(len(df_results)),
+            "mean_bias_magnitude": float(df_results["bias_magnitude"].mean()) if len(df_results) else None,
+            "summary_metrics_json": str(summary_json.resolve()),
         },
-        result_root,
+        metrics_dir / "main_metrics.json",
     )
+    # TODO: Large pair trace/snapshot arrays remain under data/ because they are intermediate analysis payloads, not summary metrics.
     run_log_path = save_log_lines(
         [
             "experiment=l3_accumulator_mechanism_experiment",

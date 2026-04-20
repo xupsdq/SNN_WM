@@ -1197,9 +1197,11 @@ def main() -> None:
 
     layout = prepare_result_layout(args.output_dir)
     result_root = layout.root
-    metrics_dir = layout.data_dir
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
     figures_dir = layout.figure_dir
     logs_dir = layout.log_dir
+    meta_dir = layout.meta_dir
 
     dataset = _load_dataset(dataset_root=args.dataset_root, split=args.split)
     num_classes = len({int(dataset[idx][1]) for idx in range(len(dataset))})
@@ -1260,20 +1262,20 @@ def main() -> None:
     )
     stats_summary["within_bin_overlap_bridge"] = overlap_summary
 
-    trial_csv = save_tidy_csv(df_trials, metrics_dir / "trial_results.csv", sort_by=["pair_id"])
+    trial_csv = save_tidy_csv(df_trials, data_dir / "trial_results.csv", sort_by=["pair_id"])
     repeat_csv = None
     if int(args.repeats) > 1:
-        repeat_csv = save_tidy_csv(df_repeat, metrics_dir / "repeat_level_results.csv", sort_by=["pair_id", "repeat_index"])
+        repeat_csv = save_tidy_csv(df_repeat, data_dir / "repeat_level_results.csv", sort_by=["pair_id", "repeat_index"])
     accuracy_csv = save_tidy_csv(df_accuracy, metrics_dir / "bin_accuracy_summary.csv", sort_by=["bin_index"])
     cti_csv = save_tidy_csv(df_cti, metrics_dir / "cti_summary.csv", sort_by=["bin_index", "sample_label", "probe_label"])
     bvec_csv = save_tidy_csv(df_bvec, metrics_dir / "bvec_summary.csv", sort_by=["bin_index"])
     overlap_matched_csv = save_tidy_csv(
         df_overlap_matched,
-        metrics_dir / "within_bin_overlap_matched_pairs.csv",
+        data_dir / "within_bin_overlap_matched_pairs.csv",
         sort_by=["matched_pair_index"],
     )
 
-    voltage_npz = metrics_dir / "trial_voltage_vectors.npz"
+    voltage_npz = data_dir / "trial_voltage_vectors.npz"
     np.savez(
         voltage_npz,
         pair_id=voltage_payload["pair_id"],
@@ -1286,10 +1288,24 @@ def main() -> None:
             "bin_labels": _bin_labels(int(args.num_bins)),
             "bins": bin_rows,
         },
-        metrics_dir / "similarity_bin_edges.json",
+        data_dir / "similarity_bin_edges.json",
     )
-    stats_json = _save_json(stats_summary, logs_dir / "stats_summary.json")
-    overlap_summary_json = _save_json(overlap_summary, logs_dir / "within_bin_overlap_summary.json")
+    stats_json = _save_json(stats_summary, metrics_dir / "stats_summary.json")
+    overlap_summary_json = _save_json(overlap_summary, metrics_dir / "within_bin_overlap_summary.json")
+    main_metrics_json = _save_json(
+        {
+            "experiment": "similarity_bias_experiment",
+            "overall_acc_dynamic": float(df_trials["correct_dynamic"].mean()),
+            "overall_acc_static": float(df_trials["correct_static"].mean()),
+            "overall_drop": float((df_trials["correct_static"] - df_trials["correct_dynamic"]).mean()),
+            "bin_accuracy_summary_csv": str(Path(accuracy_csv).resolve()),
+            "cti_summary_csv": str(Path(cti_csv).resolve()),
+            "bvec_summary_csv": str(Path(bvec_csv).resolve()),
+            "stats_summary_json": str(stats_json.resolve()),
+            "within_bin_overlap_summary_json": str(overlap_summary_json.resolve()),
+        },
+        metrics_dir / "main_metrics.json",
+    )
 
     empty_paths = {"png": "", "pdf": "", "svg": ""}
     fig1_paths = empty_paths.copy()
@@ -1328,8 +1344,7 @@ def main() -> None:
         fig6_paths = save_figure_all_formats(fig6, figures_dir / "figure_6_within_bin_overlap_bridge")
         plt.close(fig6)
 
-    run_config_path = save_run_config(
-        {
+    run_config_payload = {
             "model_path": str(Path(args.model_path).resolve()),
             "dataset_root": str(Path(args.dataset_root).resolve()),
             "split": str(args.split),
@@ -1366,6 +1381,7 @@ def main() -> None:
                 "similarity_bin_edges_json": str(bin_json.resolve()),
                 "stats_summary_json": str(stats_json.resolve()),
                 "within_bin_overlap_summary_json": str(overlap_summary_json.resolve()),
+                "main_metrics_json": str(main_metrics_json.resolve()),
                 "supplementary_accuracy_vs_similarity_png": fig2_supp_paths["png"],
                 "figure_1_png": fig1_paths["png"],
                 "figure_2_png": fig2_paths["png"],
@@ -1374,21 +1390,21 @@ def main() -> None:
                 "figure_5_png": fig5_paths["png"],
                 "figure_6_png": fig6_paths["png"],
             },
-        },
-        result_root,
-    )
-    summary_path = save_summary_json(
-        {
+    }
+    run_config_path = save_run_config(run_config_payload, result_root)
+    _save_json(run_config_payload, meta_dir / "run_config.snapshot.json")
+    summary_payload = {
             "experiment": "similarity_bias_experiment",
             "overall_acc_dynamic": float(df_trials["correct_dynamic"].mean()),
             "overall_acc_static": float(df_trials["correct_static"].mean()),
             "overall_drop": float((df_trials["correct_static"] - df_trials["correct_dynamic"]).mean()),
             "artifact_stats_summary_json": str(stats_json.resolve()),
             "artifact_within_bin_overlap_summary_json": str(overlap_summary_json.resolve()),
+            "artifact_main_metrics_json": str(main_metrics_json.resolve()),
             "run_config_json": str(Path(run_config_path).resolve()),
-        },
-        result_root,
-    )
+    }
+    summary_path = save_summary_json(summary_payload, result_root)
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
     run_log_path = save_log_lines(
         [
             "experiment=similarity_bias_experiment",

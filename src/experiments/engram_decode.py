@@ -321,7 +321,7 @@ def build_summary(metrics_df: pd.DataFrame, delay_points_ms: List[int], experime
 
     return {
         "experiment_name": experiment_name,
-        "primary_figure": os.path.join("figure", "accuracy_vs_delay.png"),
+        "primary_figure": os.path.join("figures", "accuracy_vs_delay.png"),
         "delay_points_ms": [int(v) for v in delay_points_ms],
         "chance_level": float(CHANCE_LEVEL),
         "best_layer": str(best_row["layer"]),
@@ -343,6 +343,9 @@ def main() -> None:
     layout = prepare_result_layout(args.save_dir)
     experiment_name = Path(args.save_dir).name or DEFAULT_EXPERIMENT_NAME
     logger = setup_logger(layout.log_file(), experiment_name)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
 
     seed_everything(args.seed)
     device = resolve_device(args.device)
@@ -382,6 +385,7 @@ def main() -> None:
         "save_diagnostic_plots": bool(args.save_diagnostic_plots),
     }
     run_config_path = save_json(run_config, layout.root_file("run_config.json"), logger)
+    save_json(run_config, meta_dir / "run_config.snapshot.json", logger)
 
     net, encoder = load_model_and_encoder(
         model_path=args.model_path,
@@ -465,8 +469,10 @@ def main() -> None:
                 _plot_pca(x_test, y_test, layer_name, int(delay_ms), diagnostic_dir)
 
     metrics_df = pd.DataFrame(records).sort_values(["layer", "delay_ms"], kind="stable").reset_index(drop=True)
-    metrics_path = Path(save_tidy_csv(metrics_df, layout.data_file("engram_decode_metrics.csv"), sort_by=["layer", "delay_ms"]))
+    metrics_path = Path(save_tidy_csv(metrics_df, metrics_dir / "engram_decode_metrics.csv", sort_by=["layer", "delay_ms"]))
+    compat_metrics_path = Path(save_tidy_csv(metrics_df, data_dir / "engram_decode_metrics.csv", sort_by=["layer", "delay_ms"]))
     logger.info("[Save] Metrics CSV saved to %s", metrics_path)
+    logger.info("[Save] Compatibility metrics CSV saved to %s", compat_metrics_path)
 
     figure_paths = {"png": "", "pdf": "", "svg": ""}
     if not bool(args.skip_figures):
@@ -478,12 +484,28 @@ def main() -> None:
         logger.info("[Save] Primary figure saved to %s", figure_paths["svg"])
 
     summary = build_summary(metrics_df, delay_points_ms, experiment_name)
+    summary["metrics_csv"] = str(metrics_path.resolve())
+    summary["compat_metrics_csv"] = str(compat_metrics_path.resolve())
     summary_path = save_json(summary, layout.root_file("summary.json"), logger)
+    save_json(summary, metrics_dir / "summary.json", logger)
+    save_json(
+        {
+            "experiment": "engram_decode",
+            "best_layer": summary["best_layer"],
+            "best_delay_ms": summary["best_delay_ms"],
+            "best_accuracy": summary["best_accuracy"],
+            "best_macro_f1": summary["best_macro_f1"],
+            "metrics_csv": str(metrics_path.resolve()),
+        },
+        metrics_dir / "main_metrics.json",
+        logger,
+    )
 
     logger.info("[Done] metrics_csv=%s", metrics_path)
     logger.info("[Done] primary_figure=%s", figure_paths["png"])
     logger.info("[Done] summary_json=%s", summary_path)
     logger.info("[Done] run_config_json=%s", run_config_path)
+    # TODO: Feature caches remain in-memory only; persist to data/ only if later reproduction needs them.
 
 
 if __name__ == "__main__":
