@@ -1,0 +1,64 @@
+{
+  "baseline_batch_size": 128,
+  "baseline_early_stop_multiplier": 2.0,
+  "batch_size": 32,
+  "cache_diagnostic_regions": false,
+  "dataset_root": "./MNIST",
+  "delay_ms_list": [
+    300,
+    600,
+    1000
+  ],
+  "device": "cuda",
+  "freeze_conditions": {
+    "freeze_L1": [
+      "layer1"
+    ],
+    "freeze_L1_L2": [
+      "layer1",
+      "layer2"
+    ],
+    "full_dynamic": [],
+    "full_frozen": [
+      "layer1",
+      "layer2",
+      "layer3"
+    ]
+  },
+  "freeze_config_set": "main4",
+  "freeze_mechanism": "restore selected layers to baseline u=U, x=1 immediately before probe",
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "num_boot": 2000,
+  "outputs": {
+    "accuracy_summary": "results\\layerwise_ux_freeze_experiment\\accuracy_summary.csv",
+    "beneficial_memory_index_summary": "results\\layerwise_ux_freeze_experiment\\beneficial_memory_index_summary.csv",
+    "diagnostic_region_table": "results\\layerwise_ux_freeze_experiment\\diagnostic_region_table.csv",
+    "figure_1_pdf": "results\\layerwise_ux_freeze_experiment\\figure_1_accuracy_by_freeze_condition.pdf",
+    "figure_1_png": "results\\layerwise_ux_freeze_experiment\\figure_1_accuracy_by_freeze_condition.png",
+    "figure_2_pdf": "results\\layerwise_ux_freeze_experiment\\figure_2_beneficial_memory_index.pdf",
+    "figure_2_png": "results\\layerwise_ux_freeze_experiment\\figure_2_beneficial_memory_index.png",
+    "figure_3_pdf": "results\\layerwise_ux_freeze_experiment\\figure_3_rescue_vs_bias.pdf",
+    "figure_3_png": "results\\layerwise_ux_freeze_experiment\\figure_3_rescue_vs_bias.png",
+    "figure_4_pdf": "results\\layerwise_ux_freeze_experiment\\figure_4_overlap_harm.pdf",
+    "figure_4_png": "results\\layerwise_ux_freeze_experiment\\figure_4_overlap_harm.png",
+    "figure_5_pdf": "results\\layerwise_ux_freeze_experiment\\figure_5_layer_state_summary.pdf",
+    "figure_5_png": "results\\layerwise_ux_freeze_experiment\\figure_5_layer_state_summary.png",
+    "layer_state_summary": "results\\layerwise_ux_freeze_experiment\\layer_state_summary.csv",
+    "overlap_harm_summary": "results\\layerwise_ux_freeze_experiment\\overlap_harm_summary.csv",
+    "probe_anchor_selection": "results\\layerwise_ux_freeze_experiment\\probe_anchor_selection.csv",
+    "rescue_bias_summary": "results\\layerwise_ux_freeze_experiment\\rescue_bias_summary.csv",
+    "stats_csv": "results\\layerwise_ux_freeze_experiment\\stats_freeze_condition_comparison.csv",
+    "stats_txt": "results\\layerwise_ux_freeze_experiment\\stats_freeze_condition_comparison.txt",
+    "trial_level_results": "results\\layerwise_ux_freeze_experiment\\trial_level_results.csv"
+  },
+  "patch_size": 4,
+  "probe_ms": 100.0,
+  "probe_pool_limit": 2000,
+  "probe_pool_per_class": 200,
+  "sample_ms": 200.0,
+  "save_dir": "results\\layerwise_ux_freeze_experiment",
+  "seed": 42,
+  "selection_policy": "reuse diagnostic_feature_overlap_experiment sample pairing",
+  "trial_count_final": 123,
+  "trial_count_requested": 200
+}

@@ -1,0 +1,132 @@
+{
+  "assumptions": {
+    "l3_overlap_mode": "sensory_only_static_frozen",
+    "l3_temporal_pool": "mean",
+    "public_similarity": "cosine on raw input image flatten vectors",
+    "repo_directory": "src/experiments",
+    "voltage_readout": "layer3.get_grouped_voltage(v_mem_snapshot).mean(-1) at decision_offset pre-decision snapshot"
+  },
+  "case_pair_ids": [
+    22,
+    23,
+    10,
+    11
+  ],
+  "overall": {
+    "direction_accuracy_l1": 0.025,
+    "direction_accuracy_l3": 0.24166666666666667,
+    "mean_bias_mag": 0.00017795635669192825,
+    "mean_cosine_l1": -0.023922197976497285,
+    "mean_cosine_l3": 0.004448892645689222,
+    "mean_pearson_l1": -0.3204106615807465,
+    "mean_pearson_l3": 0.4495930576355127,
+    "mean_spearman_l1": -0.3061616161616161,
+    "mean_spearman_l3": 0.4134848484848484,
+    "num_pairs": 240,
+    "num_probes": 20
+  },
+  "selection_similarity_bins": [
+    {
+      "count": 48,
+      "max_similarity": 0.262083423381263,
+      "mean_similarity": 0.1570128742542406,
+      "min_similarity": 0.024678252252892732,
+      "similarity_bin": "bin_1"
+    },
+    {
+      "count": 48,
+      "max_similarity": 0.3305670038057693,
+      "mean_similarity": 0.3028109211758245,
+      "min_similarity": 0.27092758356717483,
+      "similarity_bin": "bin_2"
+    },
+    {
+      "count": 48,
+      "max_similarity": 0.38626769524799365,
+      "mean_similarity": 0.36037104597873687,
+      "min_similarity": 0.33065318768635377,
+      "similarity_bin": "bin_3"
+    },
+    {
+      "count": 48,
+      "max_similarity": 0.4518928944461442,
+      "mean_similarity": 0.41677100080808255,
+      "min_similarity": 0.3885234806776519,
+      "similarity_bin": "bin_4"
+    },
+    {
+      "count": 48,
+      "max_similarity": 0.5722596028184067,
+      "mean_similarity": 0.4990558617463036,
+      "min_similarity": 0.45192346665019595,
+      "similarity_bin": "bin_5"
+    }
+  ],
+  "similarity_bins": [
+    {
+      "cosine_l1": -0.01659782381761041,
+      "cosine_l3": 0.003658444354339905,
+      "count": 48,
+      "direction_accuracy_l1": 0.0,
+      "direction_accuracy_l3": 0.20833333333333334,
+      "mean_similarity": 0.15701287425424063,
+      "pearson_l1": -0.39342407315389366,
+      "pearson_l3": 0.3615881633940419,
+      "similarity_bin": "bin_1",
+      "spearman_l1": -0.3623737373737373,
+      "spearman_l3": 0.33510101010101007
+    },
+    {
+      "cosine_l1": -0.029355382777652397,
+      "cosine_l3": 0.00447905757622987,
+      "count": 48,
+      "direction_accuracy_l1": 0.020833333333333332,
+      "direction_accuracy_l3": 0.3125,
+      "mean_similarity": 0.3028109211758245,
+      "pearson_l1": -0.3320667109114218,
+      "pearson_l3": 0.43937878575397665,
+      "similarity_bin": "bin_2",
+      "spearman_l1": -0.308080808080808,
+      "spearman_l3": 0.3909090909090909
+    },
+    {
+      "cosine_l1": -0.035921395782853686,
+      "cosine_l3": 0.0054726667265514424,
+      "count": 48,
+      "direction_accuracy_l1": 0.0625,
+      "direction_accuracy_l3": 0.3125,
+      "mean_similarity": 0.3603710459787368,
+      "pearson_l1": -0.2900680904030898,
+      "pearson_l3": 0.5203934480170472,
+      "similarity_bin": "bin_3",
+      "spearman_l1": -0.28484848484848485,
+      "spearman_l3": 0.4813131313131313
+    },
+    {
+      "cosine_l1": -0.01672416644747049,
+      "cosine_l3": 0.0047908367264737056,
+      "count": 48,
+      "direction_accuracy_l1": 0.020833333333333332,
+      "direction_accuracy_l3": 0.20833333333333334,
+      "mean_similarity": 0.41677100080808255,
+      "pearson_l1": -0.2638323738694523,
+      "pearson_l3": 0.45043850055850104,
+      "similarity_bin": "bin_4",
+      "spearman_l1": -0.27424242424242423,
+      "spearman_l3": 0.4227272727272727
+    },
+    {
+      "cosine_l1": -0.021012221056899424,
+      "cosine_l3": 0.0038434578448511866,
+      "count": 48,
+      "direction_accuracy_l1": 0.020833333333333332,
+      "direction_accuracy_l3": 0.16666666666666666,
+      "mean_similarity": 0.4990558617463037,
+      "pearson_l1": -0.32266205956587485,
+      "pearson_l3": 0.47616639045399684,
+      "similarity_bin": "bin_5",
+      "spearman_l1": -0.30126262626262623,
+      "spearman_l3": 0.43737373737373736
+    }
+  ]
+}

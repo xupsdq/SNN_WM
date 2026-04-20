@@ -1,0 +1,339 @@
+{
+  "assumptions": {
+    "anchor_similarity_stratification": "Triplets were stratified into low/middle/high source-anchor similarity bins based on tertiles of triplet-specific cos(uSP, uDP). This analysis was used as a mechanistic sensitivity analysis to assess whether source-bias metrics become more discriminative when the two source anchors are more geometrically separable. It is supplementary to, rather than a replacement for, the full-sample primary analysis.",
+    "binning_rule": "tertiles on valid triplet-specific anchor cosine"
+  },
+  "bin_counts": {
+    "high": 80,
+    "low": 80,
+    "middle": 80
+  },
+  "condition_bin_summary": [
+    {
+      "abs_mean_source_bias_norm": 0.0026868153191503793,
+      "anchor_similarity_bin": "high",
+      "condition": "both_remove_SDP",
+      "mean_abs_source_bias_norm": 0.016979316265758975,
+      "mean_cos_to_uDP": 0.9267049585657672,
+      "mean_cos_to_uSP": 0.9229918897625236,
+      "mean_source_bias_norm": 0.0026868153191503793,
+      "mean_source_bias_raw": 5.446751483704188e-07,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.020466924802223636,
+      "sem_cos_to_uSP": 0.02103909579820172,
+      "sem_source_bias_norm": 0.002794169147230036,
+      "sem_source_bias_raw": 1.1761829155851886e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.009366770706049793,
+      "anchor_similarity_bin": "low",
+      "condition": "both_remove_SDP",
+      "mean_abs_source_bias_norm": 0.20151086590747794,
+      "mean_cos_to_uDP": 0.68363208702793,
+      "mean_cos_to_uSP": 0.6979675757321975,
+      "mean_source_bias_norm": -0.009366770706049793,
+      "mean_source_bias_raw": -6.117170431721508e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.03414361526501455,
+      "sem_cos_to_uSP": 0.02969512187844883,
+      "sem_source_bias_norm": 0.034466151708635026,
+      "sem_source_bias_raw": 6.592268460813662e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.023877637081603786,
+      "anchor_similarity_bin": "middle",
+      "condition": "both_remove_SDP",
+      "mean_abs_source_bias_norm": 0.06807085487699785,
+      "mean_cos_to_uDP": 0.8437154372616241,
+      "mean_cos_to_uSP": 0.8652255687246662,
+      "mean_source_bias_norm": -0.023877637081603786,
+      "mean_source_bias_raw": -3.559584983524736e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.017615199369329017,
+      "sem_cos_to_uSP": 0.014789061087595309,
+      "sem_source_bias_norm": 0.014971221551577213,
+      "sem_source_bias_raw": 2.3637812890695655e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.007339117386279188,
+      "anchor_similarity_bin": "high",
+      "condition": "distractor_remove_DPonly",
+      "mean_abs_source_bias_norm": 0.02036973248342802,
+      "mean_cos_to_uDP": 0.9348911171153839,
+      "mean_cos_to_uSP": 0.9441816345071988,
+      "mean_source_bias_norm": -0.007339117386279188,
+      "mean_source_bias_raw": -2.062869498514754e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.010208603328652761,
+      "sem_cos_to_uSP": 0.008890784352134373,
+      "sem_source_bias_norm": 0.004398219582544971,
+      "sem_source_bias_raw": 1.0488181409904036e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.07233560448101722,
+      "anchor_similarity_bin": "low",
+      "condition": "distractor_remove_DPonly",
+      "mean_abs_source_bias_norm": 0.216053801137587,
+      "mean_cos_to_uDP": 0.664983949352588,
+      "mean_cos_to_uSP": 0.7301597670648106,
+      "mean_source_bias_norm": -0.07233560448101722,
+      "mean_source_bias_raw": -2.0304308553109533e-05,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.034196307354175316,
+      "sem_cos_to_uSP": 0.028398758325778078,
+      "sem_source_bias_norm": 0.03537413924059884,
+      "sem_source_bias_raw": 1.167336590681526e-05
+    },
+    {
+      "abs_mean_source_bias_norm": 0.003801848299480799,
+      "anchor_similarity_bin": "middle",
+      "condition": "distractor_remove_DPonly",
+      "mean_abs_source_bias_norm": 0.066981453412622,
+      "mean_cos_to_uDP": 0.84519085749553,
+      "mean_cos_to_uSP": 0.8560823667416401,
+      "mean_source_bias_norm": -0.003801848299480799,
+      "mean_source_bias_raw": -2.2997415217001976e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.015983299218287717,
+      "sem_cos_to_uSP": 0.016272350860410255,
+      "sem_source_bias_norm": 0.011545325552575246,
+      "sem_source_bias_raw": 2.629335996186837e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.003698677947595849,
+      "anchor_similarity_bin": "high",
+      "condition": "distractor_remove_SDP",
+      "mean_abs_source_bias_norm": 0.018202002174271734,
+      "mean_cos_to_uDP": 0.9233512407541294,
+      "mean_cos_to_uSP": 0.9281443495222049,
+      "mean_source_bias_norm": -0.003698677947595849,
+      "mean_source_bias_raw": -1.5714617952015162e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.016775590968042518,
+      "sem_cos_to_uSP": 0.016138185866450147,
+      "sem_source_bias_norm": 0.0028602410496254673,
+      "sem_source_bias_raw": 9.225454512636933e-07
+    },
+    {
+      "abs_mean_source_bias_norm": 0.02605236540789931,
+      "anchor_similarity_bin": "low",
+      "condition": "distractor_remove_SDP",
+      "mean_abs_source_bias_norm": 0.16868153571722005,
+      "mean_cos_to_uDP": 0.7089614108821968,
+      "mean_cos_to_uSP": 0.754276324371333,
+      "mean_source_bias_norm": -0.02605236540789931,
+      "mean_source_bias_raw": -7.97299770129216e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.02431024967792576,
+      "sem_cos_to_uSP": 0.02248059346423177,
+      "sem_source_bias_norm": 0.026670523910772674,
+      "sem_source_bias_raw": 6.894111227866892e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.019070658922796267,
+      "anchor_similarity_bin": "middle",
+      "condition": "distractor_remove_SDP",
+      "mean_abs_source_bias_norm": 0.059960009081546015,
+      "mean_cos_to_uDP": 0.8371195962251043,
+      "mean_cos_to_uSP": 0.8613148848545424,
+      "mean_source_bias_norm": -0.019070658922796267,
+      "mean_source_bias_raw": -3.2625479641989422e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.016806421085788854,
+      "sem_cos_to_uSP": 0.014686667119556917,
+      "sem_source_bias_norm": 0.009697567849588674,
+      "sem_source_bias_raw": 2.2084499661431084e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.013923559943611368,
+      "anchor_similarity_bin": "high",
+      "condition": "full_dynamic",
+      "mean_abs_source_bias_norm": 0.028330162482722798,
+      "mean_cos_to_uDP": 0.905862800954693,
+      "mean_cos_to_uSP": 0.9105252076333237,
+      "mean_source_bias_norm": -0.013923559943611368,
+      "mean_source_bias_raw": -4.444685608724194e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.02558805433131848,
+      "sem_cos_to_uSP": 0.024161262077205106,
+      "sem_source_bias_norm": 0.01271091879925294,
+      "sem_source_bias_raw": 3.3304650614722013e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.026134731369883986,
+      "anchor_similarity_bin": "low",
+      "condition": "full_dynamic",
+      "mean_abs_source_bias_norm": 0.16573775460658857,
+      "mean_cos_to_uDP": 0.6882904589845492,
+      "mean_cos_to_uSP": 0.7124349303571521,
+      "mean_source_bias_norm": -0.026134731369883986,
+      "mean_source_bias_raw": -1.5502384747351845e-05,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.03592171853754134,
+      "sem_cos_to_uSP": 0.029267200738547817,
+      "sem_source_bias_norm": 0.027017772624317635,
+      "sem_source_bias_raw": 1.1501767731665263e-05
+    },
+    {
+      "abs_mean_source_bias_norm": 0.0024217424643497077,
+      "anchor_similarity_bin": "middle",
+      "condition": "full_dynamic",
+      "mean_abs_source_bias_norm": 0.06212570780632516,
+      "mean_cos_to_uDP": 0.8486069209719587,
+      "mean_cos_to_uSP": 0.8595418098711288,
+      "mean_source_bias_norm": -0.0024217424643497077,
+      "mean_source_bias_raw": -1.4550101788788798e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.01407339591679439,
+      "sem_cos_to_uSP": 0.016229612453300433,
+      "sem_source_bias_norm": 0.010897402586306079,
+      "sem_source_bias_raw": 2.3993615742301893e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.006140964044366681,
+      "anchor_similarity_bin": "high",
+      "condition": "sample_remove_SDP",
+      "mean_abs_source_bias_norm": 0.02025100448809817,
+      "mean_cos_to_uDP": 0.9089546390100522,
+      "mean_cos_to_uSP": 0.914635225507314,
+      "mean_source_bias_norm": -0.006140964044366681,
+      "mean_source_bias_raw": -6.534774807195735e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.024759987777559084,
+      "sem_cos_to_uSP": 0.023637298289922816,
+      "sem_source_bias_norm": 0.00467580310100353,
+      "sem_source_bias_raw": 5.299148146064562e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.014098547504103392,
+      "anchor_similarity_bin": "low",
+      "condition": "sample_remove_SDP",
+      "mean_abs_source_bias_norm": 0.1684554561933649,
+      "mean_cos_to_uDP": 0.724749979838716,
+      "mean_cos_to_uSP": 0.7384923826748115,
+      "mean_source_bias_norm": -0.014098547504103392,
+      "mean_source_bias_raw": -3.882015783676835e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.028762015611204773,
+      "sem_cos_to_uSP": 0.023299974241447353,
+      "sem_source_bias_norm": 0.028548534480780565,
+      "sem_source_bias_raw": 6.606102460342015e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.01432484317044069,
+      "anchor_similarity_bin": "middle",
+      "condition": "sample_remove_SDP",
+      "mean_abs_source_bias_norm": 0.05946935555022934,
+      "mean_cos_to_uDP": 0.8471584508050747,
+      "mean_cos_to_uSP": 0.8641348169612822,
+      "mean_source_bias_norm": -0.01432484317044069,
+      "mean_source_bias_raw": -1.8415259902780753e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.016172838841675086,
+      "sem_cos_to_uSP": 0.013001785563892981,
+      "sem_source_bias_norm": 0.008794467876726594,
+      "sem_source_bias_raw": 2.2190247188754665e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.0063207493946016245,
+      "anchor_similarity_bin": "high",
+      "condition": "sample_remove_SPonly",
+      "mean_abs_source_bias_norm": 0.02230399678395681,
+      "mean_cos_to_uDP": 0.93201946499514,
+      "mean_cos_to_uSP": 0.9357714201420336,
+      "mean_source_bias_norm": -0.0063207493946016245,
+      "mean_source_bias_raw": -6.929718545810663e-07,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.012107799013817271,
+      "sem_cos_to_uSP": 0.00984684919795153,
+      "sem_source_bias_norm": 0.0063399360327375575,
+      "sem_source_bias_raw": 9.316092029647323e-07
+    },
+    {
+      "abs_mean_source_bias_norm": 0.03401268720765052,
+      "anchor_similarity_bin": "low",
+      "condition": "sample_remove_SPonly",
+      "mean_abs_source_bias_norm": 0.17803781369772506,
+      "mean_cos_to_uDP": 0.7066372978732411,
+      "mean_cos_to_uSP": 0.7338431297509989,
+      "mean_source_bias_norm": -0.03401268720765052,
+      "mean_source_bias_raw": -1.0586570416659108e-05,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.03199369413064531,
+      "sem_cos_to_uSP": 0.027511217731622697,
+      "sem_source_bias_norm": 0.03101095420258678,
+      "sem_source_bias_raw": 7.507919225269615e-06
+    },
+    {
+      "abs_mean_source_bias_norm": 0.026872179940472397,
+      "anchor_similarity_bin": "middle",
+      "condition": "sample_remove_SPonly",
+      "mean_abs_source_bias_norm": 0.07001026979788064,
+      "mean_cos_to_uDP": 0.8457220376073991,
+      "mean_cos_to_uSP": 0.8743727524809681,
+      "mean_source_bias_norm": -0.026872179940472397,
+      "mean_source_bias_raw": -3.0170363540048675e-06,
+      "n_triplets": 80,
+      "sem_cos_to_uDP": 0.01768079869917621,
+      "sem_cos_to_uSP": 0.01191135099675344,
+      "sem_source_bias_norm": 0.014899679854106895,
+      "sem_source_bias_raw": 3.0160460123664324e-06
+    }
+  ],
+  "invalid_count": 0,
+  "q33": 0.757483990913827,
+  "q67": 0.9226596662520518,
+  "sensitivity_metrics": {
+    "condition_metrics": {
+      "distractor_remove_DPonly": {
+        "abs_mean_source_bias_norm_by_bin": {
+          "high": 0.007339117386279188,
+          "low": 0.07233560448101722,
+          "middle": 0.003801848299480799
+        },
+        "analysis_role": "primary",
+        "high_minus_low_abs_mean_source_bias_norm": -0.06499648709473804,
+        "monotonic_non_decreasing_abs_mean_source_bias_norm": false
+      },
+      "distractor_remove_SDP": {
+        "abs_mean_source_bias_norm_by_bin": {
+          "high": 0.003698677947595849,
+          "low": 0.02605236540789931,
+          "middle": 0.019070658922796267
+        },
+        "analysis_role": "secondary",
+        "high_minus_low_abs_mean_source_bias_norm": -0.02235368746030346,
+        "monotonic_non_decreasing_abs_mean_source_bias_norm": false
+      },
+      "sample_remove_SDP": {
+        "abs_mean_source_bias_norm_by_bin": {
+          "high": 0.006140964044366681,
+          "low": 0.014098547504103392,
+          "middle": 0.01432484317044069
+        },
+        "analysis_role": "secondary",
+        "high_minus_low_abs_mean_source_bias_norm": -0.007957583459736711,
+        "monotonic_non_decreasing_abs_mean_source_bias_norm": false
+      },
+      "sample_remove_SPonly": {
+        "abs_mean_source_bias_norm_by_bin": {
+          "high": 0.0063207493946016245,
+          "low": 0.03401268720765052,
+          "middle": 0.026872179940472397
+        },
+        "analysis_role": "primary",
+        "high_minus_low_abs_mean_source_bias_norm": -0.0276919378130489,
+        "monotonic_non_decreasing_abs_mean_source_bias_norm": false
+      }
+    },
+    "primary_conditions": [
+      "sample_remove_SPonly",
+      "distractor_remove_DPonly"
+    ],
+    "secondary_conditions": [
+      "sample_remove_SDP",
+      "distractor_remove_SDP"
+    ]
+  },
+  "warnings": []
+}

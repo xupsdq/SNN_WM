@@ -1,0 +1,40 @@
+{
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "device": "cuda",
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "num_trials_per_seed": 500,
+  "batch_size": 64,
+  "num_classes": 10,
+  "timing_ms": {
+    "sample": 200.0,
+    "delay": 500.0,
+    "ping": 30.0,
+    "post_ping": 60.0
+  },
+  "timing_steps": {
+    "sample": 200,
+    "delay": 500,
+    "ping": 30,
+    "post_ping": 60,
+    "total": 790
+  },
+  "ping_ramp_mv": {
+    "init": 1.0,
+    "step": 0.25,
+    "max": 8.0,
+    "ramp_stop_on_first_fire": true
+  },
+  "decode_splits": 5,
+  "n_perm": 200
+}

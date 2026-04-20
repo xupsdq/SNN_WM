@@ -1,0 +1,4 @@
+dataset_name: mnist
+dataset_root: MNIST
+input_size: 28
+num_classes: 10

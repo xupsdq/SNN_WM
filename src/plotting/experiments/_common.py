@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.config.yaml_loader import load_yaml_file, nested_get
 from src.experiments.catalog import ExperimentSpec, get_experiment_spec
 
 
@@ -63,13 +64,16 @@ def load_json(path: str | Path) -> Any:
 
 
 def resolve_bundle_file(input_dir: Path, relative_name: str) -> Path:
-    direct = input_dir / relative_name
-    if direct.exists():
-        return direct
-    data_candidate = input_dir / "data" / relative_name
-    if data_candidate.exists():
-        return data_candidate
-    return direct
+    candidates = [
+        input_dir / relative_name,
+        input_dir / "data" / relative_name,
+        input_dir / "metrics" / relative_name,
+        input_dir / "meta" / relative_name,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def _flatten_numeric(prefix: str, value: Any, out: dict[str, float]) -> None:
@@ -205,15 +209,46 @@ def build_experiment_figure(spec: ExperimentSpec, input_dir: Path) -> plt.Figure
 
 def build_plot_parser(spec: ExperimentSpec) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=f"Plot-only entrypoint for {spec.title}.")
-    parser.add_argument("--input-dir", type=str, required=True)
+    parser.add_argument("--config", type=str, default=None)
+    parser.add_argument("--input-dir", type=str, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser
+
+
+def _resolve_from_config(config: dict[str, Any] | None, *path: str, default: Any = None) -> Any:
+    if not config:
+        return default
+    value = nested_get(config, *path, default=None)
+    if value is not None:
+        return value
+    if len(path) == 1:
+        return config.get(path[0], default)
+    return default
+
+
+def _apply_plot_config_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    config_payload = load_yaml_file(args.config) if args.config else {}
+    args.input_dir = args.input_dir or _resolve_from_config(
+        config_payload,
+        "input_dir",
+        default=_resolve_from_config(config_payload, "experiment", "output_dir"),
+    )
+    args.output_dir = args.output_dir or _resolve_from_config(
+        config_payload,
+        "plotting",
+        "output_dir",
+        default=_resolve_from_config(config_payload, "output_dir"),
+    )
+    if not args.input_dir:
+        raise SystemExit("--input-dir is required (or provide it via --config).")
+    return args
 
 
 def main_for(experiment_id: str) -> int:
     spec = get_experiment_spec(experiment_id)
     parser = build_plot_parser(spec)
     args = parser.parse_args()
+    args = _apply_plot_config_defaults(args)
     input_dir = Path(args.input_dir).resolve()
     require_path(input_dir / "summary.json")
     output_dir = Path(args.output_dir).resolve() if args.output_dir else input_dir / "figures"

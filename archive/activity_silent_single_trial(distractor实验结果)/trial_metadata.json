@@ -1,0 +1,89 @@
+{
+  "seed": 42,
+  "device": "cuda",
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "stsp_mode": "dynamic",
+  "phase_reset": true,
+  "labels": {
+    "sample": 1,
+    "distractor": 8,
+    "probe": 3
+  },
+  "dataset_indices": {
+    "sample_index": 1939,
+    "distractor_index": 374,
+    "probe_index": 7543
+  },
+  "timing_ms": {
+    "sample": 200.0,
+    "delay1": 400.0,
+    "distractor": 200.0,
+    "delay2": 400.0,
+    "probe": 100.0
+  },
+  "timing_steps": {
+    "sample": 200,
+    "delay1": 400,
+    "distractor": 200,
+    "delay2": 400,
+    "probe": 100,
+    "total": 1300
+  },
+  "phase_slices": {
+    "sample": [
+      0,
+      200
+    ],
+    "delay1": [
+      200,
+      600
+    ],
+    "distractor": [
+      600,
+      800
+    ],
+    "delay2": [
+      800,
+      1200
+    ],
+    "probe": [
+      1200,
+      1300
+    ]
+  },
+  "predictions": {
+    "prediction_distractor": 8,
+    "prediction_probe": 3,
+    "first_fire_t_distractor": 20,
+    "first_fire_t_probe": 20
+  },
+  "layer_shapes": {
+    "layer1": [
+      1300,
+      1,
+      30,
+      28,
+      28
+    ],
+    "layer2": [
+      1300,
+      1,
+      150,
+      16,
+      16
+    ],
+    "layer3": [
+      1300,
+      1,
+      200,
+      1,
+      1
+    ]
+  },
+  "outputs": {
+    "raster_layer1": "results/activity_silent_single_trial\\raster_layer1.png",
+    "raster_layer2": "results/activity_silent_single_trial\\raster_layer2.png",
+    "raster_layer3": "results/activity_silent_single_trial\\raster_layer3.png",
+    "firing_rate_csv": "results/activity_silent_single_trial\\firing_rate_by_phase.csv"
+  }
+}

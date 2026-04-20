@@ -1,0 +1,46 @@
+{
+  "batch_size": 32,
+  "device": "cuda",
+  "executed_layers": [
+    "layer1",
+    "layer2",
+    "layer3"
+  ],
+  "executed_stsp_modes": [
+    "dynamic",
+    "static_frozen"
+  ],
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "num_boot": 1000,
+  "num_classes": 10,
+  "outputs": {
+    "figure_main_pdf": "results\\fig2_silent_memory_effect\\figure_main.pdf",
+    "figure_main_png": "results\\fig2_silent_memory_effect\\figure_main.png",
+    "figure_main_svg": "results\\fig2_silent_memory_effect\\figure_main.svg",
+    "metrics_memory_effect_vs_delay": "results\\fig2_silent_memory_effect\\metrics_memory_effect_vs_delay.csv",
+    "metrics_phase_firing": "results\\fig2_silent_memory_effect\\metrics_phase_firing.csv",
+    "metrics_representative_trial": "results\\fig2_silent_memory_effect\\metrics_representative_trial.csv",
+    "metrics_summary": "results\\fig2_silent_memory_effect\\metrics_summary.csv",
+    "representative_population_rate": "results\\fig2_silent_memory_effect\\representative_population_rate.csv",
+    "representative_raster_points": "results\\fig2_silent_memory_effect\\representative_raster_points.csv",
+    "trial_level": "results\\fig2_silent_memory_effect\\trial_level.csv"
+  },
+  "phase_reset": true,
+  "seed": 42,
+  "timing_ms": {
+    "canonical_delay": 400.0,
+    "delay_sweep": [
+      100.0,
+      300.0,
+      600.0,
+      1000.0,
+      1500.0,
+      2000.0,
+      3000.0,
+      4000.0
+    ],
+    "probe": 60.0,
+    "sample": 200.0
+  },
+  "trials": 100
+}

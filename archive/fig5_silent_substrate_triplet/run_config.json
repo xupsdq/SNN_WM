@@ -1,0 +1,30 @@
+{
+  "anchor_step_by_layer": {
+    "layer1": 0,
+    "layer2": 0,
+    "layer3": 0
+  },
+  "batch_size": 24,
+  "dataset_root": "./MNIST",
+  "device": "cuda",
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "num_classes": 10,
+  "output_files": {
+    "metrics_decode_time_resolved_csv": "results\\fig5_silent_substrate_triplet\\metrics_decode_time_resolved.csv",
+    "metrics_decode_window_summary_csv": "results\\fig5_silent_substrate_triplet\\metrics_decode_window_summary.csv",
+    "metrics_permutation_tests_csv": "results\\fig5_silent_substrate_triplet\\metrics_permutation_tests.csv",
+    "trial_level_decoder_confidence_csv": "results\\fig5_silent_substrate_triplet\\trial_level_decoder_confidence.csv",
+    "trial_specs_csv": "results\\fig5_silent_substrate_triplet\\trial_specs.csv"
+  },
+  "seed": 42,
+  "test_trials": 300,
+  "timing_ms": {
+    "bin": 20.0,
+    "delay": 500.0,
+    "dt": 1.0,
+    "probe": 100.0,
+    "sample": 200.0,
+    "stride": 10.0
+  },
+  "train_trials": 300
+}

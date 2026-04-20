@@ -1,0 +1,53 @@
+{
+  "batch_size": 256,
+  "dataset_root": "./MNIST",
+  "device": "cuda",
+  "dt_ms": 1.0,
+  "figure_id": "Figure 1",
+  "figure_purpose": "Baseline single-image sensory classification for the main text figure.",
+  "figure_script": "plot_fig1_baseline_processing.py",
+  "input_size": 28,
+  "max_duration_ms": 200.0,
+  "metrics": {
+    "n_silent_trials": 0,
+    "n_trials": 10000,
+    "overall_accuracy": 0.9157,
+    "reference_accuracy_main_style": 0.9157
+  },
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "num_classes": 10,
+  "outputs": {
+    "figure_main": {
+      "pdf": "results\\fig1_baseline_processing\\figure_main.pdf",
+      "png": "results\\fig1_baseline_processing\\figure_main.png",
+      "svg": "results\\fig1_baseline_processing\\figure_main.svg"
+    },
+    "metrics_class_recall_csv": "results\\fig1_baseline_processing\\metrics_class_recall.csv",
+    "metrics_confusion_matrix_csv": "results\\fig1_baseline_processing\\metrics_confusion_matrix.csv",
+    "metrics_summary_csv": "results\\fig1_baseline_processing\\metrics_summary.csv",
+    "trial_level_csv": "results\\fig1_baseline_processing\\trial_level.csv"
+  },
+  "save_dir": "results\\fig1_baseline_processing",
+  "seed": 42,
+  "validation": {
+    "forbidden_terms_checked": [
+      "dms",
+      "delay",
+      "sample",
+      "probe",
+      "memory",
+      "donor",
+      "stsp-on-vs-off"
+    ],
+    "output_files": [
+      "figure_main.pdf",
+      "figure_main.png",
+      "figure_main.svg",
+      "metrics_class_recall.csv",
+      "metrics_confusion_matrix.csv",
+      "metrics_summary.csv",
+      "run_config.json",
+      "trial_level.csv"
+    ]
+  }
+}

@@ -1,0 +1,508 @@
+{
+  "assumptions": {
+    "L1_trace": "probe-phase pooled layer1 output s1_p",
+    "L2_trace": "probe-phase layer2 output s2",
+    "L3_trace": "probe-phase layer3 input s2_p",
+    "distractor_to_probe_gap_ms": "delay2_ms",
+    "grouped_voltage": "layer3.get_grouped_voltage(v_mem_snapshot).mean(-1)",
+    "pattern_normalization": "(x - mean(x)) / (||x - mean(x)||_2 + eps)",
+    "probe_perturbation": "disabled; only sample-side and distractor-side perturbation are applied",
+    "sample_to_probe_gap_ms": "delay1_ms + distractor_ms + delay2_ms",
+    "time_weighting": "exponential decay to probe onset with X_SDP=(w_S*w_D)*area_SDP"
+  },
+  "case_triplet_ids": [
+    83,
+    45,
+    2,
+    204
+  ],
+  "condition_means": [
+    {
+      "condition": "full_dynamic_distractor",
+      "mean_DPI_L1": 0.4316354189263508,
+      "mean_DPI_L2": 0.3701921086298993,
+      "mean_DPI_L3": 0.36806355167481103,
+      "mean_DPI_final": 0.4176679448645245,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0017132844244187144,
+      "sem_DPI_L2": 0.0027123572080853375,
+      "sem_DPI_L3": 0.0027127761348840615,
+      "sem_DPI_final": 0.021624404180301978
+    },
+    {
+      "condition": "full_static_distractor",
+      "mean_DPI_L1": -0.35705208563586,
+      "mean_DPI_L2": -0.25631710919355494,
+      "mean_DPI_L3": -0.25418855224937675,
+      "mean_DPI_final": -0.41787521878616135,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0023670123149810104,
+      "sem_DPI_L2": 0.002647175725601922,
+      "sem_DPI_L3": 0.0026393024584278543,
+      "sem_DPI_final": 0.02162702547341699
+    },
+    {
+      "condition": "sample_remove_SPonly_dynamic",
+      "mean_DPI_L1": 0.12907963170996586,
+      "mean_DPI_L2": 0.07597286387769436,
+      "mean_DPI_L3": 0.07730952344729382,
+      "mean_DPI_final": 0.04886034413993657,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0035771998687986863,
+      "sem_DPI_L2": 0.0026588992989362552,
+      "sem_DPI_L3": 0.002609676691193521,
+      "sem_DPI_final": 0.023668544728403348
+    },
+    {
+      "condition": "sample_remove_SPonly_control_dynamic",
+      "mean_DPI_L1": 0.33640129521706413,
+      "mean_DPI_L2": 0.1686761262505127,
+      "mean_DPI_L3": 0.16850315813146513,
+      "mean_DPI_final": 0.11077518097301996,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006110526887707525,
+      "sem_DPI_L2": 0.002883031382909154,
+      "sem_DPI_L3": 0.0028339175127393367,
+      "sem_DPI_final": 0.02302777976574108
+    },
+    {
+      "condition": "distractor_remove_DPonly_dynamic",
+      "mean_DPI_L1": 0.15336640018099132,
+      "mean_DPI_L2": 0.09265058705929805,
+      "mean_DPI_L3": 0.09368054884251174,
+      "mean_DPI_final": 0.037376908882737286,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.004772606184615703,
+      "sem_DPI_L2": 0.003323647895973803,
+      "sem_DPI_L3": 0.0032816320465858416,
+      "sem_DPI_final": 0.022650892320490734
+    },
+    {
+      "condition": "distractor_remove_DPonly_control_dynamic",
+      "mean_DPI_L1": 0.3495765658445704,
+      "mean_DPI_L2": 0.18492763987917935,
+      "mean_DPI_L3": 0.1846444532170017,
+      "mean_DPI_final": 0.14057793772280533,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006289666387870946,
+      "sem_DPI_L2": 0.003645061782060727,
+      "sem_DPI_L3": 0.003598299470136307,
+      "sem_DPI_final": 0.02295308326007377
+    },
+    {
+      "condition": "sample_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.18399515622573714,
+      "mean_DPI_L2": 0.10606870404055521,
+      "mean_DPI_L3": 0.10710088174931202,
+      "mean_DPI_final": 0.05941545065661269,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005286478209596147,
+      "sem_DPI_L2": 0.0036897662569618317,
+      "sem_DPI_L3": 0.003632017344436287,
+      "sem_DPI_final": 0.02304949173596617
+    },
+    {
+      "condition": "sample_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.3396372554908434,
+      "mean_DPI_L2": 0.17720697099438032,
+      "mean_DPI_L3": 0.1773432080286422,
+      "mean_DPI_final": 0.1594391857245414,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006277663777736833,
+      "sem_DPI_L2": 0.003541945697682007,
+      "sem_DPI_L3": 0.0034902387621795904,
+      "sem_DPI_final": 0.023399453931012008
+    },
+    {
+      "condition": "distractor_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.169835352966901,
+      "mean_DPI_L2": 0.10130846055065935,
+      "mean_DPI_L3": 0.10228503782696105,
+      "mean_DPI_final": 0.05609111955131345,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005515062988829423,
+      "sem_DPI_L2": 0.004209461863995969,
+      "sem_DPI_L3": 0.004143975136467375,
+      "sem_DPI_final": 0.02443696454460629
+    },
+    {
+      "condition": "distractor_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.34136612352950046,
+      "mean_DPI_L2": 0.18310655785310204,
+      "mean_DPI_L3": 0.18275733903831587,
+      "mean_DPI_final": 0.1625120659382622,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.00636502607623154,
+      "sem_DPI_L2": 0.0038552019342741723,
+      "sem_DPI_L3": 0.0038252264414409733,
+      "sem_DPI_final": 0.024929807242863297
+    },
+    {
+      "condition": "both_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.14018189986749055,
+      "mean_DPI_L2": 0.08107241106448036,
+      "mean_DPI_L3": 0.08243142878277455,
+      "mean_DPI_final": -0.020227670760404208,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005448078491297606,
+      "sem_DPI_L2": 0.003990297682147528,
+      "sem_DPI_L3": 0.0039386576689188135,
+      "sem_DPI_final": 0.02160266738087626
+    },
+    {
+      "condition": "both_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.2936567806411087,
+      "mean_DPI_L2": 0.1526913868416718,
+      "mean_DPI_L3": 0.1531327866776059,
+      "mean_DPI_final": 0.10775677047656383,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.00661624317066612,
+      "sem_DPI_L2": 0.0037495307073373415,
+      "sem_DPI_L3": 0.0036995539103342225,
+      "sem_DPI_final": 0.02481532225960227
+    }
+  ],
+  "condition_order": [
+    "full_dynamic_distractor",
+    "full_static_distractor",
+    "sample_remove_SPonly_dynamic",
+    "sample_remove_SPonly_control_dynamic",
+    "distractor_remove_DPonly_dynamic",
+    "distractor_remove_DPonly_control_dynamic",
+    "sample_remove_SDP_dynamic",
+    "sample_remove_SDP_control_dynamic",
+    "distractor_remove_SDP_dynamic",
+    "distractor_remove_SDP_control_dynamic",
+    "both_remove_SDP_dynamic",
+    "both_remove_SDP_control_dynamic"
+  ],
+  "overall": {
+    "n_probes": 20,
+    "n_records": 2880,
+    "n_triplets": 240
+  },
+  "pair_scatter": [
+    {
+      "condition": "sample_remove_SPonly_dynamic",
+      "n_triplets": 240,
+      "pearson_r_DPI_L3_vs_DPI_final": 0.05351559358508636
+    },
+    {
+      "condition": "distractor_remove_DPonly_dynamic",
+      "n_triplets": 240,
+      "pearson_r_DPI_L3_vs_DPI_final": 0.11825174013041467
+    },
+    {
+      "condition": "sample_remove_SDP_dynamic",
+      "n_triplets": 240,
+      "pearson_r_DPI_L3_vs_DPI_final": 0.20524544427565372
+    },
+    {
+      "condition": "distractor_remove_SDP_dynamic",
+      "n_triplets": 240,
+      "pearson_r_DPI_L3_vs_DPI_final": 0.16763014745664676
+    },
+    {
+      "condition": "both_remove_SDP_dynamic",
+      "n_triplets": 240,
+      "pearson_r_DPI_L3_vs_DPI_final": 0.2193716874461412
+    }
+  ],
+  "perturbation_vs_control": {
+    "both_remove_SDP_dynamic__minus__both_remove_SDP_control_dynamic": {
+      "DPI_L1": {
+        "mean_difference": -0.15347488077361812,
+        "n_triplets": 240
+      },
+      "DPI_L2": {
+        "mean_difference": -0.0716189757771914,
+        "n_triplets": 240
+      },
+      "DPI_L3": {
+        "mean_difference": -0.07070135789483135,
+        "n_triplets": 240
+      },
+      "DPI_final": {
+        "mean_difference": -0.12798444123696803,
+        "n_triplets": 240
+      }
+    },
+    "distractor_remove_DPonly_dynamic__minus__distractor_remove_DPonly_control_dynamic": {
+      "DPI_L1": {
+        "mean_difference": -0.1962101656635791,
+        "n_triplets": 240
+      },
+      "DPI_L2": {
+        "mean_difference": -0.09227705281988127,
+        "n_triplets": 240
+      },
+      "DPI_L3": {
+        "mean_difference": -0.0909639043744899,
+        "n_triplets": 240
+      },
+      "DPI_final": {
+        "mean_difference": -0.10320102884006806,
+        "n_triplets": 240
+      }
+    },
+    "distractor_remove_SDP_dynamic__minus__distractor_remove_SDP_control_dynamic": {
+      "DPI_L1": {
+        "mean_difference": -0.1715307705625994,
+        "n_triplets": 240
+      },
+      "DPI_L2": {
+        "mean_difference": -0.08179809730244264,
+        "n_triplets": 240
+      },
+      "DPI_L3": {
+        "mean_difference": -0.08047230121135482,
+        "n_triplets": 240
+      },
+      "DPI_final": {
+        "mean_difference": -0.10642094638694875,
+        "n_triplets": 240
+      }
+    },
+    "sample_remove_SDP_dynamic__minus__sample_remove_SDP_control_dynamic": {
+      "DPI_L1": {
+        "mean_difference": -0.15564209926510628,
+        "n_triplets": 240
+      },
+      "DPI_L2": {
+        "mean_difference": -0.07113826695382511,
+        "n_triplets": 240
+      },
+      "DPI_L3": {
+        "mean_difference": -0.07024232627933015,
+        "n_triplets": 240
+      },
+      "DPI_final": {
+        "mean_difference": -0.10002373506792869,
+        "n_triplets": 240
+      }
+    },
+    "sample_remove_SPonly_dynamic__minus__sample_remove_SPonly_control_dynamic": {
+      "DPI_L1": {
+        "mean_difference": -0.20732166350709832,
+        "n_triplets": 240
+      },
+      "DPI_L2": {
+        "mean_difference": -0.09270326237281834,
+        "n_triplets": 240
+      },
+      "DPI_L3": {
+        "mean_difference": -0.09119363468417131,
+        "n_triplets": 240
+      },
+      "DPI_final": {
+        "mean_difference": -0.06191483683308339,
+        "n_triplets": 240
+      }
+    }
+  },
+  "ranking_by_mean_DPI_L3": [
+    {
+      "condition": "full_static_distractor",
+      "mean_DPI_L1": -0.35705208563586,
+      "mean_DPI_L2": -0.25631710919355494,
+      "mean_DPI_L3": -0.25418855224937675,
+      "mean_DPI_final": -0.41787521878616135,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0023670123149810104,
+      "sem_DPI_L2": 0.002647175725601922,
+      "sem_DPI_L3": 0.0026393024584278543,
+      "sem_DPI_final": 0.02162702547341699
+    },
+    {
+      "condition": "sample_remove_SPonly_dynamic",
+      "mean_DPI_L1": 0.12907963170996586,
+      "mean_DPI_L2": 0.07597286387769436,
+      "mean_DPI_L3": 0.07730952344729382,
+      "mean_DPI_final": 0.04886034413993657,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0035771998687986863,
+      "sem_DPI_L2": 0.0026588992989362552,
+      "sem_DPI_L3": 0.002609676691193521,
+      "sem_DPI_final": 0.023668544728403348
+    },
+    {
+      "condition": "both_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.14018189986749055,
+      "mean_DPI_L2": 0.08107241106448036,
+      "mean_DPI_L3": 0.08243142878277455,
+      "mean_DPI_final": -0.020227670760404208,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005448078491297606,
+      "sem_DPI_L2": 0.003990297682147528,
+      "sem_DPI_L3": 0.0039386576689188135,
+      "sem_DPI_final": 0.02160266738087626
+    },
+    {
+      "condition": "distractor_remove_DPonly_dynamic",
+      "mean_DPI_L1": 0.15336640018099132,
+      "mean_DPI_L2": 0.09265058705929805,
+      "mean_DPI_L3": 0.09368054884251174,
+      "mean_DPI_final": 0.037376908882737286,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.004772606184615703,
+      "sem_DPI_L2": 0.003323647895973803,
+      "sem_DPI_L3": 0.0032816320465858416,
+      "sem_DPI_final": 0.022650892320490734
+    },
+    {
+      "condition": "distractor_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.169835352966901,
+      "mean_DPI_L2": 0.10130846055065935,
+      "mean_DPI_L3": 0.10228503782696105,
+      "mean_DPI_final": 0.05609111955131345,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005515062988829423,
+      "sem_DPI_L2": 0.004209461863995969,
+      "sem_DPI_L3": 0.004143975136467375,
+      "sem_DPI_final": 0.02443696454460629
+    },
+    {
+      "condition": "sample_remove_SDP_dynamic",
+      "mean_DPI_L1": 0.18399515622573714,
+      "mean_DPI_L2": 0.10606870404055521,
+      "mean_DPI_L3": 0.10710088174931202,
+      "mean_DPI_final": 0.05941545065661269,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.005286478209596147,
+      "sem_DPI_L2": 0.0036897662569618317,
+      "sem_DPI_L3": 0.003632017344436287,
+      "sem_DPI_final": 0.02304949173596617
+    },
+    {
+      "condition": "both_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.2936567806411087,
+      "mean_DPI_L2": 0.1526913868416718,
+      "mean_DPI_L3": 0.1531327866776059,
+      "mean_DPI_final": 0.10775677047656383,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.00661624317066612,
+      "sem_DPI_L2": 0.0037495307073373415,
+      "sem_DPI_L3": 0.0036995539103342225,
+      "sem_DPI_final": 0.02481532225960227
+    },
+    {
+      "condition": "sample_remove_SPonly_control_dynamic",
+      "mean_DPI_L1": 0.33640129521706413,
+      "mean_DPI_L2": 0.1686761262505127,
+      "mean_DPI_L3": 0.16850315813146513,
+      "mean_DPI_final": 0.11077518097301996,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006110526887707525,
+      "sem_DPI_L2": 0.002883031382909154,
+      "sem_DPI_L3": 0.0028339175127393367,
+      "sem_DPI_final": 0.02302777976574108
+    },
+    {
+      "condition": "sample_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.3396372554908434,
+      "mean_DPI_L2": 0.17720697099438032,
+      "mean_DPI_L3": 0.1773432080286422,
+      "mean_DPI_final": 0.1594391857245414,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006277663777736833,
+      "sem_DPI_L2": 0.003541945697682007,
+      "sem_DPI_L3": 0.0034902387621795904,
+      "sem_DPI_final": 0.023399453931012008
+    },
+    {
+      "condition": "distractor_remove_SDP_control_dynamic",
+      "mean_DPI_L1": 0.34136612352950046,
+      "mean_DPI_L2": 0.18310655785310204,
+      "mean_DPI_L3": 0.18275733903831587,
+      "mean_DPI_final": 0.1625120659382622,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.00636502607623154,
+      "sem_DPI_L2": 0.0038552019342741723,
+      "sem_DPI_L3": 0.0038252264414409733,
+      "sem_DPI_final": 0.024929807242863297
+    },
+    {
+      "condition": "distractor_remove_DPonly_control_dynamic",
+      "mean_DPI_L1": 0.3495765658445704,
+      "mean_DPI_L2": 0.18492763987917935,
+      "mean_DPI_L3": 0.1846444532170017,
+      "mean_DPI_final": 0.14057793772280533,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.006289666387870946,
+      "sem_DPI_L2": 0.003645061782060727,
+      "sem_DPI_L3": 0.003598299470136307,
+      "sem_DPI_final": 0.02295308326007377
+    },
+    {
+      "condition": "full_dynamic_distractor",
+      "mean_DPI_L1": 0.4316354189263508,
+      "mean_DPI_L2": 0.3701921086298993,
+      "mean_DPI_L3": 0.36806355167481103,
+      "mean_DPI_final": 0.4176679448645245,
+      "n_records": 240,
+      "n_triplets": 240,
+      "sem_DPI_L1": 0.0017132844244187144,
+      "sem_DPI_L2": 0.0027123572080853375,
+      "sem_DPI_L3": 0.0027127761348840615,
+      "sem_DPI_final": 0.021624404180301978
+    }
+  ],
+  "readout_step": 19,
+  "strength_correlations": {
+    "X_DP": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.21344999023472958
+    },
+    "X_SDP": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.41736867866142385
+    },
+    "X_SP": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.09832968971467337
+    },
+    "area_DPonly": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.21344999023472944
+    },
+    "area_SDP": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.4173686786614242
+    },
+    "area_SPonly": {
+      "n_records": 1200,
+      "pearson_r_with_DPI_L3": -0.09832968971467333
+    }
+  },
+  "tau_ms": 500.0,
+  "time_weights": {
+    "X_DP": 0.44932896411722156,
+    "X_SDP": 0.060810062625217966,
+    "X_SP": 0.1353352832366127,
+    "w_D": 0.44932896411722156,
+    "w_S": 0.1353352832366127
+  }
+}

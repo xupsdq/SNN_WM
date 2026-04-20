@@ -11,21 +11,37 @@ from src.config.snapshots import save_config_snapshot
 @dataclass(frozen=True)
 class ResultLayout:
     root: Path
-    figure_dir: Path
+    figures_dir: Path
     data_dir: Path
-    log_dir: Path
+    logs_dir: Path
+    metrics_dir: Path
+    meta_dir: Path
+
+    @property
+    def figure_dir(self) -> Path:
+        return self.figures_dir
+
+    @property
+    def log_dir(self) -> Path:
+        return self.logs_dir
 
     def figure_base(self, stem: str) -> Path:
-        return self.figure_dir / stem
+        return self.figures_dir / stem
 
     def data_file(self, filename: str) -> Path:
         return self.data_dir / filename
+
+    def metrics_file(self, filename: str) -> Path:
+        return self.metrics_dir / filename
+
+    def meta_file(self, filename: str) -> Path:
+        return self.meta_dir / filename
 
     def root_file(self, filename: str) -> Path:
         return self.root / filename
 
     def log_file(self, filename: str = "run.log") -> Path:
-        return self.log_dir / filename
+        return self.logs_dir / filename
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -36,10 +52,19 @@ def ensure_dir(path: str | Path) -> Path:
 
 def prepare_result_layout(save_dir: str | Path) -> ResultLayout:
     root = ensure_dir(save_dir)
-    figure_dir = ensure_dir(root / "figure")
+    figures_dir = ensure_dir(root / "figures")
     data_dir = ensure_dir(root / "data")
-    log_dir = ensure_dir(root / "log")
-    return ResultLayout(root=root, figure_dir=figure_dir, data_dir=data_dir, log_dir=log_dir)
+    logs_dir = ensure_dir(root / "logs")
+    metrics_dir = ensure_dir(root / "metrics")
+    meta_dir = ensure_dir(root / "meta")
+    return ResultLayout(
+        root=root,
+        figures_dir=figures_dir,
+        data_dir=data_dir,
+        logs_dir=logs_dir,
+        metrics_dir=metrics_dir,
+        meta_dir=meta_dir,
+    )
 
 
 def save_run_config(config_dict: Any, save_dir: str | Path, filename: str = "run_config.json") -> Path:

@@ -1,0 +1,44 @@
+{
+  "args": {
+    "batch_size": 16,
+    "dataset_root": "./MNIST",
+    "device": "auto",
+    "images_per_class": 10,
+    "inter_write_gap_ms": 20.0,
+    "legacy_extra_delay_ms": null,
+    "legacy_input_ms": null,
+    "legacy_repeat_counts": null,
+    "legacy_within_cycle_delay_ms": null,
+    "model_path": "results/sdnn_deep_final/net_final.pth",
+    "output_dir": "results/stsp_capacity_saturation_experiment",
+    "plateau_tol": 0.02,
+    "pre_probe_gap_ms": 200.0,
+    "probe_ms": 60.0,
+    "save_case_count": 8,
+    "seed": 42,
+    "split": "test",
+    "write_counts": "0,1,2,4,8,12,16,24,32",
+    "write_schedule": "dense_one_gap",
+    "write_template_ms": 20.0
+  },
+  "compatibility_messages": [],
+  "experiment_name": "stsp_capacity_saturation_experiment",
+  "spec": {
+    "dt": 0.001,
+    "inter_write_gap_ms": 20.0,
+    "pre_probe_gap_ms": 200.0,
+    "probe_ms": 60.0,
+    "write_template_ms": 20.0
+  },
+  "write_counts": [
+    0,
+    1,
+    2,
+    4,
+    8,
+    12,
+    16,
+    24,
+    32
+  ]
+}

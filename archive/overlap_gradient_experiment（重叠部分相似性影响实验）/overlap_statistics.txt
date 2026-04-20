@@ -1,0 +1,64 @@
+Overlap Gradient Experiment Statistics
+
+1. Dynamic overlap-bin accuracy comparisons
+delay=300 ms, low_overlap - high_overlap: diff=15.18 pp [7.68, 22.38], p=0
+delay=300 ms, low_overlap - medium_overlap: diff=6.01 pp [-1.50, 13.22], p=0.124
+delay=300 ms, medium_overlap - high_overlap: diff=9.18 pp [1.68, 16.69], p=0.01
+delay=600 ms, low_overlap - high_overlap: diff=12.20 pp [5.01, 19.40], p=0
+delay=600 ms, low_overlap - medium_overlap: diff=3.90 pp [-2.40, 10.51], p=0.278
+delay=600 ms, medium_overlap - high_overlap: diff=8.30 pp [1.11, 15.20], p=0.023
+delay=1000 ms, low_overlap - high_overlap: diff=11.92 pp [5.62, 18.51], p=0
+delay=1000 ms, low_overlap - medium_overlap: diff=1.80 pp [-4.20, 7.81], p=0.609
+delay=1000 ms, medium_overlap - high_overlap: diff=10.12 pp [3.53, 16.71], p=0.003
+
+2. Dynamic vs static_frozen at low/high overlap
+delay=300 ms, bin=high_overlap, metric=probe_accuracy: dynamic-static=-37.13 pp [-42.51, -31.14], p=0
+delay=300 ms, bin=low_overlap, metric=probe_accuracy: dynamic-static=-19.82 pp [-24.92, -14.71], p=0
+delay=600 ms, bin=high_overlap, metric=probe_accuracy: dynamic-static=-28.44 pp [-34.43, -22.75], p=0
+delay=600 ms, bin=low_overlap, metric=probe_accuracy: dynamic-static=-14.11 pp [-19.22, -9.31], p=0
+delay=1000 ms, bin=high_overlap, metric=probe_accuracy: dynamic-static=-23.65 pp [-29.34, -17.96], p=0
+delay=1000 ms, bin=low_overlap, metric=probe_accuracy: dynamic-static=-9.61 pp [-13.81, -5.41], p=0
+delay=300 ms, bin=high_overlap, metric=sample_bias_rate: dynamic-static=1.80 pp [-2.69, 6.29], p=0.455
+delay=300 ms, bin=low_overlap, metric=sample_bias_rate: dynamic-static=4.50 pp [1.20, 7.51], p=0.01
+delay=600 ms, bin=high_overlap, metric=sample_bias_rate: dynamic-static=0.90 pp [-2.69, 4.49], p=0.71
+delay=600 ms, bin=low_overlap, metric=sample_bias_rate: dynamic-static=1.50 pp [-0.60, 3.60], p=0.24
+delay=1000 ms, bin=high_overlap, metric=sample_bias_rate: dynamic-static=0.60 pp [-2.99, 4.19], p=0.834
+delay=1000 ms, bin=low_overlap, metric=sample_bias_rate: dynamic-static=1.80 pp [0.00, 3.90], p=0.068
+
+3. Continuous overlap correlations
+mode=dynamic, delay=1000, metric=accuracy: rho=-0.1297, p=3.911e-05, slope=-0.4387, status=ok
+mode=dynamic, delay=300, metric=accuracy: rho=-0.1450, p=4.154e-06, slope=-0.6561, status=ok
+mode=dynamic, delay=600, metric=accuracy: rho=-0.1192, p=0.0001585, slope=-0.4963, status=ok
+mode=dynamic, delay=all, metric=accuracy: rho=-0.1306, p=7.017e-13, slope=-0.5304, status=ok
+mode=static_frozen, delay=1000, metric=accuracy: rho=0.0517, p=0.1026, slope=0.1455, status=ok
+mode=static_frozen, delay=300, metric=accuracy: rho=0.0517, p=0.1026, slope=0.1455, status=ok
+mode=static_frozen, delay=600, metric=accuracy: rho=0.0517, p=0.1026, slope=0.1455, status=ok
+mode=static_frozen, delay=all, metric=accuracy: rho=0.0517, p=0.004653, slope=0.1455, status=ok
+mode=dynamic, delay=1000, metric=sample_bias_rate: rho=0.2339, p=6.742e-14, slope=0.8497, status=ok
+mode=dynamic, delay=300, metric=sample_bias_rate: rho=0.1871, p=2.498e-09, slope=0.6767, status=ok
+mode=dynamic, delay=600, metric=sample_bias_rate: rho=0.2279, p=2.996e-13, slope=0.8182, status=ok
+mode=dynamic, delay=all, metric=sample_bias_rate: rho=0.2152, p=9.278e-33, slope=0.7816, status=ok
+mode=static_frozen, delay=1000, metric=sample_bias_rate: rho=0.2686, p=5.484e-18, slope=0.9949, status=ok
+mode=static_frozen, delay=300, metric=sample_bias_rate: rho=0.2686, p=5.484e-18, slope=0.9949, status=ok
+mode=static_frozen, delay=600, metric=sample_bias_rate: rho=0.2686, p=5.484e-18, slope=0.9949, status=ok
+mode=static_frozen, delay=all, metric=sample_bias_rate: rho=0.2686, p=9.585e-51, slope=0.9949, status=ok
+
+4. same_label vs different_label within overlap bins
+mode=dynamic, delay=300, bin=high_overlap: same-different=9.06 pp [-3.99, 21.84], p=0.173
+mode=dynamic, delay=300, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=dynamic, delay=300, bin=medium_overlap: insufficient samples (same=18, diff=315)
+mode=dynamic, delay=600, bin=high_overlap: same-different=12.16 pp [0.01, 24.90], p=0.049
+mode=dynamic, delay=600, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=dynamic, delay=600, bin=medium_overlap: insufficient samples (same=18, diff=315)
+mode=dynamic, delay=1000, bin=high_overlap: same-different=7.82 pp [-3.92, 18.94], p=0.189
+mode=dynamic, delay=1000, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=dynamic, delay=1000, bin=medium_overlap: insufficient samples (same=18, diff=315)
+mode=static_frozen, delay=300, bin=high_overlap: same-different=6.00 pp [0.69, 11.07], p=0.034
+mode=static_frozen, delay=300, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=static_frozen, delay=300, bin=medium_overlap: insufficient samples (same=18, diff=315)
+mode=static_frozen, delay=600, bin=high_overlap: same-different=6.00 pp [0.55, 11.07], p=0.03
+mode=static_frozen, delay=600, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=static_frozen, delay=600, bin=medium_overlap: insufficient samples (same=18, diff=315)
+mode=static_frozen, delay=1000, bin=high_overlap: same-different=6.00 pp [0.69, 10.69], p=0.031
+mode=static_frozen, delay=1000, bin=low_overlap: insufficient samples (same=13, diff=320)
+mode=static_frozen, delay=1000, bin=medium_overlap: insufficient samples (same=18, diff=315)

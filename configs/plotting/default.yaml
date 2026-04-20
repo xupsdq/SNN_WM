@@ -1,0 +1,4 @@
+dpi: 300
+formats: [png, pdf, svg]
+style_name: paper_default
+font_family: sans-serif
