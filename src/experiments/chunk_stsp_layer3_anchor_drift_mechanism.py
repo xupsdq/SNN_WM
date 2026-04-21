@@ -33,6 +33,10 @@ from src.experiments.common.runtime import seed_everything
 from src.experiments.common.seed import mix_seed
 from src.plotting.common.io import apply_publication_style, save_figure_all_formats, save_tidy_csv
 from src.plotting.common.style import DYNAMIC_COLOR, NOISE_COLOR, SAMPLE_COLOR, SHUFFLE_COLOR
+from src.plotting.experiments.chunk_stsp_layer3_anchor_drift_mechanism_plot_lib import (
+    render_panels_from_results as render_plot_only_panels,
+    write_plot_bundle_manifest,
+)
 
 
 TOP_Q_LEVELS: tuple[float, ...] = (0.01, 0.05, 0.10)
@@ -1968,12 +1972,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     np.savez_compressed(example_npz_path, **example_payload)
 
     figure_paths: dict[str, object] = {}
+    write_plot_bundle_manifest(meta_dir)
     if not cfg.skip_figures:
-        figure_paths = save_figures(
-            layout,
+        figure_paths = render_plot_only_panels(
             df_changed=df_changed,
             df_rank=df_rank,
             df_ping=df_ping,
+            figures_dir=layout.figure_dir,
         )
 
     exported_files = {

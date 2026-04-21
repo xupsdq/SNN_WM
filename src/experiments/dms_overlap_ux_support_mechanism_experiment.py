@@ -44,6 +44,10 @@ from src.plotting.common.io import (
     save_run_config,
     save_tidy_csv,
 )
+from src.plotting.experiments.dms_overlap_ux_support_mechanism_experiment_plot_lib import (
+    render_panels_from_results as render_plot_only_panels,
+    write_plot_bundle_manifest,
+)
 
 EXPERIMENT_NAME = "dms_overlap_ux_support_mechanism_experiment"
 DEFAULT_MODEL_PATH = "results/sdnn_deep_final/net_final.pth"
@@ -388,6 +392,7 @@ def compute_effective_input_trace(
 
 def _build_panel_a_case_payload(
     *,
+    images: torch.Tensor,
     trial: MediumTrial,
     dynamic_boundary_state: Mapping[str, torch.Tensor],
     static_boundary_state: Mapping[str, torch.Tensor],
@@ -397,6 +402,8 @@ def _build_panel_a_case_payload(
         "trial_id": np.asarray([int(trial.trial_id)], dtype=np.int64),
         "sample_id": np.asarray([int(trial.sample_id)], dtype=np.int64),
         "probe_id": np.asarray([int(trial.probe_id)], dtype=np.int64),
+        "sample_image": np.asarray(images[int(trial.sample_id)][0].detach().cpu().numpy(), dtype=np.float32),
+        "probe_image": np.asarray(images[int(trial.probe_id)][0].detach().cpu().numpy(), dtype=np.float32),
         "overlap_mask": np.asarray(trial.overlap_mask, dtype=np.uint8),
         "probe_only_mask": np.asarray(trial.probe_only_mask, dtype=np.uint8),
         "ux_map_pre_dynamic": _pixel_gain(dynamic_boundary_state, batch_idx).astype(np.float32, copy=False),
@@ -1383,6 +1390,7 @@ def main() -> None:
             preprobe_rows.append(summarize_preprobe_stsp(trial=trial, boundary_state=med_static["boundary_states"]["pre_intervention"]["layer1"], batch_idx=batch_idx, model_type="static"))
             if panel_a_case_arrays is None and int(trial.trial_id) == 0:
                 panel_a_case_arrays = _build_panel_a_case_payload(
+                    images=images,
                     trial=trial,
                     dynamic_boundary_state=med_dynamic["boundary_states"]["pre_intervention"]["layer1"],
                     static_boundary_state=med_static["boundary_states"]["pre_intervention"]["layer1"],
@@ -1547,40 +1555,24 @@ def main() -> None:
         panel_a_case_npz = data_dir / "l1_panel_a_preprobe_gain_map.npz"
         np.savez_compressed(panel_a_case_npz, **panel_a_case_arrays)
 
-    case = trials[0]
-    panels = {
-        "panel_a_overlap_definition": _overlap_definition_panel(images=images, trial=case, panel_a_case=panel_a_case_arrays),
-    }
-    fig, ax = plt.subplots(figsize=PUBLICATION_SINGLE_COLUMN_FIGSIZE)
-    for model, offset, color in (("dynamic", -0.12, COLOR_DYNAMIC), ("static", 0.12, COLOR_STATIC)):
-        sub = df_preprobe[df_preprobe["model_type"] == model]
-        for row in sub.itertuples(index=False):
-            ax.plot([0.0 + offset, 1.0 + offset], [float(row.ux_overlap_pre), float(row.ux_probe_only_pre)], color=color, alpha=0.25, linewidth=0.9)
-        _scatter_with_mean(ax, 0.0 + offset, sub["ux_overlap_pre"].to_numpy(dtype=np.float64), color)
-        _scatter_with_mean(ax, 1.0 + offset, sub["ux_probe_only_pre"].to_numpy(dtype=np.float64), color)
-    ax.set_xticks([0.0, 1.0]); ax.set_xticklabels(["overlap", "probe-only"]); ax.set_ylabel("Pre-probe u*x"); _strip_axis(ax); fig.tight_layout(); panels["panel_b_preprobe_ux_overlap_vs_probeonly"] = fig
-    fig, ax = plt.subplots(figsize=PUBLICATION_SINGLE_COLUMN_FIGSIZE)
-    _scatter_with_mean(ax, 0.0, df_preprobe[df_preprobe["model_type"] == "dynamic"]["support_area"].to_numpy(dtype=np.float64), COLOR_DYNAMIC)
-    ax.set_xticks([0.0]); ax.set_xticklabels(["medium"]); ax.set_ylabel("Support area"); _strip_axis(ax); fig.tight_layout(); panels["panel_c_support_area"] = fig
-    panels["panel_d_mean_ux_on_overlap"] = _two_condition_panel(df_preprobe, "mean_ux_on_overlap", "Mean u*x on overlap")
-    panels["panel_e_total_memory_support"] = _two_condition_panel(df_preprobe, "total_memory_support", "Total memory support")
-    panels["panel_f_p_advance"] = _group_panel(df_firing, "P_advance", "P(advance)")
-    panels["panel_g_p_recruit"] = _group_panel(df_firing, "P_recruit", "P(recruit)")
-    panels["panel_h_p_loss"] = _group_panel(df_firing, "P_loss", "P(loss)")
-    panels["panel_i_delta_early_spike_count"] = _group_panel(df_firing, "delta_early_spike_count", "Delta early spike count")
-    panels["panel_j_delta_first_spike_latency"] = _group_panel(df_firing, "delta_first_spike_latency", "Delta first-spike latency")
-    focus = df_input[df_input["transition_focus"] == "advance_or_recruit"]
-    panels["panel_k_overlap_input_gain"] = _group_panel(focus, "overlap_input_gain", "Overlap-source input gain")
-    panels["panel_l_probe_only_input_gain"] = _group_panel(focus, "probe_only_input_gain", "Probe-only input gain")
-    panels["panel_m_input_selectivity_gain"] = _group_panel(focus, "input_selectivity_gain", "Input selectivity gain")
-    panels["panel_n_lost_spike_delta_inhibition"] = _group_panel(df_loss, "lost_spike_delta_inh", "Lost-spike delta inhibition")
-    panels["panel_n1_n_lost_spike_units"] = _group_panel(df_loss, "n_lost_spike_units", "Lost spike units")
-    panels["panel_o_local_winner_loser_voltage_trace"] = _local_voltage_trace_panel(exemplar_pair)
-    panels["panel_p_local_winner_support_rate"] = _trial_rate_panel(df_local_support)
-    panels["panel_q_winner_loser_contrast_shift"] = _contrast_shift_panel(df_local_pairs)
-    panels["panel_r_event_time_mechanism"] = _event_time_mechanism_panel(aligned_event_payload)
-    panels["panel_s_causal_chain_prevalence"] = _causal_chain_prevalence_panel(df_chain)
-    panel_paths = {} if bool(args.skip_figures) else save_all_panels(layout, panels)
+    write_plot_bundle_manifest(meta_dir)
+    panel_paths = (
+        {}
+        if bool(args.skip_figures)
+        else render_plot_only_panels(
+            df_preprobe=df_preprobe,
+            df_firing=df_firing,
+            df_input=df_input,
+            df_loss=df_loss,
+            df_local_pairs=df_local_pairs,
+            df_chain=df_chain,
+            df_local_support=df_local_support,
+            aligned_payload=aligned_event_payload,
+            exemplar_payload=exemplar_pair,
+            panel_a_payload=panel_a_case_arrays or {},
+            figures_dir=layout.figure_dir,
+        )
+    )
 
     summary_payload = {
             "experiment": EXPERIMENT_NAME,
