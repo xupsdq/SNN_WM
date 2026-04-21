@@ -1708,11 +1708,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     cfg = normalize_config(args)
     layout = prepare_result_layout(cfg.output_dir)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     log_lines: list[str] = []
 
     device, device_message = resolve_device_with_fallback(cfg.device)
     log_and_print(log_lines, device_message)
-    save_run_config(json_safe(asdict(cfg)), layout.root)
+    run_config_payload = json_safe(asdict(cfg))
+    save_run_config(run_config_payload, layout.root)
+    save_run_config(run_config_payload, meta_dir, filename="run_config.snapshot.json")
 
     seed_everything(int(cfg.seed))
     log_and_print(log_lines, f"[Setup] seed={cfg.seed}")
@@ -1723,7 +1728,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     trials, df_sequences = build_sequence_trials(labels, flat_normalized, class_index, cfg)
     sequences_csv = save_tidy_csv(
         df_sequences,
-        layout.data_file("sequences.csv"),
+        data_dir / "sequences.csv",
         sort_by=["seq_len", "trial_id", "item_index"],
     )
     log_and_print(log_lines, f"[Data] generated {len(trials)} trials across seq_len={list(cfg.sequence_lengths)}")
@@ -1921,45 +1926,45 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     changed_csv = save_tidy_csv(
         df_changed,
-        layout.data_file("layer3_changed_synapse_metrics.csv"),
+        metrics_dir / "layer3_changed_synapse_metrics.csv",
         sort_by=["record_type", "seq_len", "trial_id", "stage_k"],
     )
     rank_csv = save_tidy_csv(
         df_rank,
-        layout.data_file("layer3_changed_rank_metrics.csv"),
+        metrics_dir / "layer3_changed_rank_metrics.csv",
         sort_by=["record_type", "seq_len", "trial_id", "stage_k"],
     )
     ping_csv = save_tidy_csv(
         df_ping,
-        layout.data_file("layer3_ping_coupling_metrics.csv"),
+        metrics_dir / "layer3_ping_coupling_metrics.csv",
         sort_by=["record_type", "seq_len", "trial_id", "stage_k"],
     )
     anchor_csv = save_tidy_csv(
         anchor_state_df,
-        layout.data_file("layer3_state_anchor_metrics.csv"),
+        metrics_dir / "layer3_state_anchor_metrics.csv",
         sort_by=["record_type", "seq_len", "trial_id", "stage_k"],
     )
     raw_global_corr_csv = save_tidy_csv(
         raw_global_corr_df,
-        layout.data_file("raw_global_correlations.csv"),
+        metrics_dir / "raw_global_correlations.csv",
         sort_by=["topness_metric", "outcome_metric"],
     )
     stage_matched_corr_csv = save_tidy_csv(
         stage_matched_corr_df,
-        layout.data_file("stage_matched_correlations.csv"),
+        metrics_dir / "stage_matched_correlations.csv",
         sort_by=["seq_len", "stage_k", "topness_metric", "outcome_metric"],
     )
     stage_controlled_corr_csv = save_tidy_csv(
         stage_controlled_corr_df,
-        layout.data_file("stage_controlled_correlations.csv"),
+        metrics_dir / "stage_controlled_correlations.csv",
         sort_by=["topness_metric", "outcome_metric"],
     )
     epsilon_csv = save_tidy_csv(
         df_epsilon,
-        layout.data_file("epsilon_robustness_summary.csv"),
+        metrics_dir / "epsilon_robustness_summary.csv",
         sort_by=["record_type", "epsilon", "trial_id", "stage_k"],
     )
-    example_npz_path = layout.root_file("example_layer3_states.npz")
+    example_npz_path = data_dir / "example_layer3_states.npz"
     np.savez_compressed(example_npz_path, **example_payload)
 
     figure_paths: dict[str, object] = {}
@@ -1984,8 +1989,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "example_layer3_states_npz": str(example_npz_path),
         "figure_paths": figure_paths,
     }
-    summary_path = save_summary_json(
-        build_summary_payload(
+    summary_payload = build_summary_payload(
             cfg,
             device_requested=cfg.device,
             device_resolved=device.type,
@@ -1999,9 +2003,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             df_stage_controlled_corr=stage_controlled_corr_df,
             df_epsilon=df_epsilon,
             exported_files=exported_files,
-        ),
-        layout.root,
+        )
+    summary_path = save_summary_json(summary_payload, layout.root)
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
+    save_run_config(
+        {
+            "experiment_name": "chunk_stsp_layer3_anchor_drift_mechanism",
+            "sequence_count": int(len(trials)),
+            "layer3_changed_rank_metrics_csv": str(rank_csv),
+            "layer3_ping_coupling_metrics_csv": str(ping_csv),
+            "layer3_state_anchor_metrics_csv": str(anchor_csv),
+            "epsilon_robustness_summary_csv": str(epsilon_csv),
+        },
+        metrics_dir,
+        filename="main_metrics.json",
     )
+    # TODO: example_layer3_states.npz remains under data/ because it is a replay/debug snapshot rather than a compact metric.
     log_path = save_log_lines(log_lines, layout.log_dir)
     log_and_print(log_lines, f"[Done] summary={summary_path}")
     log_and_print(log_lines, f"[Done] log={log_path}")

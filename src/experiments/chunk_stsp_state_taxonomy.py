@@ -186,7 +186,12 @@ def normalize_config(args: argparse.Namespace) -> TaxonomyConfig:
 
 
 def resolve_device_with_fallback(device_arg: str) -> tuple[torch.device, str]:
-    if str(device_arg).strip().lower() == "cuda" and not torch.cuda.is_available():
+    normalized = str(device_arg).strip().lower()
+    if normalized == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda"), "[Runtime] Using device=auto -> cuda."
+        return torch.device("cpu"), "[Runtime] Using device=auto -> cpu."
+    if normalized == "cuda" and not torch.cuda.is_available():
         return torch.device("cpu"), "[Runtime] CUDA unavailable on 2026-04-17; falling back to CPU."
     return torch.device(str(device_arg)), f"[Runtime] Using device={device_arg}."
 
@@ -1178,11 +1183,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     cfg = normalize_config(args)
     layout = prepare_result_layout(cfg.output_dir)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     log_lines: list[str] = []
 
     device, device_message = resolve_device_with_fallback(cfg.device)
     log_and_print(log_lines, device_message)
-    save_run_config(asdict(cfg), layout.root)
+    run_config_payload = asdict(cfg)
+    save_run_config(run_config_payload, layout.root)
+    save_run_config(run_config_payload, meta_dir, filename="run_config.snapshot.json")
 
     seed_everything(int(cfg.seed))
     log_and_print(log_lines, f"[Setup] seed={cfg.seed}")
@@ -1191,7 +1201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     images, labels, flat_normalized = build_dataset_arrays(dataset)
     class_index = build_class_index(dataset, num_classes=10)
     df_triplets = build_triplet_specs(images, labels, flat_normalized, class_index, cfg)
-    triplets_csv = save_tidy_csv(df_triplets, layout.data_file("triplets.csv"), sort_by=["triplet_id"])
+    triplets_csv = save_tidy_csv(df_triplets, data_dir / "triplets.csv", sort_by=["triplet_id"])
     log_and_print(log_lines, f"[Data] triplets={len(df_triplets)} saved={triplets_csv}")
 
     net, encoder = load_model_and_encoder(
@@ -1320,14 +1330,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     df_ping = pd.DataFrame(ping_rows)
 
-    similarity_csv = save_tidy_csv(df_similarity, layout.data_file("state_similarity_metrics.csv"))
-    decomposition_csv = save_tidy_csv(df_decomposition, layout.data_file("state_decomposition_metrics.csv"))
-    changed_csv = save_tidy_csv(df_changed, layout.data_file("state_changed_synapse_metrics.csv"))
-    region_csv = save_tidy_csv(df_region, layout.data_file("layer1_region_metrics.csv"))
-    projection_csv = save_tidy_csv(df_projection, layout.data_file("higher_layer_projection_metrics.csv"))
-    ping_csv = save_tidy_csv(df_ping, layout.data_file("ping_coupling_metrics.csv"))
+    similarity_csv = save_tidy_csv(df_similarity, metrics_dir / "state_similarity_metrics.csv")
+    decomposition_csv = save_tidy_csv(df_decomposition, metrics_dir / "state_decomposition_metrics.csv")
+    changed_csv = save_tidy_csv(df_changed, metrics_dir / "state_changed_synapse_metrics.csv")
+    region_csv = save_tidy_csv(df_region, metrics_dir / "layer1_region_metrics.csv")
+    projection_csv = save_tidy_csv(df_projection, metrics_dir / "higher_layer_projection_metrics.csv")
+    ping_csv = save_tidy_csv(df_ping, metrics_dir / "ping_coupling_metrics.csv")
 
-    example_npz_path = layout.data_file("example_stsp_states.npz")
+    example_npz_path = data_dir / "example_stsp_states.npz"
     if example_state_dump is None:
         example_state_dump = {}
     np.savez_compressed(example_npz_path, **example_state_dump)
@@ -1366,6 +1376,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         exported_files=exported_files,
     )
     save_summary_json(summary_payload, layout.root)
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
+    save_run_config(
+        {
+            "experiment_name": "chunk_stsp_state_taxonomy",
+            "triplet_count": int(len(df_triplets)),
+            "state_similarity_metrics_csv": similarity_csv,
+            "state_decomposition_metrics_csv": decomposition_csv,
+            "state_changed_synapse_metrics_csv": changed_csv,
+            "higher_layer_projection_metrics_csv": projection_csv,
+            "ping_coupling_metrics_csv": ping_csv,
+        },
+        metrics_dir,
+        filename="main_metrics.json",
+    )
 
     log_and_print(log_lines, f"[Done] summary={summary_path}")
     save_log_lines(log_lines, layout.log_dir)

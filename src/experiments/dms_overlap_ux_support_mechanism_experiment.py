@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
 import matplotlib.pyplot as plt
@@ -26,7 +27,12 @@ from src.experiments.common.monitored_dms import (
     reset_all_state_restore_selected_stsp_in_place,
     run_monitored_dms_rollout,
 )
-from src.experiments.common.results import prepare_result_layout, save_log_lines, save_summary_json
+from src.experiments.common.results import (
+    prepare_result_layout,
+    save_log_lines,
+    save_run_config as save_results_run_config,
+    save_summary_json,
+)
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.common.seed import mix_seed
 from src.plotting.common.io import (
@@ -1295,6 +1301,9 @@ def main() -> None:
     apply_publication_style()
     device = resolve_device(args.device)
     layout = prepare_result_layout(args.output_dir)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     sample_steps = int(round((float(args.sample_ms) * ms) / DT))
     delay_steps = int(round((float(args.delay_ms) * ms) / DT))
     probe_steps = int(round((float(args.probe_ms) * ms) / DT))
@@ -1326,8 +1335,7 @@ def main() -> None:
     kernels_cpu = net.layer1.kernels.detach().cpu().to(torch.float32)
     static_gain = float(net.layer1.stsp_U)
 
-    save_run_config(
-        {
+    run_config_payload = {
             "experiment": EXPERIMENT_NAME,
             "scientific_target": "Layer1 firing-pattern reordering",
             # smoke experiment should be run in torch_env
@@ -1341,12 +1349,12 @@ def main() -> None:
             "device": str(device),
             "min_area_gap_ignored": int(args.min_area_gap),
             "save_case_count_unused": int(args.save_case_count),
-        },
-        layout.root,
-    )
+        }
+    save_run_config(run_config_payload, layout.root)
+    save_results_run_config(run_config_payload, meta_dir, filename="run_config.snapshot.json")
 
-    pair_metadata_csv = save_tidy_csv(trial_metadata_table(trials), layout.data_file("pair_metadata.csv"), sort_by=["trial_id"])
-    pair_mask_json = layout.data_file("pair_mask_metadata.json")
+    pair_metadata_csv = save_tidy_csv(trial_metadata_table(trials), data_dir / "pair_metadata.csv", sort_by=["trial_id"])
+    pair_mask_json = data_dir / "pair_mask_metadata.json"
     pair_mask_json.write_text(json.dumps(trial_mask_payload(trials), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
     preprobe_rows: list[dict[str, object]] = []
@@ -1520,23 +1528,23 @@ def main() -> None:
     )
     aligned_event_payload = _stack_aligned_event_rows(aligned_event_rows)
 
-    preprobe_csv = save_tidy_csv(df_preprobe, layout.data_file("preprobe_stsp_summary.csv"), sort_by=["trial_id", "model_type"])
-    drive_csv = save_tidy_csv(df_drive, layout.data_file("l1_drive_group_summary.csv"), sort_by=["trial_id", "unit_idx"])
-    firing_csv = save_tidy_csv(df_firing, layout.data_file("l1_firing_transition_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group"])
-    input_csv = save_tidy_csv(df_input, layout.data_file("l1_input_source_gain_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group", "transition_focus"])
-    loss_csv = save_tidy_csv(df_loss, layout.data_file("l1_loss_inhibition_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group"])
-    local_pairs_csv = save_tidy_csv(df_local_pairs, layout.data_file("l1_local_winner_loser_pairs.csv"), sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
-    causal_chain_csv = save_tidy_csv(df_chain, layout.data_file("l1_local_causal_chain_events.csv"), sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
-    local_support_csv = save_tidy_csv(df_local_support, layout.data_file("l1_local_winner_support_summary.csv"), sort_by=["aggregation_scope", "trial_id", "loser_unit_idx"])
+    preprobe_csv = save_tidy_csv(df_preprobe, metrics_dir / "preprobe_stsp_summary.csv", sort_by=["trial_id", "model_type"])
+    drive_csv = save_tidy_csv(df_drive, metrics_dir / "l1_drive_group_summary.csv", sort_by=["trial_id", "unit_idx"])
+    firing_csv = save_tidy_csv(df_firing, metrics_dir / "l1_firing_transition_summary.csv", sort_by=["aggregation_scope", "trial_id", "unit_group"])
+    input_csv = save_tidy_csv(df_input, metrics_dir / "l1_input_source_gain_summary.csv", sort_by=["aggregation_scope", "trial_id", "unit_group", "transition_focus"])
+    loss_csv = save_tidy_csv(df_loss, metrics_dir / "l1_loss_inhibition_summary.csv", sort_by=["aggregation_scope", "trial_id", "unit_group"])
+    local_pairs_csv = save_tidy_csv(df_local_pairs, data_dir / "l1_local_winner_loser_pairs.csv", sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
+    causal_chain_csv = save_tidy_csv(df_chain, data_dir / "l1_local_causal_chain_events.csv", sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
+    local_support_csv = save_tidy_csv(df_local_support, metrics_dir / "l1_local_winner_support_summary.csv", sort_by=["aggregation_scope", "trial_id", "loser_unit_idx"])
     exemplar_trace_npz = None
     panel_a_case_npz = None
-    aligned_event_npz = layout.data_file("l1_local_event_time_alignment.npz")
+    aligned_event_npz = data_dir / "l1_local_event_time_alignment.npz"
     np.savez_compressed(aligned_event_npz, **aligned_event_payload)
     if exemplar_pair is not None:
-        exemplar_trace_npz = layout.data_file("l1_local_winner_loser_exemplar_trace.npz")
+        exemplar_trace_npz = data_dir / "l1_local_winner_loser_exemplar_trace.npz"
         np.savez_compressed(exemplar_trace_npz, **exemplar_pair)
     if panel_a_case_arrays is not None:
-        panel_a_case_npz = layout.data_file("l1_panel_a_preprobe_gain_map.npz")
+        panel_a_case_npz = data_dir / "l1_panel_a_preprobe_gain_map.npz"
         np.savez_compressed(panel_a_case_npz, **panel_a_case_arrays)
 
     case = trials[0]
@@ -1574,8 +1582,7 @@ def main() -> None:
     panels["panel_s_causal_chain_prevalence"] = _causal_chain_prevalence_panel(df_chain)
     panel_paths = {} if bool(args.skip_figures) else save_all_panels(layout, panels)
 
-    summary_json = save_summary_json(
-        {
+    summary_payload = {
             "experiment": EXPERIMENT_NAME,
             "scientific_target": "Layer1 firing-pattern reordering",
             "mechanism_extension": "Local winner-loser chain with overlap-enhanced local winner support.",
@@ -1609,8 +1616,22 @@ def main() -> None:
                 "l1_panel_a_preprobe_gain_map_npz": str(panel_a_case_npz) if panel_a_case_npz is not None else None,
             },
             "panel_paths": panel_paths,
+        }
+    summary_json = save_summary_json(summary_payload, layout.root)
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
+    save_results_run_config(
+        {
+            "experiment_name": EXPERIMENT_NAME,
+            "n_trials": int(len(trials)),
+            "preprobe_stsp_summary_csv": str(Path(preprobe_csv).resolve()),
+            "l1_drive_group_summary_csv": str(Path(drive_csv).resolve()),
+            "l1_firing_transition_summary_csv": str(Path(firing_csv).resolve()),
+            "l1_input_source_gain_summary_csv": str(Path(input_csv).resolve()),
+            "l1_loss_inhibition_summary_csv": str(Path(loss_csv).resolve()),
+            "l1_local_winner_support_summary_csv": str(Path(local_support_csv).resolve()),
         },
-        layout.root,
+        metrics_dir,
+        filename="main_metrics.json",
     )
     save_log_lines(
         [

@@ -1001,6 +1001,9 @@ def main() -> None:
     parser = build_arg_parser()
     config = build_config(parser.parse_args())
     layout = prepare_result_layout(config.output_dir)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     logger = RunLogger(lines=[])
     runtime_device, cuda_fallback = _resolve_runtime_device(config.device)
     log_config_summary(logger, config, runtime_device, cuda_fallback)
@@ -1072,8 +1075,8 @@ def main() -> None:
         "selection_seed",
         "split",
     ]
-    triplets_csv = save_tidy_csv(triplets[triplet_export_columns].copy(), layout.data_file("triplets.csv"), sort_by=["triplet_id"])
-    fusion_csv = save_tidy_csv(fusion_metrics, layout.data_file("preprobe_fusion_metrics.csv"), sort_by=["triplet_id", "layer"])
+    triplets_csv = save_tidy_csv(triplets[triplet_export_columns].copy(), data_dir / "triplets.csv", sort_by=["triplet_id"])
+    fusion_csv = save_tidy_csv(fusion_metrics, metrics_dir / "preprobe_fusion_metrics.csv", sort_by=["triplet_id", "layer"])
     specificity_csv = save_tidy_csv(
         specificity_metrics[
             [
@@ -1088,12 +1091,12 @@ def main() -> None:
                 "mean_other_pair_score",
             ]
         ],
-        layout.data_file("fusion_specificity_metrics.csv"),
+        metrics_dir / "fusion_specificity_metrics.csv",
         sort_by=["triplet_id", "layer"],
     )
     whole_over_part_csv = save_tidy_csv(
         whole_over_part_metrics,
-        layout.data_file("whole_over_part_metrics.csv"),
+        metrics_dir / "whole_over_part_metrics.csv",
         sort_by=["triplet_id", "layer"],
     )
     state_bank_path = save_state_bank_npz(
@@ -1148,8 +1151,24 @@ def main() -> None:
             ),
         },
     }
-    save_run_config(config.to_json_dict(), layout.root)
+    run_config_payload = config.to_json_dict()
+    save_run_config(run_config_payload, layout.root)
+    save_run_config(run_config_payload, meta_dir, filename="run_config.snapshot.json")
     save_summary_json(summary, layout.root)
+    save_summary_json(summary, metrics_dir, filename="summary.json")
+    save_run_config(
+        {
+            "experiment_name": "chunk_step2_fused_state_experiment",
+            "triplet_count": int(len(triplets)),
+            "preprobe_fusion_metrics_csv": str(fusion_csv),
+            "fusion_specificity_metrics_csv": str(specificity_csv),
+            "whole_over_part_metrics_csv": str(whole_over_part_csv),
+            "state_bank_npz": str(state_bank_path),
+        },
+        metrics_dir,
+        filename="main_metrics.json",
+    )
+    # TODO: state_bank_npz remains under data/ because it is a replayable state dump, not a compact metric artifact.
     save_log_lines(logger.lines, layout.log_dir)
     logger.log("[Done] Step 2 fused-state experiment completed.")
 

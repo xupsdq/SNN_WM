@@ -887,6 +887,9 @@ def main() -> None:
     layout = prepare_result_layout(args.save_dir)
     experiment_name = Path(args.save_dir).name or "ux_shuffle_memory_collapse"
     logger = setup_logger(layout.log_file(), experiment_name)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     used_deprecated_alias = any(
         arg.startswith("--b-pure-ux-only") or arg.startswith("--no-b-pure-ux-only") for arg in sys.argv[1:]
     )
@@ -930,6 +933,7 @@ def main() -> None:
         "b_pure_ux_only": bool(args.pure_substrate_only),
     }
     run_config_path = save_json(run_config, layout.root_file("run_config.json"), logger)
+    save_json(run_config, meta_dir / "run_config.snapshot.json", logger)
 
     net, encoder = shared_load_model_and_encoder(
         model_path=args.model_path,
@@ -945,7 +949,7 @@ def main() -> None:
 
     df_specs = generate_trial_specs(class_index, num_trials=args.trials, num_classes=args.num_classes, rng=rng)
     validate_trial_specs(df_specs, num_classes=args.num_classes)
-    trial_specs_csv = Path(save_tidy_csv(df_specs, layout.data_file("trial_specs.csv"), sort_by=["trial_id"]))
+    trial_specs_csv = Path(save_tidy_csv(df_specs, data_dir / "trial_specs.csv", sort_by=["trial_id"]))
     logger.info("[Save] trial_specs_csv=%s", trial_specs_csv)
 
     df_trials = run_experiment(
@@ -961,15 +965,15 @@ def main() -> None:
         logger=logger,
     )
     validate_pairing(df_trials, pure_substrate_only=bool(args.pure_substrate_only))
-    trial_pred_csv = Path(save_tidy_csv(df_trials, layout.data_file("trial_predictions.csv"), sort_by=["trial_id", "condition"]))
+    trial_pred_csv = Path(save_tidy_csv(df_trials, data_dir / "trial_predictions.csv", sort_by=["trial_id", "condition"]))
     logger.info("[Save] trial_predictions_csv=%s", trial_pred_csv)
 
     metrics_condition = compute_condition_metrics(df_trials)
-    metrics_condition_csv = Path(save_tidy_csv(metrics_condition, layout.data_file("metrics_condition_summary.csv"), sort_by=["condition"]))
+    metrics_condition_csv = Path(save_tidy_csv(metrics_condition, metrics_dir / "metrics_condition_summary.csv", sort_by=["condition"]))
     logger.info("[Save] metrics_condition_summary_csv=%s", metrics_condition_csv)
 
     metrics_bias = compute_bias_table(df_trials, num_classes=args.num_classes)
-    metrics_bias_csv = Path(save_tidy_csv(metrics_bias, layout.data_file("metrics_error_bias.csv"), sort_by=["condition"]))
+    metrics_bias_csv = Path(save_tidy_csv(metrics_bias, metrics_dir / "metrics_error_bias.csv", sort_by=["condition"]))
     logger.info("[Save] metrics_error_bias_csv=%s", metrics_bias_csv)
 
     collapse_summary, metrics_boot = compute_collapse_summary(
@@ -979,11 +983,11 @@ def main() -> None:
         n_boot=args.num_boot,
         seed=args.seed + 100,
     )
-    collapse_summary_csv = Path(save_tidy_csv(collapse_summary, layout.data_file("metrics_collapse_summary.csv")))
+    collapse_summary_csv = Path(save_tidy_csv(collapse_summary, metrics_dir / "metrics_collapse_summary.csv"))
     substrate_summary_csv = Path(
-        save_tidy_csv(collapse_summary, layout.data_file("metrics_substrate_shuffle_summary.csv"), sort_by=["substrate"])
+        save_tidy_csv(collapse_summary, metrics_dir / "metrics_substrate_shuffle_summary.csv", sort_by=["substrate"])
     )
-    metrics_boot_csv = Path(save_tidy_csv(metrics_boot, layout.data_file("metrics_bootstrap_tests.csv")))
+    metrics_boot_csv = Path(save_tidy_csv(metrics_boot, metrics_dir / "metrics_bootstrap_tests.csv"))
     logger.info("[Save] metrics_collapse_summary_csv=%s", collapse_summary_csv)
     logger.info("[Save] metrics_substrate_shuffle_summary_csv=%s", substrate_summary_csv)
     logger.info("[Save] metrics_bootstrap_tests_csv=%s", metrics_boot_csv)
@@ -999,9 +1003,22 @@ def main() -> None:
 
     summary = build_summary(metrics_condition, collapse_summary, experiment_name)
     summary_path = save_json(summary, layout.root_file("summary.json"), logger)
-
+    save_json(summary, metrics_dir / "summary.json", logger)
     row_cond = metrics_condition.set_index("condition")
     row_sum = collapse_summary.set_index("substrate")
+    save_json(
+        {
+            "experiment_name": experiment_name,
+            "dynamic_probe_accuracy": float(row_cond.loc[CONDITION_A_DYNAMIC_BASE, "acc_probe"]),
+            "static_probe_accuracy": float(row_cond.loc[CONDITION_E_STATIC_FROZEN, "acc_probe"]),
+            "ux_shuffle_probe_accuracy": float(row_cond.loc[CONDITION_D_TRIAL_SHUFFLE_UX, "acc_probe"]),
+            "condition_metrics_csv": str(metrics_condition_csv.resolve()),
+            "collapse_summary_csv": str(collapse_summary_csv.resolve()),
+            "bootstrap_tests_csv": str(metrics_boot_csv.resolve()),
+        },
+        metrics_dir / "main_metrics.json",
+        logger,
+    )
     logger.info(
         "[Summary] Probe accuracy dynamic/spike/membrane/u-x/static: %.2f / %.2f / %.2f / %.2f / %.2f",
         float(row_cond.loc[CONDITION_A_DYNAMIC_BASE, "acc_probe"]),

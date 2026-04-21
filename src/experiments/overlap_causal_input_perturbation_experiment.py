@@ -1042,6 +1042,7 @@ def save_metadata_files(
     args: argparse.Namespace,
     device: torch.device,
     result_root: Path,
+    meta_dir: Path,
     log_dir: Path,
     readout_step: int,
     condition_order: Sequence[str],
@@ -1076,6 +1077,7 @@ def save_metadata_files(
         "condition_order": [str(name) for name in condition_order],
     }
     run_config_path = _save_json(run_config_payload, result_root / "run_config.json")
+    _save_json(run_config_payload, meta_dir / "run_config.snapshot.json")
     summary_path = _save_json(summary_payload, result_root / "summary.json")
 
     figure_paths = output_paths.get("figure_paths", {})
@@ -1162,6 +1164,8 @@ def main() -> None:
     result_root = layout.root
     figures_dir = layout.figure_dir
     data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     log_dir = layout.log_dir
 
     dataset = _load_dataset(dataset_root=args.dataset_root, split=args.split)
@@ -1419,7 +1423,7 @@ def main() -> None:
     np.savez_compressed(final_npz, **final_arrays)
 
     summary_metrics = build_summary_metrics(df_results)
-    summary_metrics_path = _save_json(summary_metrics, data_dir / "summary_metrics.json")
+    summary_metrics_path = _save_json(summary_metrics, metrics_dir / "summary_metrics.json")
     summary_payload = build_summary_payload(summary_metrics)
     figure_paths = {} if bool(args.skip_figures) else save_main_figures(figures_dir, df_results, trace_arrays)
 
@@ -1434,6 +1438,7 @@ def main() -> None:
         args=args,
         device=device,
         result_root=result_root,
+        meta_dir=meta_dir,
         log_dir=log_dir,
         readout_step=readout_step,
         condition_order=condition_order,
@@ -1442,6 +1447,17 @@ def main() -> None:
         start_time=start_time,
         n_pairs=int(df_results["pair_id"].nunique()) if not df_results.empty else 0,
     )
+    _save_json(summary_payload, metrics_dir / "summary.json")
+    _save_json(
+        {
+            "experiment_name": EXPERIMENT_NAME,
+            "pair_count": int(df_results["pair_id"].nunique()) if not df_results.empty else 0,
+            "summary_metrics_json": str(summary_metrics_path.resolve()),
+            "pair_condition_pattern_results_csv": str(Path(pair_csv).resolve()),
+        },
+        metrics_dir / "main_metrics.json",
+    )
+    # TODO: Trace and final-state arrays remain under data/ because they are large replay artifacts rather than summary metrics.
 
     print(f"\n=== {EXPERIMENT_NAME} ===")
     print(f"Primary focus: {PRIMARY_FOCUS}")

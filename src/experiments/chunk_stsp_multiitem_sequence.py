@@ -1009,6 +1009,9 @@ def main() -> None:
     args = parser.parse_args()
     cfg = normalize_config(args)
     layout = prepare_result_layout(cfg.output_dir)
+    data_dir = layout.data_dir
+    metrics_dir = layout.metrics_dir
+    meta_dir = layout.meta_dir
     log_lines: list[str] = []
 
     log_and_print(log_lines, "[Stage] Starting multi-input STSP chunk compression experiment.")
@@ -1071,13 +1074,13 @@ def main() -> None:
     cluster_df = pd.DataFrame(cluster_rows)
     update_df = pd.DataFrame(update_rows)
 
-    sequences_csv = save_tidy_csv(df_sequences, layout.data_file("sequences.csv"), sort_by=["seq_len", "trial_id", "item_index"])
-    item_similarity_csv = save_tidy_csv(item_similarity_df, layout.data_file("item_similarity_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer", "item_index"])
-    similarity_summary_csv = save_tidy_csv(similarity_summary_df, layout.data_file("similarity_summary_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer"])
-    ping_csv = save_tidy_csv(ping_df, layout.data_file("ping_retrieval_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "item_index"])
-    cluster_csv = save_tidy_csv(cluster_df, layout.data_file("cluster_participation_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer", "cluster_id"])
-    update_csv = save_tidy_csv(update_df, layout.data_file("stepwise_update_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer"])
-    example_npz_path = layout.root_file("example_stsp_states.npz")
+    sequences_csv = save_tidy_csv(df_sequences, data_dir / "sequences.csv", sort_by=["seq_len", "trial_id", "item_index"])
+    item_similarity_csv = save_tidy_csv(item_similarity_df, data_dir / "item_similarity_metrics.csv", sort_by=["seq_len", "trial_id", "stage_k", "layer", "item_index"])
+    similarity_summary_csv = save_tidy_csv(similarity_summary_df, metrics_dir / "similarity_summary_metrics.csv", sort_by=["seq_len", "trial_id", "stage_k", "layer"])
+    ping_csv = save_tidy_csv(ping_df, metrics_dir / "ping_retrieval_metrics.csv", sort_by=["seq_len", "trial_id", "stage_k", "item_index"])
+    cluster_csv = save_tidy_csv(cluster_df, data_dir / "cluster_participation_metrics.csv", sort_by=["seq_len", "trial_id", "stage_k", "layer", "cluster_id"])
+    update_csv = save_tidy_csv(update_df, data_dir / "stepwise_update_metrics.csv", sort_by=["seq_len", "trial_id", "stage_k", "layer"])
+    example_npz_path = data_dir / "example_stsp_states.npz"
     if example_payload is None:
         raise RuntimeError("Failed to capture example STSP states.")
     np.savez_compressed(example_npz_path, **example_payload)
@@ -1106,18 +1109,26 @@ def main() -> None:
         "example_stsp_states_npz": str(example_npz_path),
         "figures": figure_paths,
     }
-    summary_path = save_summary_json(
-        build_summary(similarity_summary_df, ping_df, cluster_df, update_df, exported_files, cfg),
-        layout.root,
-        filename="summary.json",
-    )
-    run_config_path = save_run_config(
+    summary_payload = build_summary(similarity_summary_df, ping_df, cluster_df, update_df, exported_files, cfg)
+    summary_path = save_summary_json(summary_payload, layout.root, filename="summary.json")
+    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
+    run_config_payload = {
+        **json_safe(asdict(cfg)),
+        "resolved_device": str(device),
+        "scipy_cluster_available": bool(SCIPY_CLUSTER_AVAILABLE),
+    }
+    run_config_path = save_run_config(run_config_payload, layout.root)
+    save_run_config(run_config_payload, meta_dir, filename="run_config.snapshot.json")
+    save_run_config(
         {
-            **json_safe(asdict(cfg)),
-            "resolved_device": str(device),
-            "scipy_cluster_available": bool(SCIPY_CLUSTER_AVAILABLE),
+            "experiment_name": "chunk_stsp_multiitem_sequence",
+            "sequence_count": int(len(trials)),
+            "similarity_summary_metrics_csv": similarity_summary_csv,
+            "ping_retrieval_metrics_csv": ping_csv,
+            "example_stsp_states_npz": str(example_npz_path),
         },
-        layout.root,
+        metrics_dir,
+        filename="main_metrics.json",
     )
     log_and_print(log_lines, f"[Output] sequences.csv -> {sequences_csv}")
     log_and_print(log_lines, f"[Output] summary.json -> {summary_path}")
