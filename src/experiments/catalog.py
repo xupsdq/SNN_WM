@@ -84,7 +84,7 @@ EXPERIMENT_SPECS: dict[str, ExperimentSpec] = {
         legacy_module="src.experiments.l3_accumulator_mechanism_experiment",
         output_flag="--output-dir",
         smoke_args=("--max-probes", "2", "--samples-per-probe", "2", "--max-pairs", "8", "--batch-size", "4", "--save-case-count", "1"),
-        expected_artifacts=("run_config.json", "summary.json", "data/pair_results.csv", "metrics/summary_metrics.json"),
+        expected_artifacts=("run_config.json", "summary.json", "data/pair_results.csv", "metrics/summary_metrics.json", "meta/plot_bundle_manifest.json"),
         primary_csv="pair_results.csv",
     ),
     "chunk_step2_fused_state_experiment": ExperimentSpec(
@@ -93,7 +93,7 @@ EXPERIMENT_SPECS: dict[str, ExperimentSpec] = {
         legacy_module="src.experiments.chunk_step2_fused_state_experiment",
         output_flag="--output-dir",
         smoke_args=("--smoke",),
-        expected_artifacts=("run_config.json", "summary.json", "metrics/preprobe_fusion_metrics.csv"),
+        expected_artifacts=("run_config.json", "summary.json", "metrics/preprobe_fusion_metrics.csv", "meta/plot_bundle_manifest.json"),
         primary_csv="preprobe_fusion_metrics.csv",
     ),
     "chunk_stsp_state_taxonomy": ExperimentSpec(

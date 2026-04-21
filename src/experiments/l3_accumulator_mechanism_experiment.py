@@ -53,6 +53,10 @@ from src.plotting.common.theme_tokens import (
     apply_standard_legend,
     case_grid_figsize,
 )
+from src.plotting.experiments.l3_accumulator_mechanism_experiment_plot_lib import (
+    render_figures_from_results as render_retained_plot_only_figures,
+    write_plot_bundle_manifest,
+)
 
 DEFAULT_MODEL_PATH = "results/sdnn_deep_final/net_final.pth"
 DEFAULT_OUTPUT_DIR = "results/l3_accumulator_mechanism_experiment"
@@ -1195,6 +1199,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         readout_step=np.asarray([int(readout_step)], dtype=np.int64),
     )
     summary_json = _save_json(summary_metrics, metrics_dir / "summary_metrics.json")
+    write_plot_bundle_manifest(meta_dir)
 
     empty_paths = {"png": "", "pdf": "", "svg": ""}
     fig1_paths = empty_paths.copy()
@@ -1228,17 +1233,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         fig2_paths = save_figure_all_formats(fig2, figures_dir / "figure_2_case_replacement_maps")
         plt.close(fig2)
 
-        fig_reconstruction_cosine = plot_reconstruction_cosine(df_results)
-        reconstruction_cosine_paths = save_figure_all_formats(fig_reconstruction_cosine, figures_dir / "reconstruction_cosine")
-        plt.close(fig_reconstruction_cosine)
-
-        fig_argmax_reconstruction = plot_argmax_reconstruction(df_results)
-        argmax_reconstruction_paths = save_figure_all_formats(fig_argmax_reconstruction, figures_dir / "argmax_reconstruction")
-        plt.close(fig_argmax_reconstruction)
-
-        fig4 = plot_pair_level_scatter(df_results)
-        fig4_paths = save_figure_all_formats(fig4, figures_dir / "figure_4_pair_level_scatter")
-        plt.close(fig4)
+        retained_figure_paths = render_retained_plot_only_figures(df_results=df_results, figures_dir=figures_dir)
+        reconstruction_cosine_paths = retained_figure_paths["reconstruction_cosine"]
+        argmax_reconstruction_paths = retained_figure_paths["argmax_reconstruction"]
+        fig4_paths = retained_figure_paths["figure_4_pair_level_scatter"]
 
     run_config_payload = {
             "model_path": str(Path(args.model_path).resolve()),

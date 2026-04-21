@@ -36,6 +36,10 @@ from src.plotting.common.io import (
     save_figure_all_formats,
     save_tidy_csv,
 )
+from src.plotting.experiments.chunk_step2_fused_state_experiment_plot_lib import (
+    render_retained_panels_from_results,
+    write_plot_bundle_manifest,
+)
 
 DT = 1.0 * ms
 EPS = 1e-12
@@ -1104,6 +1108,7 @@ def main() -> None:
         layout,
         triplet_ids=triplets["triplet_id"].to_numpy(dtype=np.int64, copy=False),
     )
+    write_plot_bundle_manifest(meta_dir)
     logger.log(
         "[Save] data="
         f"triplets={triplets_csv} | fusion={fusion_csv} | specificity={specificity_csv} | "
@@ -1114,11 +1119,14 @@ def main() -> None:
     if not config.skip_figures:
         example_triplet = _select_example_triplet(triplets, fusion_metrics, specificity_metrics)
         figure_paths["panel_a"] = save_triplet_definition_panels(example_triplet, images, layout)
-        figure_paths["panel_b"] = save_fusion_form_panel(fusion_metrics, layout)
-        figure_paths["panel_c"] = save_fusion_summary_panels(fusion_metrics, layout)
-        figure_paths["panel_d"] = save_specificity_panels(specificity_metrics, layout)
-        figure_paths["panel_e"] = save_whole_over_part_panels(whole_over_part_metrics, layout)
-        figure_paths["panel_f"] = save_shuffled_control_panels(specificity_metrics, layout)
+        figure_paths.update(
+            render_retained_panels_from_results(
+                fusion_metrics=fusion_metrics,
+                specificity_metrics=specificity_metrics,
+                whole_over_part_metrics=whole_over_part_metrics,
+                figures_dir=layout.figure_dir,
+            )
+        )
         logger.log("[Save] figures exported as standalone subplots to PNG/PDF/SVG.")
     else:
         logger.log("[Save] Figures skipped by --skip-figures.")
