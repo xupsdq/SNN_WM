@@ -30,6 +30,7 @@ from src.experiments.common.results import prepare_result_layout
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state, snapshot_ux_state
 from src.plotting.common.io import save_figure_all_formats, save_tidy_csv
+from src.plotting.experiments.engram_decode_plot_lib import build_accuracy_figure, write_plot_bundle_manifest
 from src.platform.legacy_adapters.encoding import build_mnist_skeleton_loader
 
 
@@ -271,29 +272,6 @@ def _plot_pca(features: np.ndarray, labels: np.ndarray, layer_name: str, delay_m
     plt.close(fig)
 
 
-def build_accuracy_figure(metrics_df: pd.DataFrame) -> plt.Figure:
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for layer_name in LAYER_KEYS:
-        part = metrics_df[metrics_df["layer"] == layer_name].sort_values("delay_ms")
-        if len(part) == 0:
-            continue
-        x_vals = part["delay_ms"].to_numpy(dtype=float)
-        y_vals = part["acc"].to_numpy(dtype=float)
-        y_low = part["acc_ci_low"].to_numpy(dtype=float)
-        y_high = part["acc_ci_high"].to_numpy(dtype=float)
-        ax.plot(x_vals, y_vals, marker="o", linewidth=2, label=LAYER_DISPLAY_NAMES[layer_name])
-        ax.fill_between(x_vals, y_low, y_high, alpha=0.2)
-
-    ax.axhline(CHANCE_LEVEL, color="k", linestyle="--", linewidth=1, label="Chance (10%)")
-    ax.set_xlabel("Delay (ms)")
-    ax.set_ylabel("Decoding Accuracy")
-    ax.set_title("Accuracy vs Delay")
-    ax.set_ylim(0.0, 1.0)
-    ax.legend()
-    fig.tight_layout()
-    return fig
-
-
 def build_summary(metrics_df: pd.DataFrame, delay_points_ms: List[int], experiment_name: str) -> Dict[str, object]:
     best_row = metrics_df.sort_values(["acc", "macro_f1"], ascending=[False, False], kind="stable").iloc[0]
     shortest_delay = min(delay_points_ms)
@@ -471,6 +449,7 @@ def main() -> None:
     metrics_df = pd.DataFrame(records).sort_values(["layer", "delay_ms"], kind="stable").reset_index(drop=True)
     metrics_path = Path(save_tidy_csv(metrics_df, metrics_dir / "engram_decode_metrics.csv", sort_by=["layer", "delay_ms"]))
     compat_metrics_path = Path(save_tidy_csv(metrics_df, data_dir / "engram_decode_metrics.csv", sort_by=["layer", "delay_ms"]))
+    write_plot_bundle_manifest(meta_dir)
     logger.info("[Save] Metrics CSV saved to %s", metrics_path)
     logger.info("[Save] Compatibility metrics CSV saved to %s", compat_metrics_path)
 

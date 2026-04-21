@@ -26,6 +26,11 @@ from src.plotting.common.io import (
     save_run_config,
     save_tidy_csv,
 )
+from src.plotting.experiments.similarity_bias_experiment_plot_lib import (
+    SimilarityBiasPlotBundle,
+    render_figures as render_plot_only_figures,
+    write_plot_bundle_manifest,
+)
 from src.plotting.common.theme_tokens import (
     ALPHA_BAR,
     COLOR_ACCENT_BLUE,
@@ -1306,43 +1311,21 @@ def main() -> None:
         },
         metrics_dir / "main_metrics.json",
     )
+    write_plot_bundle_manifest(meta_dir)
 
-    empty_paths = {"png": "", "pdf": "", "svg": ""}
-    fig1_paths = empty_paths.copy()
-    fig2_supp_paths = empty_paths.copy()
-    fig2_paths = empty_paths.copy()
-    fig3_paths = empty_paths.copy()
-    fig4_paths = empty_paths.copy()
-    fig5_paths = empty_paths.copy()
-    fig6_paths = empty_paths.copy()
+    figure_paths: dict[str, dict[str, str]] = {}
     if not bool(args.skip_figures):
-        fig1 = plot_similarity_histogram(df_trials=df_trials)
-        fig1_paths = save_figure_all_formats(fig1, figures_dir / "figure_1_similarity_histogram")
-        plt.close(fig1)
-
-        fig2_supp = plot_accuracy_curves_vs_similarity(df_accuracy=df_accuracy)
-        fig2_supp_paths = save_figure_all_formats(fig2_supp, figures_dir / "supplementary_accuracy_vs_similarity")
-        plt.close(fig2_supp)
-
-        fig2 = plot_accuracy_drop_vs_similarity(df_accuracy=df_accuracy)
-        fig2_paths = save_figure_all_formats(fig2, figures_dir / "figure_2_accuracy_vs_similarity")
-        plt.close(fig2)
-
-        fig3 = plot_cti_heatmaps(df_cti=df_cti, num_classes=int(num_classes))
-        fig3_paths = save_figure_all_formats(fig3, figures_dir / "figure_3_cti_heatmaps")
-        plt.close(fig3)
-
-        fig4 = plot_bvec_vs_similarity(df_trials=df_trials, df_bvec=df_bvec)
-        fig4_paths = save_figure_all_formats(fig4, figures_dir / "figure_4_bvec_vs_similarity")
-        plt.close(fig4)
-
-        fig5 = plot_metric_summary(df_accuracy=df_accuracy, df_cti=df_cti, df_bvec=df_bvec)
-        fig5_paths = save_figure_all_formats(fig5, figures_dir / "figure_5_metric_summary")
-        plt.close(fig5)
-
-        fig6 = plot_within_bin_overlap_bridge(df_matched=df_overlap_matched, summary=overlap_summary)
-        fig6_paths = save_figure_all_formats(fig6, figures_dir / "figure_6_within_bin_overlap_bridge")
-        plt.close(fig6)
+        figure_paths = render_plot_only_figures(
+            SimilarityBiasPlotBundle(
+                trials_df=df_trials,
+                accuracy_df=df_accuracy,
+                cti_df=df_cti,
+                bvec_df=df_bvec,
+                matched_df=df_overlap_matched,
+                overlap_summary=overlap_summary,
+            ),
+            figures_dir=figures_dir,
+        )
 
     run_config_payload = {
             "model_path": str(Path(args.model_path).resolve()),
@@ -1382,13 +1365,13 @@ def main() -> None:
                 "stats_summary_json": str(stats_json.resolve()),
                 "within_bin_overlap_summary_json": str(overlap_summary_json.resolve()),
                 "main_metrics_json": str(main_metrics_json.resolve()),
-                "supplementary_accuracy_vs_similarity_png": fig2_supp_paths["png"],
-                "figure_1_png": fig1_paths["png"],
-                "figure_2_png": fig2_paths["png"],
-                "figure_3_png": fig3_paths["png"],
-                "figure_4_png": fig4_paths["png"],
-                "figure_5_png": fig5_paths["png"],
-                "figure_6_png": fig6_paths["png"],
+                "supplementary_accuracy_vs_similarity_png": figure_paths.get("supplementary_accuracy_vs_similarity", {}).get("png", ""),
+                "figure_1_png": figure_paths.get("figure_1_similarity_histogram", {}).get("png", ""),
+                "figure_2_png": figure_paths.get("figure_2_accuracy_vs_similarity", {}).get("png", ""),
+                "figure_3_png": figure_paths.get("figure_3_cti_heatmaps", {}).get("png", ""),
+                "figure_4_png": figure_paths.get("figure_4_bvec_vs_similarity", {}).get("png", ""),
+                "figure_5_png": figure_paths.get("figure_5_metric_summary", {}).get("png", ""),
+                "figure_6_png": figure_paths.get("figure_6_within_bin_overlap_bridge", {}).get("png", ""),
             },
     }
     run_config_path = save_run_config(run_config_payload, result_root)
