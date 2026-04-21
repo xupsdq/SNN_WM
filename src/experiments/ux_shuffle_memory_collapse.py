@@ -33,6 +33,10 @@ from src.experiments.ping_memory.shared.shuffle_metrics import (
     compute_condition_metrics as shared_compute_condition_metrics,
 )
 from src.plotting.common.io import save_figure_all_formats, save_tidy_csv
+from src.plotting.experiments.ux_shuffle_memory_collapse_plot_lib import (
+    build_memory_readout_target_figure,
+    write_plot_bundle_manifest,
+)
 from src.platform.legacy_adapters.encoding import DoGSpikeEncoder, build_mnist_skeleton_loader
 from src.platform.legacy_adapters.network import SDNN_Network
 from src.platform.legacy_adapters.units import ms
@@ -746,46 +750,6 @@ def _nice_tick_step(upper: float) -> float:
     return float(10.0 * base)
 
 
-def build_memory_readout_target_figure(metrics_condition: pd.DataFrame) -> plt.Figure:
-    m = metrics_condition.set_index("condition").loc[CONDITION_ORDER].reset_index()
-    x = np.arange(len(CONDITION_ORDER))
-    width = 0.38
-    red = m["abs_rate_pred_original_sample"].to_numpy(dtype=float)
-    green = m["abs_rate_pred_change_under_bmap"].to_numpy(dtype=float)
-    upper = _nice_axis_upper(np.concatenate([red, green], axis=0))
-    tick_step = _nice_tick_step(upper)
-
-    fig, ax = plt.subplots(figsize=(10.8, 5.4))
-    ax.bar(
-        x - width / 2,
-        red,
-        width=width,
-        color="#d62728",
-        edgecolor="black",
-        alpha=0.9,
-        label="Pred = original sample",
-    )
-    ax.bar(
-        x + width / 2,
-        green,
-        width=width,
-        color="#2ca02c",
-        edgecolor="black",
-        alpha=0.9,
-        label="Pred = change (B-map)",
-    )
-    ax.set_xticks(x, [CONDITION_LABELS[o] for o in CONDITION_ORDER], rotation=10)
-    ax.set_ylabel("Absolute Rate (%)")
-    ax.set_ylim(0, upper)
-    ax.set_yticks(np.arange(0.0, upper + 0.5 * tick_step, tick_step))
-    ax.set_title("Memory Readout Target by Shuffled Substrate")
-    ax.grid(axis="y", alpha=0.25, linewidth=0.8)
-    ax.set_axisbelow(True)
-    ax.legend(title="")
-    fig.tight_layout()
-    return fig
-
-
 def build_summary(metrics_condition: pd.DataFrame, collapse_summary: pd.DataFrame, experiment_name: str) -> Dict[str, object]:
     row_cond = metrics_condition.set_index("condition")
     row_sum = collapse_summary.set_index("substrate")
@@ -823,7 +787,7 @@ def build_summary(metrics_condition: pd.DataFrame, collapse_summary: pd.DataFram
 
     return {
         "experiment_name": experiment_name,
-        "primary_figure": os.path.join("figure", "memory_readout_target.png"),
+        "primary_figure": os.path.join("figures", "memory_readout_target.png"),
         "acc_probe_dynamic": float(row_cond.loc[CONDITION_A_DYNAMIC_BASE, "acc_probe"]),
         "acc_probe_shuffle": float(row_cond.loc[CONDITION_D_TRIAL_SHUFFLE_UX, "acc_probe"]),
         "acc_probe_static": float(row_cond.loc[CONDITION_E_STATIC_FROZEN, "acc_probe"]),
@@ -988,6 +952,7 @@ def main() -> None:
         save_tidy_csv(collapse_summary, metrics_dir / "metrics_substrate_shuffle_summary.csv", sort_by=["substrate"])
     )
     metrics_boot_csv = Path(save_tidy_csv(metrics_boot, metrics_dir / "metrics_bootstrap_tests.csv"))
+    write_plot_bundle_manifest(meta_dir)
     logger.info("[Save] metrics_collapse_summary_csv=%s", collapse_summary_csv)
     logger.info("[Save] metrics_substrate_shuffle_summary_csv=%s", substrate_summary_csv)
     logger.info("[Save] metrics_bootstrap_tests_csv=%s", metrics_boot_csv)
