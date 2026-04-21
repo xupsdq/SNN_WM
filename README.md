@@ -1,54 +1,53 @@
 # Net_torch Experiment Workspace
 
-该仓库当前处于“实验工程逐步规范化”阶段。主线实验已经通过 `src/experiments/runners/` 和 `src/plotting/experiments/` 提供统一入口，新运行结果按 `results/<experiment_name>/...` 组织，同时保留对旧 CLI 和旧结果布局的兼容。
+This repository is organized around experiment runners and plot-only entrypoints.
+All 10 mainline runner experiments now write more native normalized outputs under
+`results/<experiment_name>/...` while keeping compatibility files at the result root.
 
-## 目录结构
+## Directory layout
 
 ```text
-configs/                    最小可用 YAML 配置
-results/                    主线实验结果目录
-src/config/                 路径、默认值、运行时配置、YAML loader
-src/experiments/            实验实现与公共工具
-src/experiments/runners/    主线实验计算入口
-src/plotting/               绘图实现
-src/plotting/experiments/   主线实验绘图入口
-tests/                      规范化测试
-archive/                    历史整理材料
-useful_fig_results/         历史图产物缓存，不是主线结果规范
+configs/                    Minimal YAML configs and examples
+results/                    Mainline experiment outputs
+scripts/                    Utility scripts, including result validation
+src/config/                 Paths, defaults, runtime config, YAML loader
+src/experiments/            Experiment implementations and shared helpers
+src/experiments/runners/    Mainline computation entrypoints
+src/plotting/               Plotting implementations
+src/plotting/experiments/   Mainline plot-only entrypoints
+tests/                      Normalization and validator tests
+archive/                    Historical material outside the mainline workflow
+useful_fig_results/         Legacy figure cache, not the canonical results root
 ```
 
-## 主线实验与 plotting 的关系
+## Mainline experiment workflow
 
-- 计算入口：`python -m src.experiments.runners.<experiment_id>`
-- 绘图入口：`python -m src.plotting.experiments.<experiment_id>_plot`
-- plotting 只读取已有结果目录，不重算实验。
-- 当前主线 runner / plotting 覆盖 10 个实验。
-- 第二阶段已把以下实验做成“原生规范化”样板：
-  - `similarity_bias_experiment`
-  - `engram_decode`
-  - `l3_accumulator_mechanism_experiment`
+- Compute entrypoint: `python -m src.experiments.runners.<experiment_id>`
+- Plot entrypoint: `python -m src.plotting.experiments.<experiment_id>_plot`
+- Plotting reads an existing result bundle and does not rerun the experiment.
+- All 10 runner experiments now follow the same normalized result layout.
 
-## 运行示例
+## Example commands
 
-直接运行：
+Run directly:
 
 ```bash
 python -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
 ```
 
-使用配置文件：
+Run with config:
 
 ```bash
 python -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
 ```
 
-单独重绘：
+Replot from an existing bundle:
 
 ```bash
 python -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
 ```
 
-## 结果目录规范
+## Result layout
 
 ```text
 results/<experiment_name>/
@@ -62,48 +61,53 @@ results/<experiment_name>/
 └── artifact_manifest.json
 ```
 
-- `meta/run_info.json` 由公共 runner 自动生成，记录实验名、git commit、开始/结束时间、状态、输出目录、入口脚本等元信息。
-- 详细约定见 [results/README.md](results/README.md)。
+- `meta/run_info.json` is created by the shared runner layer.
+- `data/` stores intermediate tables and large arrays.
+- `metrics/` stores primary summary CSV and JSON artifacts.
+- `meta/` stores configuration snapshots and runtime metadata.
+- See [results/README.md](results/README.md) for details.
 
-## configs 与优先级
+## Configs and precedence
 
-- `configs/experiment/`：实验级样例配置
-- `configs/model/`：模型路径与 checkpoint 约定
-- `configs/data/`：数据集名称与路径
-- `configs/plotting/`：dpi、格式、风格名
+- `configs/experiment/`: experiment-level examples
+- `configs/model/`: model checkpoint defaults
+- `configs/data/`: dataset defaults
+- `configs/plotting/`: plotting defaults
 
-参数优先级：
+Precedence:
 
 ```text
-CLI > YAML > 代码默认值
+CLI > YAML > code defaults
 ```
 
-当前公共 runner / plotting 入口均支持可选 `--config`。仓库目前内置的实验 YAML 样例有：
+Current example experiment configs:
 
 - `configs/experiment/similarity_bias_experiment.yaml`
 - `configs/experiment/engram_decode.yaml`
 
-## 校验结果目录
+All shared runner and plotting entrypoints support optional `--config`.
+
+## Validate a result directory
 
 ```bash
 python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment
 ```
 
-严格模式：
+Strict mode:
 
 ```bash
 python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
 ```
 
-## 当前兼容层
+## Compatibility layers kept on purpose
 
-- 根目录兼容文件仍保留：`summary.json`、`run_config.json`、`artifact_manifest.json`
-- 旧实验实现仍保留在 `src/experiments/*.py`
-- runner 公共层仍兼容旧 `figure/` / `log/`
-- plotting 读取仍兼容根目录和 `data/` 中的历史文件
+- Root compatibility files remain: `summary.json`, `run_config.json`, `artifact_manifest.json`
+- Legacy experiment implementations remain in `src/experiments/*.py`
+- The shared runner still normalizes old `figure/` and `log/` outputs when needed
+- Plotting still resolves files from root, `data/`, `metrics/`, and `meta/`
 
-## 不建议的旧用法
+## Old patterns that are no longer recommended
 
-- 不建议把关键指标只写在结果根目录或 `logs/`
-- 不建议新的实验继续依赖 legacy 布局创建 `figure/` / `log/`
-- 不建议把 `archive/` 或 `useful_fig_results/` 当作主线结果目录
+- Writing primary metrics only to the result root or only to `logs/`
+- Adding new experiments that still treat `figure/` or `log/` as canonical directories
+- Treating `archive/` or `useful_fig_results/` as the canonical results root
