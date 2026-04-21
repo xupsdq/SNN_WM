@@ -49,6 +49,10 @@ from src.plotting.common.theme_tokens import (
     LINE_WIDTH_REFERENCE,
     OVERLAP_CONDITION_COLORS,
 )
+from src.plotting.experiments.overlap_causal_input_perturbation_experiment_plot_lib import (
+    render_figures_from_results as render_plot_only_figures,
+    write_plot_bundle_manifest,
+)
 
 EXPERIMENT_NAME = "overlap_causal_input_perturbation_experiment"
 PRIMARY_FOCUS = "s2p / L3 probe trace"
@@ -1422,10 +1426,15 @@ def main() -> None:
     final_npz = data_dir / "pair_final_vectors.npz"
     np.savez_compressed(final_npz, **final_arrays)
 
+    write_plot_bundle_manifest(meta_dir)
     summary_metrics = build_summary_metrics(df_results)
     summary_metrics_path = _save_json(summary_metrics, metrics_dir / "summary_metrics.json")
     summary_payload = build_summary_payload(summary_metrics)
-    figure_paths = {} if bool(args.skip_figures) else save_main_figures(figures_dir, df_results, trace_arrays)
+    figure_paths = (
+        {}
+        if bool(args.skip_figures)
+        else render_plot_only_figures(df_results=df_results, trace_arrays=trace_arrays, figures_dir=figures_dir)
+    )
 
     output_paths = {
         "pair_csv": str(Path(pair_csv).resolve()),

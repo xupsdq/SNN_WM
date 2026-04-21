@@ -29,6 +29,11 @@ from src.experiments.common.runtime import seed_everything
 from src.experiments.common.seed import mix_seed
 from src.plotting.common.io import apply_publication_style, save_figure_all_formats, save_tidy_csv
 from src.plotting.common.style import DYNAMIC_COLOR, NOISE_COLOR, SAMPLE_COLOR, SHUFFLE_COLOR
+from src.plotting.experiments.chunk_stsp_state_taxonomy_plot_lib import (
+    render_full_conditioned_figures as render_plot_only_full_conditioned,
+    render_overview_figures as render_plot_only_overview,
+    write_plot_bundle_manifest,
+)
 
 CONDITION_FULL = "baseline_intact"
 CONDITION_SAMPLE = "sample_only_reference"
@@ -1344,9 +1349,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     figure_paths: dict[str, str] = {}
     strict_full_changed_figure_paths: dict[str, str] = {}
+    write_plot_bundle_manifest(meta_dir)
     if not cfg.skip_figures:
-        figure_paths = save_overview_figure(layout, df_similarity, df_decomposition, df_changed, df_ping)
-        strict_full_changed_figure_paths = save_full_conditioned_changed_figure(layout, df_changed)
+        figure_paths = render_plot_only_overview(
+            df_similarity=df_similarity,
+            df_decomposition=df_decomposition,
+            df_changed=df_changed,
+            df_coupling=df_ping,
+            figures_dir=layout.figure_dir,
+        )
+        strict_full_changed_figure_paths = render_plot_only_full_conditioned(
+            df_changed=df_changed,
+            figures_dir=layout.figure_dir,
+        )
 
     exported_files: dict[str, object] = {
         "triplets_csv": triplets_csv,
