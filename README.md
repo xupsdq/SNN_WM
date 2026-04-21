@@ -1,55 +1,50 @@
 # Net_torch Experiment Workspace
 
-This repository is organized around experiment runners and plot-only entrypoints.
-All 10 mainline runner experiments now write more native normalized outputs under
-`results/<experiment_name>/...` while keeping compatibility files at the result root.
+This repository uses a **split mainline workflow**:
 
-## Directory layout
+- **Runners** generate normalized experiment result bundles in **computation-only** mode.
+- **Plot-only entrypoints** rebuild figures from existing result bundles **without rerunning experiments**.
+
+Mainline workflow:
 
 ```text
-configs/                    Minimal YAML configs and examples
-results/                    Mainline experiment outputs
-scripts/                    Utility scripts, including result validation
-src/config/                 Paths, defaults, runtime config, YAML loader
-src/experiments/            Experiment implementations and shared helpers
-src/experiments/runners/    Mainline computation entrypoints
-src/plotting/               Plotting implementations
-src/plotting/experiments/   Mainline plot-only entrypoints
-tests/                      Normalization and validator tests
-archive/                    Historical material outside the mainline workflow
-useful_fig_results/         Legacy figure cache, not the canonical results root
-```
+runner -> results bundle -> plot-only
+Quick Start
 
-## Mainline experiment workflow
+Run a mainline experiment:
 
-- Compute entrypoint: `python -m src.experiments.runners.<experiment_id>`
-- Plot entrypoint: `python -m src.plotting.experiments.<experiment_id>_plot`
-- Plotting reads an existing result bundle and does not rerun the experiment.
-- All 10 runner experiments now follow the same normalized result layout.
-
-## Example commands
-
-Run directly:
-
-```bash
 python -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
-```
 
 Run with config:
 
-```bash
-python -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
-```
+python -m src.experiments.runners.similarity_bias_experiment \
+  --config configs/experiment/similarity_bias_experiment.yaml \
+  --output-dir results/similarity_bias_experiment
 
-Replot from an existing bundle:
+Rebuild figures from an existing result bundle:
 
-```bash
-python -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
-```
+python -m src.plotting.experiments.similarity_bias_experiment_plot \
+  --input-dir results/similarity_bias_experiment
 
-## Result layout
+Validate the result directory:
 
-```text
+python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment
+Repository Layout
+configs/                    YAML configs and examples
+results/                    Canonical mainline result bundles
+scripts/                    Utility scripts, including result validation
+src/config/                 Paths, defaults, YAML loader
+src/experiments/            Experiment implementations and shared helpers
+src/experiments/runners/    Mainline computation-only entrypoints
+src/plotting/               Plotting implementations
+src/plotting/experiments/   Mainline plot-only entrypoints
+tests/                      Validation and plotting tests
+archive/                    Historical material outside the mainline workflow
+useful_fig_results/         Legacy figure cache, not the canonical results root
+Result Layout
+
+Mainline runner experiments write outputs under:
+
 results/<experiment_name>/
 ├── data/
 ├── figures/
@@ -59,55 +54,100 @@ results/<experiment_name>/
 ├── summary.json
 ├── run_config.json
 └── artifact_manifest.json
-```
 
-- `meta/run_info.json` is created by the shared runner layer.
-- `data/` stores intermediate tables and large arrays.
-- `metrics/` stores primary summary CSV and JSON artifacts.
-- `meta/` stores configuration snapshots and runtime metadata.
-- See [results/README.md](results/README.md) for details.
+Key conventions:
 
-## Configs and precedence
+data/: intermediate tables and larger bundle inputs
+metrics/: primary summary CSV / JSON artifacts
+meta/run_info.json: runtime metadata from the shared runner layer
+meta/plot_bundle_manifest.json: plot-only bundle contract where applicable
 
-- `configs/experiment/`: experiment-level examples
-- `configs/model/`: model checkpoint defaults
-- `configs/data/`: dataset defaults
-- `configs/plotting/`: plotting defaults
+See results/README.md
+ for details.
+
+Mainline Status
+
+Current mainline experiments fall into two categories:
+
+Fully separated
+
+These experiments support:
+
+computation-only runner execution
+dedicated plot-only rendering
+result-driven figure rebuilding
+
+Examples:
+
+ux_shuffle_memory_collapse
+similarity_bias_experiment
+dms_overlap_ux_support_mechanism_experiment
+overlap_causal_input_perturbation_experiment
+chunk_stsp_state_taxonomy
+chunk_stsp_multiitem_sequence
+chunk_stsp_layer3_anchor_drift_mechanism
+Partially separated
+
+These experiments support plot-only rebuilding only for an explicitly retained subset of outputs:
+
+engram_decode — main figure only
+l3_accumulator_mechanism_experiment — excludes case-grid
+chunk_step2_fused_state_experiment — excludes Panel A
+
+So the current state is:
+
+mainline separation with explicit retained/excluded scope
+
+Configs
+
+Config directories:
+
+configs/experiment/
+configs/model/
+configs/data/
+configs/plotting/
 
 Precedence:
 
-```text
 CLI > YAML > code defaults
-```
 
-Current example experiment configs:
+Shared runner and plotting entrypoints support optional --config.
 
-- `configs/experiment/similarity_bias_experiment.yaml`
-- `configs/experiment/engram_decode.yaml`
+Validation
 
-All shared runner and plotting entrypoints support optional `--config`.
+Check a result bundle:
 
-## Validate a result directory
-
-```bash
-python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment
-```
+python scripts/validate_results_layout.py --input-dir results/<experiment_name>
 
 Strict mode:
 
-```bash
-python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
-```
+python scripts/validate_results_layout.py --input-dir results/<experiment_name> --strict
+Compatibility Notes
 
-## Compatibility layers kept on purpose
+Some compatibility layers are intentionally kept:
 
-- Root compatibility files remain: `summary.json`, `run_config.json`, `artifact_manifest.json`
-- Legacy experiment implementations remain in `src/experiments/*.py`
-- The shared runner still normalizes old `figure/` and `log/` outputs when needed
-- Plotting still resolves files from root, `data/`, `metrics/`, and `meta/`
+root compatibility files:
+summary.json
+run_config.json
+artifact_manifest.json
+legacy experiment code in src/experiments/*.py
+normalization of older figure/ / log/ style outputs where needed
 
-## Old patterns that are no longer recommended
+These do not change the recommended mainline workflow.
 
-- Writing primary metrics only to the result root or only to `logs/`
-- Adding new experiments that still treat `figure/` or `log/` as canonical directories
-- Treating `archive/` or `useful_fig_results/` as the canonical results root
+Recommended Rules
+
+For new mainline work:
+
+use runner entrypoints for computation
+write normalized outputs to results/<experiment_name>/...
+keep plotting result-driven
+avoid rerunning experiments inside plot-only entrypoints
+make retained vs excluded outputs explicit when coverage is partial
+Not Recommended
+treating figure/ or log/ as canonical output directories
+writing primary metrics only to the result root
+making plot-only pipelines rerun experiment computation
+keeping critical plotting inputs only in runtime memory
+treating archive/ or useful_fig_results/ as the canonical results root
+presenting partially migrated experiments as if all outputs were fully covered
