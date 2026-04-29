@@ -1,0 +1,27 @@
+# Runtime environment for the SDNN experiment workspace.
+#
+# Verified against:
+#   Python 3.9.23
+#   S:\pycharm\Anaconda\envs\torch_env\python.exe
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# Notes:
+# - torch/torchvision are pinned to the version currently used by torch_env.
+# - For a CUDA-specific PyTorch build, install torch and torchvision from the
+#   official PyTorch selector first, then install the remaining packages here.
+
+torch==2.5.1
+torchvision==0.20.1
+
+numpy==2.0.2
+pandas==2.3.1
+scipy==1.13.1
+scikit-learn==1.6.1
+
+matplotlib==3.9.4
+seaborn==0.13.2
+
+tqdm==4.67.1
+PyYAML==6.0.2
