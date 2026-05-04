@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from dataclasses import asdict, dataclass
@@ -654,6 +655,45 @@ def _normalize_image(image: torch.Tensor) -> np.ndarray:
     return arr
 
 
+def _to_json_ready(value):
+    if isinstance(value, dict):
+        return {str(key): _to_json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_json_ready(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        scalar = float(value)
+        return scalar if np.isfinite(scalar) else None
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return value
+
+
+def save_episode_timeline_example_npz(
+    triplet_row: pd.Series,
+    images: torch.Tensor,
+    layout,
+    timings: TimingConfig,
+) -> Path:
+    out_path = layout.data_file("episode_timeline_example.npz")
+    payload = {
+        "triplet_id": np.asarray([int(triplet_row["triplet_id"])], dtype=np.int64),
+        "item1_image": _normalize_image(images[int(triplet_row["sample_id"])]).astype(np.float32, copy=False),
+        "item2_image": _normalize_image(images[int(triplet_row["distractor_id"])]).astype(np.float32, copy=False),
+        "sample_ms": np.asarray([float(timings.sample_ms)], dtype=np.float32),
+        "delay1_ms": np.asarray([float(timings.delay1_ms)], dtype=np.float32),
+        "item2_ms": np.asarray([float(timings.distractor_ms)], dtype=np.float32),
+        "delay2_ms": np.asarray([float(timings.delay2_ms)], dtype=np.float32),
+    }
+    np.savez_compressed(out_path, **payload)
+    return out_path
+
+
 def _build_overlap_rgb(sample_image: torch.Tensor, distractor_image: torch.Tensor, *, threshold: float = 0.20) -> np.ndarray:
     sample = _normalize_image(sample_image)
     distractor = _normalize_image(distractor_image)
@@ -997,6 +1037,22 @@ def save_state_bank_npz(
     return out_path
 
 
+def write_artifact_manifest(layout, *, summary_path: Path, files: Mapping[str, object], figure_paths: Mapping[str, object]) -> Path:
+    root = layout.root
+    bundle_files = {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
+    bundle_files.add("artifact_manifest.json")
+    manifest = {
+        "experiment": "chunk_step2_fused_state_experiment",
+        "summary_json": str(summary_path),
+        "files": dict(files),
+        "figure_paths": dict(figure_paths),
+        "bundle_files": sorted(bundle_files),
+    }
+    out_path = root / "artifact_manifest.json"
+    out_path.write_text(json.dumps(_to_json_ready(manifest), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    return out_path
+
+
 def main() -> None:
     parser = build_arg_parser()
     config = build_config(parser.parse_args())
@@ -1051,6 +1107,7 @@ def main() -> None:
     fusion_metrics = compute_preprobe_fusion_metrics(triplets, state_bank)
     specificity_metrics = compute_fusion_specificity_metrics(triplets, state_bank, seed=config.seed)
     whole_over_part_metrics = compute_whole_over_part_metrics(fusion_metrics, specificity_metrics)
+    example_triplet = _select_example_triplet(triplets, fusion_metrics, specificity_metrics)
     logger.log("[Metrics] Fusion, true-pair specificity, and WPRI tables computed.")
 
     triplet_export_columns = [
@@ -1101,15 +1158,21 @@ def main() -> None:
         layout,
         triplet_ids=triplets["triplet_id"].to_numpy(dtype=np.int64, copy=False),
     )
+    episode_timeline_path = save_episode_timeline_example_npz(
+        example_triplet,
+        images,
+        layout,
+        config.timings,
+    )
     logger.log(
         "[Save] data="
         f"triplets={triplets_csv} | fusion={fusion_csv} | specificity={specificity_csv} | "
-        f"whole_over_part={whole_over_part_csv} | state_bank={state_bank_path}"
+        f"whole_over_part={whole_over_part_csv} | state_bank={state_bank_path} | "
+        f"episode_timeline={episode_timeline_path}"
     )
 
     figure_paths: dict[str, object] = {}
     if not config.skip_figures:
-        example_triplet = _select_example_triplet(triplets, fusion_metrics, specificity_metrics)
         figure_paths["panel_a"] = save_triplet_definition_panels(example_triplet, images, layout)
         figure_paths["panel_b"] = save_fusion_form_panel(fusion_metrics, layout)
         figure_paths["panel_c"] = save_fusion_summary_panels(fusion_metrics, layout)
@@ -1120,6 +1183,14 @@ def main() -> None:
     else:
         logger.log("[Save] Figures skipped by --skip-figures.")
 
+    file_paths = {
+        "triplets_csv": str(triplets_csv),
+        "preprobe_fusion_metrics_csv": str(fusion_csv),
+        "fusion_specificity_metrics_csv": str(specificity_csv),
+        "whole_over_part_metrics_csv": str(whole_over_part_csv),
+        "state_bank_npz": str(state_bank_path),
+        "episode_timeline_example_npz": str(episode_timeline_path),
+    }
     summary = {
         "triplet_count": int(len(triplets)),
         "probe_count": int(triplets["probe_id"].nunique()),
@@ -1128,13 +1199,7 @@ def main() -> None:
         "runtime_device": str(runtime_device),
         "cuda_fallback": bool(cuda_fallback),
         "sampling_scale": _sampling_scale_name(config),
-        "files": {
-            "triplets_csv": str(triplets_csv),
-            "preprobe_fusion_metrics_csv": str(fusion_csv),
-            "fusion_specificity_metrics_csv": str(specificity_csv),
-            "whole_over_part_metrics_csv": str(whole_over_part_csv),
-            "state_bank_npz": str(state_bank_path),
-        },
+        "files": file_paths,
         "figure_paths": figure_paths,
         "summary_stats": {
             "L3_fusion_dual_score_mean": float(
@@ -1149,7 +1214,9 @@ def main() -> None:
         },
     }
     save_run_config(config.to_json_dict(), layout.root)
-    save_summary_json(summary, layout.root)
+    summary_path = save_summary_json(summary, layout.root)
+    artifact_manifest_path = write_artifact_manifest(layout, summary_path=summary_path, files=file_paths, figure_paths=figure_paths)
+    logger.log(f"[Save] artifact_manifest={artifact_manifest_path}")
     save_log_lines(logger.lines, layout.log_dir)
     logger.log("[Done] Step 2 fused-state experiment completed.")
 

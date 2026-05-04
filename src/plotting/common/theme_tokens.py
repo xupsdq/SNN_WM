@@ -6,6 +6,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.legend import Legend
 
+from src.plotting.common.colors import get_plot_color
 from src.plotting.common.io import (
     COLOR_DYNAMIC,
     COLOR_NOISE,
@@ -16,23 +17,23 @@ from src.plotting.common.io import (
 )
 
 COLOR_CONGRUENT = "#009E73"
-COLOR_INCONGRUENT = "#D55E00"
-COLOR_ACCENT_BLUE = "#4C78A8"
-COLOR_ACCENT_BLUE_DARK = "#1F77B4"
-COLOR_ACCENT_BLUE_SOFT = "#4C72B0"
-COLOR_ACCENT_RED = "#E45756"
-COLOR_ACCENT_ORANGE = "#E69F00"
-COLOR_ACCENT_ORANGE_ALT = "#F58518"
-COLOR_ACCENT_GREEN = "#54A24B"
-COLOR_ACCENT_GREEN_SOFT = "#55A868"
-COLOR_ACCENT_BROWN = "#9C755F"
-COLOR_ACCENT_PURPLE = "#6A3D9A"
-COLOR_ACCENT_PURPLE_LIGHT = "#B279A2"
+COLOR_INCONGRUENT = get_plot_color("donor_trace")
+COLOR_ACCENT_BLUE = get_plot_color("first_item_reference")
+COLOR_ACCENT_BLUE_DARK = get_plot_color("original_sample_trace")
+COLOR_ACCENT_BLUE_SOFT = get_plot_color("probe_only_region")
+COLOR_ACCENT_RED = get_plot_color("peak_region_soft")
+COLOR_ACCENT_ORANGE = get_plot_color("trial_shuffled_ux")
+COLOR_ACCENT_ORANGE_ALT = get_plot_color("trial_shuffled_ux")
+COLOR_ACCENT_GREEN = get_plot_color("dynamic")
+COLOR_ACCENT_GREEN_SOFT = get_plot_color("sample_only_region")
+COLOR_ACCENT_BROWN = get_plot_color("fused_state")
+COLOR_ACCENT_PURPLE = get_plot_color("non_overlap_control")
+COLOR_ACCENT_PURPLE_LIGHT = "#E8DDF5"
 COLOR_ACCENT_NAVY = "#2F4B7C"
-COLOR_ACCENT_PINK = "#CC79A7"
-COLOR_ACCENT_SKY = "#0072B2"
+COLOR_ACCENT_PINK = get_plot_color("non_overlap_control")
+COLOR_ACCENT_SKY = get_plot_color("probe_only_region")
 COLOR_ACCENT_STEEL = "#6C8EBF"
-COLOR_ACCENT_TEAL = "#72B7B2"
+COLOR_ACCENT_TEAL = get_plot_color("dynamic")
 COLOR_ACCENT_TAN = "#DD8452"
 COLOR_ACCENT_TAUPE = "#9D755D"
 COLOR_ACCENT_VIOLET = "#8172B3"
@@ -40,11 +41,11 @@ COLOR_ACCENT_ROSE_LIGHT = "#FF9DA6"
 COLOR_ACCENT_SILVER = "#BAB0AC"
 COLOR_NEUTRAL = "#333333"
 COLOR_NEUTRAL_MID = "#555555"
-COLOR_NEUTRAL_GRAY = "#9E9E9E"
+COLOR_NEUTRAL_GRAY = get_plot_color("static_frozen")
 COLOR_NEUTRAL_LIGHT = "#B0B0B0"
-COLOR_GUIDE_LIGHT = "#DDDDDD"
-COLOR_OFFWHITE = "#F5F5F5"
-COLOR_BOX_FILL = "#F0F0F0"
+COLOR_GUIDE_LIGHT = get_plot_color("other_residual")
+COLOR_OFFWHITE = "#F2F2F2"
+COLOR_BOX_FILL = "#F2F2F2"
 COLOR_BOX_EDGE = "#555555"
 COLOR_NATIVE = "#222222"
 COLOR_DEST_OTHER = "#B9B9B9"

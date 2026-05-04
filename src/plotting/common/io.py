@@ -9,45 +9,33 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 
+from src.plotting.common.colors import (
+    get_paper_color_map,
+    get_plot_cmap,
+    get_plot_color,
+    infer_plot_cmap_kind,
+    resolve_plot_color,
+)
 from src.plotting.common.style import (
-    DYNAMIC_COLOR,
     ERRORBAR_CAPSIZE,
     LINE_WIDTH,
     MARKER_SIZE,
-    NOISE_COLOR,
-    PING_DECODE_COLOR,
-    SAMPLE_COLOR,
-    SELECTIVITY_COLOR,
-    SHUFFLE_COLOR,
-    STATIC_COLOR,
     apply_paper_style,
 )
 
-COLOR_DYNAMIC = DYNAMIC_COLOR
-COLOR_STATIC = STATIC_COLOR
-COLOR_DONOR_SHIFT = SHUFFLE_COLOR
-COLOR_DISTRACTOR = SHUFFLE_COLOR
-COLOR_PING = PING_DECODE_COLOR
-COLOR_SAMPLE_ALIGNED = SAMPLE_COLOR
-COLOR_NOISE = NOISE_COLOR
-
-_PAPER_COLOR_MAP = {
-    "dynamic": COLOR_DYNAMIC,
-    "stsp_on": COLOR_DYNAMIC,
-    "sample_aligned": COLOR_SAMPLE_ALIGNED,
-    "static": COLOR_STATIC,
-    "frozen": COLOR_STATIC,
-    "baseline": COLOR_STATIC,
-    "static_frozen": COLOR_STATIC,
-    "donor_shift": COLOR_DONOR_SHIFT,
-    "reassigned_memory": COLOR_DONOR_SHIFT,
-    "distractor_branch": COLOR_DISTRACTOR,
-    "ping_branch": COLOR_PING,
-    "selectivity": SELECTIVITY_COLOR,
-    "noise": COLOR_NOISE,
-    "chance": COLOR_NOISE,
-    "control": COLOR_NOISE,
-}
+COLOR_DYNAMIC = get_plot_color("dynamic")
+COLOR_STATIC = get_plot_color("static_frozen")
+COLOR_DONOR_SHIFT = get_plot_color("donor_trace")
+COLOR_DISTRACTOR = get_plot_color("trial_shuffled_ux")
+COLOR_PING = get_plot_color("probe_only_region")
+COLOR_SAMPLE_ALIGNED = get_plot_color("original_sample_trace")
+COLOR_NOISE = get_plot_color("other_residual")
+COLOR_NONOVERLAP = get_plot_color("non_overlap_control")
+COLOR_EARLIER_ITEM = get_plot_color("first_item_reference")
+COLOR_BACKGROUND_SHADE = "#F2F2F2"
+COLOR_SAMPLE_WINDOW = "#FFF2B2"
+COLOR_PROBE_WINDOW = "#DDEEFF"
+COLOR_PING_WINDOW = "#E8DDF5"
 
 _NON_SCALAR_SEQUENCE_TYPES = (list, tuple, set, frozenset, np.ndarray, pd.Series, pd.Index)
 
@@ -59,6 +47,16 @@ __all__ = [
     "COLOR_PING",
     "COLOR_SAMPLE_ALIGNED",
     "COLOR_NOISE",
+    "COLOR_NONOVERLAP",
+    "COLOR_EARLIER_ITEM",
+    "COLOR_BACKGROUND_SHADE",
+    "COLOR_SAMPLE_WINDOW",
+    "COLOR_PROBE_WINDOW",
+    "COLOR_PING_WINDOW",
+    "get_plot_color",
+    "resolve_plot_color",
+    "get_plot_cmap",
+    "infer_plot_cmap_kind",
     "PUBLICATION_FIGURE_TITLE_FONT_SIZE",
     "PUBLICATION_TITLE_FONT_SIZE",
     "PUBLICATION_AXIS_LABEL_FONT_SIZE",
@@ -91,10 +89,6 @@ PUBLICATION_MARKER_SIZE = MARKER_SIZE
 PUBLICATION_ERRORBAR_CAPSIZE = ERRORBAR_CAPSIZE
 PUBLICATION_SINGLE_COLUMN_FIGSIZE = (6.0, 5.0)
 PUBLICATION_TWO_COLUMN_FIGSIZE = (12.0, 5.0)
-
-
-def get_paper_color_map() -> Dict[str, str]:
-    return dict(_PAPER_COLOR_MAP)
 
 
 def apply_publication_style() -> None:

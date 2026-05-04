@@ -1,0 +1,95 @@
+{
+  "block_a_conditions": [
+    "full_dynamic",
+    "full_static",
+    "only_SP",
+    "only_DP",
+    "only_SDP"
+  ],
+  "block_d_conditions": [
+    "ux_intact_dynamic",
+    "ux_ablated_global"
+  ],
+  "implementation_notes": {
+    "global_ux_causality": "The global ux causality block ablates pre-probe ux by resetting all layers to the static baseline u=U and x=1 before probe. In Figure 4, the left panel tests whether globally ablating ux reduces L3 bias magnitude, and the right panel compares intact dynamic, ux-ablated, and full_static final decision-vector magnitudes to assess whether ux ablation drives the system toward static behavior.",
+    "layer_mask_mapping": "layer1 uses input-resolution probe partitions; layer2 applies boolean max-pooling with net.pool1; layer3 uses the real layer2 receptive-field support followed by boolean max-pooling with net.pool2.",
+    "main_outputs": "Main saved outputs emphasize abs(DPI_L3), final decision-vector magnitude, their matched-region per-area normalizations, matched-region ux, matched-region ux mass, and the reduction in Block D effect strength after global ux ablation.",
+    "matched_region_rule": "Per-area and ux analyses for only_SP, only_DP, and only_SDP use only the corresponding matched probe region and do not aggregate unmatched regions.",
+    "supplementary_union_reweighting": "A supplementary union-vs-complement ux reweighting experiment tests whether probe-evoked L3 input dynamics are reshaped because overlap-relevant regions carry elevated pre-probe ux. The union region is defined as SP union DP union SDP, and the complement region is the remaining probe foreground. Region-selective ux ablation on the union region should reduce union contribution to the L3 input map more strongly than ablation on the complement region."
+  },
+  "mechanistic_quantity_of_interest": "raw pre-probe STSP ux = u * x",
+  "no_time_weighting_used": true,
+  "readout_step": 19,
+  "region_definitions": {
+    "DP": "distractor intersect probe and not sample",
+    "SDP": "sample intersect distractor intersect probe",
+    "SP": "sample intersect probe and not distractor"
+  },
+  "saved_artifact_paths": {
+    "association_summary_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\association_summary.csv",
+    "condition_summary_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\condition_summary.csv",
+    "figures": {
+      "figure_1_per_area_overlap_effect_strength": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_1_per_area_overlap_effect_strength.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_1_per_area_overlap_effect_strength.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_1_per_area_overlap_effect_strength.svg"
+      },
+      "figure_2_matched_region_ux_across_layers": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_2_matched_region_ux_across_layers.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_2_matched_region_ux_across_layers.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_2_matched_region_ux_across_layers.svg"
+      },
+      "figure_3_matched_region_ux_mass_predicts_effect_strength": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_3_matched_region_ux_mass_predicts_effect_strength.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_3_matched_region_ux_mass_predicts_effect_strength.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_3_matched_region_ux_mass_predicts_effect_strength.svg"
+      },
+      "figure_4_global_ux_causality": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_4_global_ux_causality.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_4_global_ux_causality.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_4_global_ux_causality.svg"
+      },
+      "figure_5_union_vs_complement_ux_baseline": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_5_union_vs_complement_ux_baseline.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_5_union_vs_complement_ux_baseline.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_5_union_vs_complement_ux_baseline.svg"
+      },
+      "figure_6_union_ux_reweights_l3_input": {
+        "pdf": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_6_union_ux_reweights_l3_input.pdf",
+        "png": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_6_union_ux_reweights_l3_input.png",
+        "svg": "results\\distractor_region_ux_mechanism_experiment\\figures\\figure_6_union_ux_reweights_l3_input.svg"
+      }
+    },
+    "region_condition_records_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\region_condition_records.csv",
+    "region_ux_summary_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\region_ux_summary.csv",
+    "run_config_json": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\logs\\run_config.json",
+    "summary_json": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\region_ux_mechanism_summary.json",
+    "triplet_specs_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\triplet_specs.csv",
+    "union_reweight_l3_contribution_summary_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\union_reweight_l3_contribution_summary.csv",
+    "union_reweight_region_ux_summary_csv": "Y:\\python_project\\Net_torch - 副本\\results\\distractor_region_ux_mechanism_experiment\\union_reweight_region_ux_summary.csv"
+  },
+  "scientific_hypothesis": "SP, DP, and SDP differ in per-area effect strength on L3 bias magnitude and final decision-vector magnitude. Those per-area differences correspond to matched-region pre-probe ux, and matched-region ux mass predicts raw effect strength. A global pre-probe ux ablation causally tests whether L3 bias magnitude and final decision-vector magnitude remain when dynamic ux is removed before probe.",
+  "supplementary_union_reweight_conditions": [
+    "union_reweight_intact",
+    "union_ux_ablated",
+    "complement_ux_ablated"
+  ],
+  "supplementary_union_reweight_regions": {
+    "complement": "probe foreground not covered by the overlap_union region",
+    "overlap_union": "SP union DP union SDP"
+  },
+  "timing_parameters_ms": {
+    "delay1_ms": 400.0,
+    "delay2_ms": 400.0,
+    "distractor_ms": 200.0,
+    "probe_ms": 100.0,
+    "sample_ms": 200.0
+  },
+  "timing_parameters_steps": {
+    "delay1_steps": 400,
+    "delay2_steps": 400,
+    "distractor_steps": 200,
+    "probe_steps": 100,
+    "sample_steps": 200
+  }
+}

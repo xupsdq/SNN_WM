@@ -1,0 +1,101 @@
+{
+  "model_path": "results/sdnn_deep_final/net_final.pth",
+  "save_dir": "results/dual_task_similarity_boundary",
+  "dataset_root": "./MNIST",
+  "trials": 100,
+  "batch_size": 32,
+  "seed": 42,
+  "num_classes": 10,
+  "sample_ms": 200.0,
+  "delay1_ms": 300.0,
+  "distractor_ms": 120.0,
+  "delay2_ms": 380.0,
+  "probe_ms": 100.0,
+  "num_boot": 100,
+  "decode_splits": 5,
+  "input_sim_bins": 3,
+  "phase_reset": true,
+  "skip_confusion_recompute": false,
+  "label_condition_order": [
+    "clean_reference",
+    "high_same_label",
+    "high_diff_label",
+    "medium_confusion",
+    "low_confusion"
+  ],
+  "family_similarity_enabled": true,
+  "family_similarity_source": "pixel",
+  "family_order": [
+    "same_label",
+    "different_label"
+  ],
+  "family_similarity_bin_order": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "decode_target_kinds": [
+    "sample_label",
+    "distractor_label"
+  ],
+  "ux_timecourse_monitoring": {
+    "enabled": true,
+    "window": "distractor_only",
+    "stsp_mode": "dynamic",
+    "statistic": "mean_over_presynaptic_units_then_mean_sem_over_trials",
+    "layout": "three_layer_facets"
+  },
+  "confusion_lookup": {
+    "0": {
+      "high_diff_label": 6,
+      "medium_confusion": 3,
+      "low_confusion": 1
+    },
+    "1": {
+      "high_diff_label": 2,
+      "medium_confusion": 5,
+      "low_confusion": 6
+    },
+    "2": {
+      "high_diff_label": 7,
+      "medium_confusion": 1,
+      "low_confusion": 5
+    },
+    "3": {
+      "high_diff_label": 5,
+      "medium_confusion": 0,
+      "low_confusion": 6
+    },
+    "4": {
+      "high_diff_label": 9,
+      "medium_confusion": 2,
+      "low_confusion": 0
+    },
+    "5": {
+      "high_diff_label": 3,
+      "medium_confusion": 4,
+      "low_confusion": 1
+    },
+    "6": {
+      "high_diff_label": 0,
+      "medium_confusion": 1,
+      "low_confusion": 7
+    },
+    "7": {
+      "high_diff_label": 9,
+      "medium_confusion": 0,
+      "low_confusion": 5
+    },
+    "8": {
+      "high_diff_label": 0,
+      "medium_confusion": 7,
+      "low_confusion": 1
+    },
+    "9": {
+      "high_diff_label": 7,
+      "medium_confusion": 3,
+      "low_confusion": 1
+    }
+  },
+  "device": "cuda"
+}

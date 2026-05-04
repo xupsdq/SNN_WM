@@ -2,45 +2,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
+from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 
 from src.config.yaml_loader import load_yaml_file, nested_get
-from src.experiments.catalog import ExperimentSpec, get_experiment_spec
+from src.plotting.common.io import apply_publication_style, save_figure_all_formats, validate_required_columns
 
-
-COLOR_DYNAMIC = "#E69F00"
-COLOR_STATIC = "#56B4E9"
-COLOR_ACCENT = "#009E73"
-COLOR_GRID = "#E5E7EB"
-
-
-def apply_plot_style() -> None:
-    plt.rcParams.update(
-        {
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Arial", "DejaVu Sans"],
-            "font.size": 10,
-            "axes.titlesize": 11,
-            "axes.labelsize": 10,
-            "xtick.labelsize": 9,
-            "ytick.labelsize": 9,
-            "legend.fontsize": 9,
-            "figure.dpi": 300,
-            "savefig.dpi": 300,
-            "figure.facecolor": "white",
-            "axes.facecolor": "white",
-            "axes.spines.top": False,
-            "axes.spines.right": False,
-            "pdf.fonttype": 42,
-            "ps.fonttype": 42,
-            "svg.fonttype": "none",
-        }
-    )
+Plotter = Callable[[Path], Mapping[str, Figure]]
 
 
 def require_path(path: str | Path) -> Path:
@@ -50,165 +27,220 @@ def require_path(path: str | Path) -> Path:
     return path_obj
 
 
-def read_csv_validated(path: str | Path, required_columns: tuple[str, ...] = ()) -> pd.DataFrame:
+def resolve_bundle_file(input_dir: Path, relative_name: str | Path) -> Path:
+    rel = Path(relative_name)
+    if rel.is_absolute():
+        return require_path(rel)
+    candidates = [
+        input_dir / rel,
+        input_dir / "data" / rel,
+        input_dir / "metrics" / rel,
+        input_dir / "meta" / rel,
+        input_dir / "arrays" / rel,
+        input_dir / "logs" / rel,
+        input_dir / "log" / rel,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    searched = ", ".join(str(path) for path in candidates)
+    raise FileNotFoundError(f"Required bundle artifact not found: {rel}; searched: {searched}")
+
+
+def optional_bundle_file(input_dir: Path, relative_name: str | Path) -> Path | None:
+    try:
+        return resolve_bundle_file(input_dir, relative_name)
+    except FileNotFoundError:
+        return None
+
+
+def read_csv_validated(path: str | Path, required_columns: Sequence[str] = ()) -> pd.DataFrame:
     csv_path = require_path(path)
     df = pd.read_csv(csv_path)
-    missing = [name for name in required_columns if name not in df.columns]
-    if missing:
-        raise ValueError(f"{csv_path} missing columns: {', '.join(missing)}")
+    if required_columns:
+        validate_required_columns(df, list(required_columns))
     return df
+
+
+def read_bundle_csv(input_dir: Path, relative_name: str | Path, required_columns: Sequence[str] = ()) -> pd.DataFrame:
+    return read_csv_validated(resolve_bundle_file(input_dir, relative_name), required_columns=required_columns)
 
 
 def load_json(path: str | Path) -> Any:
     return json.loads(require_path(path).read_text(encoding="utf-8"))
 
 
-def resolve_bundle_file(input_dir: Path, relative_name: str) -> Path:
-    candidates = [
-        input_dir / relative_name,
-        input_dir / "data" / relative_name,
-        input_dir / "metrics" / relative_name,
-        input_dir / "meta" / relative_name,
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
+def load_bundle_json(input_dir: Path, relative_name: str | Path) -> Any:
+    return load_json(resolve_bundle_file(input_dir, relative_name))
 
 
-def _flatten_numeric(prefix: str, value: Any, out: dict[str, float]) -> None:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            next_prefix = f"{prefix}.{key}" if prefix else str(key)
-            _flatten_numeric(next_prefix, item, out)
-        return
-    if isinstance(value, list) or isinstance(value, bool):
-        return
-    if isinstance(value, (int, float)):
-        scalar = float(value)
-        if np.isfinite(scalar):
-            out[prefix or "value"] = scalar
+def load_bundle_npz(input_dir: Path, relative_name: str | Path) -> dict[str, np.ndarray]:
+    npz_path = resolve_bundle_file(input_dir, relative_name)
+    with np.load(npz_path, allow_pickle=False) as payload:
+        return {name: payload[name] for name in payload.files}
 
 
-def _pick_numeric_columns(df: pd.DataFrame) -> list[str]:
-    names: list[str] = []
-    for column in df.columns:
-        if pd.api.types.is_numeric_dtype(df[column]):
-            if column.endswith("_id") or column in {"trial_id", "pair_id"}:
-                continue
-            names.append(column)
-    return names
-
-
-def _pick_category_column(df: pd.DataFrame) -> str | None:
-    priority = ["condition", "model_type", "layer", "substrate", "seq_len", "stage_k", "mode", "group"]
-    for name in priority:
-        if name in df.columns and 1 < df[name].nunique() <= 20:
-            return name
-    for name in df.columns:
-        if not pd.api.types.is_numeric_dtype(df[name]) and 1 < df[name].nunique() <= 20:
-            return name
-    return None
-
-
-def _pick_x_column(df: pd.DataFrame) -> str | None:
-    for name in ["delay_ms", "bin_index", "time_step", "seq_len", "stage_k"]:
-        if name in df.columns and pd.api.types.is_numeric_dtype(df[name]):
-            return name
-    return None
-
-
-def _plot_summary_axis(ax: plt.Axes, summary_payload: dict[str, Any], *, title: str) -> None:
-    flattened: dict[str, float] = {}
-    _flatten_numeric("", summary_payload, flattened)
-    items = list(flattened.items())[:12]
-    if not items:
-        ax.text(0.5, 0.5, "No numeric summary fields", ha="center", va="center")
-        ax.set_axis_off()
-        return
-    labels = [item[0] for item in items]
-    values = [item[1] for item in items]
-    ax.barh(np.arange(len(items)), values, color=COLOR_ACCENT, alpha=0.85)
-    ax.set_yticks(np.arange(len(items)))
-    ax.set_yticklabels(labels)
-    ax.invert_yaxis()
-    ax.set_title(title)
-    ax.grid(axis="x", color=COLOR_GRID, linewidth=0.6, alpha=0.7)
-
-
-def _plot_csv_axis(ax: plt.Axes, df: pd.DataFrame, spec: ExperimentSpec) -> None:
-    if df.empty:
-        ax.text(0.5, 0.5, "Primary CSV is empty", ha="center", va="center")
-        ax.set_axis_off()
-        return
-    numeric_cols = _pick_numeric_columns(df)
-    if not numeric_cols:
-        ax.text(0.5, 0.5, "No numeric columns available", ha="center", va="center")
-        ax.set_axis_off()
-        return
-    x_col = spec.csv_x if spec.csv_x in df.columns else _pick_x_column(df)
-    y_cols = [name for name in spec.csv_y if name in df.columns] or numeric_cols[:2]
-    group_col = spec.csv_group if spec.csv_group in df.columns else _pick_category_column(df)
-    if x_col and y_cols:
-        grouped_by = group_col if group_col and group_col != x_col else None
-        if grouped_by:
-            for idx, (group_name, sub) in enumerate(df.groupby(grouped_by, sort=True)):
-                color = [COLOR_DYNAMIC, COLOR_STATIC, COLOR_ACCENT][idx % 3]
-                ax.plot(sub[x_col], sub[y_cols[0]], marker="o", linewidth=1.8, label=str(group_name), color=color)
-            ax.legend(frameon=False)
-        else:
-            for idx, y_name in enumerate(y_cols):
-                color = [COLOR_DYNAMIC, COLOR_STATIC, COLOR_ACCENT][idx % 3]
-                ax.plot(df[x_col], df[y_name], marker="o", linewidth=1.8, label=y_name, color=color)
-            if len(y_cols) > 1:
-                ax.legend(frameon=False)
-        ax.set_xlabel(x_col)
-        ax.set_ylabel(y_cols[0])
-        ax.set_title(Path(spec.primary_csv or "data").stem)
-        ax.grid(axis="y", color=COLOR_GRID, linewidth=0.6, alpha=0.7)
-        return
-    if group_col and y_cols:
-        grouped = df.groupby(group_col, sort=True)[y_cols[0]].mean().reset_index()
-        ax.bar(grouped[group_col].astype(str), grouped[y_cols[0]], color=COLOR_DYNAMIC, alpha=0.85)
-        ax.set_xlabel(group_col)
-        ax.set_ylabel(y_cols[0])
-        ax.set_title(Path(spec.primary_csv or "data").stem)
-        ax.tick_params(axis="x", rotation=20)
-        ax.grid(axis="y", color=COLOR_GRID, linewidth=0.6, alpha=0.7)
-        return
-    ax.bar(np.arange(min(len(df), 12)), df[y_cols[0]].head(12), color=COLOR_DYNAMIC, alpha=0.85)
-    ax.set_ylabel(y_cols[0])
-    ax.set_title(Path(spec.primary_csv or "data").stem)
-    ax.grid(axis="y", color=COLOR_GRID, linewidth=0.6, alpha=0.7)
-
-
-def save_figure_outputs(fig: plt.Figure, output_dir: Path, stem: str) -> dict[str, str]:
+def save_named_figures(figures: Mapping[str, Figure], output_dir: Path) -> dict[str, dict[str, str]]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    out: dict[str, str] = {}
-    for ext in ("png", "pdf", "svg"):
-        path = output_dir / f"{stem}.{ext}"
-        fig.savefig(path, bbox_inches="tight", dpi=300)
-        out[ext] = str(path)
+    saved: dict[str, dict[str, str]] = {}
+    for stem, fig in figures.items():
+        try:
+            saved[stem] = save_figure_all_formats(fig, output_dir / stem)
+        finally:
+            plt.close(fig)
+    return saved
+
+
+def _timestamp_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _to_json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_json_safe(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def _read_git_commit() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip() or None
+
+
+def _relativize_files(root: Path) -> list[str]:
+    files: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            files.append(path.relative_to(root).as_posix())
+    return files
+
+
+def _paths_are_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _relativize_saved_paths(saved_figures: Mapping[str, Mapping[str, str]], root: Path) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    for stem, formats in saved_figures.items():
+        out[stem] = {}
+        for ext, value in formats.items():
+            path = Path(value)
+            out[stem][ext] = path.resolve().relative_to(root.resolve()).as_posix() if _paths_are_within(path, root) else str(path)
     return out
 
 
-def build_experiment_figure(spec: ExperimentSpec, input_dir: Path) -> plt.Figure:
-    apply_plot_style()
-    summary = load_json(input_dir / "summary.json")
-    fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.8))
-    fig.suptitle(spec.title)
-    _plot_summary_axis(axes[0], summary, title="Summary Metrics")
-    if spec.primary_csv is None:
-        axes[1].text(0.5, 0.5, "No primary CSV configured", ha="center", va="center")
-        axes[1].set_axis_off()
+def _ensure_plot_bundle_metadata(
+    input_dir: Path,
+    *,
+    experiment_id: str,
+    output_dir: Path,
+    saved_figures: Mapping[str, Mapping[str, str]],
+) -> None:
+    for name in ("data", "figures", "logs", "metrics", "meta"):
+        (input_dir / name).mkdir(parents=True, exist_ok=True)
+
+    run_log = input_dir / "logs" / "plot_replay.log"
+    run_log.write_text(
+        "\n".join(
+            [
+                f"timestamp={_timestamp_now()}",
+                f"experiment_id={experiment_id}",
+                f"input_dir={input_dir}",
+                f"output_dir={output_dir}",
+                f"command={subprocess.list2cmdline(sys.argv)}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    run_info_path = input_dir / "meta" / "run_info.json"
+    if not run_info_path.exists():
+        run_info = {
+            "command": subprocess.list2cmdline(sys.argv),
+            "config_file": None,
+            "dataset": "",
+            "entry_script": f"python -m src.plotting.experiments.{experiment_id}_plot",
+            "experiment_name": experiment_id,
+            "finished_at": _timestamp_now(),
+            "git_commit": _read_git_commit(),
+            "model_path": None,
+            "output_dir": str(input_dir.resolve()),
+            "seed": None,
+            "started_at": _timestamp_now(),
+            "status": "plot-only-replay",
+        }
+        run_info_path.write_text(json.dumps(_to_json_safe(run_info), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+
+    manifest_path = input_dir / "artifact_manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(manifest, dict):
+                manifest = {}
+        except Exception:
+            manifest = {}
     else:
-        df = read_csv_validated(resolve_bundle_file(input_dir, spec.primary_csv))
-        _plot_csv_axis(axes[1], df, spec)
+        manifest = {}
+    files = set(_relativize_files(input_dir))
+    files.add("artifact_manifest.json")
+    manifest.update(
+        {
+            "experiment_id": experiment_id,
+            "files": sorted(files),
+            "plot_output_dir": output_dir.relative_to(input_dir).as_posix() if _paths_are_within(output_dir, input_dir) else str(output_dir),
+            "plot_outputs": _relativize_saved_paths(saved_figures, input_dir),
+            "plot_replayed_at": _timestamp_now(),
+        }
+    )
+    manifest_path.write_text(json.dumps(_to_json_safe(manifest), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def apply_plot_style() -> None:
+    apply_publication_style()
+
+
+def empty_figure(message: str, *, title: str | None = None, figsize: tuple[float, float] = (6.0, 4.0)) -> Figure:
+    fig, ax = plt.subplots(figsize=figsize)
+    if title:
+        ax.set_title(title)
+    ax.text(0.5, 0.5, message, ha="center", va="center", transform=ax.transAxes)
+    ax.set_axis_off()
     return fig
 
 
-def build_plot_parser(spec: ExperimentSpec) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=f"Plot-only entrypoint for {spec.title}.")
+def mean_sem(df: pd.DataFrame, group_cols: Sequence[str], value_col: str) -> pd.DataFrame:
+    validate_required_columns(df, [*group_cols, value_col])
+    grouped = df.groupby(list(group_cols), sort=True)[value_col]
+    out = grouped.agg(["mean", "count", "std"]).reset_index()
+    out["sem"] = out["std"].fillna(0.0) / np.sqrt(out["count"].clip(lower=1))
+    return out
+
+
+def default_input_dir(experiment_id: str) -> Path:
+    return Path("results") / experiment_id
+
+
+def build_plot_parser(experiment_id: str, title: str | None = None) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=f"Plot-only entrypoint for {title or experiment_id}.")
     parser.add_argument("--config", type=str, default=None)
     parser.add_argument("--input-dir", type=str, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
@@ -226,47 +258,51 @@ def _resolve_from_config(config: dict[str, Any] | None, *path: str, default: Any
     return default
 
 
-def _apply_plot_config_defaults(args: argparse.Namespace) -> argparse.Namespace:
+def _apply_plot_config_defaults(args: argparse.Namespace, experiment_id: str) -> argparse.Namespace:
     config_payload = load_yaml_file(args.config) if args.config else {}
-    args.input_dir = args.input_dir or _resolve_from_config(
+    config_input_dir = _resolve_from_config(
         config_payload,
         "input_dir",
         default=_resolve_from_config(config_payload, "experiment", "output_dir"),
     )
+    args.input_dir = args.input_dir or config_input_dir or str(default_input_dir(experiment_id))
     args.output_dir = args.output_dir or _resolve_from_config(
         config_payload,
         "plotting",
         "output_dir",
         default=_resolve_from_config(config_payload, "output_dir"),
     )
-    if not args.input_dir:
-        raise SystemExit("--input-dir is required (or provide it via --config).")
     return args
 
 
-def main_for(experiment_id: str) -> int:
-    spec = get_experiment_spec(experiment_id)
-    parser = build_plot_parser(spec)
-    args = parser.parse_args()
-    args = _apply_plot_config_defaults(args)
+def main_for(experiment_id: str, plotter: Plotter, *, title: str | None = None) -> int:
+    parser = build_plot_parser(experiment_id, title=title)
+    args = _apply_plot_config_defaults(parser.parse_args(), experiment_id)
     input_dir = Path(args.input_dir).resolve()
     require_path(input_dir / "summary.json")
     output_dir = Path(args.output_dir).resolve() if args.output_dir else input_dir / "figures"
-    fig = build_experiment_figure(spec, input_dir)
-    try:
-        save_figure_outputs(fig, output_dir, "figure_main")
-    finally:
-        plt.close(fig)
+    apply_plot_style()
+    figures = plotter(input_dir)
+    if not figures:
+        raise RuntimeError(f"{experiment_id}: plotter returned no figures")
+    saved = save_named_figures(figures, output_dir)
+    _ensure_plot_bundle_metadata(input_dir, experiment_id=experiment_id, output_dir=output_dir, saved_figures=saved)
     return 0
 
 
 __all__ = [
     "apply_plot_style",
-    "build_experiment_figure",
+    "default_input_dir",
+    "empty_figure",
+    "load_bundle_json",
+    "load_bundle_npz",
     "load_json",
     "main_for",
+    "mean_sem",
+    "optional_bundle_file",
+    "read_bundle_csv",
     "read_csv_validated",
     "require_path",
     "resolve_bundle_file",
-    "save_figure_outputs",
+    "save_named_figures",
 ]

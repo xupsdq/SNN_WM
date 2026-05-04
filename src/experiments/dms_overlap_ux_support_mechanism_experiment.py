@@ -108,6 +108,7 @@ class MediumTrial:
     probe_label: int
     sample_id: int
     sample_label: int
+    sample_foreground_mask: np.ndarray
     overlap_mask: np.ndarray
     probe_only_mask: np.ndarray
     probe_foreground_mask: np.ndarray
@@ -123,6 +124,23 @@ def _sem(values: np.ndarray) -> float:
     if arr.size <= 1:
         return 0.0
     return float(np.std(arr, ddof=1) / math.sqrt(arr.size))
+
+
+def _to_json_ready(value):
+    if isinstance(value, dict):
+        return {str(key): _to_json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_json_ready(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        scalar = float(value)
+        return scalar if np.isfinite(scalar) else None
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return value
 
 
 def _bootstrap_ci(values: np.ndarray, *, seed: int, n_boot: int = 1000) -> tuple[float, float, float]:
@@ -251,6 +269,7 @@ def construct_medium_trials(
             (-mid_probe_only.astype(np.float64), np.abs(mid_overlap.astype(np.float64) - float(np.median(overlap))))
         )
         sample_id = int(mid_ids[int(order[0])])
+        sample_fg = np.asarray(fg_masks[sample_id], dtype=bool)
         overlap_mask, probe_only_mask, probe_fg_mask = define_overlap_probe_only_masks(
             images[sample_id], images[int(probe_id)], threshold=foreground_threshold
         )
@@ -265,6 +284,7 @@ def construct_medium_trials(
                 probe_label=probe_label,
                 sample_id=sample_id,
                 sample_label=int(labels[sample_id]),
+                sample_foreground_mask=sample_fg,
                 overlap_mask=np.asarray(overlap_mask, dtype=bool),
                 probe_only_mask=np.asarray(probe_only_mask, dtype=bool),
                 probe_foreground_mask=np.asarray(probe_fg_mask, dtype=bool),
@@ -289,6 +309,7 @@ def trial_metadata_table(trials: Sequence[MediumTrial]) -> pd.DataFrame:
             "probe_label": [t.probe_label for t in trials],
             "sample_id": [t.sample_id for t in trials],
             "sample_label": [t.sample_label for t in trials],
+            "sample_foreground_area": [int(t.sample_foreground_mask.sum()) for t in trials],
             "overlap_area": [t.overlap_area for t in trials],
             "probe_only_area": [t.probe_only_area for t in trials],
             "probe_foreground_area": [int(t.probe_foreground_mask.sum()) for t in trials],
@@ -305,6 +326,8 @@ def trial_mask_payload(trials: Sequence[MediumTrial]) -> dict[str, object]:
                 "trial_id": int(t.trial_id),
                 "probe_id": int(t.probe_id),
                 "sample_id": int(t.sample_id),
+                "sample_coords": _mask_to_coord_list(t.sample_foreground_mask),
+                "probe_coords": _mask_to_coord_list(t.probe_foreground_mask),
                 "overlap_coords": _mask_to_coord_list(t.overlap_mask),
                 "probe_only_coords": _mask_to_coord_list(t.probe_only_mask),
             }
@@ -391,6 +414,8 @@ def _build_panel_a_case_payload(
         "trial_id": np.asarray([int(trial.trial_id)], dtype=np.int64),
         "sample_id": np.asarray([int(trial.sample_id)], dtype=np.int64),
         "probe_id": np.asarray([int(trial.probe_id)], dtype=np.int64),
+        "sample_mask": np.asarray(trial.sample_foreground_mask, dtype=np.uint8),
+        "probe_mask": np.asarray(trial.probe_foreground_mask, dtype=np.uint8),
         "overlap_mask": np.asarray(trial.overlap_mask, dtype=np.uint8),
         "probe_only_mask": np.asarray(trial.probe_only_mask, dtype=np.uint8),
         "ux_map_pre_dynamic": _pixel_gain(dynamic_boundary_state, batch_idx).astype(np.float32, copy=False),
@@ -1262,6 +1287,22 @@ def save_all_panels(layout, panels: Mapping[str, plt.Figure]) -> dict[str, dict[
     return out
 
 
+def write_artifact_manifest(output_dir, *, summary_json: str, tables: Mapping[str, object], panel_paths: Mapping[str, object]) -> str:
+    root = output_dir.root
+    files = {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
+    files.add("artifact_manifest.json")
+    manifest = {
+        "experiment": EXPERIMENT_NAME,
+        "summary_json": str(summary_json),
+        "tables": dict(tables),
+        "panel_paths": dict(panel_paths),
+        "files": sorted(files),
+    }
+    path = root / "artifact_manifest.json"
+    path.write_text(json.dumps(_to_json_ready(manifest), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    return str(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="DMS Layer1 medium-overlap support mechanism experiment.")
     parser.add_argument("--model-path", type=str, default=DEFAULT_MODEL_PATH)
@@ -1574,6 +1615,21 @@ def main() -> None:
     panels["panel_s_causal_chain_prevalence"] = _causal_chain_prevalence_panel(df_chain)
     panel_paths = {} if bool(args.skip_figures) else save_all_panels(layout, panels)
 
+    table_paths = {
+        "pair_metadata_csv": pair_metadata_csv,
+        "pair_mask_metadata_json": str(pair_mask_json),
+        "preprobe_stsp_summary_csv": preprobe_csv,
+        "l1_drive_group_summary_csv": drive_csv,
+        "l1_firing_transition_summary_csv": firing_csv,
+        "l1_input_source_gain_summary_csv": input_csv,
+        "l1_loss_inhibition_summary_csv": loss_csv,
+        "l1_local_winner_loser_pairs_csv": local_pairs_csv,
+        "l1_local_causal_chain_events_csv": causal_chain_csv,
+        "l1_local_winner_support_summary_csv": local_support_csv,
+        "l1_local_event_time_alignment_npz": str(aligned_event_npz),
+        "l1_local_winner_loser_exemplar_trace_npz": str(exemplar_trace_npz) if exemplar_trace_npz is not None else None,
+        "l1_panel_a_preprobe_gain_map_npz": str(panel_a_case_npz) if panel_a_case_npz is not None else None,
+    }
     summary_json = save_summary_json(
         {
             "experiment": EXPERIMENT_NAME,
@@ -1593,25 +1649,12 @@ def main() -> None:
                 "local_winner_definition": "Loser-centered local neighborhood within the 5x5 Layer1 inhibition support.",
                 "causal_chain_definition": "winner pre-spike boost -> winner spikes earlier -> loser direct inhibition rises after winner spike",
             },
-            "tables": {
-                "pair_metadata_csv": pair_metadata_csv,
-                "pair_mask_metadata_json": str(pair_mask_json),
-                "preprobe_stsp_summary_csv": preprobe_csv,
-                "l1_drive_group_summary_csv": drive_csv,
-                "l1_firing_transition_summary_csv": firing_csv,
-                "l1_input_source_gain_summary_csv": input_csv,
-                "l1_loss_inhibition_summary_csv": loss_csv,
-                "l1_local_winner_loser_pairs_csv": local_pairs_csv,
-                "l1_local_causal_chain_events_csv": causal_chain_csv,
-                "l1_local_winner_support_summary_csv": local_support_csv,
-                "l1_local_event_time_alignment_npz": str(aligned_event_npz),
-                "l1_local_winner_loser_exemplar_trace_npz": str(exemplar_trace_npz) if exemplar_trace_npz is not None else None,
-                "l1_panel_a_preprobe_gain_map_npz": str(panel_a_case_npz) if panel_a_case_npz is not None else None,
-            },
+            "tables": table_paths,
             "panel_paths": panel_paths,
         },
         layout.root,
     )
+    artifact_manifest = write_artifact_manifest(layout, summary_json=summary_json, tables=table_paths, panel_paths=panel_paths)
     save_log_lines(
         [
             f"experiment={EXPERIMENT_NAME}",
@@ -1626,6 +1669,7 @@ def main() -> None:
             f"l1_local_causal_chain_events_csv={causal_chain_csv}",
             f"l1_local_winner_support_summary_csv={local_support_csv}",
             f"l1_local_event_time_alignment_npz={aligned_event_npz}",
+            f"artifact_manifest_json={artifact_manifest}",
             "smoke_note=smoke experiment should be run in torch_env",
             f"summary_json={summary_json}",
         ],

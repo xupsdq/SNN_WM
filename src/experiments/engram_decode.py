@@ -35,8 +35,8 @@ from src.platform.legacy_adapters.encoding import build_mnist_skeleton_loader
 
 DEFAULT_DELAY_POINTS_MS = [100, 200, 400, 800, 1200]
 DEFAULT_SAMPLE_DURATION_MS = 200.0
-DEFAULT_TRAIN_PER_CLASS = 100
-DEFAULT_TEST_PER_CLASS = 100
+DEFAULT_TRAIN_PER_CLASS = 50
+DEFAULT_TEST_PER_CLASS = 50
 DEFAULT_RESULTS_DIR = os.path.join("results", "engram_decode_experiment")
 DEFAULT_EXPERIMENT_NAME = "engram_decode_experiment"
 CHANCE_LEVEL = 0.1
@@ -98,10 +98,10 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--dataset-root", type=str, default="./MNIST")
     parser.add_argument("--save-dir", type=str, default=DEFAULT_RESULTS_DIR)
     parser.add_argument("--sample-duration-ms", type=float, default=DEFAULT_SAMPLE_DURATION_MS)
-    parser.add_argument("--delay-points-ms", type=str, default="100,200,400,800,1200")
+    parser.add_argument("--delay-points-ms", type=str, default="100,400,1200")
     parser.add_argument("--train-per-class", type=int, default=DEFAULT_TRAIN_PER_CLASS)
     parser.add_argument("--test-per-class", type=int, default=DEFAULT_TEST_PER_CLASS)
-    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--input-size", type=int, default=28)
     parser.add_argument("--dt-ms", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
