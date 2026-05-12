@@ -39,39 +39,48 @@ def _require_columns(df, columns: tuple[str, ...], source: str) -> None:
         raise ValueError(f"{source} missing required columns: {', '.join(missing)}")
 
 
-def _seq_len_subset(df, *, source: str, layer: str | None = None):
+def _available_target_seq_len(df, *, source: str) -> int:
     _require_columns(df, ("seq_len",), source)
-    sub = df[df["seq_len"].astype(int) == TARGET_SEQ_LEN].copy()
+    seq_lens = sorted(df["seq_len"].dropna().astype(int).unique().tolist())
+    if not seq_lens:
+        raise ValueError(f"{source} has no sequence-length rows.")
+    return int(TARGET_SEQ_LEN) if int(TARGET_SEQ_LEN) in seq_lens else int(seq_lens[-1])
+
+
+def _seq_len_subset(df, *, source: str, layer: str | None = None):
+    target_seq_len = _available_target_seq_len(df, source=source)
+    sub = df[df["seq_len"].astype(int) == target_seq_len].copy()
     if layer is not None:
         _require_columns(sub, ("layer",), source)
         sub = sub[sub["layer"].astype(str) == layer].copy()
     if sub.empty:
         layer_msg = f" and layer={layer}" if layer is not None else ""
-        raise ValueError(f"{source} has no rows for seq_len={TARGET_SEQ_LEN}{layer_msg}.")
+        raise ValueError(f"{source} has no rows for seq_len={target_seq_len}{layer_msg}.")
     return sub
 
 
 def _plot_item_similarity_heatmap(item) -> plt.Figure:
     _require_columns(item, ("stage_k", "item_index", "layer", "similarity_weight_nonnegative"), "item_similarity_metrics.csv")
     sub = _seq_len_subset(item, source="item_similarity_metrics.csv", layer=TARGET_LAYER)
+    target_seq_len = int(sub["seq_len"].iloc[0])
     matrix = (
         sub.groupby(["stage_k", "item_index"], sort=True)["similarity_weight_nonnegative"]
         .mean()
         .unstack("item_index")
-        .reindex(index=range(1, TARGET_SEQ_LEN + 1), columns=range(1, TARGET_SEQ_LEN + 1))
+        .reindex(index=range(1, target_seq_len + 1), columns=range(1, target_seq_len + 1))
         .to_numpy(dtype=np.float64)
     )
     vmax = float(np.nanmax(matrix)) if np.isfinite(matrix).any() else 1.0
 
     fig, ax = plt.subplots(figsize=(4.8, 4.2))
     im = ax.imshow(matrix, cmap=get_plot_cmap("item_contribution"), vmin=0.0, vmax=max(vmax, 1e-6), aspect="auto")
-    ax.set_title(f"{TARGET_LAYER} seq_len={TARGET_SEQ_LEN}")
+    ax.set_title(f"{TARGET_LAYER} seq_len={target_seq_len}")
     ax.set_xlabel("item position")
     ax.set_ylabel("stage k")
-    ax.set_xticks(np.arange(TARGET_SEQ_LEN))
-    ax.set_xticklabels(np.arange(1, TARGET_SEQ_LEN + 1))
-    ax.set_yticks(np.arange(TARGET_SEQ_LEN))
-    ax.set_yticklabels(np.arange(1, TARGET_SEQ_LEN + 1))
+    ax.set_xticks(np.arange(target_seq_len))
+    ax.set_xticklabels(np.arange(1, target_seq_len + 1))
+    ax.set_yticks(np.arange(target_seq_len))
+    ax.set_yticklabels(np.arange(1, target_seq_len + 1))
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.ax.tick_params(length=0)
     fig.tight_layout()
@@ -81,6 +90,7 @@ def _plot_item_similarity_heatmap(item) -> plt.Figure:
 def _plot_anchor_position_vs_stage(summary) -> plt.Figure:
     _require_columns(summary, ("stage_k", "layer", "com_sim"), "similarity_summary_metrics.csv")
     sub = _seq_len_subset(summary, source="similarity_summary_metrics.csv", layer=TARGET_LAYER)
+    target_seq_len = int(sub["seq_len"].iloc[0])
     grouped = sub.groupby("stage_k", as_index=False)["com_sim"].mean().sort_values("stage_k")
 
     fig, ax = plt.subplots(figsize=(5.6, 4.0))
@@ -90,7 +100,7 @@ def _plot_anchor_position_vs_stage(summary) -> plt.Figure:
         marker="o",
         linewidth=2.0,
         color=get_plot_color("anchor"),
-        label=f"seq_len={TARGET_SEQ_LEN}",
+        label=f"seq_len={target_seq_len}",
     )
     ax.set_xlabel("stage k")
     ax.set_ylabel("anchor position")

@@ -15,14 +15,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-try:
-    from scipy.cluster.hierarchy import fcluster, linkage
-    from scipy.spatial.distance import squareform
-
-    SCIPY_CLUSTER_AVAILABLE = True
-except Exception:
-    SCIPY_CLUSTER_AVAILABLE = False
-
 from src.config.paths import DEFAULT_PATH_CONFIG
 from src.config.units import ms
 from src.experiments.common.dataset import build_class_index, build_dataset_arrays, encode_images
@@ -38,9 +30,14 @@ from src.experiments.common.results import prepare_result_layout, save_log_lines
 from src.experiments.common.runtime import seed_everything
 from src.experiments.common.seed import mix_seed
 from src.plotting.common.io import apply_publication_style, save_figure_all_formats, save_tidy_csv
+from src.plotting.experiments.chunk_stsp_multiitem_sequence_plot import (
+    _plot_anchor_position_vs_stage,
+    _plot_item_similarity_heatmap,
+    _plot_ping_retrieval_profile,
+    _plot_stepwise_update_ratio,
+)
 
 LAYER_KEYS: tuple[str, ...] = ("layer1", "layer2", "layer3")
-STATE_KEYS: tuple[str, ...] = ("u_pre", "x_pre", "g_pre")
 
 
 @dataclass(frozen=True)
@@ -192,7 +189,6 @@ def normalize_config(args: argparse.Namespace) -> ExperimentConfig:
         cfg = ExperimentConfig(
             **{
                 **asdict(cfg),
-                "output_dir": str(Path(cfg.output_dir) / "smoke"),
                 "batch_size": min(int(cfg.batch_size), 2),
                 "max_sequences": min(int(cfg.max_sequences), 4),
                 "sequence_lengths": (3,),
@@ -635,100 +631,21 @@ def run_neutral_ping_from_snapshot(
     )
 
 
-def cluster_with_threshold(sim_matrix: np.ndarray, threshold: float) -> np.ndarray:
-    num_items = int(sim_matrix.shape[0])
-    if num_items <= 1:
-        return np.ones(num_items, dtype=np.int64)
-    clipped_sim = np.clip(np.asarray(sim_matrix, dtype=np.float64), -1.0, 1.0)
-    if SCIPY_CLUSTER_AVAILABLE:
-        distance = 1.0 - clipped_sim
-        np.fill_diagonal(distance, 0.0)
-        condensed = squareform(distance, checks=False)
-        tree = linkage(condensed, method="average")
-        return np.asarray(fcluster(tree, t=float(1.0 - threshold), criterion="distance"), dtype=np.int64)
-    adjacency = clipped_sim >= float(threshold)
-    np.fill_diagonal(adjacency, True)
-    labels = np.zeros(num_items, dtype=np.int64)
-    next_label = 1
-    for index in range(num_items):
-        if labels[index] != 0:
-            continue
-        stack = [int(index)]
-        labels[index] = int(next_label)
-        while stack:
-            node = stack.pop()
-            for neighbor in np.where(adjacency[node])[0].tolist():
-                if labels[int(neighbor)] != 0:
-                    continue
-                labels[int(neighbor)] = int(next_label)
-                stack.append(int(neighbor))
-        next_label += 1
-    return labels
-
-
-def summarize_similarity_matrix(values: np.ndarray, seq_len: int) -> np.ndarray:
-    out = np.full((int(seq_len), int(seq_len)), np.nan, dtype=np.float64)
-    arr = np.asarray(values, dtype=np.float64)
-    for stage in range(1, int(seq_len) + 1):
-        stage_mask = arr[:, 1] == float(stage)
-        if not np.any(stage_mask):
-            continue
-        for item_index in range(1, stage + 1):
-            item_mask = stage_mask & (arr[:, 2] == float(item_index))
-            if np.any(item_mask):
-                out[stage - 1, item_index - 1] = float(np.mean(arr[item_mask, 0]))
-    return out
-
-
-def build_example_state_dump(
-    batch: SequenceBatch,
-    actual_snapshots: Sequence[SnapshotBatch],
-    reference_bank: Mapping[int, Mapping[int, SnapshotBatch]],
-) -> dict[str, np.ndarray]:
-    first_trial = batch.trials[0]
-    payload: dict[str, np.ndarray] = {
-        "trial_id": np.asarray([int(first_trial.trial_id)], dtype=np.int64),
-        "seq_len": np.asarray([int(first_trial.seq_len)], dtype=np.int64),
-        "ordered_item_ids": np.asarray(first_trial.ordered_item_ids, dtype=np.int64),
-        "ordered_item_labels": np.asarray(first_trial.ordered_item_labels, dtype=np.int64),
-    }
-    for snapshot in actual_snapshots:
-        for layer_key in LAYER_KEYS:
-            for state_key in STATE_KEYS:
-                payload[f"actual_stage_{int(snapshot.stage_k)}_{layer_key}_{state_key}"] = np.asarray(
-                    snapshot.state_by_layer[layer_key][state_key][0],
-                    dtype=np.float32,
-                )
-    final_stage = int(actual_snapshots[-1].stage_k)
-    for item_index, snapshot in reference_bank[final_stage].items():
-        for layer_key in LAYER_KEYS:
-            payload[f"reference_stage_{final_stage}_item_{int(item_index)}_{layer_key}_g_pre"] = np.asarray(
-                snapshot.state_by_layer[layer_key]["g_pre"][0],
-                dtype=np.float32,
-            )
-    return payload
-
-
 def compute_batch_metrics(
     batch: SequenceBatch,
     actual_snapshots: Sequence[SnapshotBatch],
     reference_bank: Mapping[int, Mapping[int, SnapshotBatch]],
     ping_by_stage: Mapping[int, PingBatchReadout],
-    flat_normalized: np.ndarray,
     cfg: ExperimentConfig,
-) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
+) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
     item_rows: list[dict[str, object]] = []
     summary_rows: list[dict[str, object]] = []
-    cluster_rows: list[dict[str, object]] = []
     update_rows: list[dict[str, object]] = []
     for snapshot in actual_snapshots:
         stage_k = int(snapshot.stage_k)
         ping = ping_by_stage[stage_k]
         for batch_row, trial in enumerate(batch.trials):
             stage_labels = np.asarray(trial.ordered_item_labels[:stage_k], dtype=np.int64)
-            stage_ids = np.asarray(trial.ordered_item_ids[:stage_k], dtype=np.int64)
-            image_sim = flat_normalized[stage_ids] @ flat_normalized[stage_ids].T
-            cluster_assignments = cluster_with_threshold(image_sim, threshold=float(cfg.cluster_sim_threshold))
             ping_weights = ping.ping_weight_matrix[batch_row, :stage_k].astype(np.float64, copy=False)
             ping_summary = compute_ping_profile_summary(ping_weights)
             for layer_key in LAYER_KEYS:
@@ -781,24 +698,6 @@ def compute_batch_metrics(
                         "unseen_label_rate": int(ping.unseen_label_rate[batch_row]),
                     }
                 )
-                for cluster_id in sorted(np.unique(cluster_assignments).tolist()):
-                    member_mask = cluster_assignments == int(cluster_id)
-                    member_positions = np.where(member_mask)[0] + 1
-                    member_labels = stage_labels[member_mask]
-                    cluster_rows.append(
-                        {
-                            "trial_id": int(trial.trial_id),
-                            "seq_len": int(trial.seq_len),
-                            "stage_k": int(stage_k),
-                            "layer": str(layer_key),
-                            "cluster_id": int(cluster_id),
-                            "cluster_size": int(member_mask.sum()),
-                            "cluster_member_indices": "|".join(str(int(item)) for item in member_positions.tolist()),
-                            "cluster_member_labels": "|".join(str(int(item)) for item in member_labels.tolist()),
-                            "cluster_similarity_mass": float(np.sum(sim_weights[member_mask])),
-                            "cluster_ping_mass": float(np.sum(ping_weights[member_mask])),
-                        }
-                    )
                 if stage_k >= 2:
                     previous_snapshot = actual_snapshots[stage_k - 2]
                     newonly_snapshot = reference_bank[stage_k][stage_k]
@@ -819,7 +718,7 @@ def compute_batch_metrics(
                             "update_distance_metric": str(cfg.update_distance_metric),
                         }
                     )
-    return item_rows, summary_rows, cluster_rows, update_rows
+    return item_rows, summary_rows, update_rows
 
 
 def build_ping_rows(
@@ -856,103 +755,27 @@ def generate_figures(
     item_similarity_df: pd.DataFrame,
     similarity_summary_df: pd.DataFrame,
     ping_df: pd.DataFrame,
-    cluster_df: pd.DataFrame,
     update_df: pd.DataFrame,
     *,
     figures_dir: Path,
 ) -> dict[str, dict[str, str]]:
     apply_publication_style()
     figure_paths: dict[str, dict[str, str]] = {}
-    layer3_sim = item_similarity_df[item_similarity_df["layer"] == "layer3"].copy()
-    seq_lengths = sorted(layer3_sim["seq_len"].unique().tolist())
-    fig1, axes = plt.subplots(1, len(seq_lengths), figsize=(4.2 * max(1, len(seq_lengths)), 4.0), squeeze=False)
-    for ax, seq_len in zip(axes[0], seq_lengths):
-        sub = layer3_sim[layer3_sim["seq_len"] == int(seq_len)].copy()
-        matrix = summarize_similarity_matrix(
-            sub[["similarity_weight_nonnegative", "stage_k", "item_index"]].to_numpy(dtype=np.float64),
-            seq_len=int(seq_len),
-        )
-        vmax = float(np.nanmax(matrix)) if np.isfinite(matrix).any() else 1.0
-        im = ax.imshow(matrix, cmap="magma", vmin=0.0, vmax=max(vmax, 1e-6))
-        ax.set_title(f"layer3 seq_len={int(seq_len)}")
-        ax.set_xlabel("item position")
-        ax.set_ylabel("stage k")
-        ax.set_xticks(np.arange(int(seq_len)))
-        ax.set_xticklabels(np.arange(1, int(seq_len) + 1))
-        ax.set_yticks(np.arange(int(seq_len)))
-        ax.set_yticklabels(np.arange(1, int(seq_len) + 1))
-        fig1.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    figure_paths["item_similarity_heatmap"] = save_figure_all_formats(fig1, figures_dir / "item_similarity_heatmap")
-    plt.close(fig1)
-
-    fig2, ax2 = plt.subplots(figsize=(6.2, 4.4))
-    anchor_df = similarity_summary_df[similarity_summary_df["layer"] == "layer3"].copy()
-    grouped_anchor = anchor_df.groupby(["seq_len", "stage_k"], as_index=False)["com_sim"].mean().sort_values(["seq_len", "stage_k"])
-    for seq_len, sub in grouped_anchor.groupby("seq_len", sort=True):
-        ax2.plot(sub["stage_k"], sub["com_sim"], marker="o", linewidth=2.0, label=f"seq_len={int(seq_len)}")
-    ax2.set_xlabel("stage k")
-    ax2.set_ylabel("COM_sim")
-    ax2.set_title("Anchor Drift vs Stage")
-    ax2.legend(frameon=False)
-    figure_paths["anchor_position_vs_stage"] = save_figure_all_formats(fig2, figures_dir / "anchor_position_vs_stage")
-    plt.close(fig2)
-
-    fig3, ax3 = plt.subplots(figsize=(6.2, 4.4))
-    final_conc = similarity_summary_df[similarity_summary_df["stage_k"] == similarity_summary_df["seq_len"]].copy()
-    grouped_conc = final_conc.groupby(["layer", "seq_len"], as_index=False)["sim_effective_count"].mean().sort_values(["layer", "seq_len"])
-    for layer_key, sub in grouped_conc.groupby("layer", sort=True):
-        ax3.plot(sub["seq_len"], sub["sim_effective_count"], marker="o", linewidth=2.0, label=str(layer_key))
-    ax3.set_xlabel("sequence length")
-    ax3.set_ylabel("effective item number")
-    ax3.set_title("Similarity Concentration")
-    ax3.legend(frameon=False)
-    figure_paths["similarity_concentration"] = save_figure_all_formats(fig3, figures_dir / "similarity_concentration")
-    plt.close(fig3)
-
-    fig4, ax4 = plt.subplots(figsize=(6.2, 4.4))
-    final_ping = ping_df[ping_df["stage_k"] == ping_df["seq_len"]].copy()
-    grouped_ping = final_ping.groupby(["seq_len", "item_index"], as_index=False)["ping_weight"].mean().sort_values(["seq_len", "item_index"])
-    for seq_len, sub in grouped_ping.groupby("seq_len", sort=True):
-        ax4.plot(sub["item_index"], sub["ping_weight"], marker="o", linewidth=2.0, label=f"seq_len={int(seq_len)}")
-    ax4.set_xlabel("item position")
-    ax4.set_ylabel("retrieval probability")
-    ax4.set_title("Ping Retrieval Profile")
-    ax4.legend(frameon=False)
-    figure_paths["ping_retrieval_profile"] = save_figure_all_formats(fig4, figures_dir / "ping_retrieval_profile")
-    plt.close(fig4)
-
-    if not cluster_df.empty:
-        fig5, ax5 = plt.subplots(figsize=(6.2, 4.4))
-        final_cluster = cluster_df[cluster_df["stage_k"] == cluster_df["seq_len"]].copy()
-        final_cluster["is_largest"] = final_cluster.groupby(["trial_id", "layer"])["cluster_similarity_mass"].transform("max") == final_cluster["cluster_similarity_mass"]
-        cluster_plot_df = final_cluster[final_cluster["is_largest"]].groupby(["layer", "seq_len"], as_index=False)["cluster_similarity_mass"].mean()
-        for layer_key, sub in cluster_plot_df.groupby("layer", sort=True):
-            ax5.plot(sub["seq_len"], sub["cluster_similarity_mass"], marker="o", linewidth=2.0, label=str(layer_key))
-        ax5.set_xlabel("sequence length")
-        ax5.set_ylabel("largest cluster similarity mass")
-        ax5.set_title("Cluster Participation")
-        ax5.legend(frameon=False)
-        figure_paths["cluster_participation"] = save_figure_all_formats(fig5, figures_dir / "cluster_participation")
-        plt.close(fig5)
-
-    if not update_df.empty:
-        fig6, ax6 = plt.subplots(figsize=(6.2, 4.4))
-        update_plot_df = update_df.groupby(["layer", "stage_k"], as_index=False)["stepwise_update_ratio"].mean().sort_values(["layer", "stage_k"])
-        for layer_key, sub in update_plot_df.groupby("layer", sort=True):
-            ax6.plot(sub["stage_k"], sub["stepwise_update_ratio"], marker="o", linewidth=2.0, label=str(layer_key))
-        ax6.set_xlabel("stage k")
-        ax6.set_ylabel("SUR")
-        ax6.set_title("Stepwise Update Ratio")
-        ax6.legend(frameon=False)
-        figure_paths["stepwise_update_ratio"] = save_figure_all_formats(fig6, figures_dir / "stepwise_update_ratio")
-        plt.close(fig6)
+    figures = {
+        "anchor_position_vs_stage": _plot_anchor_position_vs_stage(similarity_summary_df),
+        "item_similarity_heatmap": _plot_item_similarity_heatmap(item_similarity_df),
+        "ping_retrieval_profile": _plot_ping_retrieval_profile(ping_df),
+        "stepwise_update_ratio": _plot_stepwise_update_ratio(update_df),
+    }
+    for stem, fig in figures.items():
+        figure_paths[stem] = save_figure_all_formats(fig, figures_dir / stem)
+        plt.close(fig)
     return figure_paths
 
 
 def build_summary(
     similarity_summary_df: pd.DataFrame,
     ping_df: pd.DataFrame,
-    cluster_df: pd.DataFrame,
     update_df: pd.DataFrame,
     exported_files: Mapping[str, Any],
     cfg: ExperimentConfig,
@@ -975,7 +798,6 @@ def build_summary(
                 "top_position_distribution": {str(int(key)): float(value) for key, value in top_counts.items()},
             }
         ping_top_counts = seq_ping["predicted_item_index"].dropna().astype(int).value_counts(normalize=True, sort=False).sort_index().to_dict()
-        seq_cluster = cluster_df[(cluster_df["seq_len"] == int(seq_len)) & (cluster_df["stage_k"] == int(seq_len))].copy()
         seq_update = update_df[(update_df["seq_len"] == int(seq_len)) & (update_df["stage_k"] == int(seq_len))].copy()
         seq_len_summary[str(int(seq_len))] = {
             "final_stage": int(seq_len),
@@ -984,8 +806,6 @@ def build_summary(
             "unseen_label_rate": safe_float(seq_ping["unseen_label_rate"].mean()) if not seq_ping.empty else None,
             "ping_top_position_distribution": {str(int(key)): float(value) for key, value in ping_top_counts.items()},
             "ping_average_com": safe_float(seq_ping["predicted_item_index"].dropna().mean()) if not seq_ping.empty else None,
-            "cluster_similarity_mass_mean": safe_float(seq_cluster["cluster_similarity_mass"].mean()) if not seq_cluster.empty else None,
-            "cluster_ping_mass_mean": safe_float(seq_cluster["cluster_ping_mass"].mean()) if not seq_cluster.empty else None,
             "stepwise_update_ratio_mean": safe_float(seq_update["stepwise_update_ratio"].mean()) if not seq_update.empty else None,
         }
     return {
@@ -994,11 +814,9 @@ def build_summary(
             "compression",
             "asymmetry",
             "anchor_drift",
-            "cluster_participation",
             "ping_readable_latent_state",
         ],
         "config": json_safe(asdict(cfg)),
-        "scipy_cluster_available": bool(SCIPY_CLUSTER_AVAILABLE),
         "sequence_length_summary": seq_len_summary,
         "exported_files": json_safe(exported_files),
     }
@@ -1041,46 +859,33 @@ def main() -> None:
     item_similarity_rows: list[dict[str, object]] = []
     similarity_summary_rows: list[dict[str, object]] = []
     ping_rows: list[dict[str, object]] = []
-    cluster_rows: list[dict[str, object]] = []
     update_rows: list[dict[str, object]] = []
-    example_payload: dict[str, np.ndarray] | None = None
     for batch in build_batches(trials, spike_lookup, cfg):
         log_and_print(log_lines, f"[Batch] seq_len={batch.seq_len} batch_id={batch.batch_id} batch_size={len(batch.trials)}")
         actual_snapshots = run_sequence_stage_snapshots(net, batch, cfg)
         reference_bank = build_lag_matched_singleton_reference_bank(net, batch, cfg)
         ping_by_stage = {int(snapshot.stage_k): run_neutral_ping_from_snapshot(net, cfg, snapshot, batch=batch) for snapshot in actual_snapshots}
-        item_rows, summary_rows, cluster_batch_rows, update_batch_rows = compute_batch_metrics(
+        item_rows, summary_rows, update_batch_rows = compute_batch_metrics(
             batch,
             actual_snapshots,
             reference_bank,
             ping_by_stage,
-            flat_normalized,
             cfg,
         )
         item_similarity_rows.extend(item_rows)
         similarity_summary_rows.extend(summary_rows)
         ping_rows.extend(build_ping_rows(batch, ping_by_stage))
-        cluster_rows.extend(cluster_batch_rows)
         update_rows.extend(update_batch_rows)
-        if example_payload is None:
-            example_payload = build_example_state_dump(batch, actual_snapshots, reference_bank)
 
     item_similarity_df = pd.DataFrame(item_similarity_rows)
     similarity_summary_df = pd.DataFrame(similarity_summary_rows)
     ping_df = pd.DataFrame(ping_rows)
-    cluster_df = pd.DataFrame(cluster_rows)
     update_df = pd.DataFrame(update_rows)
 
-    sequences_csv = save_tidy_csv(df_sequences, layout.data_file("sequences.csv"), sort_by=["seq_len", "trial_id", "item_index"])
     item_similarity_csv = save_tidy_csv(item_similarity_df, layout.data_file("item_similarity_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer", "item_index"])
     similarity_summary_csv = save_tidy_csv(similarity_summary_df, layout.data_file("similarity_summary_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer"])
     ping_csv = save_tidy_csv(ping_df, layout.data_file("ping_retrieval_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "item_index"])
-    cluster_csv = save_tidy_csv(cluster_df, layout.data_file("cluster_participation_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer", "cluster_id"])
     update_csv = save_tidy_csv(update_df, layout.data_file("stepwise_update_metrics.csv"), sort_by=["seq_len", "trial_id", "stage_k", "layer"])
-    example_npz_path = layout.root_file("example_stsp_states.npz")
-    if example_payload is None:
-        raise RuntimeError("Failed to capture example STSP states.")
-    np.savez_compressed(example_npz_path, **example_payload)
 
     figure_paths: dict[str, Any] = {}
     if not cfg.skip_figures:
@@ -1088,7 +893,6 @@ def main() -> None:
             item_similarity_df,
             similarity_summary_df,
             ping_df,
-            cluster_df,
             update_df,
             figures_dir=layout.figure_dir,
         )
@@ -1097,17 +901,14 @@ def main() -> None:
         log_and_print(log_lines, "[Output] Figure generation skipped.")
 
     exported_files = {
-        "sequences_csv": sequences_csv,
         "item_similarity_metrics_csv": item_similarity_csv,
         "similarity_summary_metrics_csv": similarity_summary_csv,
         "ping_retrieval_metrics_csv": ping_csv,
-        "cluster_participation_metrics_csv": cluster_csv,
         "stepwise_update_metrics_csv": update_csv,
-        "example_stsp_states_npz": str(example_npz_path),
         "figures": figure_paths,
     }
     summary_path = save_summary_json(
-        build_summary(similarity_summary_df, ping_df, cluster_df, update_df, exported_files, cfg),
+        build_summary(similarity_summary_df, ping_df, update_df, exported_files, cfg),
         layout.root,
         filename="summary.json",
     )
@@ -1115,11 +916,9 @@ def main() -> None:
         {
             **json_safe(asdict(cfg)),
             "resolved_device": str(device),
-            "scipy_cluster_available": bool(SCIPY_CLUSTER_AVAILABLE),
         },
         layout.root,
     )
-    log_and_print(log_lines, f"[Output] sequences.csv -> {sequences_csv}")
     log_and_print(log_lines, f"[Output] summary.json -> {summary_path}")
     log_and_print(log_lines, f"[Output] run_config.json -> {run_config_path}")
     log_path = save_log_lines(log_lines, layout.log_dir, filename="run.log")

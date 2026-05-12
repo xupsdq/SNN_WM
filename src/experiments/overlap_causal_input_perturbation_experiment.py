@@ -601,9 +601,9 @@ def extract_and_summarize_s2p_trace_similarity(
 ) -> dict[str, object]:
     condition_vector = np.asarray(trace_arrays["condition_name"])
     selector = condition_vector == str(condition_name)
-    s_dyn_all = np.asarray(trace_arrays["S_dyn_L3"], dtype=np.float64)
-    s_sta_all = np.asarray(trace_arrays["S_sta_L3"], dtype=np.float64)
     dpi_all = np.asarray(trace_arrays["DPI_L3"], dtype=np.float64)
+    s_dyn_all = np.asarray(trace_arrays.get("S_dyn_L3", np.zeros_like(dpi_all)), dtype=np.float64)
+    s_sta_all = np.asarray(trace_arrays.get("S_sta_L3", np.zeros_like(dpi_all)), dtype=np.float64)
     s_dyn = s_dyn_all[selector]
     s_sta = s_sta_all[selector]
     dpi = dpi_all[selector]
@@ -912,21 +912,8 @@ def build_summary_payload(summary_metrics: Mapping[str, object]) -> dict[str, ob
 
 def _initialize_trace_records() -> dict[str, list[object]]:
     return {
-        "record_id": [],
-        "pair_id": [],
         "condition_name": [],
-        "S_dyn_L1": [],
-        "S_sta_L1": [],
-        "DPI_L1": [],
-        "S_dyn_L2": [],
-        "S_sta_L2": [],
-        "DPI_L2": [],
-        "S_dyn_L3": [],
-        "S_sta_L3": [],
         "DPI_L3": [],
-        "mean_S_dyn_L3": [],
-        "mean_S_sta_L3": [],
-        "mean_DPI_L3": [],
     }
 
 
@@ -952,21 +939,8 @@ def _empty_trace_matrix(probe_steps: int) -> np.ndarray:
 
 def finalize_trace_arrays(trace_records: Mapping[str, list[object]], probe_steps: int) -> dict[str, np.ndarray]:
     return {
-        "record_id": np.asarray(trace_records["record_id"], dtype=np.int64),
-        "pair_id": np.asarray(trace_records["pair_id"], dtype=np.int64),
         "condition_name": np.asarray(trace_records["condition_name"]),
-        "S_dyn_L1": np.stack(trace_records["S_dyn_L1"], axis=0) if trace_records["S_dyn_L1"] else _empty_trace_matrix(probe_steps),
-        "S_sta_L1": np.stack(trace_records["S_sta_L1"], axis=0) if trace_records["S_sta_L1"] else _empty_trace_matrix(probe_steps),
-        "DPI_L1": np.stack(trace_records["DPI_L1"], axis=0) if trace_records["DPI_L1"] else _empty_trace_matrix(probe_steps),
-        "S_dyn_L2": np.stack(trace_records["S_dyn_L2"], axis=0) if trace_records["S_dyn_L2"] else _empty_trace_matrix(probe_steps),
-        "S_sta_L2": np.stack(trace_records["S_sta_L2"], axis=0) if trace_records["S_sta_L2"] else _empty_trace_matrix(probe_steps),
-        "DPI_L2": np.stack(trace_records["DPI_L2"], axis=0) if trace_records["DPI_L2"] else _empty_trace_matrix(probe_steps),
-        "S_dyn_L3": np.stack(trace_records["S_dyn_L3"], axis=0) if trace_records["S_dyn_L3"] else _empty_trace_matrix(probe_steps),
-        "S_sta_L3": np.stack(trace_records["S_sta_L3"], axis=0) if trace_records["S_sta_L3"] else _empty_trace_matrix(probe_steps),
         "DPI_L3": np.stack(trace_records["DPI_L3"], axis=0) if trace_records["DPI_L3"] else _empty_trace_matrix(probe_steps),
-        "mean_S_dyn_L3": np.asarray(trace_records["mean_S_dyn_L3"], dtype=np.float32),
-        "mean_S_sta_L3": np.asarray(trace_records["mean_S_sta_L3"], dtype=np.float32),
-        "mean_DPI_L3": np.asarray(trace_records["mean_DPI_L3"], dtype=np.float32),
     }
 
 
@@ -998,41 +972,6 @@ def save_main_figures(figures_dir: Path, df_results: pd.DataFrame, trace_arrays:
         figures_dir / "dpi_l3_trace_overlap_vs_nonoverlap",
     )
     plt.close(fig_dpi_trace)
-
-    fig_dpi_summary = plot_dpi_l3_summary_overlap_vs_nonoverlap(df_results)
-    figure_paths["dpi_l3_summary_overlap_vs_nonoverlap"] = save_figure_all_formats(
-        fig_dpi_summary,
-        figures_dir / "dpi_l3_summary_overlap_vs_nonoverlap",
-    )
-    plt.close(fig_dpi_summary)
-
-    fig_overlap_trace = plot_s2p_trace_similarity_keep_overlap_only(trace_arrays)
-    figure_paths["supplementary_s2p_trace_similarity_keep_overlap_only"] = save_figure_all_formats(
-        fig_overlap_trace,
-        figures_dir / "supplementary_s2p_trace_similarity_keep_overlap_only",
-    )
-    plt.close(fig_overlap_trace)
-
-    fig_nonoverlap_trace = plot_s2p_trace_similarity_keep_nonoverlap_only(trace_arrays)
-    figure_paths["supplementary_s2p_trace_similarity_keep_nonoverlap_only"] = save_figure_all_formats(
-        fig_nonoverlap_trace,
-        figures_dir / "supplementary_s2p_trace_similarity_keep_nonoverlap_only",
-    )
-    plt.close(fig_nonoverlap_trace)
-
-    fig_overlap_dpi = plot_s2p_dpi_keep_overlap_only(df_results)
-    figure_paths["supplementary_s2p_dpi_keep_overlap_only"] = save_figure_all_formats(
-        fig_overlap_dpi,
-        figures_dir / "supplementary_s2p_dpi_keep_overlap_only",
-    )
-    plt.close(fig_overlap_dpi)
-
-    fig_nonoverlap_dpi = plot_s2p_dpi_keep_nonoverlap_only(df_results)
-    figure_paths["supplementary_s2p_dpi_keep_nonoverlap_only"] = save_figure_all_formats(
-        fig_nonoverlap_dpi,
-        figures_dir / "supplementary_s2p_dpi_keep_nonoverlap_only",
-    )
-    plt.close(fig_nonoverlap_dpi)
 
     return figure_paths
 
@@ -1080,7 +1019,6 @@ def save_metadata_files(
 
     figure_paths = output_paths.get("figure_paths", {})
     dpi_trace_png = figure_paths.get("dpi_l3_trace_overlap_vs_nonoverlap", {}).get("png", "")
-    dpi_summary_png = figure_paths.get("dpi_l3_summary_overlap_vs_nonoverlap", {}).get("png", "")
     log_lines = [
         f"start_time={start_time}",
         f"experiment_name={EXPERIMENT_NAME}",
@@ -1091,14 +1029,10 @@ def save_metadata_files(
         f"pairs={int(n_pairs)}",
         f"primary_focus={PRIMARY_FOCUS}",
         f"primary_conditions={','.join(PRIMARY_ANALYSIS_CONDITIONS)}",
-        f"pair_condition_pattern_results_csv={output_paths['pair_csv']}",
         f"pair_trace_similarity_npz={output_paths['trace_npz']}",
-        f"pair_final_vectors_npz={output_paths['final_npz']}",
-        f"summary_metrics_json={output_paths['summary_metrics_json']}",
         f"summary_json={summary_path.resolve()}",
         f"run_config_json={run_config_path.resolve()}",
         f"dpi_l3_trace_overlap_vs_nonoverlap_png={dpi_trace_png}",
-        f"dpi_l3_summary_overlap_vs_nonoverlap_png={dpi_summary_png}",
     ]
     run_log_path = save_log_lines(log_lines, log_dir, filename="run.log")
     return run_config_path, summary_path, run_log_path
@@ -1211,7 +1145,6 @@ def main() -> None:
     condition_order = tuple(condition_specs.keys())
     results_rows: list[dict[str, object]] = []
     trace_records = _initialize_trace_records()
-    final_records = _initialize_final_records()
 
     batch_starts = range(0, len(df_pairs), int(args.batch_size))
     total_batches = math.ceil(len(df_pairs) / int(args.batch_size)) if len(df_pairs) > 0 else 0
@@ -1370,64 +1303,22 @@ def main() -> None:
                     }
                 )
 
-                trace_records["record_id"].append(int(record_id))
-                trace_records["pair_id"].append(pair_id)
                 trace_records["condition_name"].append(str(condition_name))
-                trace_records["S_dyn_L1"].append(np.asarray(condition_metric["S_dyn"]["L1"], dtype=np.float32))
-                trace_records["S_sta_L1"].append(np.asarray(condition_metric["S_sta"]["L1"], dtype=np.float32))
-                trace_records["DPI_L1"].append(
-                    np.asarray(condition_metric["S_dyn"]["L1"] - condition_metric["S_sta"]["L1"], dtype=np.float32)
-                )
-                trace_records["S_dyn_L2"].append(np.asarray(condition_metric["S_dyn"]["L2"], dtype=np.float32))
-                trace_records["S_sta_L2"].append(np.asarray(condition_metric["S_sta"]["L2"], dtype=np.float32))
-                trace_records["DPI_L2"].append(
-                    np.asarray(condition_metric["S_dyn"]["L2"] - condition_metric["S_sta"]["L2"], dtype=np.float32)
-                )
-                trace_records["S_dyn_L3"].append(np.asarray(condition_metric["S_dyn"]["L3"], dtype=np.float32))
-                trace_records["S_sta_L3"].append(np.asarray(condition_metric["S_sta"]["L3"], dtype=np.float32))
                 trace_records["DPI_L3"].append(
                     np.asarray(condition_metric["S_dyn"]["L3"] - condition_metric["S_sta"]["L3"], dtype=np.float32)
                 )
-                trace_records["mean_S_dyn_L3"].append(np.float32(mean_s_dyn["L3"]))
-                trace_records["mean_S_sta_L3"].append(np.float32(mean_s_sta["L3"]))
-                trace_records["mean_DPI_L3"].append(np.float32(condition_metric["DPI"]["L3"]))
-
-                final_records["record_id"].append(int(record_id))
-                final_records["pair_id"].append(pair_id)
-                final_records["condition_name"].append(str(condition_name))
-                final_records["V_cond"].append(np.asarray(condition_metric["v_cond"], dtype=np.float32))
-                final_records["V_full_dyn"].append(v_full_dyn.astype(np.float32, copy=False))
-                final_records["V_full_sta"].append(v_full_sta.astype(np.float32, copy=False))
-                final_records["S_dyn_final"].append(float(condition_metric["S_dyn"]["final"]))
-                final_records["S_sta_final"].append(float(condition_metric["S_sta"]["final"]))
-                final_records["DPI_final"].append(float(condition_metric["DPI"]["final"]))
-                final_records["Retain_dyn_final"].append(float(retain_dyn["final"]))
-                final_records["Pull_sta_final"].append(float(mean_s_sta["final"]))
 
     df_results = pd.DataFrame(results_rows).sort_values(["record_id"], kind="stable").reset_index(drop=True)
     trace_arrays = finalize_trace_arrays(trace_records, spec.probe_steps)
-    final_arrays = finalize_final_arrays(final_records, num_classes)
-
-    pair_csv = save_tidy_csv(
-        df_results,
-        data_dir / "pair_condition_pattern_results.csv",
-        sort_by=["pair_id", "condition"],
-    )
     trace_npz = data_dir / "pair_trace_similarity.npz"
     np.savez_compressed(trace_npz, **trace_arrays)
-    final_npz = data_dir / "pair_final_vectors.npz"
-    np.savez_compressed(final_npz, **final_arrays)
 
     summary_metrics = build_summary_metrics(df_results)
-    summary_metrics_path = _save_json(summary_metrics, data_dir / "summary_metrics.json")
     summary_payload = build_summary_payload(summary_metrics)
     figure_paths = {} if bool(args.skip_figures) else save_main_figures(figures_dir, df_results, trace_arrays)
 
     output_paths = {
-        "pair_csv": str(Path(pair_csv).resolve()),
         "trace_npz": str(trace_npz.resolve()),
-        "final_npz": str(final_npz.resolve()),
-        "summary_metrics_json": str(summary_metrics_path.resolve()),
         "figure_paths": figure_paths,
     }
     run_config_path, summary_path, run_log_path = save_metadata_files(
@@ -1456,10 +1347,7 @@ def main() -> None:
             f"mean_S_sta_L3={float(subset['mean_S_sta_L3'].mean()):.4f}, "
             f"mean_DPI_L3={float(subset['DPI_L3'].mean()):.4f}"
         )
-    print(f"Pair-condition CSV: {pair_csv}")
     print(f"Trace NPZ: {trace_npz}")
-    print(f"Final vectors NPZ: {final_npz}")
-    print(f"Summary metrics JSON: {summary_metrics_path}")
     print(f"Summary JSON: {summary_path}")
     print(f"Run config JSON: {run_config_path}")
     print(f"Run log: {run_log_path}")

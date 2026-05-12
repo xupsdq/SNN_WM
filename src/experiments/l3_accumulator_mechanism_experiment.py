@@ -30,6 +30,11 @@ from src.experiments.common.results import prepare_result_layout, save_log_lines
 from src.experiments.common.ping_common import prepare_network_state
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.common.voltage_readout import resolve_readout_step
+from src.plotting.experiments.l3_accumulator_mechanism_experiment_plot import (
+    FIGURE_STEM,
+    _build_trajectory_table,
+    _plot_d_main,
+)
 from src.plotting.common.io import (
     COLOR_DYNAMIC,
     COLOR_STATIC,
@@ -930,39 +935,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         return encoded
 
     pair_rows: List[Dict[str, object]] = []
-    v_dyn_rows: List[np.ndarray] = []
-    v_sta_rows: List[np.ndarray] = []
     delta_v_rows: List[np.ndarray] = []
     delta_hat_plus_rows: List[np.ndarray] = []
     delta_hat_minus_rows: List[np.ndarray] = []
-    e_sta_rows: List[np.ndarray] = []
-    e_dyn_rows: List[np.ndarray] = []
-    d_sta_rows: List[np.ndarray] = []
-    d_dyn_rows: List[np.ndarray] = []
-    r_plus_rows: List[np.ndarray] = []
-    r_minus_rows: List[np.ndarray] = []
-    r_plus_tilde_rows: List[np.ndarray] = []
-    r_minus_tilde_rows: List[np.ndarray] = []
-    probe_trace_dyn_rows: List[np.ndarray] = []
-    probe_trace_sta_rows: List[np.ndarray] = []
-    snapshot_v_mem_dyn_rows: List[np.ndarray] = []
-    snapshot_v_mem_sta_rows: List[np.ndarray] = []
-    snapshot_g_e_dyn_rows: List[np.ndarray] = []
-    snapshot_g_e_sta_rows: List[np.ndarray] = []
-    snapshot_res_dyn_rows: List[np.ndarray] = []
-    snapshot_res_sta_rows: List[np.ndarray] = []
-    snapshot_inh_dyn_rows: List[np.ndarray] = []
-    snapshot_inh_sta_rows: List[np.ndarray] = []
-    snapshot_u_dyn_rows: List[np.ndarray] = []
-    snapshot_u_sta_rows: List[np.ndarray] = []
-    snapshot_x_dyn_rows: List[np.ndarray] = []
-    snapshot_x_sta_rows: List[np.ndarray] = []
-    snapshot_input_dyn_rows: List[np.ndarray] = []
-    snapshot_input_sta_rows: List[np.ndarray] = []
-    snapshot_elig_dyn_rows: List[np.ndarray] = []
-    snapshot_elig_sta_rows: List[np.ndarray] = []
-    snapshot_fire_dyn_rows: List[np.ndarray] = []
-    snapshot_fire_sta_rows: List[np.ndarray] = []
 
     regions: List[L3RegionSpec] | None = None
     for row in tqdm(df_pairs.itertuples(index=False), total=len(df_pairs), desc="L3AccumulatorPairs"):
@@ -1073,172 +1048,50 @@ def main(argv: Sequence[str] | None = None) -> None:
             }
         )
 
-        v_dyn_rows.append(v_dyn)
-        v_sta_rows.append(v_sta)
         delta_v_rows.append(delta_v)
         delta_hat_plus_rows.append(delta_hat_plus)
         delta_hat_minus_rows.append(delta_hat_minus)
-        e_sta_rows.append(np.asarray(deletion["E_sta"], dtype=np.float64))
-        e_dyn_rows.append(np.asarray(deletion["E_dyn"], dtype=np.float64))
-        d_sta_rows.append(np.asarray(deletion["D_sta"], dtype=np.float64))
-        d_dyn_rows.append(np.asarray(deletion["D_dyn"], dtype=np.float64))
-        r_plus_rows.append(np.asarray(replacement["R_plus"], dtype=np.float64))
-        r_minus_rows.append(np.asarray(replacement["R_minus"], dtype=np.float64))
-        r_plus_tilde_rows.append(np.asarray(replacement["R_plus_tilde"], dtype=np.float64))
-        r_minus_tilde_rows.append(np.asarray(replacement["R_minus_tilde"], dtype=np.float64))
-        probe_trace_dyn_rows.append(dynamic_capture.probe_s2p_trace[0].numpy().astype(np.float32, copy=False))
-        probe_trace_sta_rows.append(static_capture.probe_s2p_trace[0].numpy().astype(np.float32, copy=False))
-        snapshot_v_mem_dyn_rows.append(dynamic_capture.probe_onset_snapshot.v_mem.numpy().astype(np.float32, copy=False))
-        snapshot_v_mem_sta_rows.append(static_capture.probe_onset_snapshot.v_mem.numpy().astype(np.float32, copy=False))
-        snapshot_g_e_dyn_rows.append(dynamic_capture.probe_onset_snapshot.g_e.numpy().astype(np.float32, copy=False))
-        snapshot_g_e_sta_rows.append(static_capture.probe_onset_snapshot.g_e.numpy().astype(np.float32, copy=False))
-        snapshot_res_dyn_rows.append(dynamic_capture.probe_onset_snapshot.res.numpy())
-        snapshot_res_sta_rows.append(static_capture.probe_onset_snapshot.res.numpy())
-        snapshot_inh_dyn_rows.append(dynamic_capture.probe_onset_snapshot.inh_trace.numpy().astype(np.float32, copy=False))
-        snapshot_inh_sta_rows.append(static_capture.probe_onset_snapshot.inh_trace.numpy().astype(np.float32, copy=False))
-        snapshot_u_dyn_rows.append(dynamic_capture.probe_onset_snapshot.u_pre.numpy().astype(np.float32, copy=False) if dynamic_capture.probe_onset_snapshot.u_pre is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_u_sta_rows.append(static_capture.probe_onset_snapshot.u_pre.numpy().astype(np.float32, copy=False) if static_capture.probe_onset_snapshot.u_pre is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_x_dyn_rows.append(dynamic_capture.probe_onset_snapshot.x_pre.numpy().astype(np.float32, copy=False) if dynamic_capture.probe_onset_snapshot.x_pre is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_x_sta_rows.append(static_capture.probe_onset_snapshot.x_pre.numpy().astype(np.float32, copy=False) if static_capture.probe_onset_snapshot.x_pre is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_input_dyn_rows.append(dynamic_capture.probe_onset_snapshot.input_trace.numpy().astype(np.float32, copy=False) if dynamic_capture.probe_onset_snapshot.input_trace is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_input_sta_rows.append(static_capture.probe_onset_snapshot.input_trace.numpy().astype(np.float32, copy=False) if static_capture.probe_onset_snapshot.input_trace is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_elig_dyn_rows.append(dynamic_capture.probe_onset_snapshot.eligibility_trace.numpy().astype(np.float32, copy=False) if dynamic_capture.probe_onset_snapshot.eligibility_trace is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_elig_sta_rows.append(static_capture.probe_onset_snapshot.eligibility_trace.numpy().astype(np.float32, copy=False) if static_capture.probe_onset_snapshot.eligibility_trace is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_fire_dyn_rows.append(dynamic_capture.probe_onset_snapshot.firing_times.numpy().astype(np.float32, copy=False) if dynamic_capture.probe_onset_snapshot.firing_times is not None else np.zeros((1,), dtype=np.float32))
-        snapshot_fire_sta_rows.append(static_capture.probe_onset_snapshot.firing_times.numpy().astype(np.float32, copy=False) if static_capture.probe_onset_snapshot.firing_times is not None else np.zeros((1,), dtype=np.float32))
 
     df_results = pd.DataFrame(pair_rows).sort_values(["pair_id"], kind="stable").reset_index(drop=True)
-    df_cases = _select_case_pairs(df_results, save_case_count=int(args.save_case_count))
-    pair_id_to_index = {int(pair_id): idx for idx, pair_id in enumerate(df_results["pair_id"].astype(int).tolist())}
-
-    v_dyn_arr = np.stack(v_dyn_rows, axis=0) if v_dyn_rows else np.zeros((0, num_classes), dtype=np.float64)
-    v_sta_arr = np.stack(v_sta_rows, axis=0) if v_sta_rows else np.zeros((0, num_classes), dtype=np.float64)
     delta_v_arr = np.stack(delta_v_rows, axis=0) if delta_v_rows else np.zeros((0, num_classes), dtype=np.float64)
     delta_hat_plus_arr = np.stack(delta_hat_plus_rows, axis=0) if delta_hat_plus_rows else np.zeros((0, num_classes), dtype=np.float64)
     delta_hat_minus_arr = np.stack(delta_hat_minus_rows, axis=0) if delta_hat_minus_rows else np.zeros((0, num_classes), dtype=np.float64)
-    e_sta_arr = np.stack(e_sta_rows, axis=0) if e_sta_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    e_dyn_arr = np.stack(e_dyn_rows, axis=0) if e_dyn_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    d_sta_arr = np.stack(d_sta_rows, axis=0) if d_sta_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    d_dyn_arr = np.stack(d_dyn_rows, axis=0) if d_dyn_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    r_plus_arr = np.stack(r_plus_rows, axis=0) if r_plus_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    r_minus_arr = np.stack(r_minus_rows, axis=0) if r_minus_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    r_plus_tilde_arr = np.stack(r_plus_tilde_rows, axis=0) if r_plus_tilde_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    r_minus_tilde_arr = np.stack(r_minus_tilde_rows, axis=0) if r_minus_tilde_rows else np.zeros((0, 0, num_classes), dtype=np.float64)
-    summary_metrics = summarize_l3_mechanism_results(df_results)
-    summary_metrics["case_pair_ids"] = df_cases["pair_id"].astype(int).tolist()
-    summary_metrics["assumptions"] = {
+
+    export_columns = ["pair_id", "replacement_push_kstar", "replacement_pullback_kstar"]
+    df_export = df_results.loc[:, export_columns].copy()
+    summary_metrics = {
+        "pair_count": int(len(df_results)),
+        "mean_static_to_dynamic_push": float(df_results["replacement_push_kstar"].mean(skipna=True)) if len(df_results) else None,
+        "mean_dynamic_to_static_pullback": float(df_results["replacement_pullback_kstar"].mean(skipna=True)) if len(df_results) else None,
+        "assumptions": {
         "repo_directory": "src/experiments",
         "readout_step_rule": "decision_offset_minus_one_with_clipping",
         "readout_step": int(readout_step),
         "l3_region_definition": str(args.l3_mask_mode),
         "temporal_pool_summary": str(args.temporal_pool),
-        "full_pair_trace_and_snapshot_save": True,
+            "retained_outputs": ["pair_results.csv", "pair_vectors.npz", f"{FIGURE_STEM}.{{png,pdf,svg}}"],
+        },
     }
 
-    pair_csv = save_tidy_csv(df_results, data_dir / "pair_results.csv", sort_by=["pair_id"])
+    pair_csv = save_tidy_csv(df_export, data_dir / "pair_results.csv", sort_by=["pair_id"])
     pair_vectors_npz = data_dir / "pair_vectors.npz"
+    pair_vectors_payload = {
+        "pair_id": df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
+        "delta_V": delta_v_arr,
+        "Delta_hat_plus": delta_hat_plus_arr,
+        "Delta_hat_minus": delta_hat_minus_arr,
+    }
     np.savez_compressed(
         pair_vectors_npz,
-        pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
-        V_dyn=v_dyn_arr,
-        V_sta=v_sta_arr,
-        delta_V=delta_v_arr,
-        Delta_hat_plus=delta_hat_plus_arr,
-        Delta_hat_minus=delta_hat_minus_arr,
+        **pair_vectors_payload,
     )
-    pair_deletion_npz = data_dir / "pair_l3_deletion_maps.npz"
-    np.savez_compressed(
-        pair_deletion_npz,
-        pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
-        E_sta=e_sta_arr,
-        E_dyn=e_dyn_arr,
-        D_sta=d_sta_arr,
-        D_dyn=d_dyn_arr,
-    )
-    pair_replacement_npz = data_dir / "pair_l3_replacement_maps.npz"
-    np.savez_compressed(
-        pair_replacement_npz,
-        pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
-        R_plus=r_plus_arr,
-        R_minus=r_minus_arr,
-        R_plus_tilde=r_plus_tilde_arr,
-        R_minus_tilde=r_minus_tilde_arr,
-    )
-    pair_trace_npz = data_dir / "pair_traces_or_snapshots.npz"
-    np.savez_compressed(
-        pair_trace_npz,
-        pair_id=df_results["pair_id"].to_numpy(dtype=np.int64, copy=False),
-        probe_s2p_trace_dyn=np.stack(probe_trace_dyn_rows, axis=0),
-        probe_s2p_trace_sta=np.stack(probe_trace_sta_rows, axis=0),
-        snapshot_v_mem_dyn=np.stack(snapshot_v_mem_dyn_rows, axis=0),
-        snapshot_v_mem_sta=np.stack(snapshot_v_mem_sta_rows, axis=0),
-        snapshot_g_e_dyn=np.stack(snapshot_g_e_dyn_rows, axis=0),
-        snapshot_g_e_sta=np.stack(snapshot_g_e_sta_rows, axis=0),
-        snapshot_res_dyn=np.stack(snapshot_res_dyn_rows, axis=0),
-        snapshot_res_sta=np.stack(snapshot_res_sta_rows, axis=0),
-        snapshot_inh_trace_dyn=np.stack(snapshot_inh_dyn_rows, axis=0),
-        snapshot_inh_trace_sta=np.stack(snapshot_inh_sta_rows, axis=0),
-        snapshot_u_dyn=np.stack(snapshot_u_dyn_rows, axis=0),
-        snapshot_u_sta=np.stack(snapshot_u_sta_rows, axis=0),
-        snapshot_x_dyn=np.stack(snapshot_x_dyn_rows, axis=0),
-        snapshot_x_sta=np.stack(snapshot_x_sta_rows, axis=0),
-        snapshot_input_trace_dyn=np.stack(snapshot_input_dyn_rows, axis=0),
-        snapshot_input_trace_sta=np.stack(snapshot_input_sta_rows, axis=0),
-        snapshot_eligibility_trace_dyn=np.stack(snapshot_elig_dyn_rows, axis=0),
-        snapshot_eligibility_trace_sta=np.stack(snapshot_elig_sta_rows, axis=0),
-        snapshot_firing_times_dyn=np.stack(snapshot_fire_dyn_rows, axis=0),
-        snapshot_firing_times_sta=np.stack(snapshot_fire_sta_rows, axis=0),
-        region_row_start=np.asarray([region.row_start for region in regions], dtype=np.int64),
-        region_row_end=np.asarray([region.row_end for region in regions], dtype=np.int64),
-        region_col_start=np.asarray([region.col_start for region in regions], dtype=np.int64),
-        region_col_end=np.asarray([region.col_end for region in regions], dtype=np.int64),
-        readout_step=np.asarray([int(readout_step)], dtype=np.int64),
-    )
-    summary_json = _save_json(summary_metrics, metrics_dir / "summary_metrics.json")
 
-    empty_paths = {"png": "", "pdf": "", "svg": ""}
-    fig1_paths = empty_paths.copy()
-    fig2_paths = empty_paths.copy()
-    reconstruction_cosine_paths = empty_paths.copy()
-    argmax_reconstruction_paths = empty_paths.copy()
-    fig4_paths = empty_paths.copy()
+    figure_d_paths = {"png": "", "pdf": "", "svg": ""}
     if not bool(args.skip_figures):
-        fig1 = plot_case_deletion_maps(
-            df_cases=df_cases,
-            images=images,
-            pair_id_to_index=pair_id_to_index,
-            delta_v=delta_v_arr,
-            e_sta=e_sta_arr,
-            e_dyn=e_dyn_arr,
-            regions=regions,
-        )
-        fig1_paths = save_figure_all_formats(fig1, figures_dir / "figure_1_case_deletion_maps")
-        plt.close(fig1)
-
-        fig2 = plot_case_replacement_maps(
-            df_cases=df_cases,
-            pair_id_to_index=pair_id_to_index,
-            delta_v=delta_v_arr,
-            delta_hat_plus=delta_hat_plus_arr,
-            delta_hat_minus=delta_hat_minus_arr,
-            r_plus_tilde=r_plus_tilde_arr,
-            r_minus_tilde=r_minus_tilde_arr,
-            regions=regions,
-        )
-        fig2_paths = save_figure_all_formats(fig2, figures_dir / "figure_2_case_replacement_maps")
-        plt.close(fig2)
-
-        fig_reconstruction_cosine = plot_reconstruction_cosine(df_results)
-        reconstruction_cosine_paths = save_figure_all_formats(fig_reconstruction_cosine, figures_dir / "reconstruction_cosine")
-        plt.close(fig_reconstruction_cosine)
-
-        fig_argmax_reconstruction = plot_argmax_reconstruction(df_results)
-        argmax_reconstruction_paths = save_figure_all_formats(fig_argmax_reconstruction, figures_dir / "argmax_reconstruction")
-        plt.close(fig_argmax_reconstruction)
-
-        fig4 = plot_pair_level_scatter(df_results)
-        fig4_paths = save_figure_all_formats(fig4, figures_dir / "figure_4_pair_level_scatter")
-        plt.close(fig4)
+        trajectory_table = _build_trajectory_table(df_export, pair_vectors_payload)
+        fig_d = _plot_d_main(trajectory_table)
+        figure_d_paths = save_figure_all_formats(fig_d, figures_dir / FIGURE_STEM)
+        plt.close(fig_d)
 
     run_config_payload = {
             "model_path": str(Path(args.model_path).resolve()),
@@ -1266,19 +1119,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             "outputs": {
                 "pair_results_csv": str(Path(pair_csv).resolve()),
                 "pair_vectors_npz": str(pair_vectors_npz.resolve()),
-                "pair_l3_deletion_maps_npz": str(pair_deletion_npz.resolve()),
-                "pair_l3_replacement_maps_npz": str(pair_replacement_npz.resolve()),
-                "pair_traces_or_snapshots_npz": str(pair_trace_npz.resolve()),
-                "summary_metrics_json": str(summary_json.resolve()),
-                "figure_1_png": fig1_paths["png"],
-                "figure_2_png": fig2_paths["png"],
-                "figure_4_png": fig4_paths["png"],
-                "reconstruction_cosine_png": reconstruction_cosine_paths["png"],
-                "reconstruction_cosine_pdf": reconstruction_cosine_paths["pdf"],
-                "reconstruction_cosine_svg": reconstruction_cosine_paths["svg"],
-                "argmax_reconstruction_png": argmax_reconstruction_paths["png"],
-                "argmax_reconstruction_pdf": argmax_reconstruction_paths["pdf"],
-                "argmax_reconstruction_svg": argmax_reconstruction_paths["svg"],
+                f"{FIGURE_STEM}_png": figure_d_paths["png"],
+                f"{FIGURE_STEM}_pdf": figure_d_paths["pdf"],
+                f"{FIGURE_STEM}_svg": figure_d_paths["svg"],
             },
     }
     run_config_path = save_run_config(run_config_payload, result_root)
@@ -1286,25 +1129,13 @@ def main(argv: Sequence[str] | None = None) -> None:
     summary_payload = {
             "experiment": "l3_accumulator_mechanism_experiment",
             "pair_count": int(len(df_results)),
-            "mean_bias_magnitude": float(df_results["bias_magnitude"].mean()) if len(df_results) else None,
-            "artifact_summary_metrics_json": str(summary_json.resolve()),
+            "mean_static_to_dynamic_push": summary_metrics["mean_static_to_dynamic_push"],
+            "mean_dynamic_to_static_pullback": summary_metrics["mean_dynamic_to_static_pullback"],
             "run_config_json": str(Path(run_config_path).resolve()),
-            "primary_figure_1": "reconstruction_cosine",
-            "primary_figure_2": "argmax_reconstruction",
-            "summary_text": "L3/s2p-based reconstruction recovers both the continuous bias-vector similarity and the dominant argmax direction of the final decision bias.",
+            "primary_figure": FIGURE_STEM,
+            "summary_text": "L3 accumulator intervention outputs were simplified to the neural-decision coupling figure inputs.",
     }
     summary_path = save_summary_json(summary_payload, result_root)
-    save_summary_json(summary_payload, metrics_dir, filename="summary.json")
-    _save_json(
-        {
-            "experiment": "l3_accumulator_mechanism_experiment",
-            "pair_count": int(len(df_results)),
-            "mean_bias_magnitude": float(df_results["bias_magnitude"].mean()) if len(df_results) else None,
-            "summary_metrics_json": str(summary_json.resolve()),
-        },
-        metrics_dir / "main_metrics.json",
-    )
-    # TODO: Large pair trace/snapshot arrays remain under data/ because they are intermediate analysis payloads, not summary metrics.
     run_log_path = save_log_lines(
         [
             "experiment=l3_accumulator_mechanism_experiment",
@@ -1315,8 +1146,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             f"pairs={len(df_results)}",
             f"result_root={result_root.resolve()}",
             f"summary_json={summary_path.resolve()}",
-            f"reconstruction_cosine_png={reconstruction_cosine_paths['png']}",
-            f"argmax_reconstruction_png={argmax_reconstruction_paths['png']}",
+            f"{FIGURE_STEM}_png={figure_d_paths['png']}",
         ],
         logs_dir,
     )
@@ -1324,14 +1154,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     print("\n=== L3 Accumulator Mechanism Experiment Summary ===")
     print(f"Pairs analysed: {len(df_results)}")
     print(f"Mean bias magnitude: {float(df_results['bias_magnitude'].mean()):.4f}" if len(df_results) else "Mean bias magnitude: n/a")
-    print(f"Mean push cosine: {float(df_results['reconstruction_cosine_plus'].mean(skipna=True)):.4f}" if len(df_results) else "Mean push cosine: n/a")
+    print(f"Mean push: {summary_metrics['mean_static_to_dynamic_push']:.4f}" if len(df_results) else "Mean push: n/a")
     print(f"Saved outputs under: {result_root.resolve()}")
     print(f"Saved: {pair_csv}")
     print(f"Saved: {pair_vectors_npz}")
-    print(f"Saved: {pair_deletion_npz}")
-    print(f"Saved: {pair_replacement_npz}")
-    print(f"Saved: {pair_trace_npz}")
-    print(f"Saved: {summary_json}")
     print(f"Saved: {run_config_path}")
     print(f"Saved: {summary_path}")
     print(f"Saved: {run_log_path}")

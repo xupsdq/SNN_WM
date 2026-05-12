@@ -29,6 +29,12 @@ from src.experiments.common.monitored_dms import (
 from src.experiments.common.results import prepare_result_layout, save_log_lines, save_summary_json
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.common.seed import mix_seed
+from src.plotting.experiments.dms_overlap_ux_support_mechanism_experiment_plot import (
+    _plot_panel_a as _plot_final_panel_a,
+    _plot_panel_b as _plot_final_panel_b,
+    _plot_panel_c as _plot_final_panel_c,
+    _plot_panel_d as _plot_final_panel_d,
+)
 from src.plotting.common.io import (
     COLOR_DYNAMIC,
     COLOR_STATIC,
@@ -439,8 +445,6 @@ def summarize_trial(
     sta_l1 = static_output["state_traces"]["layer1"]
     dyn_spk = dyn_l1["spikes"][:early_window_steps, batch_idx].numpy().reshape(early_window_steps, -1)
     sta_spk = sta_l1["spikes"][:early_window_steps, batch_idx].numpy().reshape(early_window_steps, -1)
-    dyn_inh = dyn_l1["inh_before"][:early_window_steps, batch_idx].numpy().reshape(early_window_steps, -1)
-    sta_inh = sta_l1["inh_before"][:early_window_steps, batch_idx].numpy().reshape(early_window_steps, -1)
     drive, w_overlap, w_probe_only = compute_l1_drive_scores(trial, kernels_cpu)
     receives_probe_input = _receiving_input_mask(w_overlap, w_probe_only)
     unit_group = _classify_drive_group(drive, threshold=drive_score_threshold)
@@ -450,37 +454,12 @@ def summarize_trial(
     sta_lat = _first_latency(sta_spk.astype(bool), silent_fill=early_window_steps + 1).astype(np.float64)
     transition = _classify_transition(dyn_count, sta_count, dyn_lat, sta_lat)
 
-    channels = int(kernels_cpu.shape[1])
-    overlap_mask = torch.from_numpy(spatial_mask_to_channel_mask(trial.overlap_mask, channels).astype(np.float32))
-    probe_only_mask = torch.from_numpy(spatial_mask_to_channel_mask(trial.probe_only_mask, channels).astype(np.float32))
-    probe_window = probe_spikes_cpu[batch_idx, :early_window_steps]
-    dyn_overlap = compute_effective_input_trace(probe_spikes=probe_window, kernels_cpu=kernels_cpu, gain_trace=dyn_l1["gain"][:early_window_steps, batch_idx], static_gain=None, source_mask=overlap_mask)
-    sta_overlap = compute_effective_input_trace(probe_spikes=probe_window, kernels_cpu=kernels_cpu, gain_trace=None, static_gain=static_gain, source_mask=overlap_mask)
-    dyn_probe_only = compute_effective_input_trace(probe_spikes=probe_window, kernels_cpu=kernels_cpu, gain_trace=dyn_l1["gain"][:early_window_steps, batch_idx], static_gain=None, source_mask=probe_only_mask)
-    sta_probe_only = compute_effective_input_trace(probe_spikes=probe_window, kernels_cpu=kernels_cpu, gain_trace=None, static_gain=static_gain, source_mask=probe_only_mask)
-
-    drive_rows = [
-        {
-            "trial_id": int(trial.trial_id),
-            "unit_idx": int(i),
-            "w_overlap": float(w_overlap[i]),
-            "w_probe_only": float(w_probe_only[i]),
-            "drive_score": float(drive[i]),
-            "receives_probe_input": bool(receives_probe_input[i]),
-            "unit_group": str(unit_group[i]),
-        }
-        for i in range(drive.shape[0])
-    ]
     groups = {
         "all_units": receives_probe_input,
         "overlap_dominant": receives_probe_input & (unit_group == "overlap_dominant"),
         "probe_only_dominant": receives_probe_input & (unit_group == "probe_only_dominant"),
     }
-    winner_mask = np.isin(transition, np.asarray(["advance", "recruit"], dtype=object))
-    winner_latency = int(np.min(dyn_lat[winner_mask])) if bool(winner_mask.any()) else None
     firing_rows: list[dict[str, object]] = []
-    input_rows: list[dict[str, object]] = []
-    loss_rows: list[dict[str, object]] = []
     for name, mask in groups.items():
         n_units = int(mask.sum())
         labels = transition[mask]
@@ -502,41 +481,7 @@ def summarize_trial(
                 "delta_first_spike_latency": float(np.mean(dyn_lat[mask] - sta_lat[mask])) if n_units > 0 else float("nan"),
             }
         )
-        selected = mask & np.isin(transition, np.asarray(["advance", "recruit"], dtype=object))
-        n_selected = int(selected.sum())
-        overlap_gain = float(np.mean(dyn_overlap[:, selected] - sta_overlap[:, selected])) if n_selected > 0 else float("nan")
-        probe_only_gain = float(np.mean(dyn_probe_only[:, selected] - sta_probe_only[:, selected])) if n_selected > 0 else float("nan")
-        input_rows.append(
-            {
-                "trial_id": int(trial.trial_id),
-                "aggregation_scope": "per_trial",
-                "unit_group": str(name),
-                "transition_focus": "advance_or_recruit",
-                "n_units_selected": n_selected,
-                "overlap_input_dynamic": float(np.mean(dyn_overlap[:, selected])) if n_selected > 0 else float("nan"),
-                "overlap_input_static": float(np.mean(sta_overlap[:, selected])) if n_selected > 0 else float("nan"),
-                "probe_only_input_dynamic": float(np.mean(dyn_probe_only[:, selected])) if n_selected > 0 else float("nan"),
-                "probe_only_input_static": float(np.mean(sta_probe_only[:, selected])) if n_selected > 0 else float("nan"),
-                "overlap_input_gain": overlap_gain,
-                "probe_only_input_gain": probe_only_gain,
-                "input_selectivity_gain": overlap_gain - probe_only_gain if n_selected > 0 else float("nan"),
-            }
-        )
-        loss_sel = mask & (transition == "loss")
-        n_loss = int(loss_sel.sum())
-        delta_inh = dyn_inh[:, loss_sel] - sta_inh[:, loss_sel] if n_loss > 0 else None
-        loss_rows.append(
-            {
-                "trial_id": int(trial.trial_id),
-                "aggregation_scope": "per_trial",
-                "unit_group": str(name),
-                "n_lost_spike_units": n_loss,
-                "lost_spike_delta_inh": float(np.mean(delta_inh)) if n_loss > 0 else float("nan"),
-                "winner_loser_latency_gap": float(np.mean(sta_lat[loss_sel] - float(winner_latency))) if n_loss > 0 and winner_latency is not None else float("nan"),
-                "post_winner_inhibition_rise": float(np.mean(delta_inh[max(0, min(int(winner_latency), early_window_steps - 1)) :, :])) if n_loss > 0 and winner_latency is not None else float("nan"),
-            }
-        )
-    return drive_rows, firing_rows, input_rows, loss_rows
+    return [], firing_rows, [], []
 
 
 def _unit_positions_from_shape(shape: Sequence[int]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1386,20 +1331,10 @@ def main() -> None:
         layout.root,
     )
 
-    pair_metadata_csv = save_tidy_csv(trial_metadata_table(trials), layout.data_file("pair_metadata.csv"), sort_by=["trial_id"])
-    pair_mask_json = layout.data_file("pair_mask_metadata.json")
-    pair_mask_json.write_text(json.dumps(trial_mask_payload(trials), ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-
     preprobe_rows: list[dict[str, object]] = []
-    drive_rows: list[dict[str, object]] = []
     firing_rows: list[dict[str, object]] = []
-    input_rows: list[dict[str, object]] = []
-    loss_rows: list[dict[str, object]] = []
-    local_pair_rows: list[dict[str, object]] = []
-    local_support_event_rows: list[dict[str, object]] = []
     chain_event_rows: list[dict[str, object]] = []
     aligned_event_rows: list[dict[str, object]] = []
-    exemplar_pair: dict[str, object] | None = None
     panel_a_case_arrays: dict[str, object] | None = None
     n_batches = math.ceil(len(trials) / int(args.batch_size))
     for start in tqdm(range(0, len(trials), int(args.batch_size)), total=n_batches, desc="Running Fig4 Layer1 medium-overlap"):
@@ -1432,10 +1367,7 @@ def main() -> None:
                 probe_spikes_cpu=probe_spikes_cpu,
                 static_gain=static_gain,
             )
-            drive_rows.extend(d_rows)
             firing_rows.extend(f_rows)
-            input_rows.extend(i_rows)
-            loss_rows.extend(l_rows)
             pair_rows, support_rows, chain_rows, aligned_rows, exemplar_candidate = build_local_winner_loser_analysis(
                 trial=trial,
                 dynamic_output=med_dynamic,
@@ -1447,18 +1379,10 @@ def main() -> None:
                 static_gain=static_gain,
                 drive_score_threshold=float(args.drive_score_threshold),
             )
-            local_pair_rows.extend(pair_rows)
-            local_support_event_rows.extend(support_rows)
             chain_event_rows.extend(chain_rows)
             aligned_event_rows.extend(aligned_rows)
-            if exemplar_candidate is not None and (
-                exemplar_pair is None
-                or float(exemplar_candidate["winner_loser_contrast_shift"]) > float(exemplar_pair["winner_loser_contrast_shift"])
-            ):
-                exemplar_pair = exemplar_candidate
 
     df_preprobe = pd.DataFrame(preprobe_rows).sort_values(["trial_id", "model_type"], kind="stable").reset_index(drop=True)
-    df_drive = pd.DataFrame(drive_rows).sort_values(["trial_id", "unit_idx"], kind="stable").reset_index(drop=True)
     df_firing = _append_pooled(
         pd.DataFrame(firing_rows).sort_values(["trial_id", "unit_group"], kind="stable").reset_index(drop=True),
         weight_col="n_units",
@@ -1466,58 +1390,6 @@ def main() -> None:
         value_cols=["P_advance", "P_recruit", "P_loss", "P_unchanged", "delta_early_spike_count", "delta_first_spike_latency"],
         count_cols=["n_advance", "n_recruit", "n_loss", "n_unchanged"],
     )
-    df_input = _append_pooled(
-        pd.DataFrame(input_rows).sort_values(["trial_id", "unit_group"], kind="stable").reset_index(drop=True),
-        weight_col="n_units_selected",
-        group_cols=["unit_group", "transition_focus"],
-        value_cols=[
-            "overlap_input_dynamic",
-            "overlap_input_static",
-            "probe_only_input_dynamic",
-            "probe_only_input_static",
-            "overlap_input_gain",
-            "probe_only_input_gain",
-            "input_selectivity_gain",
-        ],
-        count_cols=[],
-    )
-    df_loss = _append_pooled(
-        pd.DataFrame(loss_rows).sort_values(["trial_id", "unit_group"], kind="stable").reset_index(drop=True),
-        weight_col="n_lost_spike_units",
-        group_cols=["unit_group"],
-        value_cols=["lost_spike_delta_inh", "winner_loser_latency_gap", "post_winner_inhibition_rise"],
-        count_cols=[],
-    )
-    df_local_pairs = _ensure_dataframe(
-        local_pair_rows,
-        columns=[
-            "trial_id",
-            "winner_unit_idx",
-            "loser_unit_idx",
-            "winner_group",
-            "loser_group",
-            "winner_transition",
-            "loser_transition",
-            "winner_row",
-            "winner_col",
-            "loser_row",
-            "loser_col",
-            "winner_first_spike_dynamic",
-            "winner_first_spike_static",
-            "loser_first_spike_dynamic",
-            "loser_first_spike_static",
-            "winner_overlap_input_gain",
-            "winner_probe_only_input_gain",
-            "loser_overlap_input_gain",
-            "loser_probe_only_input_gain",
-            "contrast_time_index",
-            "contrast_dynamic",
-            "contrast_static",
-            "winner_loser_contrast_shift",
-            "winner_priority_class",
-            "local_radius",
-        ],
-    ).sort_values(["trial_id", "loser_unit_idx", "winner_unit_idx"], kind="stable").reset_index(drop=True)
     df_chain = _ensure_dataframe(
         chain_event_rows,
         columns=[
@@ -1542,92 +1414,35 @@ def main() -> None:
             "loser_post_winner_inh_rise",
         ],
     ).sort_values(["trial_id", "loser_unit_idx", "winner_unit_idx"], kind="stable").reset_index(drop=True)
-    df_local_support = _build_local_support_summary(
-        _ensure_dataframe(
-            local_support_event_rows,
-            columns=[
-                "aggregation_scope",
-                "trial_id",
-                "loser_unit_idx",
-                "loser_row",
-                "loser_col",
-                "loser_group",
-                "supported",
-                "local_winner_support_rate",
-                "n_loser_events",
-                "n_supported_events",
-            ],
-        ).sort_values(["trial_id", "loser_unit_idx"], kind="stable").reset_index(drop=True)
-    )
     aligned_event_payload = _stack_aligned_event_rows(aligned_event_rows)
 
-    preprobe_csv = save_tidy_csv(df_preprobe, layout.data_file("preprobe_stsp_summary.csv"), sort_by=["trial_id", "model_type"])
-    drive_csv = save_tidy_csv(df_drive, layout.data_file("l1_drive_group_summary.csv"), sort_by=["trial_id", "unit_idx"])
     firing_csv = save_tidy_csv(df_firing, layout.data_file("l1_firing_transition_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group"])
-    input_csv = save_tidy_csv(df_input, layout.data_file("l1_input_source_gain_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group", "transition_focus"])
-    loss_csv = save_tidy_csv(df_loss, layout.data_file("l1_loss_inhibition_summary.csv"), sort_by=["aggregation_scope", "trial_id", "unit_group"])
-    local_pairs_csv = save_tidy_csv(df_local_pairs, layout.data_file("l1_local_winner_loser_pairs.csv"), sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
     causal_chain_csv = save_tidy_csv(df_chain, layout.data_file("l1_local_causal_chain_events.csv"), sort_by=["trial_id", "loser_unit_idx", "winner_unit_idx"])
-    local_support_csv = save_tidy_csv(df_local_support, layout.data_file("l1_local_winner_support_summary.csv"), sort_by=["aggregation_scope", "trial_id", "loser_unit_idx"])
-    exemplar_trace_npz = None
     panel_a_case_npz = None
     aligned_event_npz = layout.data_file("l1_local_event_time_alignment.npz")
     np.savez_compressed(aligned_event_npz, **aligned_event_payload)
-    if exemplar_pair is not None:
-        exemplar_trace_npz = layout.data_file("l1_local_winner_loser_exemplar_trace.npz")
-        np.savez_compressed(exemplar_trace_npz, **exemplar_pair)
     if panel_a_case_arrays is not None:
         panel_a_case_npz = layout.data_file("l1_panel_a_preprobe_gain_map.npz")
         np.savez_compressed(panel_a_case_npz, **panel_a_case_arrays)
 
-    case = trials[0]
-    panels = {
-        "panel_a_overlap_definition": _overlap_definition_panel(images=images, trial=case, panel_a_case=panel_a_case_arrays),
-    }
-    fig, ax = plt.subplots(figsize=PUBLICATION_SINGLE_COLUMN_FIGSIZE)
-    for model, offset, color in (("dynamic", -0.12, COLOR_DYNAMIC), ("static", 0.12, COLOR_STATIC)):
-        sub = df_preprobe[df_preprobe["model_type"] == model]
-        for row in sub.itertuples(index=False):
-            ax.plot([0.0 + offset, 1.0 + offset], [float(row.ux_overlap_pre), float(row.ux_probe_only_pre)], color=color, alpha=0.25, linewidth=0.9)
-        _scatter_with_mean(ax, 0.0 + offset, sub["ux_overlap_pre"].to_numpy(dtype=np.float64), color)
-        _scatter_with_mean(ax, 1.0 + offset, sub["ux_probe_only_pre"].to_numpy(dtype=np.float64), color)
-    ax.set_xticks([0.0, 1.0]); ax.set_xticklabels(["overlap", "probe-only"]); ax.set_ylabel("Pre-probe u*x"); _strip_axis(ax); fig.tight_layout(); panels["panel_b_preprobe_ux_overlap_vs_probeonly"] = fig
-    fig, ax = plt.subplots(figsize=PUBLICATION_SINGLE_COLUMN_FIGSIZE)
-    _scatter_with_mean(ax, 0.0, df_preprobe[df_preprobe["model_type"] == "dynamic"]["support_area"].to_numpy(dtype=np.float64), COLOR_DYNAMIC)
-    ax.set_xticks([0.0]); ax.set_xticklabels(["medium"]); ax.set_ylabel("Support area"); _strip_axis(ax); fig.tight_layout(); panels["panel_c_support_area"] = fig
-    panels["panel_d_mean_ux_on_overlap"] = _two_condition_panel(df_preprobe, "mean_ux_on_overlap", "Mean u*x on overlap")
-    panels["panel_e_total_memory_support"] = _two_condition_panel(df_preprobe, "total_memory_support", "Total memory support")
-    panels["panel_f_p_advance"] = _group_panel(df_firing, "P_advance", "P(advance)")
-    panels["panel_g_p_recruit"] = _group_panel(df_firing, "P_recruit", "P(recruit)")
-    panels["panel_h_p_loss"] = _group_panel(df_firing, "P_loss", "P(loss)")
-    panels["panel_i_delta_early_spike_count"] = _group_panel(df_firing, "delta_early_spike_count", "Delta early spike count")
-    panels["panel_j_delta_first_spike_latency"] = _group_panel(df_firing, "delta_first_spike_latency", "Delta first-spike latency")
-    focus = df_input[df_input["transition_focus"] == "advance_or_recruit"]
-    panels["panel_k_overlap_input_gain"] = _group_panel(focus, "overlap_input_gain", "Overlap-source input gain")
-    panels["panel_l_probe_only_input_gain"] = _group_panel(focus, "probe_only_input_gain", "Probe-only input gain")
-    panels["panel_m_input_selectivity_gain"] = _group_panel(focus, "input_selectivity_gain", "Input selectivity gain")
-    panels["panel_n_lost_spike_delta_inhibition"] = _group_panel(df_loss, "lost_spike_delta_inh", "Lost-spike delta inhibition")
-    panels["panel_n1_n_lost_spike_units"] = _group_panel(df_loss, "n_lost_spike_units", "Lost spike units")
-    panels["panel_o_local_winner_loser_voltage_trace"] = _local_voltage_trace_panel(exemplar_pair)
-    panels["panel_p_local_winner_support_rate"] = _trial_rate_panel(df_local_support)
-    panels["panel_q_winner_loser_contrast_shift"] = _contrast_shift_panel(df_local_pairs)
-    panels["panel_r_event_time_mechanism"] = _event_time_mechanism_panel(aligned_event_payload)
-    panels["panel_s_causal_chain_prevalence"] = _causal_chain_prevalence_panel(df_chain)
-    panel_paths = {} if bool(args.skip_figures) else save_all_panels(layout, panels)
+    panel_paths = {}
+    if not bool(args.skip_figures):
+        if panel_a_case_arrays is None:
+            raise RuntimeError("Unable to save fig4_panel_a_preprobe_stsp_support: missing panel A case arrays.")
+        panels = {
+            "fig4_panel_a_preprobe_stsp_support": _plot_final_panel_a(panel_a_case_arrays),
+            "fig4_panel_b_early_probe_transitions": _plot_final_panel_b(df_firing),
+            "fig4_panel_c_winner_loser_event_chain": _plot_final_panel_c(aligned_event_payload),
+            "fig4_panel_d_local_chain_occurrence": _plot_final_panel_d(df_chain),
+        }
+        for stem, fig in panels.items():
+            panel_paths[stem] = save_figure_all_formats(fig, layout.figure_base(stem))
+            plt.close(fig)
 
     table_paths = {
-        "pair_metadata_csv": pair_metadata_csv,
-        "pair_mask_metadata_json": str(pair_mask_json),
-        "preprobe_stsp_summary_csv": preprobe_csv,
-        "l1_drive_group_summary_csv": drive_csv,
         "l1_firing_transition_summary_csv": firing_csv,
-        "l1_input_source_gain_summary_csv": input_csv,
-        "l1_loss_inhibition_summary_csv": loss_csv,
-        "l1_local_winner_loser_pairs_csv": local_pairs_csv,
         "l1_local_causal_chain_events_csv": causal_chain_csv,
-        "l1_local_winner_support_summary_csv": local_support_csv,
         "l1_local_event_time_alignment_npz": str(aligned_event_npz),
-        "l1_local_winner_loser_exemplar_trace_npz": str(exemplar_trace_npz) if exemplar_trace_npz is not None else None,
         "l1_panel_a_preprobe_gain_map_npz": str(panel_a_case_npz) if panel_a_case_npz is not None else None,
     }
     summary_json = save_summary_json(
@@ -1635,20 +1450,11 @@ def main() -> None:
             "experiment": EXPERIMENT_NAME,
             "scientific_target": "Layer1 firing-pattern reordering",
             "mechanism_extension": "Local winner-loser chain with overlap-enhanced local winner support.",
-            "presentation_note": "Feedforward group labels are presented as overlap-biased versus probe-only-biased Layer1 units. These are intermediate bias-conditioned groups used to bridge overlap-defined latent support to downstream winner-loser competition, not the main competition actors themselves.",
             "trial_selection": {
                 "n_trials": int(len(trials)),
                 "definition": "Fix probe and choose a medium-overlap sample from the middle overlap quantile band with non-trivial probe-only area.",
             },
             "comparison": {"dynamic_condition": "med_dynamic", "static_condition": "med_static"},
-            "mechanism_design": {
-                "layer1_only_probe_reset": True,
-                "high_low_removed": True,
-                "downstream_removed": True,
-                "feedforward_bias_grouping": "Drive-score groups retain the original overlap_dominant and probe_only_dominant internal keys, but are presented as overlap-biased and probe-only-biased receiving-input units.",
-                "local_winner_definition": "Loser-centered local neighborhood within the 5x5 Layer1 inhibition support.",
-                "causal_chain_definition": "winner pre-spike boost -> winner spikes earlier -> loser direct inhibition rises after winner spike",
-            },
             "tables": table_paths,
             "panel_paths": panel_paths,
         },
@@ -1659,15 +1465,8 @@ def main() -> None:
         [
             f"experiment={EXPERIMENT_NAME}",
             f"n_trials={len(trials)}",
-            f"pair_metadata_csv={pair_metadata_csv}",
-            f"preprobe_stsp_summary_csv={preprobe_csv}",
-            f"l1_drive_group_summary_csv={drive_csv}",
             f"l1_firing_transition_summary_csv={firing_csv}",
-            f"l1_input_source_gain_summary_csv={input_csv}",
-            f"l1_loss_inhibition_summary_csv={loss_csv}",
-            f"l1_local_winner_loser_pairs_csv={local_pairs_csv}",
             f"l1_local_causal_chain_events_csv={causal_chain_csv}",
-            f"l1_local_winner_support_summary_csv={local_support_csv}",
             f"l1_local_event_time_alignment_npz={aligned_event_npz}",
             f"artifact_manifest_json={artifact_manifest}",
             "smoke_note=smoke experiment should be run in torch_env",

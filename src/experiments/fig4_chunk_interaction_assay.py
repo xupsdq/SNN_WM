@@ -83,6 +83,11 @@ class ExperimentConfig:
     ping_amp_list: tuple[float, ...]
     ping_repeats: int
     ping_noise: float
+    weak_probe_keep_probs: tuple[float, ...]
+    weak_probe_repeats: int
+    weak_probe_duration: float
+    weak_probe_use_same_mask_across_states: bool
+    weak_probe_noise: float
     mask_top_q: float
     shared_mask_top_q: float
     peak_top_q: float
@@ -119,8 +124,12 @@ class ExperimentConfig:
         return self.steps(self.ping_duration)
 
     @property
+    def weak_probe_steps(self) -> int:
+        return self.steps(self.weak_probe_duration)
+
+    @property
     def encoder_max_duration_ms(self) -> float:
-        return max(self.sample_duration, self.probe_duration, self.ping_duration, 100.0)
+        return max(self.sample_duration, self.probe_duration, self.weak_probe_duration, self.ping_duration, 100.0)
 
     def to_json_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -197,6 +206,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ping-amp-list", type=float, nargs="*", default=None)
     parser.add_argument("--ping-repeats", type=int, default=20)
     parser.add_argument("--ping-noise", type=float, default=0.0)
+    parser.add_argument("--weak-probe-keep-probs", type=float, nargs="+", default=(0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0))
+    parser.add_argument("--weak-probe-repeats", type=int, default=20)
+    parser.add_argument("--weak-probe-duration", type=float, default=None)
+    parser.add_argument("--weak-probe-use-same-mask-across-states", dest="weak_probe_use_same_mask_across_states", action="store_true", default=True)
+    parser.add_argument("--weak-probe-independent-masks-across-states", dest="weak_probe_use_same_mask_across_states", action="store_false")
+    parser.add_argument("--weak-probe-noise", type=float, default=0.0)
     parser.add_argument("--mask-top-q", type=float, default=0.20)
     parser.add_argument("--shared-mask-top-q", type=float, default=0.20)
     parser.add_argument("--peak-top-q", type=float, default=0.10)
@@ -245,6 +260,11 @@ def build_config(args: argparse.Namespace) -> ExperimentConfig:
         ping_amp_list=tuple(float(v) for v in (args.ping_amp_list if args.ping_amp_list else (float(args.ping_amp),))),
         ping_repeats=int(args.ping_repeats),
         ping_noise=float(args.ping_noise),
+        weak_probe_keep_probs=tuple(float(v) for v in args.weak_probe_keep_probs),
+        weak_probe_repeats=int(args.weak_probe_repeats),
+        weak_probe_duration=float(args.weak_probe_duration if args.weak_probe_duration is not None else args.probe_duration),
+        weak_probe_use_same_mask_across_states=bool(args.weak_probe_use_same_mask_across_states),
+        weak_probe_noise=float(args.weak_probe_noise),
         mask_top_q=float(args.mask_top_q),
         shared_mask_top_q=float(args.shared_mask_top_q),
         peak_top_q=float(args.peak_top_q),
@@ -269,15 +289,18 @@ def build_config(args: argparse.Namespace) -> ExperimentConfig:
                 "num_probe_candidates": min(cfg.num_probe_candidates, 1),
                 "num_nonmember_probes": min(cfg.num_nonmember_probes, 1),
                 "ping_repeats": min(cfg.ping_repeats, 2),
+                "weak_probe_keep_probs": (0.2, 0.7),
+                "weak_probe_repeats": min(cfg.weak_probe_repeats, 2),
                 "sample_duration": min(cfg.sample_duration, 30.0),
                 "delay1_duration": min(cfg.delay1_duration, 5.0),
                 "delay2_duration": min(cfg.delay2_duration, 5.0),
                 "probe_duration": min(cfg.probe_duration, 12.0),
+                "weak_probe_duration": min(cfg.weak_probe_duration, 12.0),
                 "ping_duration": min(cfg.ping_duration, 12.0),
             }
         )
-    if cfg.sample_steps <= 0 or cfg.probe_steps <= 0 or cfg.ping_steps <= 0:
-        raise ValueError("sample, probe, and ping durations must map to at least one step.")
+    if cfg.sample_steps <= 0 or cfg.probe_steps <= 0 or cfg.weak_probe_steps <= 0 or cfg.ping_steps <= 0:
+        raise ValueError("sample, probe, weak-probe, and ping durations must map to at least one step.")
     if not (0.0 < cfg.low_overlap_quantile < cfg.high_overlap_quantile < 1.0):
         raise ValueError("Require 0 < low-overlap-quantile < high-overlap-quantile < 1.")
     if not (0.0 < cfg.mask_top_q <= 1.0):
@@ -286,8 +309,10 @@ def build_config(args: argparse.Namespace) -> ExperimentConfig:
         raise ValueError("--shared-mask-top-q must be in (0, 1].")
     if not (0.0 < cfg.peak_top_q <= 1.0):
         raise ValueError("--peak-top-q must be in (0, 1].")
-    if cfg.ping_repeats <= 0 or cfg.num_nonmember_probes <= 0:
-        raise ValueError("--ping-repeats and --num-nonmember-probes must be positive.")
+    if cfg.ping_repeats <= 0 or cfg.weak_probe_repeats <= 0 or cfg.num_nonmember_probes <= 0:
+        raise ValueError("--ping-repeats, --weak-probe-repeats, and --num-nonmember-probes must be positive.")
+    if not cfg.weak_probe_keep_probs or any((not np.isfinite(v)) or v <= 0.0 or v > 1.0 for v in cfg.weak_probe_keep_probs):
+        raise ValueError("--weak-probe-keep-probs must contain values in (0, 1].")
     return cfg
 
 
@@ -1125,9 +1150,11 @@ def run_ping_decomposed_rows(
     cfg: ExperimentConfig,
     *,
     seed: int,
+    rng_seed: int | None = None,
 ) -> pd.DataFrame:
     """Run stochastic neutral ping repeats and decompose A/B/other/silent."""
     rows: list[dict[str, Any]] = []
+    base_seed = int(seed if rng_seed is None else rng_seed)
     for state_condition, snapshot in snapshots.items():
         for amp_idx, amp in enumerate(cfg.ping_amp_list):
             for repeat in range(int(cfg.ping_repeats)):
@@ -1138,7 +1165,7 @@ def run_ping_decomposed_rows(
                     cfg=cfg,
                     ping_amp=float(amp),
                     ping_noise=float(cfg.ping_noise),
-                    seed=mix_seed(seed, amp_idx, repeat, 811),
+                    seed=mix_seed(base_seed, amp_idx, repeat, 811),
                 )
                 for row_idx, (_, pair_row) in enumerate(batch_df.reset_index(drop=True).iterrows()):
                     p = int(pred[row_idx])
@@ -1150,6 +1177,10 @@ def run_ping_decomposed_rows(
                             "seed": int(seed),
                             "pair_id": pair_row["pair_id"],
                             "overlap_group": pair_row["overlap_group"],
+                            "sample_idx": int(pair_row["sample_idx"]),
+                            "second_idx": int(pair_row["second_idx"]),
+                            "sample_label": int(a),
+                            "second_label": int(b),
                             "state_condition": state_condition,
                             "ping_repeat": int(repeat),
                             "ping_amp": float(amp),
@@ -1187,7 +1218,12 @@ def summarize_ping_decomposed(df: pd.DataFrame) -> pd.DataFrame:
         probs = probs[probs > 0.0]
         entropy[idx] = float(-(probs * np.log2(probs)).sum()) if probs.size else 0.0
     summary["AB_entropy"] = entropy
-    piv = summary.pivot_table(index=["seed", "pair_id"], columns="state_condition", values=["P_A", "P_pair", "pair_balance"], aggfunc="mean")
+    piv = summary.pivot_table(
+        index=["seed", "pair_id"],
+        columns="state_condition",
+        values=["P_A", "P_pair", "P_other", "P_silent", "pair_balance"],
+        aggfunc="mean",
+    )
 
     def lookup(metric: str, condition: str) -> pd.Series:
         if (metric, condition) not in piv:
@@ -1196,11 +1232,250 @@ def summarize_ping_decomposed(df: pd.DataFrame) -> pd.DataFrame:
 
     extras = pd.DataFrame(index=piv.index)
     extras["old_item_rescue"] = lookup("P_A", "S_AB") - lookup("P_A", "S_B")
-    extras["beyond_mean_old_rescue"] = lookup("P_A", "S_AB") - lookup("P_A", "S_mean")
-    extras["peak_removal_delta_old"] = lookup("P_A", "S_AB") - lookup("P_A", "S_AB_minus_chunk_peak")
-    extras["peak_removal_delta_pair"] = lookup("P_pair", "S_AB") - lookup("P_pair", "S_AB_minus_chunk_peak")
-    extras["peak_removal_delta_balance"] = lookup("pair_balance", "S_AB") - lookup("pair_balance", "S_AB_minus_chunk_peak")
+    extras["old_item_rescue_vs_SB"] = extras["old_item_rescue"]
+    extras["pair_access_gain_vs_baseline"] = lookup("P_pair", "S_AB") - lookup("P_pair", "baseline")
+    extras["other_reduction_vs_baseline"] = lookup("P_other", "baseline") - lookup("P_other", "S_AB")
+    extras["silent_reduction_vs_baseline"] = lookup("P_silent", "baseline") - lookup("P_silent", "S_AB")
     return summary.merge(extras.reset_index(), on=["seed", "pair_id"], how="left")
+
+
+def _duration_aligned_probe(probe_spikes: torch.Tensor, steps: int) -> torch.Tensor:
+    steps = int(steps)
+    if probe_spikes.shape[1] == steps:
+        return probe_spikes.clone()
+    if probe_spikes.shape[1] > steps:
+        return probe_spikes[:, :steps].clone()
+    pad = torch.zeros(
+        (probe_spikes.shape[0], steps - probe_spikes.shape[1], *probe_spikes.shape[2:]),
+        dtype=probe_spikes.dtype,
+        device=probe_spikes.device,
+    )
+    return torch.cat([probe_spikes, pad], dim=1)
+
+
+def run_weak_probe_a_completion_rows(
+    batch_df: pd.DataFrame,
+    state_snapshots: Mapping[str, StspSnapshot],
+    net: Any,
+    cfg: ExperimentConfig,
+    full_a_probe_spikes: torch.Tensor,
+    *,
+    seed: int,
+) -> pd.DataFrame:
+    """Run dropout-degraded A probes with masks reused across state conditions."""
+    rows: list[dict[str, Any]] = []
+    base_df = batch_df.reset_index(drop=True)
+    full_probe = _duration_aligned_probe(full_a_probe_spikes, cfg.weak_probe_steps)
+    state_items = list(state_snapshots.items())
+    for keep_idx, keep_prob in enumerate(cfg.weak_probe_keep_probs):
+        keep = float(keep_prob)
+        for repeat in range(int(cfg.weak_probe_repeats)):
+            gen = torch.Generator(device=full_probe.device)
+            gen.manual_seed(int(mix_seed(seed, keep_idx, repeat, 1201)))
+            shared_mask = (torch.rand(full_probe.shape, generator=gen, device=full_probe.device) < keep).to(dtype=full_probe.dtype)
+            shared_probe = full_probe * shared_mask
+            for state_idx, (state_condition, snapshot) in enumerate(state_items):
+                if cfg.weak_probe_use_same_mask_across_states:
+                    weak_probe = shared_probe
+                else:
+                    state_gen = torch.Generator(device=full_probe.device)
+                    state_gen.manual_seed(int(mix_seed(seed, keep_idx, repeat, state_idx, 1203)))
+                    state_mask = (torch.rand(full_probe.shape, generator=state_gen, device=full_probe.device) < keep).to(dtype=full_probe.dtype)
+                    weak_probe = full_probe * state_mask
+                pred, fire_t = run_readout_from_snapshot(
+                    net,
+                    snapshot,
+                    mode="probe",
+                    cfg=cfg,
+                    probe_spikes=weak_probe,
+                    probe_scale=float(cfg.member_probe_scale),
+                    probe_noise=float(cfg.weak_probe_noise),
+                    seed=mix_seed(seed, keep_idx, repeat, state_idx, 1207),
+                )
+                for row_idx, (_, pair_row) in enumerate(base_df.iterrows()):
+                    p = int(pred[row_idx])
+                    a = int(pair_row["sample_label"])
+                    b = int(pair_row["second_label"])
+                    classified = _classify_pair_prediction(p, a, b)
+                    rows.append(
+                        {
+                            "seed": int(pair_row["seed"]),
+                            "pair_id": pair_row["pair_id"],
+                            "overlap_group": pair_row["overlap_group"],
+                            "sample_idx": int(pair_row["sample_idx"]),
+                            "second_idx": int(pair_row["second_idx"]),
+                            "sample_label": a,
+                            "second_label": b,
+                            "state_condition": state_condition,
+                            "keep_prob": keep,
+                            "dropout_repeat": int(repeat),
+                            "probe_pred": p,
+                            "first_fire_t": int(fire_t[row_idx]),
+                            "pred_A": classified["pred_A"],
+                            "pred_B": classified["pred_B"],
+                            "pred_other": classified["pred_other"],
+                            "pred_silent": classified["pred_silent"],
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def summarize_weak_probe_a(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame()
+    summary = df.groupby(["seed", "pair_id", "overlap_group", "state_condition", "keep_prob"], as_index=False)[
+        ["pred_A", "pred_B", "pred_other", "pred_silent"]
+    ].mean()
+    summary = summary.rename(columns={"pred_A": "P_A", "pred_B": "P_B", "pred_other": "P_other", "pred_silent": "P_silent"})
+    summary["P_pair"] = summary["P_A"] + summary["P_B"]
+    piv = summary.pivot_table(
+        index=["seed", "pair_id", "keep_prob"],
+        columns="state_condition",
+        values=["P_A", "P_B", "P_other", "P_silent"],
+        aggfunc="mean",
+    )
+
+    def lookup(metric: str, condition: str) -> pd.Series:
+        if (metric, condition) not in piv:
+            return pd.Series(np.nan, index=piv.index)
+        return piv[(metric, condition)]
+
+    extras = pd.DataFrame(index=piv.index)
+    extras["A_recovery_gain_vs_SB"] = lookup("P_A", "S_AB") - lookup("P_A", "S_B")
+    extras["A_recovery_gain_vs_baseline"] = lookup("P_A", "S_AB") - lookup("P_A", "baseline")
+    extras["B_intrusion_change_vs_SB"] = lookup("P_B", "S_AB") - lookup("P_B", "S_B")
+    extras["other_reduction_vs_baseline"] = lookup("P_other", "baseline") - lookup("P_other", "S_AB")
+    extras["silent_reduction_vs_baseline"] = lookup("P_silent", "baseline") - lookup("P_silent", "S_AB")
+    return summary.merge(extras.reset_index(), on=["seed", "pair_id", "keep_prob"], how="left")
+
+
+def _normalized_auc(x: np.ndarray, y: np.ndarray) -> float:
+    x_arr = np.asarray(x, dtype=np.float64)
+    y_arr = np.asarray(y, dtype=np.float64)
+    valid = np.isfinite(x_arr) & np.isfinite(y_arr)
+    x_arr = x_arr[valid]
+    y_arr = y_arr[valid]
+    if x_arr.size == 0:
+        return float("nan")
+    order = np.argsort(x_arr, kind="stable")
+    x_arr = x_arr[order]
+    y_arr = y_arr[order]
+    if x_arr.size == 1 or float(x_arr[-1] - x_arr[0]) <= EPS:
+        return float(y_arr.mean())
+    integrate = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    return float(integrate(y_arr, x_arr) / max(float(x_arr[-1] - x_arr[0]), EPS))
+
+
+def summarize_weak_probe_a_auc(summary: pd.DataFrame) -> pd.DataFrame:
+    if summary.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for (seed, pair_id, overlap_group, state_condition), sub in summary.groupby(["seed", "pair_id", "overlap_group", "state_condition"], sort=False):
+        x = sub["keep_prob"].to_numpy(dtype=np.float64)
+        rows.append(
+            {
+                "seed": int(seed),
+                "pair_id": pair_id,
+                "overlap_group": overlap_group,
+                "state_condition": state_condition,
+                "AUC_A": _normalized_auc(x, sub["P_A"].to_numpy(dtype=np.float64)),
+                "AUC_B": _normalized_auc(x, sub["P_B"].to_numpy(dtype=np.float64)),
+                "AUC_other": _normalized_auc(x, sub["P_other"].to_numpy(dtype=np.float64)),
+                "AUC_silent": _normalized_auc(x, sub["P_silent"].to_numpy(dtype=np.float64)),
+            }
+        )
+    out = pd.DataFrame(rows)
+    piv = out.pivot_table(index=["seed", "pair_id"], columns="state_condition", values="AUC_A", aggfunc="mean")
+    extras = pd.DataFrame(index=piv.index)
+    extras["AUC_A_gain_AB_vs_SB"] = piv.get("S_AB", pd.Series(np.nan, index=piv.index)) - piv.get("S_B", pd.Series(np.nan, index=piv.index))
+    extras["AUC_A_gain_AB_vs_baseline"] = piv.get("S_AB", pd.Series(np.nan, index=piv.index)) - piv.get("baseline", pd.Series(np.nan, index=piv.index))
+    return out.merge(extras.reset_index(), on=["seed", "pair_id"], how="left")
+
+
+def _p50_from_curve(x: np.ndarray, y: np.ndarray, threshold: float = 0.5) -> float:
+    x_arr = np.asarray(x, dtype=np.float64)
+    y_arr = np.asarray(y, dtype=np.float64)
+    valid = np.isfinite(x_arr) & np.isfinite(y_arr)
+    x_arr = x_arr[valid]
+    y_arr = y_arr[valid]
+    if x_arr.size == 0:
+        return float("nan")
+    order = np.argsort(x_arr, kind="stable")
+    x_arr = x_arr[order]
+    y_arr = y_arr[order]
+    if np.any(y_arr >= threshold):
+        idx = int(np.flatnonzero(y_arr >= threshold)[0])
+        if idx == 0:
+            return float(x_arr[idx])
+        x0, x1 = float(x_arr[idx - 1]), float(x_arr[idx])
+        y0, y1 = float(y_arr[idx - 1]), float(y_arr[idx])
+        if abs(y1 - y0) <= EPS:
+            return float(x1)
+        frac = (float(threshold) - y0) / (y1 - y0)
+        return float(x0 + frac * (x1 - x0))
+    return float("nan")
+
+
+def summarize_weak_probe_a_thresholds(summary: pd.DataFrame) -> pd.DataFrame:
+    if summary.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for (seed, pair_id, overlap_group, state_condition), sub in summary.groupby(["seed", "pair_id", "overlap_group", "state_condition"], sort=False):
+        rows.append(
+            {
+                "seed": int(seed),
+                "pair_id": pair_id,
+                "overlap_group": overlap_group,
+                "state_condition": state_condition,
+                "p50_A": _p50_from_curve(sub["keep_prob"].to_numpy(dtype=np.float64), sub["P_A"].to_numpy(dtype=np.float64)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_morphology_behavior_link(
+    peak_morphology: pd.DataFrame,
+    weak_auc: pd.DataFrame,
+    ping_summary: pd.DataFrame,
+    legacy_morphology: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    if peak_morphology.empty or weak_auc.empty:
+        return pd.DataFrame()
+    morph_cols = [
+        col
+        for col in (
+            "seed",
+            "pair_id",
+            "overlap_group",
+            "shared_peak_excess",
+            "peak_enrichment",
+            "peak_sharpness",
+            "shared_vs_nonshared_excess",
+        )
+        if col in peak_morphology
+    ]
+    link = peak_morphology[morph_cols].drop_duplicates(["seed", "pair_id"]).copy()
+    link["fusion_dual_score"] = link["shared_peak_excess"] if "shared_peak_excess" in link else np.nan
+    if legacy_morphology is not None and not legacy_morphology.empty:
+        legacy = legacy_morphology[legacy_morphology["state_condition"] == "S_AB"].copy()
+        keep_cols = [col for col in ("seed", "pair_id", "WPRI", "true_pair_score") if col in legacy]
+        if keep_cols:
+            link = link.merge(legacy[keep_cols].drop_duplicates(["seed", "pair_id"]), on=["seed", "pair_id"], how="left")
+    for col in ("WPRI", "true_pair_score"):
+        if col not in link:
+            link[col] = np.nan
+    auc_pair = weak_auc[["seed", "pair_id", "AUC_A_gain_AB_vs_SB", "AUC_A_gain_AB_vs_baseline"]].drop_duplicates(["seed", "pair_id"])
+    link = link.merge(auc_pair, on=["seed", "pair_id"], how="left")
+    if not ping_summary.empty and "old_item_rescue_vs_SB" in ping_summary:
+        ping_pair = ping_summary[["seed", "pair_id", "old_item_rescue_vs_SB"]].drop_duplicates(["seed", "pair_id"])
+        link = link.merge(ping_pair, on=["seed", "pair_id"], how="left")
+    else:
+        link["old_item_rescue_vs_SB"] = np.nan
+    link["correlation_input_WPRI"] = link["WPRI"]
+    link["correlation_input_true_pair_score"] = link["true_pair_score"]
+    link["correlation_input_fusion_dual_score"] = link["fusion_dual_score"]
+    link["correlation_input_AUC_gain"] = link["AUC_A_gain_AB_vs_SB"]
+    return link
 
 
 def choose_probe_ids(
@@ -1547,25 +1822,23 @@ def _safe_rate(df: pd.DataFrame, column: str) -> float:
 
 
 def summarize_outputs(
-    peak_morphology: pd.DataFrame,
     ping_summary: pd.DataFrame,
-    member_summary: pd.DataFrame,
-    nonmember_summary: pd.DataFrame,
+    weak_summary: pd.DataFrame,
+    weak_auc: pd.DataFrame,
+    weak_threshold: pd.DataFrame,
     *,
     seed: int,
 ) -> dict[str, Any]:
-    seed_peak = peak_morphology.groupby(["seed", "overlap_group"], as_index=False)[
-        ["shared_peak_excess", "peak_enrichment", "peak_sharpness", "shared_vs_nonshared_excess"]
-    ].mean()
     seed_ping = ping_summary.groupby(["seed", "overlap_group", "state_condition"], as_index=False)[
         ["P_A", "P_B", "P_other", "P_silent", "P_pair", "pair_balance", "AB_entropy"]
     ].mean()
-    seed_member = member_summary.groupby(["seed", "overlap_group", "state_condition"], as_index=False)[
-        ["P_A_under_probe_A", "B_intrusion_rate"]
+    seed_weak = weak_summary.groupby(["seed", "overlap_group", "state_condition", "keep_prob"], as_index=False)[
+        ["P_A", "P_B", "P_other", "P_silent", "P_pair"]
     ].mean()
-    seed_nonmember = nonmember_summary.groupby(["seed", "overlap_group", "state_condition"], as_index=False)[
-        ["excess_within_pair_error", "P_within_pair_error", "excess_error_A", "excess_error_B"]
+    seed_weak_auc = weak_auc.groupby(["seed", "overlap_group", "state_condition"], as_index=False)[
+        ["AUC_A", "AUC_B", "AUC_other", "AUC_silent"]
     ].mean()
+    seed_weak_threshold = weak_threshold.groupby(["seed", "overlap_group", "state_condition"], as_index=False)[["p50_A"]].mean()
 
     def comparison(table: pd.DataFrame, group_col: str, value_col: str, left: str, right: str, *, overlap_group: str | None = None) -> dict[str, Any]:
         sub = table.copy()
@@ -1594,44 +1867,96 @@ def summarize_outputs(
         out = table.groupby(list(group_cols), as_index=False)[value_col].mean()
         return out.to_dict(orient="records")
 
-    def high_value_diff_from_pair_summary(table: pd.DataFrame, value_col: str, left: str, right: str) -> dict[str, Any]:
-        return comparison(table, "state_condition", value_col, left, right, overlap_group="high")
+    def grouped_seed_stats(table: pd.DataFrame, group_cols: Sequence[str], value_col: str) -> list[dict[str, Any]]:
+        if table.empty or value_col not in table:
+            return []
+        seed_cols = ["seed", *list(group_cols)]
+        seed_table = table.groupby(seed_cols, as_index=False)[value_col].mean()
+        rows: list[dict[str, Any]] = []
+        for group_key, sub in seed_table.groupby(list(group_cols), sort=True):
+            values = sub[value_col].to_numpy(dtype=np.float64)
+            values = values[np.isfinite(values)]
+            if values.size == 0:
+                continue
+            ci = bootstrap_mean_ci(values, n_boot=min(1000, max(100, 200 * values.size)), seed=seed) if values.size > 1 else (float(values[0]), float(values[0]))
+            if not isinstance(group_key, tuple):
+                group_key = (group_key,)
+            row = {col: key for col, key in zip(group_cols, group_key)}
+            row.update(
+                {
+                    "mean": float(values.mean()),
+                    "sem": sem(values),
+                    "ci95_low": float(ci[0]),
+                    "ci95_high": float(ci[1]),
+                    "n_seeds": int(values.size),
+                }
+            )
+            rows.append(row)
+        return rows
+
+    def scalar_seed_stats(table: pd.DataFrame, value_col: str) -> dict[str, Any]:
+        if table.empty or value_col not in table:
+            return {"available": False}
+        seed_table = table[["seed", "pair_id", value_col]].drop_duplicates(["seed", "pair_id"]).groupby("seed", as_index=False)[value_col].mean()
+        values = seed_table[value_col].to_numpy(dtype=np.float64)
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            return {"available": False}
+        ci = bootstrap_mean_ci(values, n_boot=min(1000, max(100, 200 * values.size)), seed=seed) if values.size > 1 else (float(values[0]), float(values[0]))
+        return {
+            "available": True,
+            "mean": float(values.mean()),
+            "sem": sem(values),
+            "ci95_low": float(ci[0]),
+            "ci95_high": float(ci[1]),
+            "n_seeds": int(values.size),
+        }
 
     return {
         "seed_level": {
-            "layer3_peak_morphology": seed_peak.to_dict(orient="records"),
             "ping": seed_ping.to_dict(orient="records"),
-            "member_probe_A": seed_member.to_dict(orient="records"),
-            "nonmember_probe_C": seed_nonmember.to_dict(orient="records"),
+            "weak_probe_A": seed_weak.to_dict(orient="records"),
+            "weak_probe_A_auc": seed_weak_auc.to_dict(orient="records"),
+            "weak_probe_A_threshold": seed_weak_threshold.to_dict(orient="records"),
+        },
+        "ping": {
+            "P_A_by_state": grouped_seed_stats(ping_summary, ["state_condition"], "P_A"),
+            "P_B_by_state": grouped_seed_stats(ping_summary, ["state_condition"], "P_B"),
+            "P_other_by_state": grouped_seed_stats(ping_summary, ["state_condition"], "P_other"),
+            "P_silent_by_state": grouped_seed_stats(ping_summary, ["state_condition"], "P_silent"),
+            "old_item_rescue_vs_SB": scalar_seed_stats(ping_summary, "old_item_rescue_vs_SB"),
+            "pair_access_gain_vs_baseline": scalar_seed_stats(ping_summary, "pair_access_gain_vs_baseline"),
+        },
+        "weak_probe": {
+            "A_recovery_curve_by_state": grouped_seed_stats(weak_summary, ["state_condition", "keep_prob"], "P_A"),
+            "AUC_A_by_state": grouped_seed_stats(weak_auc, ["state_condition"], "AUC_A"),
+            "AUC_A_gain_AB_vs_SB": scalar_seed_stats(weak_auc, "AUC_A_gain_AB_vs_SB"),
+            "AUC_A_gain_AB_vs_baseline": scalar_seed_stats(weak_auc, "AUC_A_gain_AB_vs_baseline"),
+            "p50_A_by_state": grouped_seed_stats(weak_threshold, ["state_condition"], "p50_A"),
         },
         "comparisons": {
-            "shared_peak_excess_high_vs_low": comparison(seed_peak, "overlap_group", "shared_peak_excess", "high", "low"),
-            "peak_enrichment_high_vs_low": comparison(seed_peak, "overlap_group", "peak_enrichment", "high", "low"),
-            "ping_old_rescue_high": high_value_diff_from_pair_summary(seed_ping, "P_A", "S_AB", "S_B"),
-            "ping_beyond_mean_old_rescue_high": high_value_diff_from_pair_summary(seed_ping, "P_A", "S_AB", "S_mean"),
-            "ping_peak_removal_drop_high": high_value_diff_from_pair_summary(seed_ping, "P_A", "S_AB", "S_AB_minus_chunk_peak"),
-            "member_probe_A_delta_vs_S_mean_high": high_value_diff_from_pair_summary(seed_member, "P_A_under_probe_A", "S_AB", "S_mean"),
-            "member_probe_A_peak_removal_drop_high": high_value_diff_from_pair_summary(seed_member, "P_A_under_probe_A", "S_AB", "S_AB_minus_chunk_peak"),
-            "nonmember_excess_within_pair_vs_mean_high": high_value_diff_from_pair_summary(seed_nonmember, "excess_within_pair_error", "S_AB", "S_mean"),
-            "nonmember_peak_removal_drop_high": high_value_diff_from_pair_summary(seed_nonmember, "excess_within_pair_error", "S_AB", "S_AB_minus_chunk_peak"),
-            "random_vs_chunk_peak_removal_control": comparison(
-                seed_ping.assign(
-                    chunk_drop=np.nan,
-                ),
+            "ping_old_item_rescue_vs_SB": comparison(
+                ping_summary.groupby(["seed", "state_condition"], as_index=False)["P_A"].mean(),
                 "state_condition",
                 "P_A",
-                "S_AB_minus_random_peak",
-                "S_AB_minus_chunk_peak",
-                overlap_group="high",
+                "S_AB",
+                "S_B",
             ),
+            "ping_pair_access_gain_vs_baseline": comparison(
+                ping_summary.groupby(["seed", "state_condition"], as_index=False)["P_pair"].mean(),
+                "state_condition",
+                "P_pair",
+                "S_AB",
+                "baseline",
+            ),
+            "weak_probe_AUC_A_AB_vs_SB": comparison(seed_weak_auc, "state_condition", "AUC_A", "S_AB", "S_B"),
+            "weak_probe_AUC_A_AB_vs_baseline": comparison(seed_weak_auc, "state_condition", "AUC_A", "S_AB", "baseline"),
         },
         "across_seed_mean": {
-            "shared_peak_excess": grouped_mean_records(seed_peak, ["overlap_group"], "shared_peak_excess"),
-            "peak_enrichment": grouped_mean_records(seed_peak, ["overlap_group"], "peak_enrichment"),
             "ping_P_A": grouped_mean_records(seed_ping, ["overlap_group", "state_condition"], "P_A"),
             "ping_P_pair": grouped_mean_records(seed_ping, ["overlap_group", "state_condition"], "P_pair"),
-            "member_probe_A": grouped_mean_records(seed_member, ["overlap_group", "state_condition"], "P_A_under_probe_A"),
-            "nonmember_excess_within_pair_error": grouped_mean_records(seed_nonmember, ["overlap_group", "state_condition"], "excess_within_pair_error"),
+            "weak_probe_A": grouped_mean_records(seed_weak, ["overlap_group", "state_condition", "keep_prob"], "P_A"),
+            "weak_probe_AUC_A": grouped_mean_records(seed_weak_auc, ["overlap_group", "state_condition"], "AUC_A"),
         },
     }
 
@@ -1655,18 +1980,12 @@ def process_seed(
     all_ids = sorted(set(pair_df["sample_idx"].astype(int)).union(set(pair_df["second_idx"].astype(int))))
     spike_lookup = _encode_id_bank(all_ids, images, encoder, steps=cfg.sample_steps, device=device, batch_size=cfg.batch_size)
 
-    legacy_morphology_rows: list[pd.DataFrame] = []
-    additive_rows: list[pd.DataFrame] = []
-    ls_additive_rows: list[pd.DataFrame] = []
-    peak_morphology_rows: list[pd.DataFrame] = []
-    removal_mask_rows: list[pd.DataFrame] = []
     ping_decomposed_rows: list[pd.DataFrame] = []
     ping_summary_rows: list[pd.DataFrame] = []
-    member_probe_rows: list[pd.DataFrame] = []
-    member_probe_summary_rows: list[pd.DataFrame] = []
-    nonmember_probe_rows: list[pd.DataFrame] = []
-    nonmember_probe_summary_rows: list[pd.DataFrame] = []
-    mask_rows: list[pd.DataFrame] = []
+    weak_probe_rows: list[pd.DataFrame] = []
+    weak_probe_summary_rows: list[pd.DataFrame] = []
+    weak_probe_auc_rows: list[pd.DataFrame] = []
+    weak_probe_threshold_rows: list[pd.DataFrame] = []
     state_npz_payload: dict[str, np.ndarray] = {}
 
     for batch_start in range(0, len(pair_df), max(1, int(cfg.batch_size))):
@@ -1675,140 +1994,47 @@ def process_seed(
         second_spikes = torch.stack([spike_lookup[int(v)] for v in batch_df["second_idx"].astype(int)], dim=0).to(device)
         logger.log(f"[Seed {seed}] batch {batch_start // max(1, int(cfg.batch_size)) + 1}: {len(batch_df)} pair(s).")
         state0, _, _ = run_state_capture(net, sample_spikes, second_spikes, cfg, active_a=False, active_b=False)
-        state_a, _, _ = run_state_capture(net, sample_spikes, second_spikes, cfg, active_a=True, active_b=False)
         state_b, _, _ = run_state_capture(net, sample_spikes, second_spikes, cfg, active_a=False, active_b=True)
         state_ab, _b_pred_normal, _b_fire_normal = run_state_capture(net, sample_spikes, second_spikes, cfg, active_a=True, active_b=True)
-        mean_mode = "sum" if str(cfg.additive_mode) == "sum" else "mean"
-        state_mean, additive_diag = build_mean_mixture_snapshot(state0, state_a, state_b, mode=mean_mode)
-        additive_diag.insert(0, "seed", int(seed))
-        additive_diag.insert(1, "pair_id", additive_diag["row_idx"].map(lambda idx: batch_df["pair_id"].iloc[int(idx)]))
-        additive_diag["overlap_group"] = additive_diag["row_idx"].map(lambda idx: batch_df["overlap_group"].iloc[int(idx)])
-        a_l3 = layer_state_matrix(state_a)
-        b_l3 = layer_state_matrix(state_b)
-        ab_l3 = layer_state_matrix(state_ab)
-        mean_l3 = layer_state_matrix(state_mean)
-        sim_to_a = centered_cosine_rows(mean_l3, a_l3)
-        sim_to_b = centered_cosine_rows(mean_l3, b_l3)
-        sim_to_ab = centered_cosine_rows(mean_l3, ab_l3)
-        additive_diag["sim_to_A"] = additive_diag["row_idx"].map(lambda idx: float(sim_to_a[int(idx)]))
-        additive_diag["sim_to_B"] = additive_diag["row_idx"].map(lambda idx: float(sim_to_b[int(idx)]))
-        additive_diag["sim_to_AB"] = additive_diag["row_idx"].map(lambda idx: float(sim_to_ab[int(idx)]))
-        additive_rows.append(additive_diag)
-
-        if cfg.use_ls_additive:
-            state_ls, ls_diag = fit_additive_snapshot(state0, state_a, state_b, state_ab)
-            ls_diag.insert(0, "seed", int(seed))
-            ls_diag.insert(1, "pair_id", ls_diag["row_idx"].map(lambda idx: batch_df["pair_id"].iloc[int(idx)]))
-            ls_additive_rows.append(ls_diag)
-            legacy_morphology_rows.append(build_morphology_rows(batch_df, state_a, state_b, state_ab, state_ls, seed=seed, rng=np.random.default_rng(mix_seed(seed, batch_start, 401))))
-
-        peak_df, morph_payload = compute_layer3_peak_morphology(batch_df, state0, state_a, state_b, state_ab, state_mean, cfg)
-        peak_morphology_rows.append(peak_df)
-        removal_states, removal_df = build_chunk_peak_removal_states(
-            batch_df,
-            state_ab,
-            state_mean,
-            morph_payload,
-            cfg,
-            seed=mix_seed(seed, batch_start, 701),
-        )
-        removal_mask_rows.append(removal_df)
 
         state_map = {
             "baseline": state0,
-            "S_A": state_a,
             "S_B": state_b,
-            "S_mean": state_mean,
             "S_AB": state_ab,
-            **removal_states,
         }
-        ping_df = run_ping_decomposed_rows(batch_df, state_map, net, cfg, seed=mix_seed(seed, batch_start, 801))
+        ping_df = run_ping_decomposed_rows(batch_df, state_map, net, cfg, seed=int(seed), rng_seed=mix_seed(seed, batch_start, 801))
         ping_decomposed_rows.append(ping_df)
         ping_summary_rows.append(summarize_ping_decomposed(ping_df))
 
-        member_states = {name: state_map[name] for name in ("baseline", "S_B", "S_mean", "S_AB", "S_AB_minus_chunk_peak", "S_AB_minus_random_peak", "S_AB_minus_nonshared_peak")}
-        member_probe = sample_spikes[:, : cfg.probe_steps].clone()
-        if member_probe.shape[1] < cfg.probe_steps:
-            pad = torch.zeros(
-                (member_probe.shape[0], cfg.probe_steps - member_probe.shape[1], *member_probe.shape[2:]),
-                dtype=member_probe.dtype,
-                device=member_probe.device,
-            )
-            member_probe = torch.cat([member_probe, pad], dim=1)
-        member_labels = batch_df["sample_label"].to_numpy(dtype=np.int64)
-        member_ids = batch_df["sample_idx"].to_numpy(dtype=np.int64)
-        member_df = run_probe_decomposed_rows(
+        weak_df = run_weak_probe_a_completion_rows(
             batch_df,
-            member_states,
+            state_map,
             net,
             cfg,
-            [member_probe],
-            [member_labels],
-            [member_ids],
-            probe_type="member_A",
-            probe_scale=cfg.member_probe_scale,
-            seed=mix_seed(seed, batch_start, 901),
+            sample_spikes,
+            seed=mix_seed(seed, batch_start, 951),
         )
-        member_probe_rows.append(member_df)
-        member_probe_summary_rows.append(summarize_member_probe_a(member_df))
-
-        probe_ids = choose_probe_ids(batch_df, class_index, seed=mix_seed(seed, batch_start, 501), num_probe_candidates=cfg.num_nonmember_probes)
-        flat_probe_ids = [int(v) for ids in probe_ids for v in ids]
-        probe_lookup = _encode_id_bank(flat_probe_ids, images, encoder, steps=cfg.probe_steps, device=device, batch_size=cfg.batch_size)
-        probe_spikes_by_rank: list[torch.Tensor] = []
-        probe_labels_by_rank: list[np.ndarray] = []
-        probe_ids_by_rank: list[np.ndarray] = []
-        for probe_rank in range(int(cfg.num_nonmember_probes)):
-            probe_batch = torch.zeros((len(batch_df), cfg.probe_steps, *member_probe.shape[2:]), dtype=torch.float32, device=device)
-            probe_label = np.full(len(batch_df), -1, dtype=np.int64)
-            probe_id_arr = np.full(len(batch_df), -1, dtype=np.int64)
-            for row_idx, ids in enumerate(probe_ids):
-                probe_id = int(ids[min(probe_rank, len(ids) - 1)])
-                probe_batch[row_idx] = probe_lookup[probe_id]
-                probe_label[row_idx] = int(labels[probe_id])
-                probe_id_arr[row_idx] = probe_id
-            probe_spikes_by_rank.append(probe_batch)
-            probe_labels_by_rank.append(probe_label)
-            probe_ids_by_rank.append(probe_id_arr)
-        nonmember_states = {name: state_map[name] for name in ("baseline", "S_B", "S_mean", "S_AB", "S_AB_minus_chunk_peak", "S_AB_minus_random_peak", "S_AB_minus_nonshared_peak")}
-        nonmember_df = run_probe_decomposed_rows(
-            batch_df,
-            nonmember_states,
-            net,
-            cfg,
-            probe_spikes_by_rank,
-            probe_labels_by_rank,
-            probe_ids_by_rank,
-            probe_type="nonmember_C",
-            probe_scale=cfg.probe_scale,
-            seed=mix_seed(seed, batch_start, 1001),
-        )
-        nonmember_probe_rows.append(nonmember_df)
-        nonmember_probe_summary_rows.append(summarize_nonmember_probe(nonmember_df))
+        weak_summary = summarize_weak_probe_a(weak_df)
+        weak_probe_rows.append(weak_df)
+        weak_probe_summary_rows.append(weak_summary)
+        weak_probe_auc_rows.append(summarize_weak_probe_a_auc(weak_summary))
+        weak_probe_threshold_rows.append(summarize_weak_probe_a_thresholds(weak_summary))
 
         if cfg.save_states:
-            for condition, snap in {"S0": state0, "S_A": state_a, "S_B": state_b, "S_mean": state_mean, "S_AB": state_ab, **removal_states}.items():
+            for condition, snap in {"S0": state0, "S_B": state_b, "S_AB": state_ab}.items():
                 state_npz_payload[f"batch{batch_start}_{condition}_layer3_g"] = layer_state_matrix(snap)
-            state_npz_payload[f"batch{batch_start}_shared_mask"] = morph_payload["shared_mask"].astype(np.uint8, copy=False)
-            state_npz_payload[f"batch{batch_start}_peak_mask"] = morph_payload["peak_mask"].astype(np.uint8, copy=False)
 
     if cfg.save_states and state_npz_payload:
         np.savez_compressed(layout.data_file(f"states_masks_seed{int(seed)}.npz"), **state_npz_payload)
 
     return {
         "pair": pair_df,
-        "legacy_morphology": pd.concat(legacy_morphology_rows, ignore_index=True) if legacy_morphology_rows else pd.DataFrame(),
-        "additive": pd.concat(additive_rows, ignore_index=True) if additive_rows else pd.DataFrame(),
-        "ls_additive": pd.concat(ls_additive_rows, ignore_index=True) if ls_additive_rows else pd.DataFrame(),
-        "peak_morphology": pd.concat(peak_morphology_rows, ignore_index=True) if peak_morphology_rows else pd.DataFrame(),
-        "removal_masks": pd.concat(removal_mask_rows, ignore_index=True) if removal_mask_rows else pd.DataFrame(),
         "ping_decomposed": pd.concat(ping_decomposed_rows, ignore_index=True) if ping_decomposed_rows else pd.DataFrame(),
         "ping_summary": pd.concat(ping_summary_rows, ignore_index=True) if ping_summary_rows else pd.DataFrame(),
-        "member_probe": pd.concat(member_probe_rows, ignore_index=True) if member_probe_rows else pd.DataFrame(),
-        "member_probe_summary": pd.concat(member_probe_summary_rows, ignore_index=True) if member_probe_summary_rows else pd.DataFrame(),
-        "nonmember_probe": pd.concat(nonmember_probe_rows, ignore_index=True) if nonmember_probe_rows else pd.DataFrame(),
-        "nonmember_probe_summary": pd.concat(nonmember_probe_summary_rows, ignore_index=True) if nonmember_probe_summary_rows else pd.DataFrame(),
-        "mask": pd.concat(mask_rows, ignore_index=True) if mask_rows else pd.DataFrame(),
+        "weak_probe": pd.concat(weak_probe_rows, ignore_index=True) if weak_probe_rows else pd.DataFrame(),
+        "weak_probe_summary": pd.concat(weak_probe_summary_rows, ignore_index=True) if weak_probe_summary_rows else pd.DataFrame(),
+        "weak_probe_auc": pd.concat(weak_probe_auc_rows, ignore_index=True) if weak_probe_auc_rows else pd.DataFrame(),
+        "weak_probe_threshold": pd.concat(weak_probe_threshold_rows, ignore_index=True) if weak_probe_threshold_rows else pd.DataFrame(),
     }
 
 
@@ -1851,18 +2077,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         net, encoder = load_model_and_encoder(cfg.model_path, device=device, dt=1.0 * ms, max_duration_ms=cfg.encoder_max_duration_ms)
         output_names = (
             "pair",
-            "legacy_morphology",
-            "additive",
-            "ls_additive",
-            "peak_morphology",
-            "removal_masks",
             "ping_decomposed",
             "ping_summary",
-            "member_probe",
-            "member_probe_summary",
-            "nonmember_probe",
-            "nonmember_probe_summary",
-            "mask",
+            "weak_probe",
+            "weak_probe_summary",
+            "weak_probe_auc",
+            "weak_probe_threshold",
         )
         all_outputs: dict[str, list[pd.DataFrame]] = {name: [] for name in output_names}
         for seed in cfg.seeds:
@@ -1882,31 +2102,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 all_outputs[name].append(df)
 
         pair_df = pd.concat(all_outputs["pair"], ignore_index=True)
-        morphology_df = pd.concat(all_outputs["legacy_morphology"], ignore_index=True) if any(not df.empty for df in all_outputs["legacy_morphology"]) else pd.DataFrame()
-        additive_df = pd.concat(all_outputs["additive"], ignore_index=True)
-        ls_additive_df = pd.concat(all_outputs["ls_additive"], ignore_index=True) if any(not df.empty for df in all_outputs["ls_additive"]) else pd.DataFrame()
-        peak_morphology_df = pd.concat(all_outputs["peak_morphology"], ignore_index=True)
-        removal_mask_df = pd.concat(all_outputs["removal_masks"], ignore_index=True)
         ping_decomposed_df = pd.concat(all_outputs["ping_decomposed"], ignore_index=True)
         ping_summary_df = pd.concat(all_outputs["ping_summary"], ignore_index=True)
-        member_probe_df = pd.concat(all_outputs["member_probe"], ignore_index=True)
-        member_probe_summary_df = pd.concat(all_outputs["member_probe_summary"], ignore_index=True)
-        nonmember_probe_df = pd.concat(all_outputs["nonmember_probe"], ignore_index=True)
-        nonmember_probe_summary_df = pd.concat(all_outputs["nonmember_probe_summary"], ignore_index=True)
-        mask_df = pd.concat(all_outputs["mask"], ignore_index=True)
+        weak_probe_df = pd.concat(all_outputs["weak_probe"], ignore_index=True)
+        weak_probe_summary_df = pd.concat(all_outputs["weak_probe_summary"], ignore_index=True)
+        weak_probe_auc_df = pd.concat(all_outputs["weak_probe_auc"], ignore_index=True)
+        weak_probe_threshold_df = pd.concat(all_outputs["weak_probe_threshold"], ignore_index=True)
         exported = {
             "pair_table": save_tidy_csv(pair_df, layout.data_file("pair_table.csv"), sort_by=["seed", "overlap_group", "selection_rank"]),
-            "mean_mixture_diagnostics": save_tidy_csv(additive_df, layout.data_file("mean_mixture_diagnostics.csv"), sort_by=["seed", "pair_id", "layer"]),
-            "layer3_peak_morphology_metrics": save_tidy_csv(
-                peak_morphology_df,
-                layout.data_file("layer3_peak_morphology_metrics.csv"),
-                sort_by=["seed", "pair_id"],
-            ),
-            "chunk_peak_removal_mask_stats": save_tidy_csv(
-                removal_mask_df,
-                layout.data_file("chunk_peak_removal_mask_stats.csv"),
-                sort_by=["seed", "pair_id"],
-            ),
             "ping_decomposed_metrics": save_tidy_csv(
                 ping_decomposed_df,
                 layout.data_file("ping_decomposed_metrics.csv"),
@@ -1917,41 +2120,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 layout.data_file("ping_decomposed_summary.csv"),
                 sort_by=["seed", "pair_id", "state_condition"],
             ),
-            "member_probe_A_metrics": save_tidy_csv(
-                member_probe_df,
-                layout.data_file("member_probe_A_metrics.csv"),
-                sort_by=["seed", "pair_id", "state_condition", "probe_rank"],
+            "weak_probe_A_metrics": save_tidy_csv(
+                weak_probe_df,
+                layout.data_file("weak_probe_A_metrics.csv"),
+                sort_by=["seed", "pair_id", "state_condition", "keep_prob", "dropout_repeat"],
             ),
-            "member_probe_A_summary": save_tidy_csv(
-                member_probe_summary_df,
-                layout.data_file("member_probe_A_summary.csv"),
+            "weak_probe_A_summary": save_tidy_csv(
+                weak_probe_summary_df,
+                layout.data_file("weak_probe_A_summary.csv"),
+                sort_by=["seed", "pair_id", "state_condition", "keep_prob"],
+            ),
+            "weak_probe_A_auc_summary": save_tidy_csv(
+                weak_probe_auc_df,
+                layout.data_file("weak_probe_A_auc_summary.csv"),
                 sort_by=["seed", "pair_id", "state_condition"],
             ),
-            "nonmember_probe_error_metrics": save_tidy_csv(
-                nonmember_probe_df,
-                layout.data_file("nonmember_probe_error_metrics.csv"),
-                sort_by=["seed", "pair_id", "state_condition", "probe_rank"],
-            ),
-            "nonmember_probe_error_summary": save_tidy_csv(
-                nonmember_probe_summary_df,
-                layout.data_file("nonmember_probe_error_summary.csv"),
+            "weak_probe_A_threshold_summary": save_tidy_csv(
+                weak_probe_threshold_df,
+                layout.data_file("weak_probe_A_threshold_summary.csv"),
                 sort_by=["seed", "pair_id", "state_condition"],
             ),
         }
-        if not morphology_df.empty:
-            exported["supplementary_ls_morphology_metrics"] = save_tidy_csv(
-                morphology_df,
-                layout.data_file("supplementary_ls_morphology_metrics.csv"),
-                sort_by=["seed", "pair_id", "state_condition"],
-            )
-        if not ls_additive_df.empty:
-            exported["supplementary_ls_additive_fit_diagnostics"] = save_tidy_csv(
-                ls_additive_df,
-                layout.data_file("supplementary_ls_additive_fit_diagnostics.csv"),
-                sort_by=["seed", "pair_id", "layer", "variable"],
-            )
-        if not mask_df.empty:
-            exported["legacy_layer1_mask_statistics"] = save_tidy_csv(mask_df, layout.data_file("legacy_layer1_mask_statistics.csv"), sort_by=["seed", "pair_id"])
         for name, path in exported.items():
             source = Path(path)
             target = layout.metrics_file(source.name) if source.suffix.lower() == ".csv" else layout.metrics_file(f"{name}.json")
@@ -1959,10 +2148,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pd.read_csv(source).to_csv(target, index=False)
 
         summary_metrics = summarize_outputs(
-            peak_morphology_df,
             ping_summary_df,
-            member_probe_summary_df,
-            nonmember_probe_summary_df,
+            weak_probe_summary_df,
+            weak_probe_auc_df,
+            weak_probe_threshold_df,
             seed=mix_seed(int(cfg.seeds[0]), 809),
         )
         summary_metrics_path = save_summary_json(summary_metrics, layout.data_dir, filename="summary_metrics.json")

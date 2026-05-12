@@ -637,6 +637,11 @@ def aggregate_experiment_outputs(
             continue
         by_network = pd.concat(frames, ignore_index=True)
         stem = Path(csv_name).stem
+        compat_path = layout.data_dir / csv_name
+        compat = by_network.copy()
+        if "seed" not in compat.columns and "network_seed" in compat.columns:
+            compat.insert(0, "seed", compat["network_seed"].astype(int))
+        compat.to_csv(compat_path, index=False)
         by_network_path = layout.data_dir / f"{stem}__by_network.csv"
         by_network.to_csv(by_network_path, index=False)
         summary_df, network_df, group_cols, metric_cols = summarize_network_metrics(
@@ -655,6 +660,7 @@ def aggregate_experiment_outputs(
         summary_df.to_csv(summary_path, index=False)
         tests_df.to_csv(tests_path, index=False)
         aggregate_outputs[csv_name] = {
+            "compat_csv": compat_path.relative_to(root).as_posix(),
             "by_network_csv": by_network_path.relative_to(root).as_posix(),
             "network_summary_csv": summary_path.relative_to(root).as_posix(),
             "network_tests_csv": tests_path.relative_to(root).as_posix(),

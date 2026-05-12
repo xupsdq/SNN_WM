@@ -28,7 +28,10 @@ from src.experiments.common.results import prepare_result_layout, save_log_lines
 from src.experiments.common.runtime import seed_everything
 from src.experiments.common.seed import mix_seed
 from src.plotting.common.io import apply_publication_style, save_figure_all_formats, save_tidy_csv
-from src.plotting.common.style import DYNAMIC_COLOR, NOISE_COLOR, SAMPLE_COLOR, SHUFFLE_COLOR
+from src.plotting.experiments.chunk_stsp_state_taxonomy_plot import (
+    _plot_di_vs_sample_first,
+    _plot_dominance_index,
+)
 
 CONDITION_FULL = "baseline_intact"
 CONDITION_SAMPLE = "sample_only_reference"
@@ -40,7 +43,6 @@ CONDITION_NAMES = (
     CONDITION_DISTRACTOR,
     CONDITION_SHUFFLE,
 )
-REGION_NAMES = ("SP", "DP", "SDP")
 PING_CONDITION = "neutral_ping"
 
 
@@ -186,7 +188,11 @@ def normalize_config(args: argparse.Namespace) -> TaxonomyConfig:
 
 
 def resolve_device_with_fallback(device_arg: str) -> tuple[torch.device, str]:
-    if str(device_arg).strip().lower() == "cuda" and not torch.cuda.is_available():
+    normalized = str(device_arg).strip().lower()
+    if normalized == "auto":
+        resolved = "cuda" if torch.cuda.is_available() else "cpu"
+        return torch.device(resolved), f"[Runtime] Auto-selected device={resolved}."
+    if normalized == "cuda" and not torch.cuda.is_available():
         return torch.device("cpu"), "[Runtime] CUDA unavailable on 2026-04-17; falling back to CPU."
     return torch.device(str(device_arg)), f"[Runtime] Using device={device_arg}."
 
@@ -529,273 +535,13 @@ def compute_similarity_rows(
     return rows
 
 
-def fit_linear_decomposition(
-    full_vec: np.ndarray,
-    sample_vec: np.ndarray,
-    distractor_vec: np.ndarray,
-    base_u: float,
-    eps: float,
-) -> dict[str, float]:
-    y = np.asarray(full_vec, dtype=np.float64)
-    x_s = np.asarray(sample_vec, dtype=np.float64)
-    x_d = np.asarray(distractor_vec, dtype=np.float64)
-    design = np.column_stack([x_s, x_d, np.ones_like(x_s)])
-    coef, _, _, _ = np.linalg.lstsq(design, y, rcond=None)
-    y_hat = design @ coef
-    residual = y - y_hat
-    sse = float(np.sum(np.square(residual)))
-    tss = float(np.sum(np.square(y - y.mean())))
-    r2 = 1.0 - sse / max(tss, eps)
-    base_vec = np.full_like(y, float(base_u))
-    residual_norm = float(np.linalg.norm(residual) / max(np.linalg.norm(y - base_vec), eps))
-    return {
-        "alpha": float(coef[0]),
-        "beta": float(coef[1]),
-        "c": float(coef[2]),
-        "R2": float(r2),
-        "residual_norm": residual_norm,
-    }
-
-
-def compute_decomposition_rows(
-    batch_df: pd.DataFrame,
-    state_bank: Mapping[str, BackboneSnapshot],
-    net,
-    eps: float,
-) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for layer_key in LAYER_KEYS:
-        full_g = state_bank[CONDITION_FULL].state_by_layer[layer_key]["g_pre"]
-        sample_g = state_bank[CONDITION_SAMPLE].state_by_layer[layer_key]["g_pre"]
-        distractor_g = state_bank[CONDITION_DISTRACTOR].state_by_layer[layer_key]["g_pre"]
-        base_u = float(getattr(net, layer_key).stsp_U)
-        for row_idx, triplet_row in enumerate(batch_df.itertuples(index=False)):
-            metrics = fit_linear_decomposition(
-                full_vec=full_g[row_idx],
-                sample_vec=sample_g[row_idx],
-                distractor_vec=distractor_g[row_idx],
-                base_u=base_u,
-                eps=eps,
-            )
-            rows.append(
-                {
-                    "record_type": "trial_level",
-                    "triplet_id": int(triplet_row.triplet_id),
-                    "layer": str(layer_key),
-                    "sample_label": int(triplet_row.sample_label),
-                    "distractor_label": int(triplet_row.distractor_label),
-                    **metrics,
-                }
-            )
-    return rows
-
-
-def _condition_change_stats(vec: np.ndarray, base_u: float, epsilon: float) -> dict[str, float | np.ndarray]:
-    dg = np.asarray(vec, dtype=np.float64) - float(base_u)
-    changed = np.abs(dg) > float(epsilon)
-    positive = dg > float(epsilon)
-    negative = dg < -float(epsilon)
-    return {
-        "changed": changed,
-        "changed_fraction": float(changed.mean()),
-        "changed_magnitude_mean": float(np.mean(np.abs(dg[changed]))) if np.any(changed) else 0.0,
-        "positive_fraction": float(positive.mean()),
-        "negative_fraction": float(negative.mean()),
-    }
-
-
-def compute_changed_synapse_rows(
-    batch_df: pd.DataFrame,
-    state_bank: Mapping[str, BackboneSnapshot],
-    net,
-    epsilon: float,
-) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for layer_key in LAYER_KEYS:
-        base_u = float(getattr(net, layer_key).stsp_U)
-        full_g = state_bank[CONDITION_FULL].state_by_layer[layer_key]["g_pre"]
-        sample_g = state_bank[CONDITION_SAMPLE].state_by_layer[layer_key]["g_pre"]
-        distractor_g = state_bank[CONDITION_DISTRACTOR].state_by_layer[layer_key]["g_pre"]
-        shuffle_g = state_bank[CONDITION_SHUFFLE].state_by_layer[layer_key]["g_pre"]
-        for row_idx, triplet_row in enumerate(batch_df.itertuples(index=False)):
-            stats_s = _condition_change_stats(sample_g[row_idx], base_u=base_u, epsilon=epsilon)
-            stats_d = _condition_change_stats(distractor_g[row_idx], base_u=base_u, epsilon=epsilon)
-            stats_f = _condition_change_stats(full_g[row_idx], base_u=base_u, epsilon=epsilon)
-            stats_shuffle = _condition_change_stats(shuffle_g[row_idx], base_u=base_u, epsilon=epsilon)
-            s_mask = np.asarray(stats_s["changed"], dtype=bool)
-            d_mask = np.asarray(stats_d["changed"], dtype=bool)
-            f_mask = np.asarray(stats_f["changed"], dtype=bool)
-            shared = s_mask & d_mask
-            s_only = s_mask & (~d_mask)
-            d_only = d_mask & (~s_mask)
-            full_only_novel = f_mask & (~s_mask) & (~d_mask)
-            union_supported = f_mask & (s_mask | d_mask)
-            full_count = int(f_mask.sum())
-            if full_count > 0:
-                s_only_in_full = f_mask & s_only
-                d_only_in_full = f_mask & d_only
-                shared_in_full = f_mask & shared
-                novel_in_full = full_only_novel
-                p_s_only_given_full = float(s_only_in_full.sum() / full_count)
-                p_d_only_given_full = float(d_only_in_full.sum() / full_count)
-                p_shared_given_full = float(shared_in_full.sum() / full_count)
-                p_novel_given_full = float(novel_in_full.sum() / full_count)
-            else:
-                p_s_only_given_full = np.nan
-                p_d_only_given_full = np.nan
-                p_shared_given_full = np.nan
-                p_novel_given_full = np.nan
-            rows.append(
-                {
-                    "record_type": "trial_level",
-                    "triplet_id": int(triplet_row.triplet_id),
-                    "layer": str(layer_key),
-                    "epsilon": float(epsilon),
-                    "changed_fraction_sample": float(stats_s["changed_fraction"]),
-                    "changed_fraction_distractor": float(stats_d["changed_fraction"]),
-                    "changed_fraction_full": float(stats_f["changed_fraction"]),
-                    "changed_fraction_shuffle": float(stats_shuffle["changed_fraction"]),
-                    "changed_magnitude_mean_sample": float(stats_s["changed_magnitude_mean"]),
-                    "changed_magnitude_mean_distractor": float(stats_d["changed_magnitude_mean"]),
-                    "changed_magnitude_mean_full": float(stats_f["changed_magnitude_mean"]),
-                    "positive_fraction_full": float(stats_f["positive_fraction"]),
-                    "negative_fraction_full": float(stats_f["negative_fraction"]),
-                    "S_only_changed_fraction": float(s_only.mean()),
-                    "D_only_changed_fraction": float(d_only.mean()),
-                    "Shared_changed_fraction": float(shared.mean()),
-                    "Full_only_novel_changed_fraction": float(full_only_novel.mean()),
-                    "Full_union_supported_changed_fraction": float(union_supported.mean()),
-                    "full_changed_count": int(full_count),
-                    "P_S_only_given_full": p_s_only_given_full,
-                    "P_D_only_given_full": p_d_only_given_full,
-                    "P_Shared_given_full": p_shared_given_full,
-                    "P_Novel_given_full": p_novel_given_full,
-                }
-            )
-    return rows
-
-
-def build_layer1_region_masks(
-    sample_images: torch.Tensor,
-    distractor_images: torch.Tensor,
-    channels: int,
-) -> Dict[str, np.ndarray]:
-    sample_norm = sample_images / sample_images.flatten(start_dim=1).amax(dim=1).clamp_min(1e-12).view(-1, 1, 1, 1)
-    distractor_norm = distractor_images / distractor_images.flatten(start_dim=1).amax(dim=1).clamp_min(1e-12).view(-1, 1, 1, 1)
-    sample_support = sample_norm > 1e-12
-    distractor_support = distractor_norm > 1e-12
-    support_masks = {
-        "SP": sample_support & (~distractor_support),
-        "DP": distractor_support & (~sample_support),
-        "SDP": sample_support & distractor_support,
-    }
-    out: Dict[str, np.ndarray] = {}
-    for region_name, mask in support_masks.items():
-        expanded = mask.expand(mask.shape[0], int(channels), mask.shape[2], mask.shape[3])
-        out[str(region_name)] = expanded.detach().cpu().numpy().astype(bool, copy=False).reshape(mask.shape[0], -1)
-    return out
-
-
-def compute_layer1_region_rows(
-    batch_df: pd.DataFrame,
-    batch: TripletBatch,
-    state_bank: Mapping[str, BackboneSnapshot],
-    net,
-    epsilon: float,
-) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    channels = int(batch.sample_spikes.shape[2])
-    base_u = float(net.layer1.stsp_U)
-    masks = build_layer1_region_masks(batch.sample_images, batch.distractor_images, channels=channels)
-    condition_to_state = {
-        CONDITION_SAMPLE: state_bank[CONDITION_SAMPLE].state_by_layer["layer1"]["g_pre"],
-        CONDITION_DISTRACTOR: state_bank[CONDITION_DISTRACTOR].state_by_layer["layer1"]["g_pre"],
-        CONDITION_FULL: state_bank[CONDITION_FULL].state_by_layer["layer1"]["g_pre"],
-    }
-    for row_idx, triplet_row in enumerate(batch_df.itertuples(index=False)):
-        for condition_name, region_state in condition_to_state.items():
-            g_vec = np.asarray(region_state[row_idx], dtype=np.float64)
-            dg_vec = g_vec - float(base_u)
-            for region_name in REGION_NAMES:
-                region_mask = np.asarray(masks[region_name][row_idx], dtype=bool)
-                if not np.any(region_mask):
-                    mean_g = np.nan
-                    mean_dg = np.nan
-                    changed_fraction = np.nan
-                    region_size = 0
-                else:
-                    region_g = g_vec[region_mask]
-                    region_dg = dg_vec[region_mask]
-                    mean_g = float(region_g.mean())
-                    mean_dg = float(region_dg.mean())
-                    changed_fraction = float((np.abs(region_dg) > float(epsilon)).mean())
-                    region_size = int(region_mask.sum())
-                rows.append(
-                    {
-                        "record_type": "trial_level",
-                        "triplet_id": int(triplet_row.triplet_id),
-                        "condition": str(condition_name),
-                        "layer": "layer1",
-                        "region": str(region_name),
-                        "region_size": int(region_size),
-                        "mean_g": mean_g,
-                        "mean_dg": mean_dg,
-                        "changed_fraction": changed_fraction,
-                    }
-                )
-    return rows
-
-
-def _projection_metrics(full_vec: np.ndarray, template_vec: np.ndarray, eps: float) -> tuple[float, float]:
-    full = np.asarray(full_vec, dtype=np.float64)
-    template = np.asarray(template_vec, dtype=np.float64)
-    full_centered = full - full.mean()
-    template_centered = template - template.mean()
-    template_norm = max(float(np.linalg.norm(template_centered)), float(eps))
-    cosine = float(np.dot(full_centered, template_centered) / max(np.linalg.norm(full_centered) * template_norm, float(eps)))
-    projection = float(np.dot(full_centered, template_centered / template_norm))
-    return projection, cosine
-
-
-def compute_projection_rows(
-    batch_df: pd.DataFrame,
-    state_bank: Mapping[str, BackboneSnapshot],
-    eps: float,
-) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for layer_key in ("layer2", "layer3"):
-        full_g = state_bank[CONDITION_FULL].state_by_layer[layer_key]["g_pre"]
-        sample_g = state_bank[CONDITION_SAMPLE].state_by_layer[layer_key]["g_pre"]
-        distractor_g = state_bank[CONDITION_DISTRACTOR].state_by_layer[layer_key]["g_pre"]
-        for row_idx, triplet_row in enumerate(batch_df.itertuples(index=False)):
-            proj_s, cos_s = _projection_metrics(full_g[row_idx], sample_g[row_idx], eps=eps)
-            proj_d, cos_d = _projection_metrics(full_g[row_idx], distractor_g[row_idx], eps=eps)
-            dominance = (proj_s - proj_d) / max(abs(proj_s) + abs(proj_d), float(eps))
-            rows.append(
-                {
-                    "record_type": "trial_level",
-                    "triplet_id": int(triplet_row.triplet_id),
-                    "layer": str(layer_key),
-                    "proj_full_on_S": float(proj_s),
-                    "proj_full_on_D": float(proj_d),
-                    "cosine_full_S": float(cos_s),
-                    "cosine_full_D": float(cos_d),
-                    "dominance_in_subspace": float(dominance),
-                }
-            )
-    return rows
-
-
 def compute_ping_coupling_rows(
     batch_df: pd.DataFrame,
     similarity_rows: Sequence[Mapping[str, object]],
-    decomposition_rows: Sequence[Mapping[str, object]],
     ping_readout: PingReadout,
     num_bins: int,
 ) -> list[dict[str, object]]:
     df_sim = pd.DataFrame(similarity_rows)
-    df_decomp = pd.DataFrame(decomposition_rows)[["triplet_id", "layer", "residual_norm", "R2", "alpha", "beta"]]
-    merged = df_sim.merge(df_decomp, on=["triplet_id", "layer"], how="left", validate="one_to_one")
     trial_info = batch_df[
         [
             "triplet_id",
@@ -817,7 +563,7 @@ def compute_ping_coupling_rows(
     ping_df["member_first"] = ping_readout.member_first
     ping_df["nonmember_first"] = ping_readout.nonmember_first
     rows: list[dict[str, object]] = []
-    for layer_key, sub in merged.groupby("layer", sort=True):
+    for layer_key, sub in df_sim.groupby("layer", sort=True):
         di_bins = assign_bins_from_values(sub["DI"].to_numpy(dtype=np.float64, copy=False), num_bins=num_bins)
         sub_layer = sub.copy()
         sub_layer["DI_bin"] = di_bins
@@ -875,207 +621,14 @@ def summarize_metric_table(
     return pd.concat([df, df_summary], axis=0, ignore_index=True, sort=False)
 
 
-def collect_example_state_npz(
-    state_bank: Mapping[str, BackboneSnapshot],
-    max_trials: int = 2,
-) -> dict[str, np.ndarray]:
-    out: dict[str, np.ndarray] = {}
-    for condition_name, snapshot in state_bank.items():
-        for layer_key in LAYER_KEYS:
-            for state_name in ("u_pre", "x_pre", "g_pre"):
-                arr = snapshot.state_by_layer[layer_key][state_name]
-                out[f"{condition_name}_{layer_key}_{state_name}"] = arr[:max_trials].astype(np.float32, copy=False)
-    return out
-
-
-def save_overview_figure(
-    layout,
-    df_similarity: pd.DataFrame,
-    df_decomposition: pd.DataFrame,
-    df_changed: pd.DataFrame,
-    df_coupling: pd.DataFrame,
-) -> dict[str, str]:
-    apply_publication_style()
-    fig, axes = plt.subplots(2, 3, figsize=(14, 8))
-    ax_a, ax_b, ax_c, ax_d, ax_e, ax_f = axes.flatten()
-
-    ax_a.axis("off")
-    ax_a.text(0.03, 0.88, "A. Pre-ping taxonomy design", fontsize=13, weight="bold")
-    ax_a.text(0.03, 0.64, "sample -> delay1 -> distractor -> delay2 -> snapshot", fontsize=11)
-    ax_a.text(0.03, 0.48, "Compare: full / sample-only / distractor-only / shuffled", fontsize=11)
-    ax_a.text(0.03, 0.32, "Readout: restore STSP only -> neutral ping -> first-fire", fontsize=11)
-    ax_a.text(0.03, 0.16, "Target: coexistence vs biased integration vs pair-specific state", fontsize=11)
-
-    sim_summary = df_similarity[df_similarity["record_type"] == "layer_summary"].copy()
-    layer_order = list(LAYER_KEYS)
-    x = np.arange(len(layer_order))
-    for metric, color, label in (
-        ("Sim_FS", SAMPLE_COLOR, "full vs sample"),
-        ("Sim_FD", SHUFFLE_COLOR, "full vs distractor"),
-        ("Sim_FShuffle", NOISE_COLOR, "full vs shuffled"),
-    ):
-        vals = [
-            float(sim_summary.loc[sim_summary["layer"] == layer_key, metric].mean())
-            if np.any(sim_summary["layer"] == layer_key)
-            else np.nan
-            for layer_key in layer_order
-        ]
-        ax_b.plot(x, vals, marker="o", linewidth=2.0, color=color, label=label)
-    ax_b.set_xticks(x, layer_order)
-    ax_b.set_title("B. Similarity")
-    ax_b.set_ylabel("Centered cosine")
-    ax_b.legend(frameon=False, fontsize=9)
-
-    di_vals = [
-        float(sim_summary.loc[sim_summary["layer"] == layer_key, "DI"].mean())
-        if np.any(sim_summary["layer"] == layer_key)
-        else np.nan
-        for layer_key in layer_order
-    ]
-    ax_c.bar(x, di_vals, color=DYNAMIC_COLOR, width=0.6)
-    ax_c.axhline(0.0, color="black", linewidth=1.0, linestyle="--")
-    ax_c.set_xticks(x, layer_order)
-    ax_c.set_title("C. Dominance Index")
-    ax_c.set_ylabel("DI")
-
-    decomp_summary = df_decomposition[df_decomposition["record_type"] == "layer_summary"].copy()
-    for metric, color in (
-        ("alpha", SAMPLE_COLOR),
-        ("beta", SHUFFLE_COLOR),
-        ("R2", DYNAMIC_COLOR),
-        ("residual_norm", NOISE_COLOR),
-    ):
-        vals = [
-            float(decomp_summary.loc[decomp_summary["layer"] == layer_key, metric].mean())
-            if np.any(decomp_summary["layer"] == layer_key)
-            else np.nan
-            for layer_key in layer_order
-        ]
-        ax_d.plot(x, vals, marker="o", linewidth=2.0, color=color, label=metric)
-    ax_d.set_xticks(x, layer_order)
-    ax_d.set_title("D. Linear Decomposition")
-    ax_d.legend(frameon=False, fontsize=9)
-
-    changed_summary = df_changed[df_changed["record_type"] == "layer_summary"].copy()
-    bottom = np.zeros(len(layer_order), dtype=np.float64)
-    for metric, color, label in (
-        ("S_only_changed_fraction", SAMPLE_COLOR, "S-only"),
-        ("D_only_changed_fraction", SHUFFLE_COLOR, "D-only"),
-        ("Shared_changed_fraction", DYNAMIC_COLOR, "shared"),
-        ("Full_only_novel_changed_fraction", NOISE_COLOR, "full-only novel"),
-    ):
-        vals = np.asarray(
-            [
-                float(changed_summary.loc[changed_summary["layer"] == layer_key, metric].mean())
-                if np.any(changed_summary["layer"] == layer_key)
-                else np.nan
-                for layer_key in layer_order
-            ],
-            dtype=np.float64,
-        )
-        ax_e.bar(x, vals, bottom=bottom, color=color, width=0.6, label=label)
-        bottom = np.nan_to_num(bottom) + np.nan_to_num(vals)
-    ax_e.set_xticks(x, layer_order)
-    ax_e.set_title("E. Changed-Synapse Taxonomy")
-    ax_e.set_ylabel("Fraction")
-    ax_e.legend(frameon=False, fontsize=9)
-
-    coupling_bins = df_coupling[df_coupling["record_type"] == "binned_summary"].copy()
-    for layer_key, color in zip(layer_order, (SAMPLE_COLOR, DYNAMIC_COLOR, SHUFFLE_COLOR)):
-        sub = coupling_bins[coupling_bins["layer"] == layer_key].copy()
-        if sub.empty:
-            continue
-        sub = sub.sort_values("DI_mean", kind="stable")
-        ax_f.plot(
-            sub["DI_mean"].to_numpy(dtype=np.float64),
-            sub["sample_first_prob"].to_numpy(dtype=np.float64),
-            marker="o",
-            linewidth=2.0,
-            color=color,
-            label=layer_key,
-        )
-    ax_f.set_title("F. DI vs Sample-First")
-    ax_f.set_xlabel("DI bin mean")
-    ax_f.set_ylabel("Sample-first prob.")
-    ax_f.legend(frameon=False, fontsize=9)
-
-    fig.tight_layout()
-    figure_paths = save_figure_all_formats(fig, layout.figure_base("chunk_stsp_state_taxonomy_overview"))
-    plt.close(fig)
-    return figure_paths
-
-
-def save_full_conditioned_changed_figure(
-    layout,
-    df_changed: pd.DataFrame,
-) -> dict[str, str]:
-    apply_publication_style()
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
-    ax_a, ax_b = axes
-    layer_order = list(LAYER_KEYS)
-    x = np.arange(len(layer_order))
-    changed_summary = df_changed[df_changed["record_type"] == "layer_summary"].copy()
-
-    changed_fraction_full = np.asarray(
-        [
-            float(changed_summary.loc[changed_summary["layer"] == layer_key, "changed_fraction_full"].mean())
-            if np.any(changed_summary["layer"] == layer_key)
-            else np.nan
-            for layer_key in layer_order
-        ],
-        dtype=np.float64,
-    )
-    ax_a.bar(x, changed_fraction_full, color=DYNAMIC_COLOR, width=0.6)
-    ax_a.set_xticks(x, layer_order)
-    ax_a.set_ylabel("Fraction")
-    ax_a.set_title("A. Full changed fraction")
-
-    bottom = np.zeros(len(layer_order), dtype=np.float64)
-    for metric, color, label in (
-        ("P_S_only_given_full", SAMPLE_COLOR, "S-only"),
-        ("P_D_only_given_full", SHUFFLE_COLOR, "D-only"),
-        ("P_Shared_given_full", DYNAMIC_COLOR, "Shared"),
-        ("P_Novel_given_full", NOISE_COLOR, "Novel"),
-    ):
-        vals = np.asarray(
-            [
-                float(changed_summary.loc[changed_summary["layer"] == layer_key, metric].mean())
-                if np.any(changed_summary["layer"] == layer_key)
-                else np.nan
-                for layer_key in layer_order
-            ],
-            dtype=np.float64,
-        )
-        ax_b.bar(x, vals, bottom=bottom, color=color, width=0.6, label=label)
-        bottom = np.where(np.isnan(vals), bottom, np.nan_to_num(bottom) + np.nan_to_num(vals))
-    ax_b.set_xticks(x, layer_order)
-    ax_b.set_ylim(0.0, 1.0)
-    ax_b.set_ylabel("Proportion within full-changed")
-    ax_b.set_title("B. Composition within full-changed synapses")
-    ax_b.legend(frameon=False, fontsize=9)
-
-    fig.tight_layout()
-    figure_paths = save_figure_all_formats(fig, layout.figure_base("chunk_stsp_full_conditioned_changed"))
-    plt.close(fig)
-    return figure_paths
-
-
 def build_summary_payload(
     cfg: TaxonomyConfig,
     df_triplets: pd.DataFrame,
     df_similarity: pd.DataFrame,
-    df_decomposition: pd.DataFrame,
-    df_changed: pd.DataFrame,
-    df_region: pd.DataFrame,
-    df_projection: pd.DataFrame,
     df_coupling: pd.DataFrame,
     exported_files: Mapping[str, object],
 ) -> dict[str, object]:
     sim_summary = df_similarity[df_similarity["record_type"] == "layer_summary"].copy()
-    decomp_summary = df_decomposition[df_decomposition["record_type"] == "layer_summary"].copy()
-    changed_summary = df_changed[df_changed["record_type"] == "layer_summary"].copy()
-    region_summary = df_region[df_region["record_type"] == "layer_summary"].copy()
-    projection_summary = df_projection[df_projection["record_type"] == "layer_summary"].copy()
     coupling_summary = df_coupling[df_coupling["record_type"] == "layer_summary"].copy()
 
     layer_similarity_summary = {
@@ -1087,58 +640,6 @@ def build_summary_payload(
         }
         for layer_key in LAYER_KEYS
     }
-    layer_decomposition_summary = {
-        str(layer_key): {
-            "mean_alpha": float(decomp_summary.loc[decomp_summary["layer"] == layer_key, "alpha"].mean()),
-            "mean_beta": float(decomp_summary.loc[decomp_summary["layer"] == layer_key, "beta"].mean()),
-            "mean_R2": float(decomp_summary.loc[decomp_summary["layer"] == layer_key, "R2"].mean()),
-            "mean_residual_norm": float(decomp_summary.loc[decomp_summary["layer"] == layer_key, "residual_norm"].mean()),
-        }
-        for layer_key in LAYER_KEYS
-    }
-    layer_changed_summary = {
-        str(layer_key): {
-            "changed_fraction_sample": float(changed_summary.loc[changed_summary["layer"] == layer_key, "changed_fraction_sample"].mean()),
-            "changed_fraction_distractor": float(changed_summary.loc[changed_summary["layer"] == layer_key, "changed_fraction_distractor"].mean()),
-            "changed_fraction_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "changed_fraction_full"].mean()),
-            "Full_only_novel_changed_fraction": float(changed_summary.loc[changed_summary["layer"] == layer_key, "Full_only_novel_changed_fraction"].mean()),
-        }
-        for layer_key in LAYER_KEYS
-    }
-    layer1_region_summary = {
-        str(region_name): {
-            condition_name: {
-                "mean_g": float(
-                    region_summary.loc[
-                        (region_summary["region"] == region_name) & (region_summary["condition"] == condition_name),
-                        "mean_g",
-                    ].mean()
-                ),
-                "mean_dg": float(
-                    region_summary.loc[
-                        (region_summary["region"] == region_name) & (region_summary["condition"] == condition_name),
-                        "mean_dg",
-                    ].mean()
-                ),
-                "changed_fraction": float(
-                    region_summary.loc[
-                        (region_summary["region"] == region_name) & (region_summary["condition"] == condition_name),
-                        "changed_fraction",
-                    ].mean()
-                ),
-            }
-            for condition_name in (CONDITION_SAMPLE, CONDITION_DISTRACTOR, CONDITION_FULL)
-        }
-        for region_name in REGION_NAMES
-    }
-    higher_layer_projection_summary = {
-        str(layer_key): {
-            "mean_proj_full_on_S": float(projection_summary.loc[projection_summary["layer"] == layer_key, "proj_full_on_S"].mean()),
-            "mean_proj_full_on_D": float(projection_summary.loc[projection_summary["layer"] == layer_key, "proj_full_on_D"].mean()),
-            "mean_dominance_in_subspace": float(projection_summary.loc[projection_summary["layer"] == layer_key, "dominance_in_subspace"].mean()),
-        }
-        for layer_key in ("layer2", "layer3")
-    }
     ping_coupling_summary = {
         str(layer_key): {
             "sample_first_prob": float(coupling_summary.loc[coupling_summary["layer"] == layer_key, "sample_first_prob"].mean()),
@@ -1149,25 +650,10 @@ def build_summary_payload(
         }
         for layer_key in LAYER_KEYS
     }
-    full_conditioned_changed_summary = {
-        str(layer_key): {
-            "changed_fraction_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "changed_fraction_full"].mean()),
-            "P_S_only_given_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "P_S_only_given_full"].mean()),
-            "P_D_only_given_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "P_D_only_given_full"].mean()),
-            "P_Shared_given_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "P_Shared_given_full"].mean()),
-            "P_Novel_given_full": float(changed_summary.loc[changed_summary["layer"] == layer_key, "P_Novel_given_full"].mean()),
-        }
-        for layer_key in LAYER_KEYS
-    }
     return {
         "triplet_count": int(len(df_triplets)),
         "epsilon": float(cfg.epsilon),
         "layer_similarity_summary": layer_similarity_summary,
-        "layer_decomposition_summary": layer_decomposition_summary,
-        "layer_changed_summary": layer_changed_summary,
-        "full_conditioned_changed_summary": full_conditioned_changed_summary,
-        "layer1_region_summary": layer1_region_summary,
-        "higher_layer_projection_summary": higher_layer_projection_summary,
         "ping_coupling_summary": ping_coupling_summary,
         "exported_files": dict(exported_files),
     }
@@ -1191,8 +677,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     images, labels, flat_normalized = build_dataset_arrays(dataset)
     class_index = build_class_index(dataset, num_classes=10)
     df_triplets = build_triplet_specs(images, labels, flat_normalized, class_index, cfg)
-    triplets_csv = save_tidy_csv(df_triplets, layout.data_file("triplets.csv"), sort_by=["triplet_id"])
-    log_and_print(log_lines, f"[Data] triplets={len(df_triplets)} saved={triplets_csv}")
+    log_and_print(log_lines, f"[Data] triplets={len(df_triplets)}")
 
     net, encoder = load_model_and_encoder(
         model_path=cfg.model_path,
@@ -1203,12 +688,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     log_and_print(log_lines, f"[Model] loaded {cfg.model_path}")
 
     similarity_rows: list[dict[str, object]] = []
-    decomposition_rows: list[dict[str, object]] = []
-    changed_rows: list[dict[str, object]] = []
-    region_rows: list[dict[str, object]] = []
-    projection_rows: list[dict[str, object]] = []
     ping_rows: list[dict[str, object]] = []
-    example_state_dump: dict[str, np.ndarray] | None = None
 
     for batch in prepare_triplet_batches(df_triplets, images, encoder, cfg, device):
         log_and_print(
@@ -1249,28 +729,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 condition=CONDITION_SHUFFLE,
             ),
         }
-        if example_state_dump is None:
-            example_state_dump = collect_example_state_npz(state_bank, max_trials=min(2, len(batch.df)))
 
         batch_similarity = compute_similarity_rows(batch.df, state_bank)
-        batch_decomposition = compute_decomposition_rows(batch.df, state_bank, net=net, eps=1e-12)
-        batch_changed = compute_changed_synapse_rows(batch.df, state_bank, net=net, epsilon=cfg.epsilon)
-        batch_region = compute_layer1_region_rows(batch.df, batch, state_bank, net=net, epsilon=cfg.epsilon)
-        batch_projection = compute_projection_rows(batch.df, state_bank, eps=1e-12)
         ping_readout = run_neutral_ping_branch(net, cfg, state_bank[CONDITION_FULL], batch.df)
         batch_ping = compute_ping_coupling_rows(
             batch.df,
             similarity_rows=batch_similarity,
-            decomposition_rows=batch_decomposition,
             ping_readout=ping_readout,
             num_bins=cfg.num_sim_bins,
         )
 
         similarity_rows.extend(batch_similarity)
-        decomposition_rows.extend(batch_decomposition)
-        changed_rows.extend(batch_changed)
-        region_rows.extend(batch_region)
-        projection_rows.extend(batch_projection)
         ping_rows.extend(batch_ping)
 
     df_similarity = summarize_metric_table(
@@ -1278,77 +747,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         group_cols=["layer"],
         value_cols=["Sim_FS", "Sim_FD", "Sim_FShuffle", "raw_Sim_FS", "raw_Sim_FD", "raw_Sim_FShuffle", "DI"],
     )
-    df_decomposition = summarize_metric_table(
-        decomposition_rows,
-        group_cols=["layer"],
-        value_cols=["alpha", "beta", "c", "R2", "residual_norm"],
-    )
-    df_changed = summarize_metric_table(
-        changed_rows,
-        group_cols=["layer"],
-        value_cols=[
-            "changed_fraction_sample",
-            "changed_fraction_distractor",
-            "changed_fraction_full",
-            "changed_fraction_shuffle",
-            "changed_magnitude_mean_sample",
-            "changed_magnitude_mean_distractor",
-            "changed_magnitude_mean_full",
-            "positive_fraction_full",
-            "negative_fraction_full",
-            "S_only_changed_fraction",
-            "D_only_changed_fraction",
-            "Shared_changed_fraction",
-            "Full_only_novel_changed_fraction",
-            "Full_union_supported_changed_fraction",
-            "full_changed_count",
-            "P_S_only_given_full",
-            "P_D_only_given_full",
-            "P_Shared_given_full",
-            "P_Novel_given_full",
-        ],
-    )
-    df_region = summarize_metric_table(
-        region_rows,
-        group_cols=["layer", "condition", "region"],
-        value_cols=["region_size", "mean_g", "mean_dg", "changed_fraction"],
-    )
-    df_projection = summarize_metric_table(
-        projection_rows,
-        group_cols=["layer"],
-        value_cols=["proj_full_on_S", "proj_full_on_D", "cosine_full_S", "cosine_full_D", "dominance_in_subspace"],
-    )
     df_ping = pd.DataFrame(ping_rows)
 
     similarity_csv = save_tidy_csv(df_similarity, layout.data_file("state_similarity_metrics.csv"))
-    decomposition_csv = save_tidy_csv(df_decomposition, layout.data_file("state_decomposition_metrics.csv"))
-    changed_csv = save_tidy_csv(df_changed, layout.data_file("state_changed_synapse_metrics.csv"))
-    region_csv = save_tidy_csv(df_region, layout.data_file("layer1_region_metrics.csv"))
-    projection_csv = save_tidy_csv(df_projection, layout.data_file("higher_layer_projection_metrics.csv"))
     ping_csv = save_tidy_csv(df_ping, layout.data_file("ping_coupling_metrics.csv"))
 
-    example_npz_path = layout.data_file("example_stsp_states.npz")
-    if example_state_dump is None:
-        example_state_dump = {}
-    np.savez_compressed(example_npz_path, **example_state_dump)
-
-    figure_paths: dict[str, str] = {}
-    strict_full_changed_figure_paths: dict[str, str] = {}
+    figure_paths: dict[str, dict[str, str]] = {}
     if not cfg.skip_figures:
-        figure_paths = save_overview_figure(layout, df_similarity, df_decomposition, df_changed, df_ping)
-        strict_full_changed_figure_paths = save_full_conditioned_changed_figure(layout, df_changed)
+        apply_publication_style()
+        figures = {
+            "dominance_index": _plot_dominance_index(df_similarity),
+            "di_vs_sample_first": _plot_di_vs_sample_first(df_ping),
+        }
+        for stem, fig in figures.items():
+            figure_paths[stem] = save_figure_all_formats(fig, layout.figure_base(stem))
+            plt.close(fig)
 
     exported_files: dict[str, object] = {
-        "triplets_csv": triplets_csv,
         "state_similarity_metrics_csv": similarity_csv,
-        "state_decomposition_metrics_csv": decomposition_csv,
-        "state_changed_synapse_metrics_csv": changed_csv,
-        "layer1_region_metrics_csv": region_csv,
-        "higher_layer_projection_metrics_csv": projection_csv,
         "ping_coupling_metrics_csv": ping_csv,
-        "example_stsp_states_npz": str(example_npz_path),
-        "figure": figure_paths,
-        "full_conditioned_changed_figure": strict_full_changed_figure_paths,
+        "figures": figure_paths,
     }
     log_path = str(layout.log_file())
     exported_files["log_file"] = log_path
@@ -1358,10 +776,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         cfg=cfg,
         df_triplets=df_triplets,
         df_similarity=df_similarity,
-        df_decomposition=df_decomposition,
-        df_changed=df_changed,
-        df_region=df_region,
-        df_projection=df_projection,
         df_coupling=df_ping,
         exported_files=exported_files,
     )

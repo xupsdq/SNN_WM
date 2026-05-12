@@ -11,9 +11,10 @@ from typing import Any
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
 from src.config.yaml_loader import load_yaml_file, nested_get
+from src.experiments.catalog import ExperimentSpec, get_experiment_spec
 from src.experiments.common.results import prepare_result_layout
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
-from src.experiments.catalog import ExperimentSpec, get_experiment_spec
+from src.experiments.common.seed_sweep import json_safe, relativize_files, run_seed_sweep
 from src.pipelines.common import candidate_has_required_modules, discover_python_candidates, python_has_required_modules
 
 REQUIRED_RUNTIME_MODULES = ("torch", "numpy", "pandas", "matplotlib", "scipy", "sklearn", "tqdm")
@@ -27,6 +28,11 @@ def build_runner_parser(spec: ExperimentSpec) -> argparse.ArgumentParser:
     parser.add_argument("--dataset-root", type=str, default=None)
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--seeds", type=int, nargs="*", default=None)
+    parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--devices", type=str, nargs="*", default=None)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--smoke", action="store_true")
     return parser
 
@@ -34,24 +40,6 @@ def build_runner_parser(spec: ExperimentSpec) -> argparse.ArgumentParser:
 def _ensure_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def _to_json_safe(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {str(k): _to_json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_to_json_safe(v) for v in value]
-    if isinstance(value, Path):
-        return str(value)
-    return value
-
-
-def _relativize_files(root: Path) -> list[str]:
-    files: list[str] = []
-    for path in sorted(root.rglob("*")):
-        if path.is_file():
-            files.append(path.relative_to(root).as_posix())
-    return files
 
 
 def _copy_tree_if_present(src: Path, dst: Path) -> None:
@@ -140,10 +128,10 @@ def normalize_result_bundle(output_dir: Path, spec: ExperimentSpec) -> None:
     manifest = {
         "experiment_id": spec.experiment_id,
         "title": spec.title,
-        "files": _relativize_files(output_dir),
+        "files": relativize_files(output_dir),
     }
     (output_dir / "artifact_manifest.json").write_text(
-        json.dumps(_to_json_safe(manifest), ensure_ascii=False, indent=2, sort_keys=True),
+        json.dumps(json_safe(manifest), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
 
@@ -201,6 +189,7 @@ def _apply_runner_config_defaults(args: argparse.Namespace) -> argparse.Namespac
     args.dataset_root = _resolve_path_value(args.dataset_root) if args.dataset_root else str(defaults.paths.dataset_root)
     args.device = args.device or defaults.runtime.device
     args.seed = int(args.seed if args.seed is not None else defaults.runtime.seed)
+    args.devices = tuple(str(item) for item in (args.devices or ())) or None
     if not args.output_dir:
         raise SystemExit("--output-dir is required (or provide it via --config).")
     return args
@@ -225,24 +214,66 @@ def _resolve_runtime_python() -> Path:
     raise RuntimeError("No compatible Python interpreter with required runtime modules was found.")
 
 
-def run_legacy_experiment(spec: ExperimentSpec, args: argparse.Namespace) -> int:
-    args = _apply_runner_config_defaults(args)
-    output_dir = Path(args.output_dir).resolve()
-    layout = prepare_result_layout(output_dir)
-    runtime_python = _resolve_runtime_python()
+def _build_legacy_command(
+    *,
+    runtime_python: Path,
+    spec: ExperimentSpec,
+    output_dir: Path,
+    model_path: str,
+    dataset_root: str,
+    device: str,
+    seed: int,
+    smoke: bool,
+) -> list[str]:
     command = [str(runtime_python), "-m", spec.legacy_module, spec.output_flag, str(output_dir)]
     if spec.supports_model_path:
-        command.extend(["--model-path", str(args.model_path)])
+        command.extend(["--model-path", str(model_path)])
     if spec.supports_dataset_root:
-        command.extend(["--dataset-root", str(args.dataset_root)])
+        command.extend(["--dataset-root", str(dataset_root)])
     if spec.supports_device:
-        command.extend(["--device", str(args.device)])
+        command.extend(["--device", str(device)])
     if spec.supports_seed:
-        command.extend(["--seed", str(int(args.seed))])
+        command.extend(["--seed", str(int(seed))])
     if spec.supports_skip_figures:
         command.append("--skip-figures")
-    if bool(args.smoke):
+    if bool(smoke):
         command.extend(spec.smoke_args)
+    return command
+
+
+def run_legacy_experiment(spec: ExperimentSpec, args: argparse.Namespace) -> int:
+    args = _apply_runner_config_defaults(args)
+    runtime_python = _resolve_runtime_python()
+    if args.seeds is not None:
+        return run_seed_sweep(
+            spec=spec,
+            args=args,
+            runtime_python=runtime_python,
+            build_command=lambda seed, run_dir, device: _build_legacy_command(
+                runtime_python=runtime_python,
+                spec=spec,
+                output_dir=run_dir,
+                model_path=str(args.model_path),
+                dataset_root=str(args.dataset_root),
+                device=str(device),
+                seed=int(seed),
+                smoke=bool(args.smoke),
+            ),
+            normalize_bundle=normalize_result_bundle,
+        )
+
+    output_dir = Path(args.output_dir).resolve()
+    layout = prepare_result_layout(output_dir)
+    command = _build_legacy_command(
+        runtime_python=runtime_python,
+        spec=spec,
+        output_dir=output_dir,
+        model_path=str(args.model_path),
+        dataset_root=str(args.dataset_root),
+        device=str(args.device),
+        seed=int(args.seed),
+        smoke=bool(args.smoke),
+    )
     run_info_payload = build_run_info(
         experiment_name=spec.experiment_id,
         output_dir=output_dir,
