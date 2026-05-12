@@ -77,7 +77,8 @@ outputs/
 mlruns/
 not_use/
 useful_fig_results/
-
+archive/
+.pytest_tmp/
 *.log
 *.tmp
 *.bak
