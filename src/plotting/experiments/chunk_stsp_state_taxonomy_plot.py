@@ -44,23 +44,30 @@ def _layer_summary(df, *, value: str) -> list[float]:
     return out
 
 
-def _plot_dominance_index(similarity) -> plt.Figure:
+def draw_dominance_index_on_ax(ax: plt.Axes, similarity, *, title: str | None = "Dominance Index") -> None:
+    """Draw the dominance-index layer summary on an existing axes."""
     di_vals = _layer_summary(similarity, value="DI")
     x = np.arange(len(LAYER_ORDER), dtype=float)
 
-    fig, ax = plt.subplots(figsize=(4.6, 3.4))
     ax.bar(x, di_vals, color=get_plot_color("first_item_reference"), width=0.58)
     ax.axhline(0.0, color=COLOR_NEUTRAL, linewidth=1.0, linestyle="--")
     ax.set_xticks(x)
     ax.set_xticklabels(LAYER_ORDER)
-    ax.set_title("Dominance Index")
+    if title:
+        ax.set_title(title)
     ax.set_ylabel("sample-dominance score")
     _finish_axis(ax)
+
+
+def _plot_dominance_index(similarity) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.6, 3.4))
+    draw_dominance_index_on_ax(ax, similarity)
     fig.tight_layout()
     return fig
 
 
-def _plot_di_vs_sample_first(coupling) -> plt.Figure:
+def draw_di_vs_sample_first_on_ax(ax: plt.Axes, coupling, *, title: str | None = "DI vs Sample-First") -> None:
+    """Draw DI-bin versus sample-first probability on an existing axes."""
     for column in ("record_type", "layer", "DI_mean", "sample_first_prob"):
         if column not in coupling.columns:
             raise ValueError(f"Required column missing: {column}")
@@ -74,7 +81,6 @@ def _plot_di_vs_sample_first(coupling) -> plt.Figure:
         "layer3": get_plot_color("sample_probe_overlap"),
     }
 
-    fig, ax = plt.subplots(figsize=(4.8, 3.6))
     for layer in LAYER_ORDER:
         sub = binned[binned["layer"].astype(str) == layer].copy()
         if sub.empty:
@@ -88,11 +94,17 @@ def _plot_di_vs_sample_first(coupling) -> plt.Figure:
             color=layer_colors[layer],
             label=layer,
         )
-    ax.set_title("DI vs Sample-First")
+    if title:
+        ax.set_title(title)
     ax.set_xlabel("DI bin mean")
     ax.set_ylabel("Sample-first prob.")
     ax.legend(frameon=False, fontsize=9)
     _finish_axis(ax)
+
+
+def _plot_di_vs_sample_first(coupling) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.8, 3.6))
+    draw_di_vs_sample_first_on_ax(ax, coupling)
     fig.tight_layout()
     return fig
 

@@ -1,0 +1,166 @@
+figure_id: fig4
+figure_title_draft: Overlap-gated synaptic re-entry
+canvas_mm:
+  width: 165
+  height: 130
+reading_order:
+  - A
+  - B
+  - C
+  - D
+  - E
+argument_bands:
+  - band_id: row1_entry_assay
+    label: Entry assay definition
+    panels: [A]
+  - band_id: row2_effect_localization
+    label: Effect localization
+    panels: [B, C]
+  - band_id: row3_functional_restoration
+    label: Functional restoration
+    panels: [D, E]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  resolved_spec: fig4_resolved_spec.yaml
+  source_manifest: fig4_source_manifest.json
+  qc_report: fig4_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  canvas_mm: {width: 165, height: 130}
+  require_n_networks:
+    B: 20
+    C: 20
+    D: 20
+panels:
+  A:
+    panel_id: A
+    claim: The DMS-style sample-probe assay isolates how sample-written STSP history affects later probe processing, and sample-probe overlap is defined as shared foreground support between the sample and probe.
+    panel_type: programmatic_or_manual_schematic
+    renderer: render_fig4a_reentry_assay_schematic
+    data_adapter: none
+    size_mm: [155, 34]
+    position_mm: {x: 10, y: 4, w: 150, h: 34}
+    content:
+      blank: true
+    x_axis: none
+    y_axis: none
+    notes: This panel is a mechanism-entry schematic. It should not become a full Methods diagram. It should define the assay and explain why the conditions in D/E have mechanistic meaning. Keep it horizontal.
+  B:
+    panel_id: B
+    claim: The prior-history effect increases across sample-probe similarity bins, indicating that more similar probes are more strongly influenced by sample-written STSP history.
+    panel_type: ordered_line_or_point_summary
+    renderer: render_similarity_bin_effect
+    data_adapter: fig4_similarity_accuracy_drop
+    size_mm: [72, 36]
+    position_mm: {x: 10, y: 45, w: 72, h: 36}
+    metric: probe_accuracy_drop
+    conditions: similarity bins ordered from low to high
+    x_axis: Sample-probe similarity bin
+    y_axis: Probe accuracy drop (%)
+    source_mapping:
+      source_experiment: similarity_bias_experiment
+      current_stem: figure_2_accuracy_vs_similarity
+      preferred_files:
+        - results/multi_network/similarity_bias_experiment/data/bin_accuracy_summary__by_network.csv
+      fallback_files:
+        - results/similarity_bias_experiment/data/bin_accuracy_summary.csv
+        - results/similarity_bias_experiment/data/trial_results.csv
+      workbook_source_files:
+        - bin_accuracy_summary.csv
+        - trial_results.csv
+    notes: Use an ordered line/point plot rather than unordered bars when similarity bins have a natural order. Show network-level values if available. The main claim is a graded increase in probe accuracy drop as similarity increases.
+  C:
+    panel_id: C
+    claim: Within high-similarity sample-probe pairs, high-overlap pairs show a larger STSP-dependent probe accuracy drop than low-overlap pairs, localizing the effect to shared input structure.
+    panel_type: paired_condition_plot
+    renderer: render_overlap_level_effect
+    data_adapter: fig4_overlap_accuracy_drop
+    size_mm: [72, 36]
+    position_mm: {x: 88, y: 45, w: 72, h: 36}
+    metric: probe_accuracy_drop
+    conditions:
+      - Low overlap
+      - High overlap
+    x_axis: Overlap level
+    y_axis: Probe accuracy drop (%)
+    source_mapping:
+      source_experiment: similarity_bias_experiment
+      current_stem: figure_6_within_bin_overlap_bridge
+      preferred_globs:
+        - results/multi_network/similarity_bias_experiment/runs/seed_*/data/within_bin_overlap_matched_pairs.csv
+      preferred_files:
+        - results/multi_network/similarity_bias_experiment/data/within_bin_overlap_matched_pairs__by_network.csv
+      fallback_files:
+        - results/similarity_bias_experiment/data/within_bin_overlap_matched_pairs.csv
+        - results/similarity_bias_experiment/metrics/within_bin_overlap_summary.json
+      workbook_source_files:
+        - within_bin_overlap_matched_pairs.csv
+        - within_bin_overlap_summary.json
+    notes: "This panel should visually follow from Fig.4B: similarity first identifies the regime where prior-history effects are strong; overlap then localizes the effect within that regime. Prefer paired network-level values if available."
+  D:
+    panel_id: D
+    claim: Preserving overlap-aligned sample support restores dynamic-like probe-period processing more effectively than matched non-overlap support.
+    panel_type: timecourse_line
+    renderer: render_dynamic_probe_index_timecourse
+    data_adapter: fig4_dynamic_probe_index_timecourse
+    size_mm: [72, 36]
+    position_mm: {x: 10, y: 89, w: 72, h: 36}
+    metric: dynamic_probe_index
+    conditions:
+      - Overlap-preserving
+      - Non-overlap control
+    x_axis: Probe time
+    y_axis: Dynamic-probe index
+    reference_lines:
+      - value: 0
+        label: 0
+    source_mapping:
+      source_experiment: overlap_causal_input_perturbation_experiment
+      current_stem: dpi_l3_trace_overlap_vs_nonoverlap
+      preferred_globs:
+        - results/multi_network/overlap_causal_input_perturbation_experiment/runs/seed_*/data/pair_trace_similarity.npz
+      preferred_files:
+        - results/multi_network/overlap_causal_input_perturbation_experiment/data/pair_condition_pattern_results__by_network.csv
+      fallback_files:
+        - results/overlap_causal_input_perturbation_experiment/data/pair_trace_similarity.npz
+        - results/overlap_causal_input_perturbation_experiment/data/pair_condition_pattern_results.csv
+      workbook_source_files:
+        - pair_trace_similarity.npz
+        - summary.json
+    notes: This is the core functional-process panel in Fig.4. It should show DPI over probe time. Positive DPI means the condition-specific probe trace is closer to the dynamic reference than to the static reference. Do not replace this with a bar plot unless only summary data exist; if summary-only fallback is used, QC must warn.
+  E:
+    panel_id: E
+    claim: The overlap-preserving condition also improves final readout recovery, showing that overlap-aligned re-entry affects decision-level recovery.
+    panel_type: static_dynamic_trajectory
+    renderer: render_static_dynamic_trajectory
+    data_adapter: fig4_static_dynamic_trajectory
+    size_mm: [72, 36]
+    position_mm: {x: 88, y: 89, w: 72, h: 36}
+    metric: static_dynamic_manipulation_trajectory
+    conditions:
+      - plus: static -> dynamic
+      - minus: dynamic -> static
+      - before manipulation
+      - after manipulation
+    x_axis: more dynamic-like firing pattern
+    y_axis: more dynamic-like decision
+    source_mapping:
+      source_experiment: l3_accumulator_mechanism_experiment
+      current_status: data_available_needs_trajectory_renderer
+      preferred_files:
+        - results/l3_accumulator_mechanism_experiment/data/pair_results.csv
+        - results/l3_accumulator_mechanism_experiment/pair_results.csv
+      vector_files:
+        - results/l3_accumulator_mechanism_experiment/data/pair_vectors.npz
+        - results/l3_accumulator_mechanism_experiment/pair_vectors.npz
+      fallback_files:
+        - results/l3_accumulator_mechanism_experiment/pair_results.csv
+      vector_fallback_files:
+        - results/l3_accumulator_mechanism_experiment/pair_vectors.npz
+      workbook_source_files:
+        - pair_results.csv
+        - pair_vectors.npz
+    notes: This panel uses the static/dynamic manipulation trajectory logic from the l3 accumulator mechanism plot. It should show plus static-to-dynamic and minus dynamic-to-static trajectories, not the old two-condition recovery plot.

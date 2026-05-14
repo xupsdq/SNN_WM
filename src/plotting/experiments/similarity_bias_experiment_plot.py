@@ -15,13 +15,13 @@ from src.plotting.experiments._common import load_bundle_json, main_for, read_bu
 from src.plotting.experiments._plot_builders import bar_figure
 
 
-def _plot_accuracy_drop(df):
+def draw_accuracy_drop_on_ax(ax: plt.Axes, df, *, title: str | None = None) -> None:
+    """Draw the similarity-bin memory-bias bar plot on an existing axes."""
     plot_df = df.sort_values("bin_index", kind="stable").reset_index(drop=True)
     x = np.arange(len(plot_df), dtype=float)
     values = plot_df["acc_drop"].to_numpy(dtype=float)
     yerr = plot_df["sem_acc_drop"].to_numpy(dtype=float) if "sem_acc_drop" in plot_df.columns else None
     labels = plot_df["similarity_bin"].astype(str).tolist()
-    fig, ax = plt.subplots(figsize=(6.4, 5.0))
     bars = ax.bar(
         x,
         values,
@@ -38,6 +38,8 @@ def _plot_accuracy_drop(df):
     ax.tick_params(axis="x", labelsize=10)
     ax.set_xlabel("Similarity bin")
     ax.set_ylabel("Memory biase")
+    if title:
+        ax.set_title(title)
     ax.grid(axis="y", alpha=0.25)
 
     y_padding = max(0.02, float(np.nanmax(np.abs(values))) * 0.04) if values.size else 0.02
@@ -69,11 +71,17 @@ def _plot_accuracy_drop(df):
         transform=ax.transAxes,
         fontsize=10,
     )
+
+
+def _plot_accuracy_drop(df):
+    fig, ax = plt.subplots(figsize=(6.4, 5.0))
+    draw_accuracy_drop_on_ax(ax, df)
     fig.subplots_adjust(top=0.82)
     return fig
 
 
-def _plot_overlap_bridge(summary):
+def draw_overlap_bridge_on_ax(ax: plt.Axes, summary, *, title: str | None = "") -> None:
+    """Draw the low/high overlap bridge bar plot on an existing axes."""
     low = summary.get("acc_drop_low")
     high = summary.get("acc_drop_high")
     values = [0.0 if low is None else float(low), 0.0 if high is None else float(high)]
@@ -81,19 +89,25 @@ def _plot_overlap_bridge(summary):
         0.0 if summary.get("sem_acc_drop_low") is None else float(summary["sem_acc_drop_low"]),
         0.0 if summary.get("sem_acc_drop_high") is None else float(summary["sem_acc_drop_high"]),
     ]
-    fig = bar_figure(
-        ["Low-overlap", "High-overlap"],
+    x = np.arange(2, dtype=float)
+    ax.bar(
+        x,
         values,
         yerr=yerr,
-        color_keys=["low_overlap", "high_overlap"],
-        title="",
-        ylabel="Memory biase",
-        rotation=0,
+        color=[get_plot_color("low_overlap"), get_plot_color("high_overlap")],
+        edgecolor="black",
+        linewidth=0.8,
+        alpha=0.8,
+        capsize=4,
     )
-    ax = fig.axes[0]
+    ax.set_xticks(x)
+    ax.set_xticklabels(["Low-overlap", "High-overlap"])
+    ax.set_ylabel("Memory biase")
+    if title:
+        ax.set_title(title)
+    ax.grid(axis="y", alpha=0.25)
     y_padding = max(0.02, float(np.nanmax(np.abs(values))) * 0.04)
-    for patch, value, err in zip(ax.patches, values, yerr):
-        xpos = patch.get_x() + patch.get_width() / 2.0
+    for xpos, value, err in zip(x, values, yerr):
         if value >= 0:
             ypos = value + float(err) + y_padding
             va = "bottom"
@@ -101,6 +115,19 @@ def _plot_overlap_bridge(summary):
             ypos = value - float(err) - y_padding
             va = "top"
         ax.text(xpos, ypos, f"{value:.3f}", ha="center", va=va, fontsize=11)
+
+
+def _plot_overlap_bridge(summary):
+    fig = bar_figure(
+        ["Low-overlap", "High-overlap"],
+        [0, 0],
+        title="",
+        ylabel="Memory biase",
+        rotation=0,
+    )
+    ax = fig.axes[0]
+    ax.clear()
+    draw_overlap_bridge_on_ax(ax, summary)
     return fig
 
 

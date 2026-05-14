@@ -29,28 +29,34 @@ def _nice_axis_upper(values: np.ndarray) -> float:
     return float(10.0 * base)
 
 
-def plot_bundle(input_dir):
-    metrics = read_bundle_csv(
-        input_dir,
-        "metrics_condition_summary.csv",
-        ["condition", "abs_rate_pred_original_sample", "abs_rate_pred_change_under_bmap"],
-    )
+def draw_memory_readout_target_on_ax(ax: plt.Axes, metrics, *, title: str | None = "Memory Readout Target by Shuffled Substrate") -> None:
+    """Draw the UX-shuffle grouped readout bars on an existing axes."""
     metrics = metrics.sort_values("condition", kind="stable").reset_index(drop=True)
     x = np.arange(len(metrics), dtype=float)
     width = 0.38
     original = metrics["abs_rate_pred_original_sample"].to_numpy(dtype=float)
     changed = metrics["abs_rate_pred_change_under_bmap"].to_numpy(dtype=float)
-    fig, ax = plt.subplots(figsize=(10.8, 5.4))
     ax.bar(x - width / 2, original, width=width, color=get_plot_color("original_sample_trace"), edgecolor="black", alpha=0.9, label="Pred = original sample")
     ax.bar(x + width / 2, changed, width=width, color=get_plot_color("donor_trace"), edgecolor="black", alpha=0.9, label="Pred = change (B-map)")
     ax.set_xticks(x)
     ax.set_xticklabels([CONDITION_LABELS.get(str(item), str(item)) for item in metrics["condition"]], rotation=10, ha="right")
     ax.set_ylabel("Absolute Rate (%)")
     ax.set_ylim(0.0, _nice_axis_upper(np.concatenate([original, changed])))
-    ax.set_title("Memory Readout Target by Shuffled Substrate")
+    if title:
+        ax.set_title(title)
     ax.grid(axis="y", alpha=0.25, linewidth=0.8)
     ax.set_axisbelow(True)
     ax.legend(frameon=False)
+
+
+def plot_bundle(input_dir):
+    metrics = read_bundle_csv(
+        input_dir,
+        "metrics_condition_summary.csv",
+        ["condition", "abs_rate_pred_original_sample", "abs_rate_pred_change_under_bmap"],
+    )
+    fig, ax = plt.subplots(figsize=(10.8, 5.4))
+    draw_memory_readout_target_on_ax(ax, metrics)
     fig.tight_layout()
     return {"memory_readout_target": fig}
 

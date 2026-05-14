@@ -1,0 +1,30 @@
+schema_version: 1
+description: Paper-specific figure registry for manuscript Fig.1-Fig.6.
+source_materials:
+  - fig/fig_panel_experiment_mapping.xlsx
+  - fig/初稿_整体结构重构_Methods细节重构.pdf
+figures:
+  fig1:
+    spec: fig1.yaml
+    title: Network and STSP-state functional foundation
+    status: implemented_skeleton
+  fig2:
+    spec: fig2.yaml
+    title: Pair-specific fused STSP state
+    status: implemented_skeleton
+  fig3:
+    spec: fig3.yaml
+    title: Directional fused states and shifting multi-item anchors
+    status: implemented_skeleton
+  fig4:
+    spec: fig4.yaml
+    title: Overlap-gated synaptic re-entry
+    status: implemented_skeleton
+  fig5:
+    spec: fig5.yaml
+    title: Early recruitment and local competition from overlap-aligned support
+    status: implemented_skeleton
+  fig6:
+    spec: fig6.yaml
+    title: Recency-weighted STSP peaks implement the shifting anchor
+    status: implemented_skeleton

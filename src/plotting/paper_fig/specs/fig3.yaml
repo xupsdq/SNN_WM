@@ -1,0 +1,218 @@
+figure_id: fig3
+figure_title_draft: Directional fused STSP states scale into shifting multi-item anchors
+canvas_mm:
+  width: 165
+  height: 140
+gutters_mm:
+  horizontal: 6
+  vertical: 8
+reading_order: [A, B, C, D, E, F]
+argument_bands:
+  - band_id: row1_pair_level_directionality
+    label: Pair-level directionality
+    panels: [A, B, C]
+  - band_id: row2_multiitem_retention_accessibility
+    label: Multi-item retention and accessibility
+    panels: [D, E, F]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig3_resolved_spec.yaml
+  source_manifest: fig3_source_manifest.json
+  qc_report: fig3_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  canvas_mm: {width: 165, height: 140}
+  require_position_mm: true
+  require_size_mm: true
+  require_reference_lines:
+    A:
+      - value: 0
+        label: 0
+  require_n_networks:
+    A: 20
+    B: 20
+    C: 20
+    D: 20
+    E: 20
+    F: 20
+panels:
+  A:
+    panel_id: A
+    claim: The two-item fused STSP state shows constituent imbalance, indicating directional organization rather than a balanced symmetric average.
+    panel_type: one_sample_dot_summary
+    renderer: render_one_sample_dot_summary
+    data_adapter: fig3_fusion_imbalance
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 8, y: 5, w: 46.6667, h: 59.5}
+    metric: fusion_imbalance_score
+    preferred_layer: Layer 3
+    source_mapping:
+      source_experiment: chunk_step2_fused_state_experiment
+      preferred_files:
+        - results/multi_network/chunk_step2_fused_state_experiment/data/preprobe_fusion_metrics__by_network.csv
+      fallback_files:
+        - results/chunk_step2_fused_state_experiment/data/preprobe_fusion_metrics.csv
+      source_stem_aliases:
+        - panel_c_fusion_imbalance
+    x_axis: Layer 3 fused state
+    y_axis: Fusion imbalance score
+    reference_lines:
+      - value: 0
+        label: 0
+    conditions: [Layer 3]
+    legend_semantics: none
+    stats_expected:
+      metric: fusion_imbalance_score
+      unit: score
+      n_networks: 20
+      reference_value: 0
+    notes: Use network-level values, ideally n=20. Show individual networks and mean +/- SEM. Main claim is imbalance > 0. Avoid trial-level histogram unless no network-level data are available; QC must warn if trial-level fallback is used.
+  B:
+    panel_id: B
+    claim: Latent directional bias in STSP geometry predicts downstream readout preference.
+    panel_type: scatter_regression
+    renderer: render_latent_bias_readout_preference
+    data_adapter: fig3_latent_bias_readout_preference
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 60.6667, y: 5, w: 46.6667, h: 59.5}
+    x_metric: latent_state_bias
+    y_metric: readout_preference
+    source_mapping:
+      source_experiment: chunk_stsp_state_taxonomy
+      preferred_files:
+        - results/multi_network/chunk_stsp_state_taxonomy/data/ping_coupling_metrics__by_network.csv
+      fallback_files:
+        - results/chunk_stsp_state_taxonomy/data/ping_coupling_metrics.csv
+      source_stem_aliases:
+        - di_vs_sample_first
+      notes: Use binned network-level DI_mean and sample-vs-distractor readout preference where available.
+    x_axis: Latent state bias
+    y_axis: Readout preference
+    reference_lines: []
+    stats_to_show_if_available:
+      - Pearson r
+      - Spearman rho
+    legend_semantics: layer_optional
+    stats_expected:
+      metric: latent_bias_readout_preference
+      unit: score
+      n_networks: 20
+    notes: This panel must be a relationship plot, not a bar plot and not a generic line plot. Use scatter, binned scatter, or scatter with regression. If layer information exists, keep the main message focused on latent bias -> readout preference; do not let layer encoding dominate the plot.
+  C:
+    panel_id: C
+    claim: Longer sequences leave a multi-item STSP state rather than collapsing onto the latest input.
+    panel_type: paired_or_stacked_summary
+    renderer: render_latest_vs_earlier_mass
+    data_adapter: fig3_latest_vs_earlier_mass
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 113.3334, y: 5, w: 46.6667, h: 59.5}
+    metric: item_similarity_mass
+    conditions:
+      - Latest item
+      - Earlier items
+    source_mapping:
+      source_experiment: chunk_stsp_multiitem_sequence
+      preferred_globs:
+        - results/multi_network/chunk_stsp_multiitem_sequence/runs/seed_*/data/item_similarity_metrics.csv
+      fallback_files:
+        - results/chunk_stsp_multiitem_sequence/data/item_similarity_metrics.csv
+      source_stem_aliases:
+        - item_similarity_heatmap
+      notes: Aggregate final-stage Layer 3 normalized item similarity weights into latest-item and earlier-items mass.
+    x_axis: Sequence contribution
+    y_axis: Item-similarity mass
+    reference_lines: []
+    legend_semantics: contribution_type
+    stats_expected:
+      metric: item_similarity_mass
+      unit: normalized_mass
+      n_networks: 20
+    notes: This panel directly tests whether the final sequence state is latest-item overwrite. Prefer paired network-level values if available. It should clearly show latest-item mass versus earlier-items-together mass.
+  D:
+    panel_id: D
+    claim: Neutral-ping readout primarily retrieves previously seen sequence items, showing that retained multi-item structure is functionally accessible.
+    panel_type: seen_item_ping_access
+    renderer: render_seen_item_ping_access
+    data_adapter: fig3_seen_item_ping_access
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 8, y: 72.5, w: 46.6667, h: 59.5}
+    preferred_metric: seen_item_hit_rate
+    optional_metric: ping_retrieval_profile
+    source_mapping:
+      source_experiment: chunk_stsp_multiitem_sequence
+      preferred_files:
+        - results/multi_network/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics__by_network.csv
+      fallback_files:
+        - results/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics.csv
+      optional_profile_globs:
+        - results/multi_network/chunk_stsp_multiitem_sequence/runs/seed_*/data/ping_retrieval_metrics.csv
+      source_stem_aliases:
+        - ping_retrieval_profile
+    x_axis: Neutral ping
+    y_axis: Seen-item hit rate
+    reference_lines: []
+    stats_expected:
+      metric: seen_item_hit_rate
+      unit: probability
+      n_networks: 20
+    notes: Preferred rendering is a seen-item hit rate summary. If positional ping retrieval profile data are available, they may be shown as a compact inset or fallback, but the main claim should remain seen-item accessibility. Do not overcomplicate this panel because E/F handle positional COM shifts.
+  E:
+    panel_id: E
+    claim: The latent STSP state anchor shifts toward later sequence positions across sequence stages.
+    panel_type: state_com_shift
+    renderer: render_state_com_shift
+    data_adapter: fig3_state_com_shift
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 60.6667, y: 72.5, w: 46.6667, h: 59.5}
+    main_metric: state_center_of_mass
+    optional_metric: stage_by_item_similarity_heatmap
+    source_mapping:
+      source_experiment: chunk_stsp_multiitem_sequence
+      preferred_files:
+        - results/multi_network/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics__by_network.csv
+      fallback_files:
+        - results/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics.csv
+      optional_heatmap_globs:
+        - results/multi_network/chunk_stsp_multiitem_sequence/runs/seed_*/data/item_similarity_metrics.csv
+      source_stem_aliases:
+        - anchor_position_vs_stage
+        - item_similarity_heatmap
+    x_axis: Sequence stage
+    y_axis: State center of mass
+    reference_lines: []
+    stats_expected:
+      metric: state_center_of_mass
+      unit: position
+      n_networks: 20
+    notes: Main plot should be a COM trajectory line plot. If stage-by-item similarity heatmap is available, it may be included as inset/background, but the primary claim and axis should be state COM shift. Do not replace the COM trajectory with a heatmap alone unless QC warns that COM data are unavailable.
+  F:
+    panel_id: F
+    claim: The shifting multi-item anchor is also expressed in neutral-ping readout, with ping center of mass moving toward later sequence positions.
+    panel_type: ping_com_shift
+    renderer: render_ping_com_shift
+    data_adapter: fig3_ping_com_shift
+    size_mm: {width: 46.6667, height: 59.5}
+    position_mm: {x: 113.3334, y: 72.5, w: 46.6667, h: 59.5}
+    main_metric: ping_center_of_mass
+    optional_metric: ping_retrieval_profile_heatmap
+    source_mapping:
+      source_experiment: chunk_stsp_multiitem_sequence
+      preferred_files:
+        - results/multi_network/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics__by_network.csv
+      fallback_files:
+        - results/chunk_stsp_multiitem_sequence/data/similarity_summary_metrics.csv
+      optional_profile_globs:
+        - results/multi_network/chunk_stsp_multiitem_sequence/runs/seed_*/data/ping_retrieval_metrics.csv
+      explicitly_unused_source_stems:
+        - stepwise_update_ratio
+      notes: Old stepwise_update_ratio/SUR output is intentionally not mapped to manuscript Fig.3F.
+    x_axis: Sequence stage
+    y_axis: Ping center of mass
+    reference_lines: []
+    stats_expected:
+      metric: ping_center_of_mass
+      unit: position
+      n_networks: 20
+    notes: Main plot should be a ping COM trajectory line plot. If ping retrieval profile heatmap is available, it may be included as inset/background. Do not use Stepwise update ratio here; that metric does not match the current Fig.3F claim.
