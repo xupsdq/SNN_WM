@@ -35,7 +35,9 @@ class AdapterResult:
 
 
 def panel_stem(figure_id: str, panel_id: str) -> str:
-    """Return the canonical lowercase output stem for a panel."""
+    """Return the canonical output stem for a panel."""
+    if figure_id.lower() in {"fig1_supp", "fig2", "fig2_supp", "fig3", "fig4", "fig4_supp", "fig5", "fig5_supp", "fig6", "fig6_supp"}:
+        return f"{figure_id.lower()}{panel_id.upper()}"
     return f"{figure_id.lower()}{panel_id.lower()}"
 
 
@@ -175,4 +177,3 @@ def summarize_values(df: pd.DataFrame, group_cols: list[str]) -> list[dict[str, 
         )
         summaries.append(row)
     return summaries
-

@@ -1,21 +1,33 @@
 figure_id: fig6
-figure_title_draft: Recency-weighted STSP peaks implement the shifting anchor
+figure_title_draft: Peak-amplified overlap-aligned re-entry
+experiment_root: results/paper_experiments/fig6_peak_amplified_reentry
 canvas_mm:
   width: 165
-  height: 145
+  height: 158
 reading_order: [A, B, C, D, E, F]
 argument_bands:
-  - band_id: row1_anchor_peak_linkage
-    label: Anchor-peak linkage
-    panels: [A]
-  - band_id: row2_update_history_origin
-    label: Update-history origin
-    panels: [B, C, D]
-  - band_id: row3_functional_causal_closure
-    label: Functional causal closure
-    panels: [E, F]
+  - band_id: peak_origin_and_interface
+    label: Peak origin and route/gain interface
+    panels: [A, B, C]
+  - band_id: peak_amplified_function
+    label: Peak-amplified real rollout function
+    panels: [D, E]
+  - band_id: mechanism_closure
+    label: Mechanism closure
+    panels: [F]
+forbidden_language:
+  - peaks replace overlap
+  - peak-gated re-entry
+  - peak-driven re-entry
+  - peaks provide the route
+allowed_claim_language:
+  - predictive peak-amplified overlap-aligned re-entry
+  - peak-modulated overlap-aligned re-entry
+  - overlap = route
+  - peaks = gain
 expected_outputs:
   full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
   resolved_spec: fig6_resolved_spec.yaml
   source_manifest: fig6_source_manifest.json
   qc_report: fig6_qc_report.md
@@ -24,149 +36,134 @@ qc_requirements:
   require_source_manifest: true
   require_position_mm: true
   require_size_mm: true
-  canvas_mm: {width: 165, height: 145}
-  require_n_networks:
-    B: 20
-    C: 20
-    D: 20
-    E: 20
-    F: 20
+  canvas_mm: {width: 165, height: 158}
 panels:
   A:
     panel_id: A
-    claim: The final high-support STSP peak region supports the shifting anchor; larger support loss in the final peak region is associated with stronger anchor retreat.
-    panel_type: anchor_peak_linkage
-    renderer: render_anchor_peak_linkage
-    data_adapter: fig6_anchor_peak_linkage
-    size_mm: [155, 34]
-    position_mm: {x: 5, y: 4, w: 155, h: 34}
-    main_metric: anchor_retreat
-    x_metric: support_loss_in_final_peak_region
-    y_metric: anchor_retreat
-    x_axis: Support loss in final peak region
-    y_axis: Anchor retreat
-    optional_schematic: final high-support region -> support loss -> anchor retreat
-    source_mapping:
-      source_experiment_candidates:
-        - chunk_stsp_layer3_anchor_drift_mechanism
-        - chunk_stsp_layer1_overlap_peak_formation
-      current_status: no_direct_stem_found_in_workbook
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer3_anchor_drift_mechanism/data/layer3_changed_rank_metrics__by_network.csv
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_formation_trial_summary__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer3_anchor_drift_mechanism/data/layer3_changed_rank_metrics.csv
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_formation_trial_summary.csv
-      mapping_note: Workbook marks Fig.6A as a data gap; adapter requires explicit support-loss and anchor-retreat columns.
-    notes: "This panel connects Fig.3 shifting anchor to Fig.6 local high-support STSP peak region. Preferred rendering is a composite panel: small schematic/inset on the left and scatter + regression on the right. Do not render this as a simple bar plot unless only summary data are available; if summary-only fallback is used, QC must warn."
+    panel_type: source_attribution
+    claim: Final peaks are mainly sourced by late sequence updates.
+    renderer: render_fig6_peak_source_attribution
+    data_adapter: fig6_peak_source_attribution_adapter
+    source_priority:
+      - data/metrics/panel_a_peak_source_attribution_summary.csv
+      - data/raw/panel_a_peak_source_attribution.csv
+    source_aliases:
+      - data/metrics/panel_a_peak_source_attribution.csv
+      - data/metrics/supp_legacy_panel_a_peak_enrichment_summary.csv
+      - data/metrics/supp_legacy_panel_a_multi_recent_peak_enrichment.csv
+      - data/metrics/supp_s11_peak_update_group_enrichment.csv
+    position_mm: {x: 12.00, y: 8.00, w: 45.67, h: 38.00}
+    size_mm: {w: 45.67, h: 38.00}
+    metric: peak_loss_fraction
+    x_axis: Position from end
+    y_axis: Peak loss fraction
+    main_metric: peak_loss_fraction
+    source_attribution_mode: leave_one_item_out
   B:
     panel_id: B
-    claim: Final STSP peaks are enriched for elements that were both repeatedly and recently updated.
-    panel_type: peak_membership_by_update_history
-    renderer: render_peak_membership_by_update_history
-    data_adapter: fig6_peak_membership
-    size_mm: [47.67, 43]
-    position_mm: {x: 5, y: 45, w: 47.67, h: 43}
-    metric: peak_fraction
-    conditions: [Multi-recent, Single-recent, Multi-old, Single-old]
-    x_axis: Update-history group
-    y_axis: Peak fraction
-    source_mapping:
-      source_experiment: chunk_stsp_layer1_overlap_peak_formation
-      current_status: no_direct_plot_stem
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_recency_update_group_summary__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_recency_update_group_summary.csv
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_overlap_update_element_summary.csv
-    notes: This panel should show peak membership / peak fraction across update-history groups. The key manuscript claim is enrichment in the multi-recent group. Do not use internal source labels if they exist; map them to manuscript-readable labels.
+    panel_type: update_count_probability
+    claim: Final peaks are enriched at positions updated multiple times.
+    renderer: render_fig6_peak_update_history
+    data_adapter: fig6_peak_update_history_adapter
+    source: data/raw/panel_b_peak_update_history.csv
+    source_priority:
+      - data/raw/panel_b_peak_update_history.csv
+      - data/metrics/panel_b_peak_update_history_summary.csv
+    source_aliases:
+      - data/metrics/supp_legacy_panel_b_update_recency_model_metrics.csv
+      - data/metrics/supp_update_recency_support_model_metrics.csv
+      - data/metrics/supp_s11_update_recency_model_comparison.csv
+    position_mm: {x: 62.67, y: 8.00, w: 45.67, h: 38.00}
+    size_mm: {w: 45.67, h: 38.00}
+    metric: P_peak
+    x_axis: Update count
+    y_axis: P(peak)
+    main_metric: P_peak_by_update_count
   C:
     panel_id: C
-    claim: Final STSP gain reflects a repetition x recency interaction, with the strongest gain for repeated and recent updates.
-    panel_type: repetition_recency_gain
-    renderer: render_repetition_recency_gain
-    data_adapter: fig6_repetition_recency_gain
-    size_mm: [47.67, 43]
-    position_mm: {x: 58.67, y: 45, w: 47.67, h: 43}
-    metric: final_stsp_gain
-    factors: [repetition, recency]
-    preferred_groups: [Single-old, Multi-old, Single-recent, Multi-recent]
-    x_axis: Recency / update-history group
-    y_axis: Final STSP gain
-    source_mapping:
-      source_experiment: chunk_stsp_layer1_overlap_peak_formation
-      old_source_stem: fig6B_update_recency_final_g
-      alias_note: old_code_stem_maps_to_paper_Fig6C
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_recency_update_group_summary__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_recency_update_group_summary.csv
-    notes: Preferred rendering is an interaction plot or grouped dot-line plot showing that repetition and recency jointly shape final gain. If the source only provides four grouped means, render those four groups but preserve the interpretation that repetition + recency is strongest.
+    panel_type: peak_overlap_alignment
+    claim: Final peaks are more likely to fall in high foreground-overlap regions, especially recent overlap routes.
+    renderer: render_fig6_peak_input_overlap_origin
+    data_adapter: fig6_peak_overlap_alignment_adapter
+    source_priority:
+      - data/metrics/panel_c_peak_input_overlap_summary.csv
+      - data/metrics/panel_c_peak_input_overlap_similarity.csv
+    source_aliases:
+      - data/metrics/panel_c_peak_input_overlap_similarity_summary.csv
+      - data/metrics/supp_legacy_panel_c_peak_weighted_overlap_definitions.csv
+    position_mm: {x: 113.33, y: 8.00, w: 45.67, h: 38.00}
+    size_mm: {w: 45.67, h: 38.00}
+    metric: peak_coverage
+    x_axis: Old-k / All / Recent-k
+    y_axis: P(high-overlap | peak)
+    selected_windows: [Old-k, All, Recent-k]
   D:
     panel_id: D
-    claim: An update+recency model predicts final anchor / peak structure better than an overlap-only model, ruling out passive sensory-overlap explanation.
-    panel_type: model_comparison
-    renderer: render_update_recency_model_comparison
-    data_adapter: fig6_model_comparison
-    size_mm: [47.67, 43]
-    position_mm: {x: 112.33, y: 45, w: 47.67, h: 43}
-    metric: prediction_r2
-    conditions: [Overlap-only, Update + recency]
-    x_axis: Predictor model
-    y_axis: Prediction R2
-    optional_metric: delta_r2
-    source_mapping:
-      source_experiment: chunk_stsp_layer1_overlap_peak_formation
-      old_source_stem: fig6C_anchor_prediction_model_comparison
-      alias_note: old_code_stem_maps_to_paper_Fig6D
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_anchor_prediction_summary__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_anchor_prediction_summary.csv
-    notes: Preferred rendering is a paired model-comparison plot. Show paired network-level R2 values if available. Delta R2 can be included in stats.json and caption notes; do not rely on hard-coded text values.
+    panel_type: route_peak_perturbation
+    claim: Route-aligned peak-STSP reset reduces real re-entry when the perturbation audit passes; otherwise the panel is diagnostic only.
+    renderer: render_fig6_route_peak_reentry_loss
+    data_adapter: fig6_route_peak_reentry_loss_adapter
+    source_priority:
+      - data/metrics/panel_d_route_peak_reentry_loss_summary.csv
+      - data/metrics/panel_d_route_peak_reentry_loss_contrast.csv
+      - data/raw/panel_d_route_peak_perturbation_trial_readout.csv
+    source_aliases:
+      - data/metrics/panel_d_real_reentry_metrics.csv
+      - data/metrics/panel_d_peak_weighted_reentry_metrics.csv
+      - data/metrics/supp_legacy_panel_d_peak_weighted_reentry_metrics.csv
+      - data/metrics/supp_legacy_panel_d_matched_raw_overlap_comparison.csv
+      - data/metrics/supp_legacy_panel_d_peak_weighted_overlap_regression.csv
+      - data/metrics/supp_matched_raw_overlap_peak_comparison.csv
+      - data/metrics/supp_s12_raw_overlap_matched_peak_overlap_contrast.csv
+    position_mm: {x: 12.00, y: 54.00, w: 70.50, h: 52.00}
+    size_mm: {w: 70.50, h: 52.00}
+    metric: normalized_reentry_loss
+    x_axis: Perturbation unit set
+    y_axis: Normalized re-entry loss
+    perturbation_unit_sets: [Route peak, Route non-peak, Non-route peak, Random]
   E:
     panel_id: E
-    claim: Peak flattening weakens peak-associated spike enrichment, whereas peak boosting enhances it, demonstrating a causal role for STSP peaks in later probe responses.
-    panel_type: peak_manipulation_effect
-    renderer: render_peak_manipulation_effect
-    data_adapter: fig6_peak_manipulation
-    size_mm: [101.33, 43]
-    position_mm: {x: 5, y: 95, w: 101.33, h: 43}
-    metric: peak_associated_spike_enrichment
-    conditions: [Peak-flattened, Intact-final, Peak-boosted]
-    x_axis: Peak manipulation
-    y_axis: Peak-associated spike enrichment
-    source_mapping:
-      source_experiment: chunk_stsp_layer1_overlap_peak_formation
-      old_source_stem: fig6D_peak_function_spiking
-      alias_note: old_code_stem_maps_to_paper_Fig6E
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_function_probe_summary__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_function_probe_summary.csv
-      unused_subgroup_columns:
-        - probe_group
-        - overlap_level
-    notes: This is the causal perturbation panel. It should clearly show flattening down, intact baseline, boosting up. Do not preserve old source labels such as E2 or G. Do not silently mix low-overlap/high-overlap subgroups into the main panel unless the spec is extended to support that; if subgroup data are present but not used, record in source_manifest.
+    panel_type: route_peak_downstream
+    claim: The same route-peak perturbation changes downstream response or decision output when the perturbation audit passes; otherwise the panel is diagnostic only.
+    renderer: render_fig6_route_peak_downstream
+    data_adapter: fig6_route_peak_downstream_adapter
+    source_priority:
+      - data/metrics/panel_e_route_peak_downstream_summary.csv
+      - data/metrics/panel_e_route_peak_downstream_contrast.csv
+      - data/raw/panel_e_route_peak_downstream_trial_readout.csv
+    source_aliases:
+      - data/metrics/panel_e_real_downstream_metrics.csv
+      - data/metrics/panel_e_peak_weighted_downstream_metrics.csv
+      - data/metrics/supp_legacy_panel_e_peak_weighted_downstream_metrics.csv
+      - data/metrics/supp_legacy_panel_e_downstream_regression.csv
+      - data/metrics/supp_s12_downstream_metric_breakdown.csv
+    position_mm: {x: 88.50, y: 54.00, w: 70.50, h: 52.00}
+    size_mm: {w: 70.50, h: 52.00}
+    metric: P_output_switch
+    x_axis: Perturbation unit set
+    y_axis: Output switch probability
+    perturbation_unit_sets: [Route peak, Route non-peak, Non-route peak, Random]
   F:
     panel_id: F
-    claim: The intact-state benefit over peak-flattened state increases with probe-peak overlap, indicating that peak effects are selective for probes that re-enter peak-supported pathways rather than a global gain effect.
-    panel_type: probe_peak_overlap_dependency
-    renderer: render_probe_peak_overlap_dependency
-    data_adapter: fig6_probe_peak_overlap_dependency
-    size_mm: [47.67, 43]
-    position_mm: {x: 112.33, y: 95, w: 47.67, h: 43}
-    x_metric: probe_peak_overlap
-    y_metric: intact_over_flattened_benefit
-    x_axis: Probe-peak overlap
-    y_axis: Intact-state benefit over peak-flattened state
-    stats_to_show_if_available: [Quadratic R2]
-    source_mapping:
-      source_experiment: chunk_stsp_layer1_overlap_peak_formation
-      old_source_stem: fig6E_overlap_conditioned_spike_effect
-      alias_note: old_code_stem_maps_to_paper_Fig6F
-      preferred_files:
-        - results/multi_network/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_function_paired_effects__by_network.csv
-      fallback_files:
-        - results/chunk_stsp_layer1_overlap_peak_formation/data/layer1_peak_function_paired_effects.csv
-    notes: "Preferred rendering is scatter + regression. This is the final closure panel for the manuscript mechanism chain: peaks are not global gain; their benefit depends on probe-peak overlap."
+    panel_type: global_mechanism_schematic
+    claim: Overlap is the route and peaks are gain; causal route-peak gain wording is allowed only if the perturbation audit passes.
+    renderer: render_fig6_global_mechanism
+    data_adapter: fig6_global_mechanism_adapter
+    source_priority:
+      - data/raw/panel_f_global_mechanism_metadata.json
+      - summary.json
+    position_mm: {x: 12.00, y: 114.00, w: 147.00, h: 36.00}
+    size_mm: {w: 147.00, h: 36.00}
+    metric: mechanism_statement
+    x_axis: Mechanism chain
+    y_axis: Route and gain
+    required_statements:
+      - overlap = route
+      - peaks = gain
+    figure_chain:
+      - Fig.1 functional STSP substrate
+      - Fig.2 two-item fused state
+      - Fig.3 multi-item peak landscape
+      - Fig.4 overlap re-entry route
+      - Fig.5 local support / competition conversion
+      - Fig.6 peak-amplified re-entry

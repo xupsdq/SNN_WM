@@ -1,489 +1,1509 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from src.plotting.paper_fig.data_resolver import (
-    AdapterResult,
-    first_existing_path,
-    missing_adapter_result,
-    summarize_values,
-    write_adapter_outputs,
-)
+from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values, write_adapter_outputs
+from src.plotting.paper_fig.utils import read_json
 
+
+DEFAULT_EXPERIMENT_ROOT = "results/paper_experiments/fig6_peak_amplified_reentry"
+DRAFT_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
 
 GROUP_LABELS = {
-    "multi_recent": "Multi-recent",
-    "single_recent": "Single-recent",
-    "multi_old": "Multi-old",
-    "single_old": "Single-old",
+    "single_old": "Single old",
+    "single_recent": "Single recent",
+    "multi_old": "Multi old",
+    "multi_recent": "Multi recent",
+}
+MODEL_LABELS = {
+    "baseline_only": "Base",
+    "update_only": "Update",
+    "recency_only": "Recency",
+    "overlap_only": "Overlap",
+    "update_plus_recency": "Upd+Rec",
+    "update_times_recency": "Upd x Rec",
+}
+DOWNSTREAM_LABELS = {
+    "early_recruitment_gain": "Early recruitment",
+    "response_pattern_displacement": "Response reshaping",
+    "decision_deflection_score": "Decision deflection",
+    "early_recruitment_gain_real": "Early recruitment",
+    "response_pattern_displacement_real": "Response reshaping",
+    "decision_deflection_score_real": "Decision deflection",
 }
 
-MANIPULATION_LABELS = {
-    "peak_flattened": "Peak-flattened",
-    "intact_final": "Intact-final",
-    "peak_boosted": "Peak-boosted",
-}
 
-_COMMON_SOURCE_FIELDS = ["seed", "network_seed", "network_index", "model_path", "eval_seed", "run_dir"]
-
-
-def build_fig6_anchor_peak_linkage(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6A anchor-peak linkage data when direct columns are available."""
+def build_fig6_peak_source_attribution_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Main Fig.6A: leave-one-item-out source attribution by temporal position."""
     figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6A anchor-peak linkage source not found.")
-    df = pd.read_csv(path)
-    x_candidates = ["support_loss_in_final_peak_region", "final_peak_support_loss", "peak_support_loss"]
-    y_candidates = ["anchor_retreat", "anchor_retreat_position", "anchor_shift_retreat"]
-    x_col = next((col for col in x_candidates if col in df.columns), None)
-    y_col = next((col for col in y_candidates if col in df.columns), None)
-    if x_col is None or y_col is None:
-        return missing_adapter_result(
-            spec,
-            repo_root,
-            output_dir,
-            f"Fig.6A direct support-loss/anchor-retreat columns unavailable in {path}; checked x={x_candidates}, y={y_candidates}.",
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_a_peak_source_attribution_summary.csv",
+                "data/raw/panel_a_peak_source_attribution.csv",
+                "data/metrics/panel_a_peak_source_attribution.csv",
+                "data/metrics/supp_s11_leave_one_out_source_details.csv",
+            ],
         )
-    rows = []
-    for _, r in df.dropna(subset=[x_col, y_col]).iterrows():
-        out = _row(figure_id, panel_id, "anchor_retreat", "Final peak support loss", "Layer 1/3", r.get("network_index", ""), r.get("network_seed", ""), float(r[y_col]), "position", path, repo_root)
-        out["support_loss_in_final_peak_region"] = float(r[x_col])
-        out["anchor_retreat"] = float(r[y_col])
-        out["x_value"] = float(r[x_col])
-        out["y_value"] = float(r[y_col])
-        out["sequence_id"] = r.get("trial_id", "")
-        out["peak_region_id"] = r.get("peak_region_id", "")
-        rows.append(out)
-    return _write_result(output_dir, figure_id, panel_id, pd.DataFrame(rows), [path], checked, [], correlations=_correlations_from_rows(rows))
-
-
-def build_fig6_peak_membership(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6B peak fraction by update-history group."""
-    figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6B peak-membership source not found.")
-    df = pd.read_csv(path)
-    raw_rows = int(len(df))
-    if not {"group_name", "peak_fraction_in_group"}.issubset(df.columns):
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.6B source missing group_name/peak_fraction_in_group: {path}")
-    use, warnings = _preferred_group_rows(df, panel_id)
-    if "network_seed" not in use.columns:
-        warnings.append("Fig.6B used single-run fallback; n=20 network summary unavailable.")
-        use["network_seed"] = ""
-        use["network_index"] = ""
-    use = use.dropna(subset=["group_name", "peak_fraction_in_group"]).copy()
-    granularity, granularity_warnings = _granularity_report(panel_id, path, df, use, row_id_cols=_row_identifier_columns(panel_id))
-    warnings.extend(granularity_warnings)
-    rows = []
-    for source_row_id, r in use.reset_index(drop=True).iterrows():
-        condition = GROUP_LABELS.get(str(r["group_name"]), str(r["group_name"]))
-        out = _row(figure_id, panel_id, "peak_fraction", condition, "Layer 1", r.get("network_index", ""), r.get("network_seed", ""), float(r["peak_fraction_in_group"]), "fraction", path, repo_root)
-        _copy_available_fields(out, r, _COMMON_SOURCE_FIELDS + ["group_by", "recent_definition", "group_name", "trial_id", "sequence_id", "peak_region_id"])
-        out["source_row_id"] = int(source_row_id)
-        out["update_history_group"] = condition
-        out["peak_fraction"] = float(r["peak_fraction_in_group"])
-        out["peak_membership"] = float(r["peak_fraction_in_group"])
-        out["update_count"] = float(r.get("mean_update_count", np.nan))
-        out["recency_group"] = "Recent" if "recent" in condition else "Old"
-        out["source_group_name"] = str(r["group_name"])
-        rows.append(out)
-    granularity.update({"raw_rows_read": raw_rows, "rows_after_source_filtering": int(len(use)), "rows_written_to_panel_data": int(len(rows))})
-    return _write_result(output_dir, figure_id, panel_id, pd.DataFrame(rows), [path], checked, warnings, granularity=granularity)
-
-
-def build_fig6_repetition_recency_gain(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6C final STSP gain by repetition x recency group."""
-    figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6C repetition-recency gain source not found.")
-    df = pd.read_csv(path)
-    raw_rows = int(len(df))
-    if not {"group_name", "mean_final_g"}.issubset(df.columns):
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.6C source missing group_name/mean_final_g: {path}")
-    use, warnings = _preferred_group_rows(df, panel_id)
-    if "network_seed" not in use.columns:
-        warnings.append("Fig.6C used single-run fallback; n=20 network summary unavailable.")
-        use["network_seed"] = ""
-        use["network_index"] = ""
-    use = use.dropna(subset=["group_name", "mean_final_g"]).copy()
-    granularity, granularity_warnings = _granularity_report(panel_id, path, df, use, row_id_cols=_row_identifier_columns(panel_id))
-    warnings.extend(granularity_warnings)
-    rows = []
-    for source_row_id, r in use.reset_index(drop=True).iterrows():
-        condition = GROUP_LABELS.get(str(r["group_name"]), str(r["group_name"]))
-        out = _row(figure_id, panel_id, "final_stsp_gain", condition, "Layer 1", r.get("network_index", ""), r.get("network_seed", ""), float(r["mean_final_g"]), "gain", path, repo_root)
-        _copy_available_fields(out, r, _COMMON_SOURCE_FIELDS + ["group_by", "recent_definition", "group_name", "trial_id", "sequence_id", "peak_region_id"])
-        out["source_row_id"] = int(source_row_id)
-        out["repetition"] = "Multi" if condition.startswith("Multi") else "Single"
-        out["recency"] = "Recent" if condition.endswith("recent") else "Old"
-        out["update_history_group"] = condition
-        out["final_stsp_gain"] = float(r["mean_final_g"])
-        out["update_count"] = float(r.get("mean_update_count", np.nan))
-        out["source_group_name"] = str(r["group_name"])
-        rows.append(out)
-    granularity.update({"raw_rows_read": raw_rows, "rows_after_source_filtering": int(len(use)), "rows_written_to_panel_data": int(len(rows))})
-    return _write_result(output_dir, figure_id, panel_id, pd.DataFrame(rows), [path], checked, warnings, granularity=granularity)
-
-
-def build_fig6_model_comparison(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6D paired overlap-only versus update+recency R2 model comparison."""
-    figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6D model-comparison source not found.")
-    df = pd.read_csv(path)
-    raw_rows = int(len(df))
-    if not {"r2_overlap_only", "r2_update_plus_recency"}.issubset(df.columns):
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.6D source missing R2 columns: {path}")
-    warnings: list[str] = []
-    if "network_seed" not in df.columns:
-        warnings.append("Fig.6D used single-run fallback; n=20 network summary unavailable.")
-        df["network_seed"] = ""
-        df["network_index"] = ""
-    use = df.copy()
-    if "valid" in use.columns:
-        valid = pd.to_numeric(use["valid"], errors="coerce").fillna(0).astype(int).eq(1)
-        if valid.any():
-            use = use[valid].copy()
-    use = use.dropna(subset=["r2_overlap_only", "r2_update_plus_recency"]).copy()
-    granularity, granularity_warnings = _granularity_report(panel_id, path, df, use, row_id_cols=_row_identifier_columns(panel_id))
-    warnings.extend(granularity_warnings)
-    rows = []
-    delta_values: list[float] = []
-    for source_row_id, r in use.reset_index(drop=True).iterrows():
-        delta = float(r["r2_update_plus_recency"] - r["r2_overlap_only"])
-        delta_values.append(delta)
-        for condition, col in (("Overlap-only", "r2_overlap_only"), ("Update + recency", "r2_update_plus_recency")):
-            out = _row(figure_id, panel_id, "prediction_r2", condition, "Layer 1", r.get("network_index", ""), r.get("network_seed", ""), float(r[col]), "r2", path, repo_root)
-            _copy_available_fields(out, r, _COMMON_SOURCE_FIELDS + ["trial_id", "sequence_id", "seq_len", "fold_id", "split_id", "valid"])
-            out["source_row_id"] = int(source_row_id)
-            out["predictor_model"] = condition
-            out["prediction_r2"] = float(r[col])
-            out["delta_r2"] = delta
-            out["source_model_column"] = col
-            rows.append(out)
-    stats_extra = {
-        "model_comparison": {"delta_r2_mean": float(np.nanmean(delta_values)) if delta_values else None},
-        "delta_r2": [float(v) for v in delta_values],
-    }
-    granularity.update({"raw_rows_read": raw_rows, "rows_after_source_filtering": int(len(use)), "rows_written_to_panel_data": int(len(rows))})
-    return _write_result(output_dir, figure_id, panel_id, pd.DataFrame(rows), [path], checked, warnings, extra_stats=stats_extra, granularity=granularity)
-
-
-def build_fig6_peak_manipulation(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6E peak manipulation effect on peak-associated spike enrichment."""
-    figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6E peak-manipulation source not found.")
-    raw_df = pd.read_csv(path)
-    raw_rows = int(len(raw_df))
-    if not {"condition", "spike_enrichment"}.issubset(raw_df.columns):
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.6E source missing condition/spike_enrichment: {path}")
-    warnings: list[str] = []
-    df = raw_df.copy()
-    if "valid" in df.columns:
-        df = df[pd.to_numeric(df["valid"], errors="coerce").fillna(0).astype(int).eq(1)].copy()
-    if "network_seed" not in df.columns:
-        warnings.append("Fig.6E used single-run fallback; n=20 network summary unavailable.")
-        df["network_seed"] = ""
-        df["network_index"] = ""
-    boosted = df[df["condition"].astype(str).eq("peak_boosted")].copy()
-    max_boost = pd.to_numeric(boosted.get("boost_level", pd.Series(dtype=float)), errors="coerce").max() if not boosted.empty else np.nan
-    if pd.notna(max_boost):
-        keep = df["condition"].astype(str).isin(["peak_flattened", "intact_final"]) | (df["condition"].astype(str).eq("peak_boosted") & pd.to_numeric(df.get("boost_level", 0), errors="coerce").eq(max_boost))
-        df = df[keep].copy()
-    use = df.dropna(subset=["condition", "spike_enrichment"]).copy()
-    granularity, granularity_warnings = _granularity_report(panel_id, path, raw_df, use, row_id_cols=_row_identifier_columns(panel_id))
-    warnings.extend(granularity_warnings)
-    rows = []
-    for source_row_id, r in use.reset_index(drop=True).iterrows():
-        raw = str(r["condition"])
-        if raw not in MANIPULATION_LABELS:
+        checked.extend(candidates)
+        if path is None:
+            warnings.append(f"Missing Fig.6 source-attribution source under {_rel(seed_dir, repo_root)}.")
             continue
-        condition = MANIPULATION_LABELS[raw]
-        out = _row(figure_id, panel_id, "peak_associated_spike_enrichment", condition, "Layer 1", r.get("network_index", ""), r.get("network_seed", ""), float(r["spike_enrichment"]), "enrichment", path, repo_root)
-        _copy_available_fields(out, r, _COMMON_SOURCE_FIELDS + ["trial_id", "sequence_id", "seq_len", "probe_image_id", "probe_label", "probe_group", "target_region", "overlap_level", "boost_level", "valid"])
-        out["source_row_id"] = int(source_row_id)
-        out["peak_manipulation"] = condition
-        out["peak_associated_spike_enrichment"] = float(r["spike_enrichment"])
-        out["probe_group"] = r.get("probe_group", "")
-        out["overlap_group"] = r.get("overlap_level", "")
-        out["source_condition"] = raw
-        out["boost_level"] = r.get("boost_level", "")
-        rows.append(out)
-    granularity.update({"raw_rows_read": raw_rows, "rows_after_source_filtering": int(len(use)), "rows_written_to_panel_data": int(len(rows))})
-    return _write_result(output_dir, figure_id, panel_id, pd.DataFrame(rows), [path], checked, warnings, granularity=granularity, manifest_notes={"max_boost_level_used": None if pd.isna(max_boost) else float(max_boost)})
-
-
-def build_fig6_probe_peak_overlap_dependency(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build Fig.6F probe-peak overlap versus intact-over-flattened benefit scatter data."""
-    figure_id, panel_id = _ids(spec)
-    path, checked = first_existing_path(repo_root, _candidate_files(spec))
-    if path is None:
-        return missing_adapter_result(spec, repo_root, output_dir, "Fig.6F probe-peak overlap dependency source not found.")
-    raw_df = pd.read_csv(path)
-    raw_rows = int(len(raw_df))
-    if not {"input_peak_overlap_fraction", "delta_spike_enrichment_intact_vs_flattened"}.issubset(raw_df.columns):
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.6F source missing overlap/benefit columns: {path}")
-    warnings: list[str] = []
-    df = raw_df.copy()
-    if "boost_level" in df.columns:
-        df = df[pd.to_numeric(df["boost_level"], errors="coerce").fillna(0).eq(0)].copy()
-    if "network_seed" not in df.columns:
-        warnings.append("Fig.6F used single-run fallback; n=20 network summary unavailable.")
-        df["network_seed"] = ""
-        df["network_index"] = ""
-    use = df.dropna(subset=["input_peak_overlap_fraction", "delta_spike_enrichment_intact_vs_flattened"]).copy()
-    granularity, granularity_warnings = _granularity_report(panel_id, path, raw_df, use, row_id_cols=_row_identifier_columns(panel_id))
-    warnings.extend(granularity_warnings)
-    rows = []
-    for source_row_id, r in use.reset_index(drop=True).iterrows():
-        x = float(r["input_peak_overlap_fraction"])
-        y = float(r["delta_spike_enrichment_intact_vs_flattened"])
-        out = _row(figure_id, panel_id, "intact_over_flattened_benefit", "Intact over peak-flattened", "Layer 1", r.get("network_index", ""), r.get("network_seed", ""), y, "enrichment", path, repo_root)
-        _copy_available_fields(out, r, _COMMON_SOURCE_FIELDS + ["trial_id", "sequence_id", "seq_len", "probe_image_id", "probe_label", "probe_group", "target_region", "overlap_level", "boost_level"])
-        out["source_row_id"] = int(source_row_id)
-        out["probe_peak_overlap"] = x
-        out["intact_over_flattened_benefit"] = y
-        out["spike_enrichment_benefit"] = y
-        out["x_value"] = x
-        out["y_value"] = y
-        out["overlap_unit"] = "fraction"
-        rows.append(out)
-    granularity.update({"raw_rows_read": raw_rows, "rows_after_source_filtering": int(len(use)), "rows_written_to_panel_data": int(len(rows))})
-    quadratic_fit = _quadratic_fit_from_rows(rows)
-    return _write_result(
+        sources.append(path)
+        df = pd.read_csv(path)
+        value_col = _first_col(df, ["mean_peak_loss_fraction", "peak_loss_fraction", "peak_loss"])
+        if value_col is None:
+            warnings.append(f"{_rel(path, repo_root)} lacks peak-loss fields.")
+            continue
+        for _, r in df.iterrows():
+            pos = _position_from_end(r)
+            sem_value = r.get("sem_peak_loss_fraction", r.get("sem", ""))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "peak_loss_fraction",
+                    "Peak source contribution",
+                    "layer1",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get(value_col)),
+                    "fraction",
+                    path,
+                    repo_root,
+                    sequence_id=r.get("sequence_id", ""),
+                    seq_len=r.get("seq_len", ""),
+                    removed_position=r.get("removed_position", ""),
+                    position_from_end=pos,
+                    relative_position_from_end=r.get("relative_position_from_end", ""),
+                    x_value=pos,
+                    y_value=_num(r.get(value_col)),
+                    n_sequences=r.get("n_sequences", ""),
+                    n_units=r.get("n_units", ""),
+                    sem=_num(sem_value),
+                )
+            )
+    return _finish(
+        spec,
         output_dir,
-        figure_id,
-        panel_id,
-        pd.DataFrame(rows),
-        [path],
+        root,
+        seeds,
+        rows,
+        sources,
         checked,
         warnings,
-        extra_stats={"quadratic_fit": quadratic_fit, "regression_summary": quadratic_fit},
-        granularity=granularity,
+        ["metric", "position_from_end"],
+        stats_extra={"main_metric": "peak_loss_fraction", "source_attribution_mode": "leave_one_item_out", "claim": "late_updates_source_final_peaks"},
+        manifest_extra={"main_metric": "peak_loss_fraction", "source_attribution_mode": "leave_one_item_out", "claim": "late_updates_source_final_peaks"},
     )
 
 
-def _write_result(
+def build_fig6_peak_update_history_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Main Fig.6B: update count -> P(peak)."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/raw/panel_b_peak_update_history.csv",
+                "data/metrics/panel_b_peak_update_history.csv",
+                "data/metrics/panel_b_peak_update_history_summary.csv",
+                "data/metrics/supp_s11_peak_update_group_enrichment.csv",
+            ],
+        )
+        checked.extend(candidates)
+        if path is None:
+            warnings.append(f"Missing Fig.6 update-history source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        df = pd.read_csv(path)
+        if {"update_count", "is_peak"}.issubset(df.columns):
+            rows.extend(_p_peak_by_update_count_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
+        else:
+            warnings.append(f"{_rel(path, repo_root)} lacks update_count/is_peak rows for main Fig.6B.")
+    bins = list(dict.fromkeys(str(row.get("update_count_bin", "")) for row in rows))
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "update_count_bin"],
+        stats_extra={"main_metric": "P_peak_by_update_count", "binned_update_count": any(str(b).endswith("+") for b in bins), "update_count_bins": bins, "claim": "repeated_updates_enrich_final_peaks"},
+        manifest_extra={"main_metric": "P_peak_by_update_count", "binned_update_count": any(str(b).endswith("+") for b in bins), "update_count_bins": bins, "claim": "repeated_updates_enrich_final_peaks"},
+    )
+
+
+def build_fig6_peak_input_overlap_origin_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_fig6_peak_overlap_alignment_adapter(spec, repo_root, output_dir)
+
+
+def build_fig6_peak_overlap_alignment_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Main Fig.6C: final peaks aligned to old/all/recent foreground-overlap maps."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_c_peak_input_overlap_similarity_summary.csv",
+                "data/metrics/panel_c_peak_input_overlap_similarity.csv",
+                "data/metrics/supp_s11_recent_overlap_window_robustness.csv",
+                "data/metrics/supp_recent_overlap_window_robustness.csv",
+            ],
+        )
+        checked.extend(candidates)
+        if path is None:
+            warnings.append(f"Missing Fig.6 peak-origin overlap source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        df = pd.read_csv(path)
+        rows.extend(_peak_overlap_alignment_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
+    selected_windows = list(dict.fromkeys(str(row.get("overlap_window", "")) for row in rows))
+    recent_k = next((row.get("window_k") for row in rows if row.get("window_family") == "recent"), None)
+    old_k = next((row.get("window_k") for row in rows if row.get("window_family") == "old"), None)
+    recent_vals = [row["value"] for row in rows if row.get("window_family") == "recent" and np.isfinite(float(row["value"]))]
+    all_vals = [row["value"] for row in rows if row.get("window_family") == "all" and np.isfinite(float(row["value"]))]
+    old_vals = [row["value"] for row in rows if row.get("window_family") == "old" and np.isfinite(float(row["value"]))]
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "overlap_window"],
+        stats_extra={
+            "main_metric": "peak_coverage",
+            "selected_windows": selected_windows,
+            "selected_recent_k": recent_k,
+            "selected_old_k": old_k,
+            "recent_minus_all": (float(np.mean(recent_vals) - np.mean(all_vals)) if recent_vals and all_vals else None),
+            "recent_minus_old": (float(np.mean(recent_vals) - np.mean(old_vals)) if recent_vals and old_vals else None),
+            "peak_alignment_mode": "foreground_overlap",
+            "claim": "peaks_align_with_recent_high_foreground_overlap",
+        },
+        manifest_extra={"main_metric": "peak_coverage", "selected_windows": selected_windows, "peak_alignment_mode": "foreground_overlap", "claim": "peaks_align_with_recent_high_foreground_overlap"},
+    )
+
+
+def build_fig6_real_peak_overlap_reentry_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_fig6_peak_weighted_real_reentry_adapter(spec, repo_root, output_dir)
+
+
+def build_fig6_real_peak_overlap_downstream_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_fig6_peak_weighted_real_downstream_adapter(spec, repo_root, output_dir)
+
+
+def build_fig6_route_peak_reentry_loss_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_d_route_peak_reentry_loss_summary.csv",
+                "data/raw/panel_d_route_peak_perturbation_trial_readout.csv",
+            ],
+        )
+        contrast_path = seed_dir / "data" / "metrics" / "panel_d_route_peak_reentry_loss_contrast.csv"
+        audit_path = seed_dir / "data" / "metrics" / "panel_de_route_peak_perturbation_scientific_use_audit.csv"
+        checked.extend(candidates + [contrast_path, audit_path])
+        if path is None:
+            warnings.append(f"Missing Fig.6D route-peak perturbation source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        if contrast_path.exists():
+            sources.append(contrast_path)
+        if audit_path.exists():
+            sources.append(audit_path)
+        df = pd.read_csv(path)
+        rows.extend(_route_peak_reentry_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "perturbation_unit_set"],
+        stats_extra={"main_metric": "normalized_reentry_loss", "source_level": "route_peak_perturbation", "claim": "route_peak_perturbation_reduces_reentry"},
+        manifest_extra={"source_mode": "route_peak_perturbation", "main_metric": "normalized_reentry_loss", "claim_strength": _claim_strength(seeds)},
+    )
+
+
+def build_fig6_route_peak_downstream_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_e_route_peak_downstream_summary.csv",
+                "data/raw/panel_e_route_peak_downstream_trial_readout.csv",
+            ],
+        )
+        contrast_path = seed_dir / "data" / "metrics" / "panel_e_route_peak_downstream_contrast.csv"
+        dist_path = seed_dir / "data" / "metrics" / "panel_e_route_peak_output_distribution.csv"
+        audit_path = seed_dir / "data" / "metrics" / "panel_de_route_peak_perturbation_scientific_use_audit.csv"
+        checked.extend(candidates + [contrast_path, dist_path, audit_path])
+        if path is None:
+            warnings.append(f"Missing Fig.6E route-peak downstream source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        for extra in (contrast_path, dist_path, audit_path):
+            if extra.exists():
+                sources.append(extra)
+        df = pd.read_csv(path)
+        rows.extend(_route_peak_downstream_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "perturbation_unit_set"],
+        stats_extra={"main_metric": "P_output_switch", "source_level": "route_peak_perturbation", "claim": "route_peak_perturbation_changes_downstream_output"},
+        manifest_extra={"source_mode": "route_peak_perturbation", "main_metric": "P_output_switch", "claim_strength": _claim_strength(seeds)},
+    )
+
+
+def build_fig6_multi_recent_peak_enrichment_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_a_peak_enrichment_summary.csv",
+                "data/metrics/panel_a_multi_recent_peak_enrichment.csv",
+                "data/metrics/supp_legacy_panel_a_peak_enrichment_summary.csv",
+                "data/metrics/supp_legacy_panel_a_multi_recent_peak_enrichment.csv",
+                "data/metrics/supp_s11_peak_update_group_enrichment.csv",
+            ],
+        )
+        checked.extend(candidates)
+        if path is None:
+            warnings.append(f"Missing Fig.6A multi-recent peak enrichment source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        df = pd.read_csv(path)
+        group_col = _first_col(df, ["update_history_group", "update_group"])
+        if group_col is None:
+            warnings.append(f"{_rel(path, repo_root)} lacks update-history group columns.")
+            continue
+        if "P_peak" in df.columns:
+            for _, r in df.iterrows():
+                group = str(r.get(group_col, ""))
+                if group not in GROUP_LABELS:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        "P_peak",
+                        GROUP_LABELS[group],
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get("P_peak")),
+                        "fraction",
+                        path,
+                        repo_root,
+                        update_history_group=group,
+                        n_units=r.get("n_units", ""),
+                        mean_delta_support=_num(r.get("mean_delta_support")),
+                        peak_enrichment=_num(r.get("peak_enrichment")),
+                    )
+                )
+        elif {"is_peak", group_col}.issubset(df.columns):
+            for group, part in df.groupby(group_col, sort=False):
+                group_text = str(group)
+                if group_text not in GROUP_LABELS:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        "P_peak",
+                        GROUP_LABELS[group_text],
+                        "layer1",
+                        seed_dir,
+                        part.get("network_seed", pd.Series([""])).iloc[0] if len(part) else "",
+                        float(pd.to_numeric(part["is_peak"], errors="coerce").mean()),
+                        "fraction",
+                        path,
+                        repo_root,
+                        update_history_group=group_text,
+                        n_units=int(len(part)),
+                    )
+                )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "condition"],
+        stats_extra={"source_level": "multi_recent_peak_enrichment", "required_group": "multi_recent"},
+        manifest_extra={"source_mode": "multi_recent_peak_enrichment"},
+    )
+
+
+def build_fig6_update_recency_model_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_b_update_recency_model_metrics.csv",
+                "data/metrics/supp_legacy_panel_b_update_recency_model_metrics.csv",
+                "data/metrics/supp_update_recency_support_model_metrics.csv",
+                "data/metrics/supp_s11_update_recency_model_comparison.csv",
+            ],
+        )
+        checked.extend(candidates)
+        if path is None:
+            warnings.append(f"Missing Fig.6B update-recency model source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        df = pd.read_csv(path)
+        target_col = _first_col(df, ["target", "dependent_metric"])
+        if target_col is not None:
+            preferred = df[df[target_col].astype(str).eq("delta_support")].copy()
+            if not preferred.empty:
+                df = preferred
+        value_col = "cv_r2" if "cv_r2" in df.columns else "r2" if "r2" in df.columns else None
+        if value_col is None or "model_name" not in df.columns:
+            warnings.append(f"{_rel(path, repo_root)} lacks model_name and CV/R2 columns.")
+            continue
+        for _, r in df.iterrows():
+            model = str(r.get("model_name", ""))
+            if model not in MODEL_LABELS:
+                continue
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "cv_r2",
+                    MODEL_LABELS[model],
+                    str(r.get("layer", "layer1")),
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get(value_col)),
+                    "r2",
+                    path,
+                    repo_root,
+                    sequence_id=r.get("sequence_id", ""),
+                    model_name=model,
+                    r2=_num(r.get("r2")),
+                    cv_r2=_num(r.get("cv_r2")),
+                    target=r.get(target_col, "") if target_col else "",
+                    n_units=r.get("n_units", r.get("n_samples", "")),
+                )
+            )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "condition", "model_name"],
+        stats_extra={"source_level": "update_recency_model", "preferred_target": "delta_support"},
+        manifest_extra={"source_mode": "update_recency_model"},
+    )
+
+
+def build_fig6_peak_weighted_overlap_interface_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, _, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_c_peak_weighted_overlap_definitions.csv",
+                "data/metrics/supp_legacy_panel_c_peak_weighted_overlap_definitions.csv",
+            ],
+        )
+        example_path = seed_dir / "data" / "raw" / "panel_c_overlap_peak_interface_example.npz"
+        checked.extend(candidates + [example_path])
+        if path is None:
+            warnings.append(f"Missing Fig.6C route/gain interface source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        if example_path.exists():
+            sources.append(example_path)
+        df = pd.read_csv(path)
+        if not {"raw_overlap", "peak_weighted_overlap"}.issubset(df.columns):
+            warnings.append(f"{_rel(path, repo_root)} lacks raw_overlap / peak_weighted_overlap.")
+            continue
+        for _, r in df.iterrows():
+            for metric, unit in (
+                ("raw_overlap", "fraction"),
+                ("peak_weighted_overlap", "weighted fraction"),
+                ("peak_overlap_fraction", "fraction"),
+                ("nonpeak_overlap_fraction", "fraction"),
+            ):
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        _metric_label(metric),
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        unit,
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        probe_id=r.get("probe_id", ""),
+                        probe_label=r.get("probe_label", ""),
+                        raw_overlap=_num(r.get("raw_overlap")),
+                        peak_weighted_overlap=_num(r.get("peak_weighted_overlap")),
+                        peak_overlap_fraction=_num(r.get("peak_overlap_fraction")),
+                        nonpeak_overlap_fraction=_num(r.get("nonpeak_overlap_fraction")),
+                        visual_similarity=_num(r.get("visual_similarity")),
+                        input_energy=_num(r.get("input_energy")),
+                        example_npz=_rel(example_path, repo_root) if example_path.exists() else "",
+                    )
+                )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "condition"],
+        stats_extra={"source_level": "route_gain_interface"},
+        manifest_extra={"source_mode": "route_gain_interface", "route_statement": "raw overlap", "gain_statement": "peak-weighted overlap"},
+    )
+
+
+def build_fig6_peak_weighted_reentry_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Backward-compatible name for formula/proxy-era peak-weighted re-entry."""
+    return build_fig6_peak_weighted_real_reentry_adapter(spec, repo_root, output_dir)
+
+
+def build_fig6_peak_weighted_real_reentry_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    source_levels: list[str] = []
+    for seed_dir in seeds:
+        candidates = [
+            ("real_matched", "data/metrics/panel_d_raw_overlap_matched_peak_reentry.csv"),
+            ("real_regression", "data/metrics/panel_d_real_reentry_metrics.csv"),
+            ("real_regression", "data/metrics/panel_d_peak_overlap_reentry_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/panel_d_peak_weighted_reentry_metrics.csv"),
+            ("peak_weighted_fallback", "data/metrics/panel_d_matched_raw_overlap_comparison.csv"),
+            ("peak_weighted_fallback", "data/metrics/panel_d_peak_weighted_overlap_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_legacy_panel_d_peak_weighted_reentry_metrics.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_legacy_panel_d_matched_raw_overlap_comparison.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_legacy_panel_d_peak_weighted_overlap_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_matched_raw_overlap_peak_comparison.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_s12_raw_overlap_matched_peak_overlap_contrast.csv"),
+        ]
+        checked.extend(seed_dir / rel for _, rel in candidates)
+        chosen_level, path, df = _first_nonempty_by_level(seed_dir, candidates)
+        if path is None or df is None:
+            warnings.append(f"Missing Fig.6D peak-weighted real re-entry source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        source_levels.append(chosen_level)
+        rows.extend(_reentry_rows(figure_id, panel_id, seed_dir, path, repo_root, df, chosen_level))
+    source_level = _preferred_level(source_levels, ["real_matched", "real_regression", "peak_weighted_fallback"])
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["condition"],
+        stats_extra={"source_level": source_level, "peak_high_minus_low": _high_minus_low(rows), "regression_slope": _regression_slope(rows)},
+        manifest_extra={"source_mode": source_level, "claim_strength": _claim_strength(seeds), "raw_overlap_control": _raw_overlap_control(rows)},
+    )
+
+
+def build_fig6_peak_weighted_downstream_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Backward-compatible name for formula/proxy-era peak-weighted downstream outputs."""
+    return build_fig6_peak_weighted_real_downstream_adapter(spec, repo_root, output_dir)
+
+
+def build_fig6_peak_weighted_real_downstream_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    source_levels: list[str] = []
+    for seed_dir in seeds:
+        candidates = [
+            ("real_downstream", "data/metrics/panel_e_real_downstream_metrics.csv"),
+            ("real_downstream", "data/metrics/panel_e_peak_overlap_downstream_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/panel_e_peak_weighted_downstream_metrics.csv"),
+            ("peak_weighted_fallback", "data/metrics/panel_e_downstream_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_legacy_panel_e_peak_weighted_downstream_metrics.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_legacy_panel_e_downstream_regression.csv"),
+            ("peak_weighted_fallback", "data/metrics/supp_s12_downstream_metric_breakdown.csv"),
+        ]
+        checked.extend(seed_dir / rel for _, rel in candidates)
+        chosen_level, path, df = _first_nonempty_by_level(seed_dir, candidates)
+        if path is None or df is None:
+            warnings.append(f"Missing Fig.6E peak-weighted real downstream source under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        source_levels.append(chosen_level)
+        rows.extend(_downstream_rows(figure_id, panel_id, seed_dir, path, repo_root, df, chosen_level))
+    source_level = _preferred_level(source_levels, ["real_downstream", "peak_weighted_fallback"])
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "condition", "downstream_node"],
+        stats_extra={"source_level": source_level},
+        manifest_extra={"source_mode": source_level, "claim_strength": _claim_strength(seeds), "raw_overlap_control": _raw_overlap_control(rows)},
+    )
+
+
+def build_fig6_global_mechanism_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        metadata_path = seed_dir / "data" / "raw" / "panel_f_global_mechanism_metadata.json"
+        summary_path = seed_dir / "summary.json"
+        checked.extend([metadata_path, summary_path])
+        metadata = read_json(metadata_path) if metadata_path.exists() else {}
+        summary = read_json(summary_path) if summary_path.exists() else {}
+        if metadata_path.exists():
+            sources.append(metadata_path)
+        if summary_path.exists():
+            sources.append(summary_path)
+        if not metadata and not summary:
+            warnings.append(f"Missing Fig.6F mechanism metadata under {_rel(seed_dir, repo_root)}.")
+            continue
+        perturb_implemented = _bool_value(metadata.get("peak_perturbation_implemented", summary.get("peak_perturbation_implemented", False)))
+        perturb_success = _bool_value(metadata.get("peak_perturbation_successful", summary.get("peak_perturbation_successful", False)))
+        allowed = str(summary.get("allowed_claim_strength", metadata.get("allowed_claim_strength", "predictive_peak_amplified")))
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "mechanism_statement",
+                "Overlap route plus peak gain",
+                "mechanism",
+                seed_dir,
+                summary.get("network_seed", ""),
+                1.0,
+                "present",
+                metadata_path if metadata_path.exists() else summary_path,
+                repo_root,
+                route_statement="overlap = route",
+                gain_statement="peaks = gain",
+                mechanism_statement="predictive peak-amplified overlap-aligned re-entry",
+                allowed_claim_strength=allowed,
+                proxy_mode=_bool_value(summary.get("proxy_mode", False)),
+                final_scientific_use=_bool_value(summary.get("final_scientific_use", True)),
+                peak_perturbation_implemented=perturb_implemented,
+                peak_perturbation_successful=perturb_success,
+                formula_proxy_reentry_removed_from_main=_bool_value(summary.get("formula_proxy_reentry_removed_from_main", False)),
+                fig6_design_version=str(summary.get("fig6_design_version", "")),
+                figure_chain="; ".join(_figure_chain(metadata)),
+                forbidden_language="; ".join(_forbidden_language(metadata, summary)),
+            )
+        )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["metric", "condition"],
+        stats_extra={"source_level": "global_mechanism", "allowed_claim_strength": _claim_strength(seeds)},
+        manifest_extra={"source_mode": "global_mechanism", "claim_strength": _claim_strength(seeds), "forbidden_language": _forbidden_language_from_seeds(seeds)},
+    )
+
+
+def _position_from_end(row: Mapping[str, Any]) -> float:
+    seq_len = _num(row.get("seq_len", np.nan))
+    removed = _num(row.get("removed_position", np.nan))
+    if np.isfinite(seq_len) and np.isfinite(removed):
+        return float(seq_len - removed + 1)
+    if "position_from_end" in row:
+        return _num(row.get("position_from_end"))
+    rel = _num(row.get("relative_position_from_end", np.nan))
+    if np.isfinite(rel):
+        return float(rel + 1.0) if rel <= 0 or rel == math.floor(rel) else float(rel)
+    return float("nan")
+
+
+def _p_peak_by_update_count_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    use = df.copy()
+    use["update_count"] = pd.to_numeric(use["update_count"], errors="coerce")
+    use["is_peak_num"] = use["is_peak"].astype(str).str.lower().isin({"true", "1", "yes"}).astype(float)
+    use = use.dropna(subset=["update_count"])
+    if use.empty:
+        return rows
+    max_count = int(use["update_count"].max())
+    positive_min = int(use.loc[use["update_count"] > 0, "update_count"].min()) if (use["update_count"] > 0).any() else 0
+    has_zero = bool((use["update_count"] == 0).any())
+    bin_long_tail = max_count > 4
+
+    def label_count(value: float) -> tuple[str, int]:
+        iv = int(value)
+        if bin_long_tail:
+            if has_zero:
+                return (f"{min(iv, 3)}+" if iv >= 3 else str(iv), 3 if iv >= 3 else iv)
+            return (f"{min(iv, 4)}+" if iv >= 4 else str(iv), 4 if iv >= 4 else iv)
+        return str(iv), iv
+
+    labels = use["update_count"].map(lambda v: label_count(v)[0])
+    orders = use["update_count"].map(lambda v: label_count(v)[1])
+    use = use.assign(update_count_bin=labels, x_order=orders)
+    for (bin_label, order), part in use.groupby(["update_count_bin", "x_order"], sort=True):
+        vals = pd.to_numeric(part["is_peak_num"], errors="coerce").dropna().to_numpy(dtype=float)
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "P_peak",
+                str(bin_label),
+                "layer1",
+                seed_dir,
+                part.get("network_seed", pd.Series([""])).iloc[0] if len(part) else "",
+                float(np.mean(vals)) if vals.size else np.nan,
+                "probability",
+                path,
+                repo_root,
+                update_count_bin=str(bin_label),
+                x_value=float(order),
+                y_value=float(np.mean(vals)) if vals.size else np.nan,
+                n_units=int(len(part)),
+                sem=_sem(vals),
+                binned_update_count=bool(bin_long_tail),
+                final_support=_num(part["final_support"].mean()) if "final_support" in part.columns else np.nan,
+                delta_support=_num(part["delta_support"].mean()) if "delta_support" in part.columns else np.nan,
+            )
+        )
+    _ = positive_min
+    return rows
+
+
+def _peak_overlap_alignment_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if df.empty:
+        return rows
+    value_col = _first_col(df, ["mean_peak_coverage", "peak_coverage", "overlap_precision", "dice_peak_overlap", "mean_dice", "jaccard_peak_overlap"])
+    window_col = _first_col(df, ["overlap_window", "window_type", "condition"])
+    if value_col is None or window_col is None:
+        return rows
+    work = df.copy()
+    parsed = work[window_col].astype(str).map(_parse_overlap_window)
+    work["window_family"] = [item[0] for item in parsed]
+    work["window_k"] = [item[1] for item in parsed]
+    selected: list[pd.DataFrame] = []
+    for family, target_k in (("old", 3), ("all", None), ("recent", 3)):
+        part = work[work["window_family"].eq(family)].copy()
+        if part.empty:
+            continue
+        if target_k is not None:
+            part["_dist"] = (pd.to_numeric(part["window_k"], errors="coerce") - float(target_k)).abs()
+            min_dist = part["_dist"].min()
+            part = part[part["_dist"].eq(min_dist)].copy()
+        selected.append(part)
+    if not selected:
+        return rows
+    use = pd.concat(selected, ignore_index=True)
+    order_map = {"old": 0, "all": 1, "recent": 2}
+    for _, r in use.iterrows():
+        family = str(r.get("window_family", ""))
+        k = _num(r.get("window_k", np.nan))
+        label = "All" if family == "all" else f"{family.title()}-{int(k)}" if np.isfinite(k) else family.title()
+        value = _num(r.get(value_col))
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "peak_coverage",
+                label,
+                "layer1",
+                seed_dir,
+                r.get("network_seed", ""),
+                value,
+                "fraction",
+                path,
+                repo_root,
+                overlap_window=label,
+                window_family=family,
+                window_k=int(k) if np.isfinite(k) else "",
+                x_value=float(order_map.get(family, len(order_map))),
+                y_value=value,
+                n_sequences=r.get("n_sequences", ""),
+                sem=_num(r.get("sem_peak_coverage", r.get("sem_dice", r.get("sem", np.nan)))),
+                source_metric=value_col,
+            )
+        )
+    return rows
+
+
+def _route_peak_reentry_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if df.empty:
+        return rows
+    if "mean_normalized_reentry_loss" in df.columns:
+        for _, r in df.iterrows():
+            unit_set = str(r.get("perturbation_unit_set", ""))
+            value = _num(r.get("mean_normalized_reentry_loss"))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "normalized_reentry_loss",
+                    _unit_set_label(unit_set),
+                    "layer3",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    value,
+                    "fraction",
+                    path,
+                    repo_root,
+                    perturbation_unit_set=unit_set,
+                    x_value=float(_unit_set_order(unit_set)),
+                    y_value=value,
+                    sem=_num(r.get("sem_normalized_reentry_loss")),
+                    n_trials=r.get("n_trials", ""),
+                    n_valid_trials=r.get("n_valid_trials", ""),
+                    insufficient_fraction=_num(r.get("insufficient_fraction")),
+                    final_scientific_use=_num(r.get("n_valid_trials", 0)) > 0,
+                )
+            )
+        return rows
+    for unit_set, part in df.groupby("perturbation_unit_set", sort=False):
+        vals = pd.to_numeric(part.get("normalized_reentry_loss", pd.Series(dtype=float)), errors="coerce").dropna().to_numpy(dtype=float)
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "normalized_reentry_loss",
+                _unit_set_label(str(unit_set)),
+                "layer3",
+                seed_dir,
+                part.get("network_seed", pd.Series([""])).iloc[0] if len(part) else "",
+                float(np.mean(vals)) if vals.size else np.nan,
+                "fraction",
+                path,
+                repo_root,
+                perturbation_unit_set=str(unit_set),
+                x_value=float(_unit_set_order(str(unit_set))),
+                y_value=float(np.mean(vals)) if vals.size else np.nan,
+                sem=_sem(vals),
+                n_trials=int(len(part)),
+                n_valid_trials=int((_bool_series(part.get("perturbation_ok", pd.Series(dtype=object))) & ~_bool_series(part.get("insufficient_units", pd.Series(dtype=object)))).sum()),
+            )
+        )
+    return rows
+
+
+def _route_peak_downstream_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if df.empty:
+        return rows
+    if "P_output_switch" in df.columns:
+        for _, r in df.iterrows():
+            unit_set = str(r.get("perturbation_unit_set", ""))
+            value = _num(r.get("P_output_switch"))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "P_output_switch",
+                    _unit_set_label(unit_set),
+                    "layer3",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    value,
+                    "probability",
+                    path,
+                    repo_root,
+                    perturbation_unit_set=unit_set,
+                    x_value=float(_unit_set_order(unit_set)),
+                    y_value=value,
+                    n_trials=r.get("n_trials", ""),
+                    n_valid_trials=r.get("n_valid_trials", ""),
+                    mean_response_displacement_loss=_num(r.get("mean_response_displacement_loss")),
+                    mean_decision_deflection_loss=_num(r.get("mean_decision_deflection_loss")),
+                    final_scientific_use=_num(r.get("n_valid_trials", 0)) > 0,
+                )
+            )
+        return rows
+    for unit_set, part in df.groupby("perturbation_unit_set", sort=False):
+        vals = _bool_series(part.get("output_switch", pd.Series(dtype=object))).astype(float).to_numpy(dtype=float)
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "P_output_switch",
+                _unit_set_label(str(unit_set)),
+                "layer3",
+                seed_dir,
+                part.get("network_seed", pd.Series([""])).iloc[0] if len(part) else "",
+                float(np.mean(vals)) if vals.size else np.nan,
+                "probability",
+                path,
+                repo_root,
+                perturbation_unit_set=str(unit_set),
+                x_value=float(_unit_set_order(str(unit_set))),
+                y_value=float(np.mean(vals)) if vals.size else np.nan,
+                n_trials=int(len(part)),
+                n_valid_trials=int((_bool_series(part.get("perturbation_ok", pd.Series(dtype=object))) & ~_bool_series(part.get("insufficient_units", pd.Series(dtype=object)))).sum()),
+            )
+        )
+    return rows
+
+
+def _parse_overlap_window(value: Any) -> tuple[str, float]:
+    text = str(value).lower().replace("-", "_")
+    if text == "all":
+        return "all", np.nan
+    for family in ("recent", "old"):
+        if text.startswith(family):
+            parts = [p for p in text.split("_") if p.isdigit()]
+            return family, float(parts[0]) if parts else np.nan
+    return text, np.nan
+
+
+def _unit_set_label(unit_set: str) -> str:
+    return {
+        "route_peak": "Route peak",
+        "route_nonpeak": "Route non-peak",
+        "nonroute_peak": "Non-route peak",
+        "random_matched": "Random",
+    }.get(str(unit_set), str(unit_set).replace("_", " ").title())
+
+
+def _unit_set_order(unit_set: str) -> int:
+    order = {"route_peak": 0, "route_nonpeak": 1, "nonroute_peak": 2, "random_matched": 3}
+    return order.get(str(unit_set), len(order))
+
+
+def _sem(values: np.ndarray) -> float:
+    clean = np.asarray(values, dtype=float)
+    clean = clean[np.isfinite(clean)]
+    if clean.size <= 1:
+        return 0.0
+    return float(np.std(clean, ddof=1) / np.sqrt(clean.size))
+
+
+def _update_history_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path) -> list[dict[str, Any]]:
+    df = pd.read_csv(path)
+    group_col = _first_col(df, ["group", "update_group", "update_history_group", "region_type"])
+    rows: list[dict[str, Any]] = []
+    if group_col is None:
+        return rows
+    labels = {"peak": "Peak", "nonpeak_control": "Nonpeak control", "prior_updated_nonpeak": "Prior-updated nonpeak"}
+    for _, r in df.iterrows():
+        raw_group = str(r.get(group_col, ""))
+        condition = labels.get(raw_group, GROUP_LABELS.get(raw_group, raw_group.replace("_", " ").title()))
+        for metric, unit in (("mean_update_count", "count"), ("mean_time_since_last_update", "positions"), ("P_multi_recent_w3", "fraction"), ("mean_recent_update_count", "count"), ("P_peak", "fraction")):
+            if metric not in df.columns:
+                continue
+            rows.append(_row(figure_id, panel_id, metric, condition, "layer1", seed_dir, r.get("network_seed", ""), _num(r.get(metric)), unit, path, repo_root, group=raw_group, n_units=r.get("n_units", "")))
+    return rows
+
+
+def _input_overlap_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path) -> list[dict[str, Any]]:
+    df = pd.read_csv(path)
+    value_col = _first_col(df, ["mean_dice", "dice_peak_overlap", "jaccard_peak_overlap"])
+    cond_col = _first_col(df, ["overlap_window", "window_type", "condition"])
+    rows: list[dict[str, Any]] = []
+    if value_col is None:
+        return rows
+    for _, r in df.iterrows():
+        condition = str(r.get(cond_col, "")) if cond_col else str(r.get("recent_k", "window"))
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                "dice_peak_overlap",
+                condition,
+                "layer1",
+                seed_dir,
+                r.get("network_seed", ""),
+                _num(r.get(value_col)),
+                "dice",
+                path,
+                repo_root,
+                overlap_window=condition,
+                recent_k=r.get("recent_k", ""),
+                mean_peak_coverage=_num(r.get("mean_peak_coverage", r.get("peak_coverage", np.nan))),
+                mean_cosine=_num(r.get("mean_cosine", r.get("cosine_delta_support_overlap", np.nan))),
+                n_sequences=r.get("n_sequences", ""),
+            )
+        )
+    return rows
+
+
+def _reentry_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame, source_level: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if {"reentry_low", "reentry_high"}.issubset(df.columns):
+        for _, r in df.iterrows():
+            for condition, value_col, pwo_col in (
+                ("Low peak overlap", "reentry_low", "peak_weighted_overlap_low"),
+                ("High peak overlap", "reentry_high", "peak_weighted_overlap_high"),
+            ):
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        "reentry_strength_real",
+                        condition,
+                        "layer3",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(value_col)),
+                        "a.u.",
+                        path,
+                        repo_root,
+                        matched_group_id=r.get("matched_group_id", r.get("matched_set_id", "")),
+                        raw_overlap=_num(r.get("raw_overlap", r.get("raw_overlap_low", np.nan))),
+                        peak_weighted_overlap=_num(r.get(pwo_col)),
+                        peak_overlap_group="low_peak_overlap" if condition.startswith("Low") else "high_peak_overlap",
+                        visual_similarity=_num(r.get("visual_similarity", np.nan)),
+                        input_energy=_num(r.get("input_energy", np.nan)),
+                        proxy_mode=_bool_value(r.get("proxy_mode", False)),
+                        final_scientific_use=_bool_value(r.get("final_scientific_use", not _bool_value(r.get("proxy_mode", False)))),
+                        raw_overlap_control="matched_group",
+                        source_level=source_level,
+                    )
+                )
+        return rows
+    value_col = _first_col(df, ["reentry_strength_real", "reentry_strength", "l3_trace_delta_norm"])
+    if value_col is None:
+        return rows
+    for _, r in df.iterrows():
+        raw_group = str(r.get("peak_overlap_group", ""))
+        condition = _peak_group_label(raw_group)
+        metric = "reentry_strength_real" if value_col == "reentry_strength_real" else "reentry_strength"
+        proxy = _bool_value(r.get("proxy_mode", False))
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                metric,
+                condition,
+                "layer3",
+                seed_dir,
+                r.get("network_seed", ""),
+                _num(r.get(value_col)),
+                "a.u.",
+                path,
+                repo_root,
+                sequence_id=r.get("sequence_id", ""),
+                probe_id=r.get("probe_id", ""),
+                matched_group_id=r.get("matched_group_id", ""),
+                raw_overlap=_num(r.get("raw_overlap")),
+                peak_weighted_overlap=_num(r.get("peak_weighted_overlap")),
+                peak_overlap_group=raw_group,
+                visual_similarity=_num(r.get("visual_similarity")),
+                input_energy=_num(r.get("input_energy")),
+                x_value=_num(r.get("peak_weighted_overlap")),
+                y_value=_num(r.get(value_col)),
+                proxy_mode=proxy,
+                final_scientific_use=_bool_value(r.get("final_scientific_use", not proxy)),
+                raw_overlap_control="matched_group" if str(r.get("matched_group_id", "")) else "regression",
+                source_level=source_level,
+            )
+        )
+    return rows
+
+
+def _downstream_rows(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path, df: pd.DataFrame, source_level: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if "downstream_metric" in df.columns:
+        for _, r in df.iterrows():
+            metric = str(r.get("downstream_metric", ""))
+            value_col = _first_col(pd.DataFrame([r]), ["high_minus_low", "beta_peak_weighted_overlap"])
+            if value_col is None:
+                continue
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    metric,
+                    DOWNSTREAM_LABELS.get(metric, metric.replace("_", " ")),
+                    "layer3",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get(value_col)),
+                    "a.u.",
+                    path,
+                    repo_root,
+                    downstream_node=metric,
+                    y_value=_num(r.get(value_col)),
+                    proxy_mode=_bool_value(r.get("proxy_mode", False)),
+                    final_scientific_use=_bool_value(r.get("final_scientific_use", True)),
+                    raw_overlap_control="regression",
+                    source_level=source_level,
+                )
+            )
+        return rows
+    metric_cols = [
+        ("early_recruitment_gain_real", "early_recruitment_gain"),
+        ("response_pattern_displacement_real", "response_pattern_displacement"),
+        ("decision_deflection_score_real", "decision_deflection_score"),
+    ]
+    for _, r in df.iterrows():
+        proxy = _bool_value(r.get("proxy_mode", False))
+        for real_col, fallback_col in metric_cols:
+            metric = real_col if real_col in df.columns else fallback_col if fallback_col in df.columns else ""
+            if not metric:
+                continue
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    metric,
+                    DOWNSTREAM_LABELS.get(metric, metric),
+                    "layer3",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get(metric)),
+                    "a.u.",
+                    path,
+                    repo_root,
+                    sequence_id=r.get("sequence_id", ""),
+                    probe_id=r.get("probe_id", ""),
+                    matched_group_id=r.get("matched_group_id", ""),
+                    raw_overlap=_num(r.get("raw_overlap")),
+                    peak_weighted_overlap=_num(r.get("peak_weighted_overlap")),
+                    peak_overlap_group=r.get("peak_overlap_group", ""),
+                    downstream_node=metric,
+                    x_value=_num(r.get("peak_weighted_overlap")),
+                    y_value=_num(r.get(metric)),
+                    proxy_mode=proxy,
+                    final_scientific_use=_bool_value(r.get("final_scientific_use", not proxy)),
+                    raw_overlap_control="matched_group" if str(r.get("matched_group_id", "")) else "regression",
+                    source_level=source_level,
+                )
+            )
+    return rows
+
+
+def _finish(
+    spec: Mapping[str, Any],
     output_dir: Path,
-    figure_id: str,
-    panel_id: str,
-    panel_df: pd.DataFrame,
+    root: Path,
+    seeds: Sequence[Path],
+    rows: list[dict[str, Any]],
     source_paths: list[Path],
-    checked: list[str],
+    checked_paths: list[Path],
     warnings: list[str],
+    group_cols: list[str],
     *,
-    correlations: dict[str, Any] | None = None,
-    extra_stats: dict[str, Any] | None = None,
-    manifest_notes: dict[str, Any] | None = None,
-    granularity: dict[str, Any] | None = None,
+    stats_extra: Mapping[str, Any] | None = None,
+    manifest_extra: Mapping[str, Any] | None = None,
 ) -> AdapterResult:
-    metric = str(panel_df["metric"].iloc[0]) if not panel_df.empty and "metric" in panel_df.columns else ""
-    group_cols = [c for c in ("metric", "condition", "layer") if c in panel_df.columns]
-    stats: dict[str, Any] = {
+    figure_id, panel_id = _ids(spec)
+    run_mode = _run_mode(seeds)
+    if not seeds:
+        warnings.append(f"Experiment root does not contain seed results: {root}")
+    if run_mode == "single_network_draft":
+        warnings.append(DRAFT_WARNING)
+    if not rows:
+        return _write_missing(spec, output_dir, root, checked_paths, warnings, f"{figure_id}{panel_id} adapter found no plottable rows.")
+    panel_df = pd.DataFrame(rows)
+    panel_df["run_mode"] = run_mode
+    panel_df["n_networks"] = len(seeds)
+    proxy_flags = _bool_series(panel_df.get("proxy_mode", pd.Series(dtype=object)))
+    final_flags = _bool_series(panel_df.get("final_scientific_use", pd.Series(dtype=object)))
+    stats = {
         "figure_id": figure_id,
         "panel_id": panel_id,
-        "metric": metric,
-        "summaries": summarize_values(panel_df, group_cols),
+        "run_mode": run_mode,
+        "n_networks": len(seeds),
+        "network_ids": [_seed_id(seed) for seed in seeds],
+        "summaries": summarize_values(panel_df, [col for col in group_cols if col in panel_df.columns]),
         "values_used_for_plotting": _values(panel_df),
-        "n_networks": _n_networks(panel_df),
+        "source_files_used": int(len(set(map(str, source_paths)))),
+        "raw_rows_read": int(len(panel_df)),
+        "rows_after_source_filtering": int(len(panel_df)),
+        "rows_written_to_panel_data": int(len(panel_df)),
+        "adapter_performed_network_level_averaging": False,
+        "source_appeared_preaggregated": False,
+        "any_proxy_mode": bool(proxy_flags.any()) if len(proxy_flags) else False,
+        "all_proxy_mode": bool(proxy_flags.all()) if len(proxy_flags) else False,
+        "n_final_scientific_rows": int(final_flags.sum()) if len(final_flags) else 0,
+        "warnings": list(dict.fromkeys(warnings)),
     }
-    if granularity:
-        stats.update(granularity)
-        stats["data_granularity"] = dict(granularity)
-    if correlations is not None:
-        stats["correlations"] = correlations
-        stats["regression_summary"] = correlations.get("linear_regression", {})
-    if extra_stats:
-        stats.update(extra_stats)
+    stats.update(dict(stats_extra or {}))
     manifest = {
         "figure_id": figure_id,
         "panel_id": panel_id,
-        "status": "ok" if not panel_df.empty else "missing_source",
-        "sources": [{"path": _rel(path, Path.cwd()), "exists": path.exists()} for path in source_paths],
-        "checked_candidates": checked,
-        "label_mappings": {"update_history_groups": GROUP_LABELS, "peak_manipulations": MANIPULATION_LABELS},
-    }
-    if granularity:
-        manifest["data_granularity"] = dict(granularity)
-    if manifest_notes:
-        manifest.update(manifest_notes)
-    if panel_df.empty:
-        warnings.append(f"Fig.6{panel_id} adapter produced no plottable rows.")
-    return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
-
-
-def _preferred_group_rows(df: pd.DataFrame, panel_id: str) -> tuple[pd.DataFrame, list[str]]:
-    warnings: list[str] = []
-    use = df.copy()
-    if "group_by" in use.columns:
-        update = use[use["group_by"].astype(str).eq("update_count")].copy()
-        if not update.empty:
-            use = update
-        else:
-            warnings.append(f"Fig.6{panel_id} did not find group_by=update_count; using all group_by values.")
-    if "recent_definition" in use.columns:
-        recent = use[use["recent_definition"].astype(str).eq("recent_update")].copy()
-        if not recent.empty:
-            use = recent
-        else:
-            warnings.append(f"Fig.6{panel_id} did not find recent_definition=recent_update; using all recency definitions.")
-    return use, warnings
-
-
-def _candidate_files(spec: Mapping[str, Any]) -> list[str]:
-    mapping = spec.get("source_mapping") or {}
-    candidates = list(mapping.get("preferred_files") or []) + list(mapping.get("fallback_files") or [])
-    expanded: list[str] = []
-    seen: set[str] = set()
-    for candidate in candidates:
-        values = [str(candidate)]
-        if "__by_network" in str(candidate):
-            values.insert(0, str(candidate).replace("__by_network", ""))
-        for value in values:
-            if value not in seen:
-                expanded.append(value)
-                seen.add(value)
-    return expanded
-
-
-def _granularity_report(
-    panel_id: str,
-    path: Path,
-    raw_df: pd.DataFrame,
-    filtered_df: pd.DataFrame,
-    *,
-    row_id_cols: list[str],
-) -> tuple[dict[str, Any], list[str]]:
-    source_appeared_preaggregated = _source_appeared_preaggregated(raw_df, path, row_id_cols)
-    row_level_data_preserved = not source_appeared_preaggregated and not filtered_df.empty
-    warnings: list[str] = []
-    if source_appeared_preaggregated:
-        warnings.append(f"Fig.6{panel_id} source appears pre-aggregated; row-level data unavailable.")
-    available_row_ids = [col for col in row_id_cols if col in raw_df.columns]
-    return (
-        {
-            "source_files_used": 1,
-            "n_source_files_used": 1,
-            "raw_rows_read": int(len(raw_df)),
-            "rows_after_source_filtering": int(len(filtered_df)),
-            "rows_written_to_panel_data": 0,
-            "adapter_performed_network_level_averaging": False,
-            "source_appeared_preaggregated": bool(source_appeared_preaggregated),
-            "row_level_data_preserved": bool(row_level_data_preserved),
-            "row_identifier_columns_available": available_row_ids,
-            "source_file_used": _rel(path, Path.cwd()),
+        "status": "ok",
+        "experiment_root": str(root),
+        "run_mode": run_mode,
+        "n_networks": len(seeds),
+        "network_ids": [_seed_id(seed) for seed in seeds],
+        "source_files_used": [_rel(path, root.parent if root.name.startswith("seed_") else root) for path in source_paths],
+        "sources": [_source_entry(path, repo_root=root.parent if root.name.startswith("seed_") else root, used=path in source_paths) for path in checked_paths],
+        "checked_candidates": [_rel(path, root.parent if root.name.startswith("seed_") else root) for path in checked_paths],
+        "proxy_summary": {
+            "any_proxy_mode": stats["any_proxy_mode"],
+            "all_proxy_mode": stats["all_proxy_mode"],
+            "n_final_scientific_rows": stats["n_final_scientific_rows"],
         },
-        warnings,
+        "claim_strength": _claim_strength(seeds),
+        "warnings": list(stats["warnings"]),
+    }
+    manifest.update(dict(manifest_extra or {}))
+    return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(stats["warnings"]))
+
+
+def _write_missing(
+    spec: Mapping[str, Any],
+    output_dir: Path,
+    root: Path,
+    checked_paths: Sequence[Path],
+    warnings: Sequence[str],
+    reason: str,
+) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    df = pd.DataFrame(
+        [
+            {
+                "figure_id": figure_id,
+                "panel_id": panel_id,
+                "metric": "missing_source",
+                "condition": "missing",
+                "layer": "",
+                "network_id": "",
+                "seed_id": "",
+                "value": np.nan,
+                "unit": "",
+                "source_file": "",
+                "placeholder_reason": reason,
+            }
+        ]
     )
+    all_warnings = list(dict.fromkeys([*warnings, reason]))
+    stats = {"figure_id": figure_id, "panel_id": panel_id, "status": "missing_source", "values_used_for_plotting": [], "warnings": all_warnings}
+    manifest = {
+        "figure_id": figure_id,
+        "panel_id": panel_id,
+        "status": "missing_source",
+        "experiment_root": str(root),
+        "sources": [_source_entry(path, repo_root=root.parent if root.name.startswith("seed_") else root, used=False) for path in checked_paths],
+        "checked_candidates": [_rel(path, root.parent if root.name.startswith("seed_") else root) for path in checked_paths],
+        "warnings": all_warnings,
+    }
+    return write_adapter_outputs(output_dir, figure_id, panel_id, df, stats, manifest, all_warnings)
 
 
-def _source_appeared_preaggregated(df: pd.DataFrame, path: Path, row_id_cols: list[str]) -> bool:
-    row_cols = [col for col in row_id_cols if col in df.columns]
-    if row_cols:
-        return False
-    if "__by_network" in path.stem:
-        return True
-    if "network_seed" in df.columns and "network_index" in df.columns:
-        non_network_cols = [col for col in df.columns if col not in {"network_seed", "network_index", "seed", "model_path", "eval_seed", "run_dir"}]
-        return len(non_network_cols) <= 4
-    return False
+def _seed_dirs(spec: Mapping[str, Any], repo_root: Path) -> tuple[Path, list[Path], list[str]]:
+    root = Path(str(spec.get("experiment_root") or DEFAULT_EXPERIMENT_ROOT))
+    if not root.is_absolute():
+        root = repo_root / root
+    warnings: list[str] = []
+    if root.name.startswith("seed_"):
+        return root, ([root] if root.exists() else []), warnings
+    if not root.exists():
+        warnings.append(f"Experiment root does not exist: {root}")
+        return root, [], warnings
+    seeds = sorted([p for p in root.iterdir() if p.is_dir() and p.name.startswith("seed_")])
+    if not seeds and (root / "summary.json").exists():
+        seeds = [root]
+    return root, seeds, warnings
 
 
-def _row_identifier_columns(panel_id: str) -> list[str]:
-    common = ["row_id", "trial_id", "sequence_id", "seq_len", "peak_region_id", "fold_id", "split_id"]
-    if panel_id in {"E", "F"}:
-        return common + ["probe_image_id", "probe_label", "probe_group", "target_region", "overlap_level", "boost_level"]
-    return common + ["group_by", "recent_definition", "group_name"]
+def _first_existing(seed_dir: Path, candidates: Sequence[str]) -> tuple[Path | None, pd.DataFrame | None, list[Path]]:
+    paths = [seed_dir / candidate for candidate in candidates]
+    for path in paths:
+        if path.exists():
+            if path.suffix.lower() == ".csv":
+                try:
+                    return path, pd.read_csv(path), paths
+                except Exception:
+                    return path, None, paths
+            return path, None, paths
+    return None, None, paths
 
 
-def _copy_available_fields(out: dict[str, Any], row: pd.Series, fields: list[str]) -> None:
-    for field in fields:
-        if field in row.index:
-            out[field] = row.get(field, "")
+def _first_nonempty_by_level(seed_dir: Path, candidates: Sequence[tuple[str, str]]) -> tuple[str, Path | None, pd.DataFrame | None]:
+    for level, rel in candidates:
+        path = seed_dir / rel
+        if not path.exists() or path.suffix.lower() != ".csv":
+            continue
+        try:
+            df = pd.read_csv(path)
+        except Exception:
+            continue
+        if not df.empty:
+            return level, path, df
+    return "", None, None
 
 
 def _ids(spec: Mapping[str, Any]) -> tuple[str, str]:
     return str(spec.get("figure_id", "fig6")), str(spec.get("panel_id", "")).upper()
 
 
-def _rel(path: Path | str, repo_root: Path) -> str:
-    path_obj = Path(path)
-    try:
-        return str(path_obj.relative_to(repo_root))
-    except ValueError:
-        return str(path_obj)
-
-
-def _row(figure_id: str, panel_id: str, metric: str, condition: str, layer: str, network_id: Any, seed_id: Any, value: float, unit: str, source_file: Path | str, repo_root: Path) -> dict[str, Any]:
-    return {
+def _row(
+    figure_id: str,
+    panel_id: str,
+    metric: str,
+    condition: str,
+    layer: str,
+    seed_dir: Path,
+    seed_fallback: Any,
+    value: float,
+    unit: str,
+    source_file: Path,
+    repo_root: Path,
+    **extra: Any,
+) -> dict[str, Any]:
+    row = {
         "figure_id": figure_id,
         "panel_id": panel_id,
         "metric": metric,
         "condition": condition,
         "layer": layer,
-        "network_id": network_id,
-        "seed_id": seed_id,
+        "network_id": seed_dir.name,
+        "seed_id": _seed_id(seed_dir, seed_fallback),
         "value": value,
         "unit": unit,
         "source_file": _rel(source_file, repo_root),
     }
+    row.update(extra)
+    return row
+
+
+def _run_mode(seeds: Sequence[Path]) -> str:
+    return "multi_network_final" if len(seeds) > 1 else "single_network_draft"
+
+
+def _seed_id(seed_dir: Path, fallback: Any = "") -> str:
+    if seed_dir.name.startswith("seed_"):
+        return seed_dir.name.replace("seed_", "")
+    return str(fallback)
 
 
 def _values(df: pd.DataFrame) -> list[float]:
-    if "value" not in df.columns:
-        return []
-    return [float(v) for v in pd.to_numeric(df["value"], errors="coerce").dropna().tolist()]
+    values = pd.to_numeric(df.get("value", pd.Series(dtype=float)), errors="coerce").dropna()
+    return [float(v) for v in values.tolist()]
 
 
-def _n_networks(df: pd.DataFrame) -> int:
-    for col in ("seed_id", "network_id"):
+def _bool_series(series: pd.Series) -> pd.Series:
+    return series.astype(str).str.strip().str.lower().isin({"true", "1", "yes"})
+
+
+def _bool_value(value: Any) -> bool:
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    return str(value).strip().lower() in {"true", "1", "yes"}
+
+
+def _num(value: Any) -> float:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    return float("nan") if pd.isna(numeric) else float(numeric)
+
+
+def _first_col(df: pd.DataFrame, columns: Sequence[str]) -> str | None:
+    for col in columns:
         if col in df.columns:
-            return int(df[col].replace("", pd.NA).dropna().nunique())
-    return 0
+            return col
+    return None
 
 
-def _correlations_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    df = pd.DataFrame(rows)
-    if df.empty or not {"x_value", "y_value"}.issubset(df.columns):
-        return {"n": 0, "pearson_r": None, "spearman_rho": None, "linear_regression": {}}
-    data = pd.DataFrame({"x": pd.to_numeric(df["x_value"], errors="coerce"), "y": pd.to_numeric(df["y_value"], errors="coerce")}).dropna()
-    if len(data) < 3:
-        return {"n": int(len(data)), "pearson_r": None, "spearman_rho": None, "linear_regression": {}}
-    slope, intercept = np.polyfit(data["x"].to_numpy(dtype=float), data["y"].to_numpy(dtype=float), 1)
+def _rel(path: Path | str, root: Path) -> str:
+    path_obj = Path(path)
+    try:
+        return str(path_obj.relative_to(root)).replace("\\", "/")
+    except ValueError:
+        return str(path_obj).replace("\\", "/")
+
+
+def _source_entry(path: Path, *, repo_root: Path, used: bool) -> dict[str, Any]:
+    return {"path": _rel(path, repo_root), "exists": path.exists(), "used": bool(used)}
+
+
+def _metric_label(metric: str) -> str:
     return {
-        "n": int(len(data)),
-        "pearson_r": float(data["x"].corr(data["y"], method="pearson")),
-        "spearman_rho": float(data["x"].corr(data["y"], method="spearman")),
-        "linear_regression": {"slope": float(slope), "intercept": float(intercept)},
-    }
+        "raw_overlap": "Raw overlap route",
+        "peak_weighted_overlap": "Peak-weighted gain",
+        "peak_overlap_fraction": "Peak overlap fraction",
+        "nonpeak_overlap_fraction": "Nonpeak overlap fraction",
+    }.get(metric, metric.replace("_", " "))
 
 
-def _quadratic_fit_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    df = pd.DataFrame(rows)
-    if df.empty or not {"x_value", "y_value"}.issubset(df.columns):
-        return {"fit": "quadratic", "n": 0, "coefficients": [], "r2": None}
-    data = pd.DataFrame({"x": pd.to_numeric(df["x_value"], errors="coerce"), "y": pd.to_numeric(df["y_value"], errors="coerce")}).dropna()
-    if len(data) < 3 or data["x"].nunique() < 3:
-        return {"fit": "quadratic", "n": int(len(data)), "coefficients": [], "r2": None}
-    x = data["x"].to_numpy(dtype=float)
-    y = data["y"].to_numpy(dtype=float)
-    coefficients = np.polyfit(x, y, 2)
-    y_hat = np.polyval(coefficients, x)
-    total = float(np.sum((y - np.mean(y)) ** 2))
-    r2 = None if total <= 0 else float(1.0 - np.sum((y - y_hat) ** 2) / total)
+def _peak_group_label(group: str) -> str:
     return {
-        "fit": "quadratic",
-        "n": int(len(data)),
-        "coefficients": [float(v) for v in coefficients],
-        "r2": r2,
-    }
+        "high_peak_overlap": "High peak overlap",
+        "low_peak_overlap": "Low peak overlap",
+        "high_peak_weighted_overlap": "High peak overlap",
+        "low_peak_weighted_overlap": "Low peak overlap",
+        "unmatched": "Probe candidates",
+        "": "Probe candidates",
+    }.get(str(group), str(group).replace("_", " "))
+
+
+def _preferred_level(levels: Sequence[str], order: Sequence[str]) -> str:
+    for level in order:
+        if level in levels:
+            return level
+    return levels[0] if levels else ""
+
+
+def _high_minus_low(rows: Sequence[Mapping[str, Any]]) -> float | None:
+    df = pd.DataFrame(rows)
+    if df.empty or "condition" not in df.columns:
+        return None
+    high = pd.to_numeric(df.loc[df["condition"].astype(str).eq("High peak overlap"), "value"], errors="coerce").dropna()
+    low = pd.to_numeric(df.loc[df["condition"].astype(str).eq("Low peak overlap"), "value"], errors="coerce").dropna()
+    if high.empty or low.empty:
+        return None
+    return float(high.mean() - low.mean())
+
+
+def _regression_slope(rows: Sequence[Mapping[str, Any]]) -> float | None:
+    df = pd.DataFrame(rows)
+    if df.empty or not {"peak_weighted_overlap", "value"}.issubset(df.columns):
+        return None
+    x = pd.to_numeric(df["peak_weighted_overlap"], errors="coerce")
+    y = pd.to_numeric(df["value"], errors="coerce")
+    mask = np.isfinite(x) & np.isfinite(y)
+    if int(mask.sum()) < 3:
+        return None
+    return float(np.polyfit(x[mask], y[mask], 1)[0])
+
+
+def _raw_overlap_control(rows: Sequence[Mapping[str, Any]]) -> str:
+    controls = [str(row.get("raw_overlap_control", "")) for row in rows if row.get("raw_overlap_control", "")]
+    if "matched_group" in controls:
+        return "matched_group"
+    if "regression" in controls:
+        return "regression"
+    return ""
+
+
+def _claim_strength(seeds: Sequence[Path]) -> str:
+    strengths = []
+    perturb_success = False
+    for seed_dir in seeds:
+        path = seed_dir / "summary.json"
+        if not path.exists():
+            continue
+        summary = read_json(path)
+        route_peak = summary.get("fig6_route_peak_perturbation", {})
+        strengths.append(str(summary.get("allowed_claim_strength", route_peak.get("allowed_claim_strength", "predictive_peak_amplified_only") if isinstance(route_peak, Mapping) else "predictive_peak_amplified_only")))
+        perturb_success = perturb_success or _bool_value(summary.get("peak_perturbation_successful", route_peak.get("success", False) if isinstance(route_peak, Mapping) else False))
+    if perturb_success and any("causal" in item for item in strengths):
+        return "causal_route_peak_gain"
+    return "predictive_peak_amplified_only"
+
+
+def _figure_chain(metadata: Mapping[str, Any]) -> list[str]:
+    chain = metadata.get("figure_chain")
+    if isinstance(chain, list) and chain:
+        return [str(item) for item in chain]
+    return [
+        "Fig.1 functional STSP substrate",
+        "Fig.2 two-item fused state",
+        "Fig.3 multi-item peak landscape",
+        "Fig.4 overlap re-entry route",
+        "Fig.5 local support / competition conversion",
+        "Fig.6 peak-amplified re-entry",
+    ]
+
+
+def _forbidden_language(metadata: Mapping[str, Any], summary: Mapping[str, Any]) -> list[str]:
+    out: list[str] = []
+    for key in ("forbidden_language", "forbidden_claims"):
+        value = metadata.get(key, summary.get(key, []))
+        if isinstance(value, list):
+            out.extend(str(item) for item in value)
+        elif value:
+            out.append(str(value))
+    out.extend(["peaks replace overlap", "peak-gated re-entry", "peak-driven re-entry", "peaks provide the route"])
+    return list(dict.fromkeys(out))
+
+
+def _forbidden_language_from_seeds(seeds: Sequence[Path]) -> list[str]:
+    out: list[str] = []
+    for seed_dir in seeds:
+        metadata_path = seed_dir / "data" / "raw" / "panel_f_global_mechanism_metadata.json"
+        summary_path = seed_dir / "summary.json"
+        metadata = read_json(metadata_path) if metadata_path.exists() else {}
+        summary = read_json(summary_path) if summary_path.exists() else {}
+        out.extend(_forbidden_language(metadata, summary))
+    return list(dict.fromkeys(out))

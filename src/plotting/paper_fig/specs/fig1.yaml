@@ -1,19 +1,19 @@
 figure_id: fig1
-figure_title_draft: Network and STSP-state functional foundation
+figure_title_draft: Functional STSP working-memory substrate
 canvas_mm:
   width: 165
-  height: 115
+  height: 124
 gutters_mm:
-  horizontal: 4
-  vertical: 6
+  horizontal: 6
+  vertical: 7
 reading_order: [A, B, C, D, E]
-argument_bands:
-  - band_id: row1_network_foundation
-    label: Network foundation
-    panels: [A, B]
-  - band_id: row2_stsp_state_functional_foundation
-    label: STSP-state functional foundation
-    panels: [C, D, E]
+run_modes:
+  single_network_draft:
+    min_networks: 1
+    manuscript_status: draft_only
+  multi_network_final:
+    min_networks: 2
+    manuscript_status: final_statistics_ready
 expected_outputs:
   full_figure: [pdf, svg, png]
   individual_panels: [svg, png]
@@ -30,179 +30,114 @@ qc_requirements:
     C:
       - value: 10
         label: 10% chance
-  require_manual_assets:
-    - panel_id: A
-      path: manual_assets/fig1a_architecture.svg
-  require_n_networks:
-    B: 20
-    C: 20
-    D: 20
-    E: 20
-  forbid_old_stem_panel_names: true
+  required_main_conditions: [dynamic_intact, ux_trial_shuffle, static_frozen]
+  supplementary_conditions: [spike_state_shuffle, membrane_state_shuffle]
+  required_decode_layers: [layer1, layer2, layer3]
+  single_network_warning: true
+supplementary_outputs:
+  - data/metrics/supp_class_recall_by_digit.csv
+  - data/metrics/supp_confusion_matrix_long.csv
+  - data/metrics/supp_delay_decode_curve.csv
+  - data/metrics/supp_dms_delay_sweep_metrics.csv
+  - data/metrics/supp_dms_delay_sweep_contrast.csv
+  - data/metrics/supp_substrate_shuffle_metrics.csv
+  - data/metrics/supp_phase_firing_rates.csv
+  - data/metrics/supp_trial_condition_audit.csv
 panels:
   A:
     panel_id: A
-    claim: The STSP-SNN defines a direct visual-to-decision architecture and exposes layer-specific u/x states.
-    panel_type: manual_schematic
+    claim: STSP-SNN task architecture exposes layer-wise synaptic state.
+    panel_type: manual_or_programmatic_schematic
     data_adapter: none
-    renderer: render_manual_svg_panel
+    renderer: render_fig1_architecture_schematic
     source: manual_assets/fig1a_architecture.svg
-    size_mm: {width: 125, height: 45}
-    position_mm: {x: 0, y: 0, w: 125, h: 45}
+    position_mm: {x: 12, y: 8, w: 147, h: 24}
+    size_mm: {w: 147, h: 24}
     source_mapping:
       manual_asset: manual_assets/fig1a_architecture.svg
-      source_status: manual_required
-      notes: Fig.1A is a manuscript schematic, not an experiment output.
+      source_status: manual_optional_programmatic_placeholder
+      notes: Fig.1A is a schematic panel, not an experiment output.
     x_axis: none
     y_axis: none
-    reference_lines: []
-    conditions: []
-    legend_semantics: none
-    stats_expected: none
-    notes: This is a horizontal architecture pipeline, not a vertical flowchart. It should show input image/spike train -> temporal encoder -> STSP spiking layers -> earliest-spike readout, with u/x state capture from STSP layers.
   B:
     panel_id: B
-    claim: The trained STSP-SNN achieves reliable baseline readout.
-    panel_type: dot_summary
-    data_adapter: fig1_overall_recall
-    renderer: render_dot_summary
-    size_mm: {width: 50, height: 46}
-    position_mm: {x: 115, y: 0, w: 50, h: 46}
-    source_mapping:
-      source_experiment: multi_snn ensemble training
-      preferred_files:
-        - results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_summary.csv
-      missing_data_flags:
-        - class_specific_recall_missing
-      notes: Overall recall only; class-specific recall remains missing from current sources.
-    x_axis: STSP-SNN
-    y_axis: Overall recall (%)
+    claim: The trained STSP-SNN achieves reliable class-level readout.
+    panel_type: baseline_performance
+    data_adapter: fig1_baseline_adapter
+    renderer: render_fig1_baseline_recall
+    source: data/metrics/panel_b_baseline_metrics_by_network.csv
+    position_mm: {x: 12, y: 39, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
+    x_axis: Network
+    y_axis: Recall (%)
     reference_lines:
       - value: 10
         label: 10% chance
     conditions: [STSP-SNN]
-    legend_semantics: none
     stats_expected:
       metric: overall_recall
       unit: percent
-      n_networks: 20
-      reference_value: 10
-    notes: Show overall recall only. Class-specific recall should not be included in the main Fig.1.
   C:
     panel_id: C
-    claim: Layer-specific u/x states retain prior input history.
-    panel_type: layerwise_dot_summary
-    data_adapter: fig1_delay_decoding
-    renderer: render_layerwise_decoding
-    size_mm: {width: 34, height: 46}
-    position_mm: {x: 13, y: 58, w: 34, h: 46}
-    source_mapping:
-      source_experiment: engram_decode
-      preferred_files:
-        - results/multi_network/engram_decode/data/engram_decode_metrics__by_network.csv
-      fallback_files:
-        - results/engram_decode_experiment/data/engram_decode_metrics.csv
-        - results/engram_decode_experiment/engram_decode_metrics.csv
-      source_stem_aliases:
-        - accuracy_vs_delay
-      notes: Use the final/common delay summary by layer for the main panel.
+    claim: Delay-period STSP u/x state retains sample identity across STSP-enabled layers.
+    panel_type: layerwise_delay_decode_summary
+    data_adapter: fig1_delay_decode_summary_adapter
+    renderer: render_fig1_delay_decode_summary
+    source: data/metrics/panel_c_delay_decode_metrics.csv
+    position_mm: {x: 88.5, y: 39, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
     x_axis: Layer
     y_axis: Decoding accuracy (%)
     reference_lines:
       - value: 10
         label: 10% chance
-    conditions:
-      - Layer 1
-      - Layer 2
-      - Layer 3
+    conditions: [layer1, layer2, layer3]
     display_labels:
-      Layer 1: L1
-      Layer 2: L2
-      Layer 3: L3
-    legend_semantics: layer_identity
+      layer1: L1
+      layer2: L2
+      layer3: L3
     stats_expected:
-      metric: stsp_decode_acc
+      metric: delay_decode_accuracy
       unit: percent
-      n_networks: 20
-      reference_value: 10
-    notes: Main Fig.1 uses layerwise decoding, not the full delay curve.
   D:
     panel_id: D
-    claim: Dynamic STSP changes the outcome/error profile, indicating a functional history-dependent influence on readout.
-    panel_type: error_rate_summary
-    data_adapter: fig1_stsp_outcome_profile
-    renderer: render_outcome_profile
-    size_mm: {width: 40, height: 46}
-    position_mm: {x: 61, y: 58, w: 40, h: 46}
-    source_mapping:
-      source_experiment: ux_shuffle_memory_collapse
-      preferred_files:
-        - results/multi_network/ux_shuffle_memory_collapse/data/metrics_condition_summary__by_network.csv
-      fallback_files:
-        - results/ux_shuffle_memory_collapse/data/metrics_condition_summary.csv
-      source_stem_aliases:
-        - memory_readout_target
-      notes: Use network-level condition summaries and the existing error_rate column. Render a QC placeholder if error_rate is unavailable.
+    claim: Dynamic STSP state affects later probe readout relative to static-frozen and u/x shuffle controls.
+    panel_type: condition_comparison
+    data_adapter: fig1_condition_metrics_adapter
+    renderer: render_fig1_condition_comparison
+    source: data/metrics/panel_d_condition_metrics.csv
+    position_mm: {x: 12, y: 76, w: 70.5, h: 40}
+    size_mm: {w: 70.5, h: 40}
     x_axis: ""
-    y_axis: Error rate (%)
-    reference_lines: []
-    preferred_conditions:
-      - Dynamic STSP
-      - u/x-shuffled
-      - Static-frozen
-    optional_conditions:
-      - u/x-shuffled
-    conditions:
-      - Dynamic STSP
-      - u/x-shuffled
-      - Static-frozen
+    y_axis: Probe error (%)
+    conditions: [dynamic_intact, ux_trial_shuffle, static_frozen]
     display_labels:
-      Dynamic STSP: Dynamic
-      u/x-shuffled: shuffle
-      Static-frozen: Static
-    legend_semantics: none
+      dynamic_intact: Dynamic
+      ux_trial_shuffle: u/x shuffle
+      static_frozen: Static
     stats_expected:
       metric: error_rate
       unit: percent
-      n_networks: 20
-    notes: Main Fig.1D uses error rate, not correct/error/silent composition.
   E:
     panel_id: E
-    claim: Swapping the retained u/x state redirects readout attribution from the original sample toward the donor trace.
-    panel_type: paired_attribution_shift
-    data_adapter: fig1_attribution_transfer
-    renderer: render_paired_attribution_shift
-    size_mm: {width: 50, height: 46}
-    position_mm: {x: 115, y: 58, w: 50, h: 46}
-    source_mapping:
-      source_experiment: ux_shuffle_memory_collapse
-      preferred_files:
-        - results/multi_network/ux_shuffle_memory_collapse/data/metrics_condition_summary__by_network.csv
-      fallback_files:
-        - results/ux_shuffle_memory_collapse/data/metrics_condition_summary.csv
-      raw_trial_globs:
-        - results/multi_network/ux_shuffle_memory_collapse/runs/seed_*/data/trial_predictions.csv
-      fallback_raw_trial_files:
-        - results/ux_shuffle_memory_collapse/data/trial_predictions.csv
-      source_stem_aliases:
-        - memory_readout_target
-      notes: Trace the condition summary back to trial-level predictions and decompose error trials only.
+    claim: Replacing retained u/x state changes the composition of probe errors, shifting errors toward donor-memory attribution.
+    panel_type: error_composition
+    data_adapter: fig1_error_composition_adapter
+    renderer: render_fig1_error_composition
+    source_priority:
+      - data/raw/panel_d_dms_condition_trial_readout.csv
+      - data/metrics/panel_d_condition_metrics.csv
+      - data/metrics/panel_e_attribution_metrics.csv
+    position_mm: {x: 88.5, y: 76, w: 70.5, h: 40}
+    size_mm: {w: 70.5, h: 40}
     x_axis: ""
-    y_axis: Fraction within error trials (%)
-    reference_lines: []
-    conditions:
-      - Dynamic baseline
-      - shuffle
+    y_axis: Error composition (% of errors)
+    conditions: [dynamic_intact, ux_trial_shuffle]
+    categories: [Original, Donor, Other]
+    traces: [Original, Donor, Other]
     display_labels:
-      Dynamic baseline: Dynamic baseline
-      shuffle: shuffle
-    traces:
-      - Original
-      - Donor
-      - Others
-    legend_semantics: attribution_trace
+      dynamic_intact: Dynamic
+      ux_trial_shuffle: u/x shuffle
     stats_expected:
-      metric: error_conditional_fraction
-      unit: percent
-      n_networks: 20
-    notes: Use mean network-level error-conditional fractions. Do not use all-trial absolute rates for this panel.
+      metric: error_composition_within_error_pool
+      unit: percent_of_errors

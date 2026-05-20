@@ -1,23 +1,26 @@
 figure_id: fig5
-figure_title_draft: Early recruitment and local competition from overlap-aligned support
+figure_title_draft: Unit-level conversion of overlap-aligned support into local competition
+experiment_root: results/paper_experiments/fig5_local_support_competition
 canvas_mm:
   width: 165
-  height: 130
-reading_order:
-  - A
-  - B
-  - C
-  - D
-  - E
+  height: 124
+reading_order: [A, B, C, D]
 argument_bands:
-  - band_id: row1_overlap_support_to_recruitment
-    label: Overlap support to early recruitment
-    panels: [A, B, C]
-  - band_id: row2_local_competition
-    label: Local competition amplification
-    panels: [D, E]
+  - band_id: local_support
+    label: Local support
+    panels: [A]
+  - band_id: early_transition
+    label: Early transition composition
+    panels: [B]
+  - band_id: local_competition
+    label: Winner-loser local competition
+    panels: [C]
+  - band_id: causal_perturbation
+    label: Causal transition composition
+    panels: [D]
 expected_outputs:
   full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
   resolved_spec: fig5_resolved_spec.yaml
   source_manifest: fig5_source_manifest.json
   qc_report: fig5_qc_report.md
@@ -26,138 +29,101 @@ qc_requirements:
   require_source_manifest: true
   require_position_mm: true
   require_size_mm: true
-  canvas_mm: {width: 165, height: 130}
-  require_n_networks:
-    B: 20
-    C: 20
-    D: 20
-    E: 20
+  required_unit_groups: [overlap_dominant, probe_only_dominant]
+  required_main_conditions:
+    - dynamic_intact
+    - attenuate_overlap_high_support
+    - reset_overlap_high_support
+  single_network_warning_only: true
 panels:
   A:
     panel_id: A
-    claim: Sample-probe overlap creates a spatially localized pre-probe STSP support structure aligned with shared sample-probe input regions.
-    panel_type: hybrid_example_support_map
-    renderer: render_fig5a_support_map
-    data_adapter: fig5_support_map_example
-    size_mm: [41, 41]
-    position_mm: {x: 10, y: 14, w: 41, h: 41}
-    content:
-      - sample image
-      - probe image
-      - overlap mask / probe-only mask
-      - pre-probe STSP support map
-    x_axis: none
-    y_axis: none
-    source_mapping:
-      source_experiment: dms_overlap_ux_support_mechanism_experiment
-      current_stem: fig4_panel_a_preprobe_stsp_support
-      alias_note: old_code_stem_maps_to_paper_Fig5A
-      preferred_files:
-        - results/multi_network/dms_overlap_ux_support_mechanism_experiment/runs/seed_1000/data/l1_panel_a_preprobe_gain_map.npz
-      fallback_files:
-        - results/dms_overlap_ux_support_mechanism_experiment/data/l1_panel_a_preprobe_gain_map.npz
-    notes: This panel is the visual entry point for Fig.5. It should make clear where the overlap-aligned region is, where the probe-only region is, and how the pre-probe STSP support map relates to these regions. If no example image/map data are available, render a placeholder schematic and QC warning. Do not reduce this panel to a single heatmap without sample/probe/overlap context.
+    panel_type: bar
+    claim: Overlap-dominant units carry elevated STSP support before the probe arrives.
+    data_adapter: fig5_preprobe_support_adapter
+    renderer: render_fig5_preprobe_support
+    source: data/metrics/panel_a_preprobe_support_metrics.csv
+    position_mm: {x: 12.00, y: 8.00, w: 70.50, h: 46.00}
+    size_mm: {w: 70.50, h: 46.00}
+    metric: preprobe_support
+    unit_group_order: [overlap_dominant, probe_only_dominant, random_matched, balanced]
+    display_labels:
+      overlap_dominant: Overlap-dominant
+      probe_only_dominant: Probe-only-dominant
+      random_matched: Random matched
+      balanced: Balanced
+    x_axis: Unit group
+    y_axis: Pre-probe STSP support
   B:
     panel_id: B
-    claim: Overlap-aligned regions carry stronger pre-probe STSP support than probe-only regions.
-    panel_type: paired_condition_summary
-    renderer: render_overlap_vs_probe_only_support
-    data_adapter: fig5_overlap_vs_probe_only_support
-    size_mm: [41, 41]
-    position_mm: {x: 63, y: 14, w: 41, h: 41}
-    metric: pre_probe_stsp_support
-    conditions:
-      - Overlap-aligned
-      - Probe-only
-    x_axis: Support region
-    y_axis: Pre-probe STSP support
-    source_mapping:
-      source_experiment: dms_overlap_ux_support_mechanism_experiment
-      current_stem: fig4_panel_b_preprobe_ux_overlap_vs_probeonly
-      alias_note: old_code_stem_maps_to_paper_Fig5B
-      preferred_files:
-        - results/multi_network/dms_overlap_ux_support_mechanism_experiment/data/preprobe_stsp_summary__by_network.csv
-      fallback_files:
-        - results/dms_overlap_ux_support_mechanism_experiment/data/preprobe_stsp_summary.csv
-    notes: This panel quantifies the support advantage shown visually in Fig.5A. Prefer paired network-level values if available. Do not hide the quantitative support comparison inside the support map only.
+    panel_type: stacked_transition_composition
+    claim: Overlap units show enriched advance/recruit transitions in the early dynamic-to-static comparison.
+    data_adapter: fig5_early_firing_headline_adapter
+    renderer: render_fig5_early_firing_headline
+    source_priority:
+      - data/metrics/panel_b_transition_summary_by_group.csv
+    position_mm: {x: 88.50, y: 8.00, w: 70.50, h: 46.00}
+    size_mm: {w: 70.50, h: 46.00}
+    primary_metric: transition_fraction
+    transition_types: [advance, recruit, loss]
+    unit_group_order: [overlap_dominant, probe_only_dominant, random_matched]
+    display_labels:
+      overlap_dominant: Overlap
+      probe_only_dominant: Probe-only
+      random_matched: Random
+    x_axis: Unit group
+    y_axis: Transition proportion
   C:
     panel_id: C
-    claim: Overlap-dominant units are preferentially advanced or recruited during the early probe window.
-    panel_type: early_transition_summary
-    renderer: render_early_probe_transition
-    data_adapter: fig5_early_probe_transition
-    size_mm: [41, 41]
-    position_mm: {x: 116, y: 14, w: 41, h: 41}
-    preferred_metric: advanced_plus_recruited_fraction
-    optional_metrics:
-      - advanced_fraction
-      - recruited_fraction
-      - lost_fraction
-      - unchanged_fraction
-    conditions:
-      - Overlap-dominant units
-      - Probe-only-dominant units
-    x_axis: Unit group
-    y_axis: Early transition rate (%)
-    source_mapping:
-      source_experiment: dms_overlap_ux_support_mechanism_experiment
-      current_stem: fig4_panel_b_early_probe_transitions
-      alias_note: old_code_stem_maps_to_paper_Fig5C
-      preferred_globs:
-        - results/multi_network/dms_overlap_ux_support_mechanism_experiment/runs/seed_*/data/l1_firing_transition_summary.csv
-      fallback_files:
-        - results/dms_overlap_ux_support_mechanism_experiment/data/l1_firing_transition_summary.csv
-    notes: The preferred main display is an advance/recruitment rate comparison between overlap-dominant and probe-only-dominant units. Do not use donut as the primary panel because the manuscript claim is a group comparison, not a composition display. If only transition composition is available, render a stacked bar fallback and issue a QC warning.
-  D:
-    panel_id: D
-    claim: Dynamic local winners show pre-spike voltage advantage, and their spikes are followed by increased local inhibition onto loser units.
-    panel_type: event_aligned_traces
-    renderer: render_event_aligned_voltage_inhibition
-    data_adapter: fig5_event_aligned_voltage_inhibition
-    size_mm: [94, 55]
-    position_mm: {x: 10, y: 67, w: 94, h: 55}
-    main_metrics:
-      - winner_loser_voltage_difference
-      - local_inhibition_change
-    x_axis: Time from dynamic winner spike
-    y_axis: Winner-loser voltage difference / local inhibition change
-    y_axes:
-      - Winner-loser voltage difference
-      - Local inhibition change
+    panel_type: event_aligned_trace
+    claim: Early winner recruitment is coupled to loser voltage suppression and local inhibition.
+    data_adapter: fig5_winner_loser_adapter
+    renderer: render_fig5_winner_loser_events
+    source_priority:
+      - data/metrics/panel_c_event_trace_summary.csv
+      - data/metrics/panel_c_winner_loser_event_metrics.csv
+    position_mm: {x: 12.00, y: 62.00, w: 70.50, h: 54.00}
+    size_mm: {w: 70.50, h: 54.00}
+    metrics: [winner_delta_v, loser_delta_v, loser_inhibition]
+    trace_labels:
+      winner_delta_v: Winner ΔV
+      loser_delta_v: Loser ΔV
+      loser_inhibition: Inhibition received by loser
+    inhibition_trace_definition: loser_unit_received_inhibition
+    baseline_correction:
+      enabled: true
+      window: time_ms < 0
     reference_lines:
       - x_value: 0
         label: winner spike
-    source_mapping:
-      source_experiment: dms_overlap_ux_support_mechanism_experiment
-      current_stem: fig4_panel_c_winner_loser_event_chain
-      alias_note: old_code_stem_maps_to_paper_Fig5D
-      preferred_globs:
-        - results/multi_network/dms_overlap_ux_support_mechanism_experiment/runs/seed_*/data/l1_local_event_time_alignment.npz
-      fallback_files:
-        - results/dms_overlap_ux_support_mechanism_experiment/data/l1_local_event_time_alignment.npz
-        - results/dms_overlap_ux_support_mechanism_experiment/data/l1_local_causal_chain_events.csv
-    notes: "This is the core mechanism panel in Fig.5. It should use event-aligned time traces, ideally with two vertically stacked internal axes: voltage difference on top and inhibition change below. The main temporal logic is pre-spike voltage advantage -> dynamic winner spike -> post-spike inhibition onto loser units. Do not replace this panel with only bar summaries if timecourse data are available."
-  E:
-    panel_id: E
-    claim: Winner-boosted and loser-suppressed local event sequences occur reliably across local events.
-    panel_type: event_fraction_summary
-    renderer: render_winner_loser_event_fractions
-    data_adapter: fig5_winner_loser_event_fractions
-    size_mm: [41, 55]
-    position_mm: {x: 116, y: 67, w: 41, h: 55}
-    metric: fraction_of_local_events
-    categories:
-      - Winner boost
-      - Loser suppression
-      - Full winner-loser sequence
-    x_axis: Local event pattern
-    y_axis: Fraction of local events (%)
-    source_mapping:
-      source_experiment: dms_overlap_ux_support_mechanism_experiment
-      current_stem: fig4_panel_d_local_chain_occurrence
-      alias_note: old_code_stem_maps_to_paper_Fig5E
-      preferred_globs:
-        - results/multi_network/dms_overlap_ux_support_mechanism_experiment/runs/seed_*/data/l1_local_causal_chain_events.csv
-      fallback_files:
-        - results/dms_overlap_ux_support_mechanism_experiment/data/l1_local_causal_chain_events.csv
-    notes: This panel is the event-level statistical closure for Fig.5D. It should show that the full winner-loser sequence is a reliable pattern across local events. Prefer network-level values if available.
+    x_axis: Time from winner spike (ms)
+    y_axis: Dynamic minus static (baseline-corrected)
+  D:
+    panel_id: D
+    panel_type: grouped_stacked_transition_composition
+    claim: Causal perturbation of overlap support changes advance/recruit/loss transition composition.
+    data_adapter: fig5_causal_perturbation_summary_adapter
+    renderer: render_fig5_causal_perturbation_summary
+    source_priority:
+      - data/metrics/panel_d_perturbation_transition_summary_by_group.csv
+    position_mm: {x: 88.50, y: 62.00, w: 70.50, h: 54.00}
+    size_mm: {w: 70.50, h: 54.00}
+    primary_metric: transition_fraction
+    transition_types: [advance, recruit, loss]
+    unit_group_order: [overlap_dominant, probe_only_dominant]
+    perturbation_conditions:
+      - dynamic_intact
+      - attenuate_overlap_high_support
+      - reset_overlap_high_support
+      - static_frozen
+    x_axis: ""
+    y_axis: Transition proportion
+supplement_outputs:
+  - supp_event_chain_fraction_metrics.csv
+  - supp_event_chain_null_baselines.csv
+  - supp_event_selection_audit.csv
+  - supp_early_window_robustness.csv
+  - supp_neighborhood_radius_robustness.csv
+  - supp_perturbation_ux_audit.csv
+  - supp_layer_delay_local_competition_metrics.csv
+  - supp_trial_condition_audit.csv

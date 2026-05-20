@@ -45,13 +45,12 @@ Fig.5 is implemented as the support-to-competition mechanism skeleton. It follow
 
 Fig.5 adapters consume existing `dms_overlap_ux_support_mechanism_experiment` outputs. Some source figures and historical stems are named `fig4_panel_*`; those names are recorded only in source mappings/manifests and are not used as manuscript panel labels. Fig.5 intentionally does not repeat Fig.4 similarity/DPI/readout-recovery panels or pre-stage Fig.6 peak/recency/anchor metrics.
 
-Fig.6 is implemented as the causal-closure skeleton for recency-weighted STSP peaks. It follows a three-band layout:
+Fig.6 is implemented as the causal-closure skeleton for recency-weighted STSP peaks. It follows a two-band layout:
 
-- Row 1: anchor-peak linkage, with Fig.6A kept as an explicit data-gap-aware placeholder if no direct support-loss/anchor-retreat source is found.
-- Row 2: update-history origin, with peak membership, repetition x recency gain, and update+recency model comparison.
-- Row 3: functional causal closure, with peak flattening/intact/boosting and probe-peak overlap dependency.
+- Row 1: update-history origin, with peak membership, repetition x recency gain, and update+recency model comparison.
+- Row 2: functional causal closure, with peak flattening/intact/boosting and probe-peak overlap dependency.
 
-Fig.6 adapters consume existing `chunk_stsp_layer1_overlap_peak_formation` outputs. Historical stems such as `fig6B_update_recency_final_g`, `fig6C_anchor_prediction_model_comparison`, `fig6D_peak_function_spiking`, and `fig6E_overlap_conditioned_spike_effect` are recorded only in source mappings/manifests because the manuscript panels are Fig.6A-F.
+Fig.6 adapters consume existing `chunk_stsp_layer1_overlap_peak_formation` outputs. Historical stems such as `fig6B_update_recency_final_g`, `fig6C_anchor_prediction_model_comparison`, `fig6D_peak_function_spiking`, and `fig6E_overlap_conditioned_spike_effect` are recorded only in source mappings/manifests because the manuscript panels are Fig.6A-E.
 
 ## Running
 

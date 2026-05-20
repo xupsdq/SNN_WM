@@ -20,13 +20,25 @@ from src.plotting.paper_fig.registry import get_figure_index, get_figure_spec, v
 from src.plotting.paper_fig.utils import paper_fig_root, read_json, repo_root_from_here
 
 
-def build_figure(fig_id: str, *, panel_id: str | None = None, check_only: bool = False) -> dict[str, Any]:
+def build_figure(
+    fig_id: str,
+    *,
+    panel_id: str | None = None,
+    check_only: bool = False,
+    experiment_root: str | Path | None = None,
+) -> dict[str, Any]:
     """Build or check one paper figure."""
     repo_root = repo_root_from_here()
     fig_id = fig_id.lower()
     selected = {panel_id.upper()} if panel_id else None
     spec = get_figure_spec(fig_id)
-    output_dir = paper_fig_root() / "outputs" / fig_id
+    if experiment_root is not None:
+        spec["experiment_root"] = str(experiment_root)
+    output_root = spec.get("output_root")
+    if output_root:
+        output_dir = repo_root / str(output_root) / fig_id
+    else:
+        output_dir = paper_fig_root() / "outputs" / fig_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     registry_report = validate_registry(repo_root)
@@ -91,12 +103,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--panel", type=str, default=None, help="Optional panel id, e.g. C.")
     parser.add_argument("--all", action="store_true", help="Build all indexed figures.")
     parser.add_argument("--check-only", action="store_true", help="Validate specs/sources and write QC without exporting figures.")
+    parser.add_argument("--experiment-root", type=str, default=None, help="Optional experiment result root for figures that support standalone paper experiments.")
     args = parser.parse_args(argv)
 
     fig_ids = _requested_figures(args.fig, args.all, args.check_only)
     exit_code = 0
     for fig_id in fig_ids:
-        result = build_figure(fig_id, panel_id=args.panel, check_only=bool(args.check_only))
+        result = build_figure(fig_id, panel_id=args.panel, check_only=bool(args.check_only), experiment_root=args.experiment_root)
         qc = result["qc"]
         print(f"{fig_id}: {'PASS' if qc['ok'] else 'FAIL'} -> {result['output_dir']}")
         for warning in qc["warnings"]:
@@ -131,6 +144,8 @@ def _panel_spec(spec: Mapping[str, Any], panel_id: str, panel: Mapping[str, Any]
     panel_spec = dict(panel)
     panel_spec.setdefault("figure_id", spec.get("figure_id"))
     panel_spec.setdefault("panel_id", panel_id)
+    if spec.get("experiment_root") is not None:
+        panel_spec.setdefault("experiment_root", spec.get("experiment_root"))
     return panel_spec
 
 
@@ -192,11 +207,13 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "y_label_inside": bool(getattr(ax, "paper_fig_y_label_inside", False)),
         "x_label": str(ax.get_xlabel()),
         "y_label": str(ax.get_ylabel()),
+        "title": str(ax.get_title()),
         "x_tick_rotations": [float(label.get_rotation()) for label in ax.get_xticklabels()],
         "x_tick_labels": [str(label.get_text()) for label in ax.get_xticklabels()],
         "x_tick_fontstyles": [str(label.get_fontstyle()) for label in ax.get_xticklabels()],
         "axes_bounds": [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)],
         "plot_axes_bounds": getattr(ax, "paper_fig_plot_axes_bounds", [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)]),
+        "axes_mm": getattr(ax, "paper_fig_axes_mm", {}),
         "panel_bounds": getattr(ax, "paper_fig_panel_bounds", [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)]),
         "legend_overlaps_axes_bbox": False,
         "legend_overlaps_data": bool(getattr(ax, "paper_fig_legend_overlaps_data", False)),
@@ -243,7 +260,17 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "has_colorbar": bool(getattr(ax, "paper_fig_has_colorbar", False)),
         "colorbar_removed": bool(getattr(ax, "paper_fig_colorbar_removed", False)),
         "colorbar_bbox": [],
+        "colorbar_axes_mm": getattr(ax, "paper_fig_colorbar_axes_mm", {}),
         "colorbar_label": str(getattr(ax, "paper_fig_colorbar_label", "")),
+        "is_3d_surface": bool(getattr(ax, "paper_fig_is_3d_surface", False)),
+        "3d_fallback_reason": str(getattr(ax, "paper_fig_3d_fallback_reason", "")),
+        "has_summary_inset": bool(getattr(ax, "paper_fig_has_summary_inset", False)),
+        "heatmap_square": bool(getattr(ax, "paper_fig_heatmap_square", False)),
+        "colorbar_does_not_resize_axes": bool(getattr(ax, "paper_fig_colorbar_does_not_resize_axes", False)),
+        "has_y1_reference": bool(getattr(ax, "paper_fig_has_y1_reference", False)),
+        "merged_center_panel": bool(getattr(ax, "paper_fig_merged_center_panel", False)),
+        "center_line_colors": getattr(ax, "paper_fig_center_line_colors", {}),
+        "endpoint_text_labels": bool(getattr(ax, "paper_fig_endpoint_text_labels", False)),
         "support_map_uncropped": bool(getattr(ax, "paper_fig_support_map_uncropped", False)),
         "bar_connector_removed": bool(getattr(ax, "paper_fig_bar_connector_removed", False)),
         "bar_connector_lines_remaining": int(getattr(ax, "paper_fig_bar_connector_lines_remaining", 0) or 0),
@@ -340,14 +367,21 @@ def _draw_panel_labels(fig, spec: Mapping[str, Any], panels: Mapping[str, Mappin
         if selected is not None and panel_id not in selected:
             continue
         pos = panel.get("position_mm") or {}
-        x_mm = max(1.5, float(pos.get("x", 0.0)) - 3.0)
-        y_pos = float(pos.get("y", 0.0))
-        if str(spec.get("figure_id", "")).lower() in {"fig2", "fig3", "fig4"}:
-            y_mm = min(float(pos.get("y", 0.0)) + 2.0, 4.0) if y_pos <= 3.0 else max(2.0, y_pos - 4.0)
-        elif str(spec.get("figure_id", "")).lower() == "fig6" and y_pos >= 90.0:
-            y_mm = y_pos
+        label_pos = panel.get("letter_mm") or panel.get("panel_label_mm")
+        if label_pos:
+            x_mm = float(label_pos.get("x", pos.get("x", 0.0)))
+            y_mm = float(label_pos.get("y", pos.get("y", 0.0)))
         else:
-            y_mm = 2.0 if y_pos <= 3.0 else max(2.0, y_pos - 8.0)
+            x_mm = max(1.5, float(pos.get("x", 0.0)) - 3.0)
+            y_pos = float(pos.get("y", 0.0))
+            if str(spec.get("figure_id", "")).lower() in {"fig2", "fig3", "fig4"}:
+                y_mm = min(float(pos.get("y", 0.0)) + 2.0, 4.0) if y_pos <= 3.0 else max(2.0, y_pos - 4.0)
+            elif str(spec.get("figure_id", "")).lower() == "fig6" and y_pos >= 90.0:
+                y_mm = y_pos
+            else:
+                y_mm = 2.0 if y_pos <= 3.0 else max(2.0, y_pos - 8.0)
+        if not label_pos and str(spec.get("figure_id", "")).lower() in {"fig2", "fig3", "fig4"}:
+            y_mm = min(float(pos.get("y", 0.0)) + 2.0, 4.0) if y_pos <= 3.0 else max(2.0, y_pos - 4.0)
         artists[panel_id] = fig.text(
             x_mm / canvas_w,
             1.0 - (y_mm / canvas_h),
@@ -409,7 +443,13 @@ def _aggregate_source_manifest(
 
 def _schematic_panel_types() -> set[str]:
     """Return panel types that are rendered programmatically or manually without data adapters."""
-    return {"manual_schematic", "manual_or_programmatic_schematic", "programmatic_or_manual_schematic"}
+    return {
+        "manual_schematic",
+        "manual_or_programmatic_schematic",
+        "programmatic_or_manual_schematic",
+        "two_item_episode_schematic",
+        "multi_item_sequence_schematic",
+    }
 
 
 if __name__ == "__main__":

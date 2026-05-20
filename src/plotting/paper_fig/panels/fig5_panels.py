@@ -5,330 +5,381 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-from src.plotting.experiments.dms_overlap_ux_support_mechanism_experiment_plot import (
-    draw_overlap_vs_probe_only_support_on_ax,
-    draw_panel_a_support_map_on_ax,
-    draw_panel_b_early_probe_transitions_on_ax,
-    draw_panel_c_winner_loser_event_chain_on_axes,
-    draw_panel_d_local_chain_occurrence_on_ax,
-)
+from src.plotting.common.colors import get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 
 
-BOTTOM_ROW_PLOT_BOTTOM = 0.16
-BOTTOM_ROW_PLOT_TOP = 0.93
-BOTTOM_ROW_PLOT_HEIGHT = BOTTOM_ROW_PLOT_TOP - BOTTOM_ROW_PLOT_BOTTOM
+STYLE = {
+    "axis_labelsize": 6.1,
+    "tick_labelsize": 5.2,
+    "legend_fontsize": 5.1,
+    "line_width": 0.85,
+    "marker_size": 10.0,
+    "bar_width": 0.62,
+}
+CONDITION_COLORS = {
+    "Dynamic intact": get_plot_color("dynamic"),
+    "Static frozen": get_plot_color("static_frozen"),
+    "Attenuate overlap support": "#E45756",
+    "Reset overlap support": "#4C78A8",
+    "Sham perturbation": "#A0A0A0",
+}
+GROUP_COLORS = {
+    "Overlap-dominant": "#D95F02",
+    "Probe-only-dominant": "#1B9E77",
+    "Balanced": "#7570B3",
+    "Random matched": "#666666",
+}
+UNIT_LABELS_FALLBACK = {
+    "overlap_dominant": "Overlap-dominant",
+    "probe_only_dominant": "Probe-only-dominant",
+    "balanced": "Balanced",
+    "random_matched": "Random matched",
+}
 
 
-def render_fig5a_support_map(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    """Render Fig.5A using the DMS-overlap experiment support-map style."""
-    _ = stats, style
-    df = _clean(panel_data)
-    if df.empty or "image_type" not in df.columns:
-        ax.paper_fig_fallback_reason = "Fig.5A support map missing; schematic placeholder used."
-        _draw_support_schematic(ax)
-        return
-    payload = _support_payload_from_panel_data(df)
-    draw_panel_a_support_map_on_ax(ax, payload)
-    legend = ax.get_legend()
-    if legend is not None:
-        legend.set_loc("upper left")
-        legend.set_bbox_to_anchor((0.02, 0.98), transform=ax.transAxes)
-        legend.set_frame_on(True)
-        legend.get_frame().set_facecolor("black")
-        legend.get_frame().set_alpha(0.30)
-        legend.get_frame().set_edgecolor("none")
-    ax.paper_fig_has_colorbar = False
-    ax.paper_fig_colorbar_removed = True
-    ax.paper_fig_support_map_uncropped = True
-    ax.paper_fig_legend_overlaps_data = False
-
-
-def render_overlap_vs_probe_only_support(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    """Render Fig.5B with the shared DMS-overlap support-comparison helper."""
-    _ = stats, style
-    df = _clean(panel_data)
-    if df.empty:
-        render_generic_placeholder(ax, panel_data, stats, spec, style)
-        return
-    plot_df = df.copy()
-    plot_df["support_region"] = plot_df.get("support_region", plot_df["condition"])
-    plot_df["pre_probe_stsp_support"] = plot_df["value"]
-    plot_df["seed"] = plot_df.get("seed_id", "")
-    draw_overlap_vs_probe_only_support_on_ax(ax, plot_df, title=None)
-    removed = _remove_bar_connector_lines(ax)
-    _add_bar_value_labels(ax, fmt="{:.2f}")
-    _compact_axis(ax, tick_size=4.8, label_size=5.0)
-    ax.set_xticks([0, 1], ["Overlap-\naligned", "Probe-only"], rotation=0, ha="center")
-    for label in ax.get_xticklabels():
-        label.set_fontstyle("normal")
-    ax.yaxis.labelpad = 3.0
-    ax.tick_params(axis="x", pad=1.0)
-    ax.paper_fig_bar_connector_removed = removed
-    ax.paper_fig_bar_connector_lines_remaining = _count_bar_connector_lines(ax)
-    ax.paper_fig_value_labels = True
-    ax.paper_fig_value_label_count = len(ax.patches)
-    ax.paper_fig_value_labels_clear = True
-
-
-def render_early_probe_transition(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    """Render Fig.5C with the DMS-overlap early-transition stacked bar style."""
-    _ = stats, style
+def render_fig5_preprobe_support(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
     df = _clean(panel_data)
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    if not {"source_unit_group", "advanced_fraction", "recruited_fraction", "lost_fraction"}.issubset(df.columns):
+    ax.paper_fig_plot_form = "fig5_preprobe_support"
+    order = [g for g in ("Overlap-dominant", "Probe-only-dominant", "Random matched", "Balanced") if g in set(df["condition"])]
+    _bar_with_points(ax, df, "condition", order, colors=[GROUP_COLORS.get(g, "0.6") for g in order], st=st)
+    ax.set_xticks(np.arange(len(order)), [_wrap(g) for g in order], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "Pre-probe STSP support")))
+    ax.set_xlabel("")
+    _tidy(ax, st)
+
+
+def render_fig5_early_firing(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    plot_df = df.copy()
-    plot_df["unit_group"] = plot_df["source_unit_group"]
-    plot_df["n_units"] = 100.0
-    plot_df["n_advance"] = pd.to_numeric(plot_df["advanced_fraction"], errors="coerce")
-    plot_df["n_recruit"] = pd.to_numeric(plot_df["recruited_fraction"], errors="coerce")
-    plot_df["n_loss"] = pd.to_numeric(plot_df["lost_fraction"], errors="coerce")
-    plot_df["n_unchanged"] = pd.to_numeric(plot_df.get("unchanged_fraction", 0), errors="coerce")
-    plot_df["aggregation_scope"] = "pooled"
-    draw_panel_b_early_probe_transitions_on_ax(ax, plot_df, title=None)
-    ax.set_xlim(0.0, 10.0)
-    ax.set_xticks([0.0, 5.0, 10.0])
-    ax.set_yticks([1.0, 0.0], ["overlap-\ndominant", "probe-only-\ndominant"])
-    _compact_axis(ax, tick_size=5.0, label_size=5.4)
-    ax.paper_fig_category_labels_wrapped = True
-    legend = ax.get_legend()
-    if legend is not None:
-        handles = list(legend.legend_handles)
-        labels = [text.get_text() for text in legend.get_texts()]
-        legend.remove()
-        legend = ax.legend(
-            handles=handles,
-            labels=labels,
-            loc="lower center",
-            bbox_to_anchor=(0.5, 1.02),
-            ncol=3,
-            frameon=False,
-            fontsize=5.2,
-            handlelength=1.4,
-            columnspacing=0.9,
-            handletextpad=0.35,
-            borderaxespad=0.0,
-            labelspacing=0.2,
-        )
-        for handle in legend.legend_handles:
-            try:
-                handle.set_linewidth(3.2)
-            except Exception:
-                pass
+    ax.paper_fig_plot_form = "fig5_early_firing_transition"
+    groups = [g for g in ("Overlap-dominant", "Probe-only-dominant", "Random matched") if g in set(df["condition"])]
+    metrics = [m for m in ("P_advance", "P_recruit", "P_advance_plus_recruit") if m in set(df["metric"])]
+    width = 0.22
+    x = np.arange(len(groups), dtype=float)
+    metric_colors = {"P_advance": "#4C78A8", "P_recruit": "#F58518", "P_advance_plus_recruit": "#54A24B"}
+    for i, metric in enumerate(metrics):
+        subset = df[df["metric"].eq(metric)]
+        means, sems = _group_means(subset, "condition", groups)
+        offset = (i - (len(metrics) - 1) / 2.0) * width
+        ax.bar(x + offset, means, yerr=sems, width=width * 0.92, capsize=1.8, color=metric_colors.get(metric, "0.6"), edgecolor="black", linewidth=0.35, label=_metric_label(metric))
+    ax.set_xticks(x, [_wrap(g) for g in groups], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "Early transition probability")))
+    ax.set_ylim(0, max(0.05, min(1.0, _finite_max(df["value"]) * 1.25)))
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 1.22), ncols=max(1, len(metrics)), handlelength=0.9, columnspacing=0.7)
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = len(metrics)
+    _tidy(ax, st)
+
+
+def render_fig5_early_firing_headline(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    df = df[df["metric"].astype(str).eq("transition_fraction")] if not df.empty else df
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.paper_fig_plot_form = "fig5_early_transition_composition"
+    order = [g for g in ("Overlap", "Probe-only", "Random") if g in set(df["condition"].astype(str))]
+    x = np.arange(len(order), dtype=float)
+    _draw_stacked_transition_bars(ax, df, "condition", order, x, st=st)
+    ax.set_xticks(x, [_wrap(g) for g in order], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
+    ax.set_xlabel("")
+    ymax = max(0.08, min(1.05, _finite_max(df.get("total_transition_mass", df["value"])) * 1.18))
+    ax.set_ylim(0, ymax)
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="lower center", bbox_to_anchor=(0.5, 1.015), ncols=3, handlelength=0.9, columnspacing=0.65)
+    ax.paper_fig_legend_above_plot = True
     ax.paper_fig_legend_ncols = 3
-    ax.paper_fig_legend_above_plot = True
-    ax.paper_fig_legend_overlaps_data = False
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_y_metric = "transition_fraction"
+    _tidy(ax, st)
 
 
-def render_event_aligned_voltage_inhibition(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    """Render Fig.5D with the DMS-overlap winner/loser event-chain trace style."""
-    _ = stats, style
+def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty or "time_ms" not in df.columns:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.paper_fig_plot_form = "fig5_winner_loser_event_traces"
+    colors = {"winner_delta_v": "#D95F02", "loser_delta_v": "#1B9E77", "loser_inhibition": "#7570B3"}
+    for metric in ("winner_delta_v", "loser_delta_v", "loser_inhibition"):
+        part = df[df["metric"].eq(metric)].copy()
+        if part.empty:
+            continue
+        grouped = part.groupby("time_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
+        x = grouped["time_ms"].to_numpy(dtype=float)
+        y = grouped["mean"].to_numpy(dtype=float)
+        sem = grouped["sem"].fillna(0).to_numpy(dtype=float)
+        ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=_trace_label(metric))
+        if part["seed_id"].nunique() > 1:
+            ax.fill_between(x, y - sem, y + sem, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
+    ax.axvline(0, color="0.25", linewidth=0.6)
+    ax.axhline(0, color="0.82", linewidth=0.5)
+    times = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
+    if not times.empty:
+        ax.set_xlim(float(times.min()) - 0.5, float(times.max()) + 0.5)
+        ax.set_xticks([tick for tick in (-5, 0, 5, 10) if float(times.min()) <= tick <= float(times.max())])
+    ax.set_xlabel(str(spec.get("x_axis", "Time from winner spike (ms)")))
+    default_ylabel = "Dynamic minus static (baseline-corrected)" if bool((stats or {}).get("baseline_corrected")) else "Dynamic minus static"
+    ax.set_ylabel(str(spec.get("y_axis", default_ylabel)))
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper left", bbox_to_anchor=(0.01, 0.99), ncols=1, handlelength=1.0, columnspacing=0.7)
+    ax.paper_fig_legend_above_plot = False
+    ax.paper_fig_legend_ncols = 1
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    _tidy(ax, st)
+
+
+def render_fig5_support_perturbation(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
     df = _clean(panel_data)
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    if "time_from_winner_spike" not in df.columns:
-        ax.paper_fig_fallback_reason = "Fig.5D summary-only fallback; no event-aligned traces."
-        _summary_two_metric(ax, df, spec)
-        return
-
-    ax.set_axis_off()
-    ax_top = ax.inset_axes([0.0, 0.57, 1.0, 0.36])
-    ax_bottom = ax.inset_axes([0.0, BOTTOM_ROW_PLOT_BOTTOM, 1.0, 0.32])
-    ax.paper_fig_plot_axes_bounds = _union_axes_bounds((ax_top, ax_bottom))
-    payload = _event_payload_from_panel_data(df)
-    draw_panel_c_winner_loser_event_chain_on_axes((ax_top, ax_bottom), payload)
-    for child in (ax_top, ax_bottom):
-        _compact_axis(child, tick_size=5.0, label_size=5.3)
-    legend = ax_bottom.get_legend()
-    if legend is not None:
-        handles = list(legend.legend_handles)
-        labels = [text.get_text() for text in legend.get_texts()]
-        legend.remove()
-        legend = ax_top.legend(handles=handles, labels=labels, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2, frameon=False, fontsize=5.2, handlelength=1.4, columnspacing=1.0)
-        for text in legend.get_texts():
-            text.set_fontsize(5.2)
-        for handle in legend.legend_handles:
-            try:
-                handle.set_linewidth(2.0)
-            except Exception:
-                pass
-    ax.paper_fig_legend_ncols = 2
+    ax.paper_fig_plot_form = "fig5_support_perturbation_nodes"
+    nodes = [n for n in ("early_recruitment", "loser_inhibition", "spike_similarity", "decision_deflection") if n in set(df["metric"])]
+    conditions = [c for c in CONDITION_COLORS if c in set(df["condition"])]
+    width = min(0.16, 0.75 / max(1, len(conditions)))
+    x = np.arange(len(nodes), dtype=float)
+    for i, condition in enumerate(conditions):
+        part = df[df["condition"].eq(condition)]
+        means, sems = _group_means(part, "metric", nodes)
+        offset = (i - (len(conditions) - 1) / 2.0) * width
+        ax.bar(x + offset, means, yerr=sems, capsize=1.4, width=width * 0.92, color=CONDITION_COLORS.get(condition, "0.7"), edgecolor="black", linewidth=0.3, label=_condition_short(condition))
+    ax.set_xticks(x, [_node_short(n) for n in nodes], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "Condition value")))
+    ax.yaxis.labelpad = 0.0
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 1.17), ncols=3, handlelength=0.9, columnspacing=0.55)
     ax.paper_fig_legend_above_plot = True
-    ax.paper_fig_legend_overlaps_data = False
+    ax.paper_fig_legend_ncols = 3
+    _tidy(ax, st)
 
 
-def render_winner_loser_event_fractions(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    """Render Fig.5E with the DMS-overlap local-chain occurrence style."""
-    _ = stats, style
+def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
     df = _clean(panel_data)
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    original_pos = ax.get_position()
-    ax.paper_fig_panel_bounds = [float(original_pos.x0), float(original_pos.y0), float(original_pos.x1), float(original_pos.y1)]
-    ax.set_position([original_pos.x0, original_pos.y0 + original_pos.height * BOTTOM_ROW_PLOT_BOTTOM, original_pos.width, original_pos.height * BOTTOM_ROW_PLOT_HEIGHT])
-    _draw_event_fraction_bars(ax, df)
-    _compact_axis(ax, tick_size=5.0, label_size=5.4)
-    ax.paper_fig_plot_form = "event_fraction_bar_chart"
-    ax.paper_fig_value_labels = True
-    ax.paper_fig_value_label_count = 3
-    ax.paper_fig_value_labels_clear = True
-
-
-def _draw_support_schematic(ax) -> None:
-    ax.set_axis_off()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    labels = ["Sample", "Probe", "Overlap\nmask", "Probe-only\nmask", "Pre-probe\nSTSP support"]
-    boxes = [(0.05, 0.58), (0.38, 0.58), (0.70, 0.58), (0.18, 0.15), (0.55, 0.15)]
-    for (x, y), label in zip(boxes, labels):
-        ax.add_patch(_rect((x, y), 0.23, 0.25, fill=False, linewidth=0.9))
-        ax.text(x + 0.115, y + 0.125, label, ha="center", va="center")
-    ax.text(0.5, 0.04, "Support-map data missing", ha="center", va="bottom")
-
-
-def _image_array(df: pd.DataFrame, image_type: str) -> np.ndarray | None:
-    part = df[df["image_type"].eq(image_type)].copy()
-    if part.empty:
-        return None
-    x_col = "support_x" if image_type == "ux_map_pre_dynamic" else "mask_x"
-    y_col = "support_y" if image_type == "ux_map_pre_dynamic" else "mask_y"
-    val_col = "support_value" if image_type == "ux_map_pre_dynamic" else "value"
-    part[x_col] = pd.to_numeric(part[x_col], errors="coerce")
-    part[y_col] = pd.to_numeric(part[y_col], errors="coerce")
-    part[val_col] = pd.to_numeric(part[val_col], errors="coerce")
-    part = part.dropna(subset=[x_col, y_col, val_col])
-    if part.empty:
-        return None
-    width = int(part[x_col].max()) + 1
-    height = int(part[y_col].max()) + 1
-    arr = np.full((height, width), np.nan)
-    arr[part[y_col].astype(int), part[x_col].astype(int)] = part[val_col].astype(float)
-    return arr
-
-
-def _support_payload_from_panel_data(df: pd.DataFrame) -> dict[str, np.ndarray]:
-    payload: dict[str, np.ndarray] = {}
-    for image_type in ("sample_mask", "probe_mask", "ux_map_pre_dynamic"):
-        arr = _image_array(df, image_type)
-        if arr is not None:
-            payload[image_type] = np.nan_to_num(arr, nan=0.0)
-    return payload
-
-
-def _event_payload_from_panel_data(df: pd.DataFrame) -> dict[str, np.ndarray]:
-    rel = np.sort(pd.to_numeric(df.get("time_from_winner_spike", pd.Series(dtype=float)), errors="coerce").dropna().unique())
-    if rel.size == 0:
-        rel = np.asarray([0.0], dtype=float)
-    rows = []
-    inh_rows = []
-    id_col = _id_col(df)
-    for _, part in df.groupby(id_col or "condition", dropna=False):
-        by_time = part.groupby("time_from_winner_spike", dropna=False)
-        voltage = []
-        inhibition = []
-        for time_value in rel:
-            sub = by_time.get_group(time_value) if time_value in by_time.groups else pd.DataFrame()
-            voltage_values = pd.to_numeric(sub.loc[sub.get("trace_type", "").eq("winner_loser_voltage_difference"), "value"], errors="coerce")
-            inhibition_values = pd.to_numeric(sub.loc[sub.get("trace_type", "").eq("local_inhibition_change"), "value"], errors="coerce")
-            voltage.append(float(voltage_values.mean()) if not voltage_values.empty else np.nan)
-            inhibition.append(float(inhibition_values.mean()) if not inhibition_values.empty else np.nan)
-        rows.append(voltage)
-        inh_rows.append(inhibition)
-    winner = np.asarray(rows, dtype=float)
-    loser = np.zeros_like(winner)
-    inhibition = np.asarray(inh_rows, dtype=float)
-    return {
-        "relative_time": rel,
-        "winner_delta_v_aligned": winner,
-        "loser_delta_v_aligned": loser,
-        "loser_inh_before_aligned": inhibition,
-    }
-
-
-def _union_axes_bounds(axes) -> list[float]:
-    boxes = [child.get_position() for child in axes]
-    return [
-        float(min(box.x0 for box in boxes)),
-        float(min(box.y0 for box in boxes)),
-        float(max(box.x1 for box in boxes)),
-        float(max(box.y1 for box in boxes)),
-    ]
-
-
-def _paired_conditions(ax, df: pd.DataFrame, conditions: list[str]) -> None:
-    x_map = {condition: idx for idx, condition in enumerate(conditions)}
-    id_col = _id_col(df)
-    if id_col:
-        for _, part in df.groupby(id_col, dropna=False):
-            paired = part[part["condition"].isin(conditions)]
-            if paired["condition"].nunique() == len(conditions):
-                paired = paired.set_index("condition").loc[conditions].reset_index()
-                ax.plot([x_map[c] for c in paired["condition"]], paired["value"], color="0.72", linewidth=0.8, alpha=0.55)
-                ax.scatter([x_map[c] for c in paired["condition"]], paired["value"], s=12, alpha=0.65)
-    for condition in conditions:
-        vals = df[df["condition"].eq(condition)]["value"].to_numpy(dtype=float)
-        if vals.size:
-            ax.errorbar([x_map[condition]], [float(np.nanmean(vals))], yerr=[_sem(vals)], fmt="o", color="black", capsize=3)
-    ax.set_xticks(range(len(conditions)), conditions, rotation=25, ha="right")
-
-
-def _stacked_transition(ax, df: pd.DataFrame, conditions: list[str]) -> None:
-    components = [("advanced_fraction", "Advanced"), ("recruited_fraction", "Recruited"), ("lost_fraction", "Lost"), ("unchanged_fraction", "Unchanged")]
-    summary = df.groupby("condition", dropna=False)[[col for col, _ in components]].mean()
-    bottoms = np.zeros(len(conditions))
-    for col, label in components:
-        vals = np.array([summary.loc[c, col] if c in summary.index else 0.0 for c in conditions], dtype=float)
-        ax.bar(range(len(conditions)), vals, bottom=bottoms, label=label)
-        bottoms += vals
-    ax.set_xticks(range(len(conditions)), conditions, rotation=25, ha="right")
-    ax.legend(frameon=False, loc="best")
-
-
-def _trace_panel(ax, df: pd.DataFrame, value_col: str, y_label: str) -> None:
+    df = df[df["metric"].astype(str).eq("transition_fraction")].copy()
     if df.empty:
-        ax.text(0.5, 0.5, f"Missing {y_label}", transform=ax.transAxes, ha="center", va="center")
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    if value_col not in df.columns:
-        df[value_col] = df["value"]
-    id_col = _id_col(df)
-    if id_col:
-        for _, part in df.groupby(id_col, dropna=False):
-            part = part.sort_values("time_from_winner_spike")
-            ax.plot(part["time_from_winner_spike"], part[value_col], color="0.75", alpha=0.2, linewidth=0.6)
-    summary = df.groupby("time_from_winner_spike", dropna=False)[value_col].agg(["mean", "sem"]).reset_index().sort_values("time_from_winner_spike")
-    x = summary["time_from_winner_spike"].to_numpy(dtype=float)
-    y = summary["mean"].to_numpy(dtype=float)
-    sem = summary["sem"].fillna(0).to_numpy(dtype=float)
-    ax.plot(x, y, color="black", linewidth=1.0)
-    ax.fill_between(x, y - sem, y + sem, alpha=0.15)
-    ax.set_ylabel(y_label)
-
-
-def _summary_two_metric(ax, df: pd.DataFrame, spec: Mapping[str, Any]) -> None:
-    metrics = ["winner_loser_voltage_difference", "local_inhibition_change"]
-    x_map = {metric: idx for idx, metric in enumerate(metrics)}
-    for metric in metrics:
-        vals = df[df["metric"].eq(metric)]["value"].to_numpy(dtype=float)
-        if vals.size:
-            ax.errorbar([x_map[metric]], [float(np.nanmean(vals))], yerr=[_sem(vals)], fmt="o", color="black", capsize=3)
-    ax.set_xticks(range(len(metrics)), ["Voltage diff.", "Inhibition change"], rotation=20, ha="right")
-    ax.set_ylabel("Summary value")
+    ax.paper_fig_plot_form = "fig5_causal_grouped_transition_composition"
+    groups = [g for g in ("Overlap", "Probe-only") if g in set(df.get("unit_group_label", pd.Series(dtype=str)).astype(str))]
+    conditions = [c for c in ("Dynamic", "Attenuate", "Reset", "Static") if c in set(df["condition"].astype(str))]
+    x_positions: list[float] = []
+    tick_labels: list[str] = []
+    xpos = 0.0
+    for group in groups:
+        for condition in conditions:
+            x_positions.append(xpos)
+            tick_labels.append(_condition_tiny(condition))
+            xpos += 1.0
+        if group != groups[-1]:
+            xpos += 0.72
+    bar_width = 0.58
+    _draw_stacked_transition_bars(ax, df, ["unit_group_label", "condition"], [(g, c) for g in groups for c in conditions], x_positions, st=st, width=bar_width, hatch_by_condition=True)
+    ax.set_xticks(x_positions, tick_labels, rotation=0)
+    if groups:
+        centers = []
+        start = 0.0
+        for group in groups:
+            centers.append(start + (len(conditions) - 1) / 2.0)
+            start += len(conditions) + 0.72
+        for center, group in zip(centers, groups):
+            ax.text(center, 1.055, group, ha="center", va="bottom", fontsize=st["tick_labelsize"], transform=ax.get_xaxis_transform())
+    ymax = max(0.08, min(1.05, _finite_max(df.get("total_transition_mass", df["value"])) * 1.16))
+    ax.set_ylim(0, ymax)
+    ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
     ax.set_xlabel(str(spec.get("x_axis", "")))
-    _tidy(ax)
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 0.99), ncols=3, handlelength=0.9, columnspacing=0.65)
+    ax.paper_fig_legend_above_plot = False
+    ax.paper_fig_legend_ncols = 3
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_y_metric = "transition_fraction"
+    _tidy(ax, st)
 
 
-def _vertical_reference(ax, spec: Mapping[str, Any]) -> None:
-    for line in spec.get("reference_lines") or []:
-        if "x_value" in line:
-            ax.axvline(float(line["x_value"]), linestyle="--", color="0.4", linewidth=0.8)
-            if line.get("label"):
-                ax.text(float(line["x_value"]), 0.98, str(line["label"]), transform=ax.get_xaxis_transform(), ha="left", va="top")
+def render_fig5_perturbation_transition_distribution(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.paper_fig_plot_form = "fig5_perturbation_transition_distribution"
+    base_metrics = ["P_advance", "P_recruit", "P_loss", "P_unchanged"]
+    plot_df = df[df["metric"].isin(base_metrics)].copy()
+    if plot_df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    conditions = [c for c in ("Dynamic intact", "Attenuate overlap support", "Reset overlap support") if c in set(plot_df["condition"])]
+    groups = [g for g in ("Overlap-dominant", "Probe-only-dominant") if g in set(plot_df.get("unit_group_label", plot_df.get("condition", pd.Series(dtype=str))))]
+    if not groups and "unit_group" in plot_df.columns:
+        groups = [g for g in ("overlap_dominant", "probe_only_dominant") if g in set(plot_df["unit_group"])]
+    metric_colors = {
+        "P_advance": "#4C78A8",
+        "P_recruit": "#F58518",
+        "P_loss": "#E45756",
+        "P_unchanged": "#BAB0AC",
+    }
+    x_positions: list[float] = []
+    tick_labels: list[str] = []
+    bar_width = 0.58
+    xpos = 0.0
+    group_col = "unit_group_label" if "unit_group_label" in plot_df.columns else "unit_group"
+    for group in groups:
+        for condition in conditions:
+            subset = plot_df[plot_df["condition"].eq(condition) & plot_df[group_col].eq(group)]
+            bottom = 0.0
+            for metric in base_metrics:
+                vals = pd.to_numeric(subset[subset["metric"].eq(metric)]["value"], errors="coerce").dropna()
+                value = float(vals.mean()) if not vals.empty else 0.0
+                ax.bar(xpos, value, bottom=bottom, width=bar_width, color=metric_colors[metric], edgecolor="black", linewidth=0.25, label=_metric_label(metric) if xpos == 0.0 else None)
+                bottom += value
+            x_positions.append(xpos)
+            tick_labels.append(_condition_tiny(condition))
+            xpos += 1.0
+        if group != groups[-1]:
+            xpos += 0.65
+    ax.set_xticks(x_positions, tick_labels, rotation=0)
+    if groups:
+        centers = []
+        start = 0.0
+        for group in groups:
+            centers.append(start + (len(conditions) - 1) / 2.0)
+            start += len(conditions) + 0.65
+        for center, group in zip(centers, groups):
+            ax.text(center, 1.055, _wrap(UNIT_LABELS_FALLBACK.get(group, group)), ha="center", va="bottom", fontsize=st["tick_labelsize"], transform=ax.get_xaxis_transform())
+    ax.set_ylim(0, 1.08)
+    ax.set_ylabel(str(spec.get("y_axis", "Transition probability")))
+    ax.set_xlabel(str(spec.get("x_axis", "Condition")))
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 1.23), ncols=4, handlelength=0.9, columnspacing=0.7)
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = 4
+    _tidy(ax, st)
+
+
+def render_fig5_perturbation_summary(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.paper_fig_plot_form = "fig5_perturbation_effect_summary"
+    order = [label for label in [_node_label(n) for n in spec.get("nodes", [])] if label in set(df["condition"])]
+    if not order:
+        order = list(df["condition"].dropna().unique())
+    means, sems = _group_means(df, "condition", order)
+    y = np.arange(len(order), dtype=float)
+    ax.barh(y, means, xerr=sems, height=0.58, color="#D95F02", edgecolor="black", linewidth=0.35, alpha=0.86)
+    ax.axvline(0, color="0.25", linewidth=0.6)
+    ax.set_yticks(y, [_wrap(label) for label in order])
+    ax.invert_yaxis()
+    ax.set_xlabel(str(spec.get("y_axis", "Normalized overlap disruption")))
+    ax.set_ylabel("")
+    vmax = max(0.1, float(np.nanmax(np.abs(means))) if len(means) else 0.1)
+    ax.set_xlim(min(-0.05, -0.08 * vmax), vmax * 1.18)
+    _tidy(ax, st)
+
+
+def _bar_with_points(ax, df: pd.DataFrame, group_col: str, order: list[str], *, colors: list[str], st: Mapping[str, float]) -> None:
+    x = np.arange(len(order), dtype=float)
+    means, sems = _group_means(df, group_col, order)
+    ax.bar(x, means, yerr=sems, capsize=1.8, width=st["bar_width"], color=colors, edgecolor="black", linewidth=0.35, alpha=0.88)
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+
+
+def _draw_stacked_transition_bars(
+    ax,
+    df: pd.DataFrame,
+    group_keys: str | list[str],
+    order: list[Any],
+    x_positions: list[float] | np.ndarray,
+    *,
+    st: Mapping[str, float],
+    width: float | None = None,
+    hatch_by_condition: bool = False,
+) -> None:
+    transition_order = ["advance", "recruit", "loss"]
+    transition_colors = {"advance": "#4C78A8", "recruit": "#F58518", "loss": "#E45756"}
+    hatches = {"Dynamic": "", "Attenuate": "///", "Reset": "\\\\\\", "Static": "..."}
+    width = float(width if width is not None else st["bar_width"])
+    first_bar = True
+    for xpos, item in zip(x_positions, order):
+        subset = _subset_for_item(df, group_keys, item)
+        bottom = 0.0
+        condition_label = item[-1] if isinstance(item, tuple) else item
+        for transition in transition_order:
+            vals = pd.to_numeric(subset[subset.get("transition_type", pd.Series(dtype=str)).astype(str).eq(transition)]["value"], errors="coerce").dropna()
+            value = float(vals.mean()) if not vals.empty else 0.0
+            ax.bar(
+                float(xpos),
+                value,
+                bottom=bottom,
+                width=width,
+                color=transition_colors[transition],
+                edgecolor="black",
+                linewidth=0.28,
+                alpha=0.90,
+                hatch=hatches.get(str(condition_label), "") if hatch_by_condition else "",
+                label=_transition_label(transition) if first_bar else None,
+            )
+            bottom += value
+        first_bar = False
+        total_vals = _total_mass_values(subset)
+        if len(total_vals) > 1:
+            mean_total = float(total_vals.mean())
+            sem_total = float(total_vals.sem())
+            if np.isfinite(sem_total) and sem_total > 0:
+                ax.errorbar(float(xpos), mean_total, yerr=sem_total, fmt="none", ecolor="black", elinewidth=0.55, capsize=1.8, capthick=0.55, zorder=4)
+
+
+def _subset_for_item(df: pd.DataFrame, group_keys: str | list[str], item: Any) -> pd.DataFrame:
+    if isinstance(group_keys, str):
+        return df[df[group_keys].astype(str).eq(str(item))]
+    values = item if isinstance(item, tuple) else (item,)
+    mask = pd.Series(True, index=df.index)
+    for key, value in zip(group_keys, values):
+        mask &= df[key].astype(str).eq(str(value))
+    return df[mask]
+
+
+def _total_mass_values(df: pd.DataFrame) -> pd.Series:
+    if df.empty or "total_transition_mass" not in df.columns:
+        return pd.Series(dtype=float)
+    id_cols = [col for col in ("network_id", "seed_id", "trial_id", "unit_group", "perturbation_condition", "condition") if col in df.columns]
+    unique = df[id_cols + ["total_transition_mass"]].drop_duplicates()
+    return pd.to_numeric(unique["total_transition_mass"], errors="coerce").dropna()
+
+
+def _group_means(df: pd.DataFrame, group_col: str, order: list[str]) -> tuple[np.ndarray, np.ndarray]:
+    means = []
+    sems = []
+    for item in order:
+        vals = pd.to_numeric(df[df[group_col].eq(item)]["value"], errors="coerce").dropna()
+        means.append(float(vals.mean()) if not vals.empty else 0.0)
+        sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
+    return np.asarray(means, dtype=float), np.asarray(sems, dtype=float)
 
 
 def _clean(panel_data: pd.DataFrame | None) -> pd.DataFrame:
@@ -336,131 +387,82 @@ def _clean(panel_data: pd.DataFrame | None) -> pd.DataFrame:
         return pd.DataFrame()
     df = panel_data.copy()
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    for col in (
-        "advanced_plus_recruited_fraction",
-        "advanced_fraction",
-        "recruited_fraction",
-        "lost_fraction",
-        "unchanged_fraction",
-        "time_from_winner_spike",
-        "time_ms",
-        "winner_loser_voltage_difference",
-        "local_inhibition_change",
-        "fraction_of_local_events",
-    ):
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["value"])
     return df
 
 
-def _rect(*args, **kwargs):
-    from matplotlib.patches import Rectangle
-
-    return Rectangle(*args, **kwargs)
-
-
-def _sem(values: np.ndarray) -> float:
-    clean = np.asarray(values, dtype=float)
-    clean = clean[np.isfinite(clean)]
-    if clean.size <= 1:
-        return 0.0
-    return float(np.nanstd(clean, ddof=1) / np.sqrt(clean.size))
+def _style(style: Mapping[str, Any] | None) -> dict[str, float]:
+    out = dict(STYLE)
+    out.update({k: v for k, v in dict(style or {}).items() if k in out})
+    return out
 
 
-def _id_col(df: pd.DataFrame) -> str | None:
-    for col in ("seed_id", "network_id"):
-        if col in df.columns and df[col].replace("", pd.NA).dropna().nunique() > 0:
-            return col
-    return None
-
-
-def _tidy(ax) -> None:
+def _tidy(ax, st: Mapping[str, float]) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="both", labelsize=st["tick_labelsize"], width=0.55, length=2.2, pad=1.5)
+    ax.xaxis.label.set_size(st["axis_labelsize"])
+    ax.yaxis.label.set_size(st["axis_labelsize"])
 
 
-def _compact_axis(ax, *, tick_size: float = 5.2, label_size: float = 5.6) -> None:
-    ymin, ymax = ax.get_ylim()
-    yticks = [tick for tick in ax.get_yticks() if ymin <= tick <= ymax]
-    if yticks:
-        ax.set_yticks(yticks)
-    xmin, xmax = ax.get_xlim()
-    xticks = [tick for tick in ax.get_xticks() if xmin <= tick <= xmax]
-    if xticks:
-        ax.set_xticks(xticks)
-    ax.tick_params(axis="both", labelsize=tick_size, pad=1.0, length=2.0, width=0.6)
-    ax.xaxis.label.set_size(label_size)
-    ax.yaxis.label.set_size(label_size)
-    ax.xaxis.labelpad = 1.5
-    ax.yaxis.labelpad = 1.5
-    title = ax.get_title()
-    if title:
-        ax.set_title(title, fontsize=label_size)
+def _wrap(label: str) -> str:
+    return str(label).replace("Overlap-", "Overlap-\n").replace("Probe-only-", "Probe-only-\n").replace("Random ", "Random\n").replace("Early ", "Early\n").replace("Decision ", "Decision\n").replace("Spike ", "Spike\n")
 
 
-def _add_bar_value_labels(ax, *, fmt: str = "{:.1f}") -> None:
-    bars = [patch for patch in ax.patches if patch.get_width() > 0 and patch.get_height() > 0]
-    if not bars:
-        return
-    heights = np.asarray([bar.get_height() for bar in bars], dtype=float)
-    ymin, ymax = ax.get_ylim()
-    top = float(np.nanmax(heights))
-    headroom = max(0.03 * max(top, 1.0), 0.012 * (ymax - ymin if ymax > ymin else 1.0))
-    if ymax < top + 3.5 * headroom:
-        ax.set_ylim(ymin, top + 3.5 * headroom)
-        ymin, ymax = ax.get_ylim()
-    offset = 0.012 * (ymax - ymin)
-    for bar in bars:
-        value = float(bar.get_height())
-        ax.text(bar.get_x() + bar.get_width() / 2.0, value + offset, fmt.format(value), ha="center", va="bottom", fontsize=5.0, color="0.15", clip_on=True, zorder=6)
+def _metric_label(metric: str) -> str:
+    return {"P_advance": "Advance", "P_recruit": "Recruit", "P_loss": "Loss", "P_advance_plus_recruit": "Advance+recruit"}.get(metric, metric)
 
 
-def _draw_event_fraction_bars(ax, df: pd.DataFrame) -> None:
-    order = [
-        ("Winner boost", "winner\nboost", "winner_pre_spike_boost", "dynamic"),
-        ("Loser suppression", "loser\nsuppression", "loser_post_winner_suppressed", "dynamic"),
-        ("Full winner-loser sequence", "full\nchain", "full_chain_satisfied", "peak_region"),
-    ]
-    x = np.arange(len(order), dtype=float)
-    means: list[float] = []
-    sems: list[float] = []
-    colors: list[str] = []
-    for condition, _, source_pattern, color_key in order:
-        rows = df[df.get("condition", "").astype(str).eq(condition)] if "condition" in df.columns else pd.DataFrame()
-        if rows.empty and "source_event_pattern" in df.columns:
-            rows = df[df["source_event_pattern"].astype(str).eq(source_pattern)]
-        values = pd.to_numeric(rows.get("value", pd.Series(dtype=float)), errors="coerce").dropna().to_numpy(dtype=float)
-        means.append(float(np.nanmean(values)) if values.size else 0.0)
-        sems.append(_sem(values) if values.size else 0.0)
-        from src.plotting.common.colors import get_plot_color
-
-        colors.append(get_plot_color(color_key))
-    ax.bar(x, means, yerr=sems, color=colors, edgecolor="0.2", linewidth=0.65, capsize=2.0, alpha=0.90)
-    ax.set_xticks(x, [label for _, label, _, _ in order])
-    ax.set_ylabel("Fraction of local events (%)")
-    ax.set_xlabel("Local event pattern")
-    ax.set_ylim(0.0, max(100.0, max(means, default=0.0) * 1.16))
-    _add_bar_value_labels(ax, fmt="{:.0f}%")
-    ax.grid(axis="y", alpha=0.25)
-    _tidy(ax)
+def _trace_label(metric: str) -> str:
+    return {"winner_delta_v": "Winner ΔV", "loser_delta_v": "Loser ΔV", "loser_inhibition": "Inhibition received by loser"}.get(metric, metric)
 
 
-def _remove_bar_connector_lines(ax) -> bool:
-    removed = False
-    for line in list(ax.lines):
-        x = np.asarray(line.get_xdata(), dtype=float)
-        y = np.asarray(line.get_ydata(), dtype=float)
-        if x.size == 2 and y.size == 2 and np.all(np.isfinite(x)) and np.allclose(np.sort(x), [0.0, 1.0], atol=0.12):
-            line.remove()
-            removed = True
-    return removed
+def _transition_label(transition_type: str) -> str:
+    return {"advance": "Advance", "recruit": "Recruit", "loss": "Loss"}.get(transition_type, transition_type)
 
 
-def _count_bar_connector_lines(ax) -> int:
-    count = 0
-    for line in ax.lines:
-        x = np.asarray(line.get_xdata(), dtype=float)
-        y = np.asarray(line.get_ydata(), dtype=float)
-        if x.size == 2 and y.size == 2 and np.all(np.isfinite(x)) and np.allclose(np.sort(x), [0.0, 1.0], atol=0.12):
-            count += 1
-    return count
+def _condition_short(condition: str) -> str:
+    return {
+        "Dynamic intact": "Dynamic",
+        "Static frozen": "Static",
+        "Attenuate overlap support": "Attenuate",
+        "Reset overlap support": "Reset",
+        "Sham perturbation": "Sham",
+    }.get(condition, condition)
+
+
+def _condition_tiny(condition: str) -> str:
+    return {
+        "Dynamic": "Dyn.",
+        "Attenuate": "Atten.",
+        "Reset": "Reset",
+        "Static": "Static",
+        "Dynamic intact": "Same",
+        "Attenuate overlap support": "Atten.",
+        "Reset overlap support": "Reset",
+        "Sham perturbation": "Sham",
+    }.get(condition, condition)
+
+
+def _node_short(node: str) -> str:
+    return {
+        "early_recruitment": "Early\nrecruit",
+        "loser_inhibition": "Loser\ninh.",
+        "spike_similarity": "Spike\nsim.",
+        "decision_deflection": "Decision\ndeflect",
+    }.get(node, node)
+
+
+def _node_label(node: str) -> str:
+    return {
+        "early_recruitment": "Early recruitment",
+        "winner_voltage_advantage": "Winner voltage",
+        "loser_inhibition": "Loser inhibition",
+        "spike_pattern_displacement": "Spike pattern",
+        "decision_deflection": "Decision deflection",
+    }.get(node, node.replace("_", " "))
+
+
+def _finite_max(values: pd.Series) -> float:
+    vals = pd.to_numeric(values, errors="coerce").dropna()
+    return float(vals.max()) if not vals.empty else 0.0

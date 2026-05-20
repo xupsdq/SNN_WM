@@ -1,0 +1,172 @@
+figure_id: fig6_supp
+figure_title_draft: "Supplementary Fig. S11-S12: Peak-origin controls and route-peak perturbation controls"
+experiment_root: results/paper_experiments/fig6_peak_amplified_reentry
+canvas_mm:
+  width: 165
+  height: 230
+reading_order: [S11A, S11B, S11C, S11D, S11E, S11F, S12A, S12B, S12C, S12D, S12E, S12F]
+group_labels:
+  - label: Supplementary Fig. S11 - Peak-origin and overlap-interface controls
+    x_mm: 12
+    y_mm: 8
+  - label: Supplementary Fig. S12 - Route-peak perturbation and downstream controls
+    x_mm: 12
+    y_mm: 100
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig6_supp_resolved_spec.yaml
+  source_manifest: fig6_supp_source_manifest.json
+  qc_report: fig6_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  single_network_warning: true
+panels:
+  S11A:
+    panel_id: S11A
+    panel_type: peak_update_history
+    claim: Peak units differ from nonpeak controls in update history.
+    data_adapter: s11_peak_update_history_adapter
+    renderer: render_s11_peak_update_history
+    source_priority: [data/metrics/panel_b_peak_update_history_summary.csv, data/metrics/panel_b_peak_update_history.csv]
+    source_aliases: [data/metrics/supp_s11_peak_update_group_enrichment.csv]
+    position_mm: {x: 12.00, y: 18.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Unit group
+    y_axis: Update-history metric
+  S11B:
+    panel_id: S11B
+    panel_type: update_recency_model_detail
+    claim: Update-recency model details support the main model comparison.
+    data_adapter: s11_update_recency_model_detail_adapter
+    renderer: render_s11_update_recency_model_detail
+    source_priority: [data/metrics/panel_b_update_recency_model_metrics.csv, data/metrics/supp_update_recency_model_coefficients.csv]
+    source_aliases: [data/metrics/supp_s11_update_recency_model_comparison.csv, data/metrics/supp_update_recency_support_model_metrics.csv, data/metrics/supp_update_recency_support_model_coefficients.csv, data/metrics/supp_legacy_panel_b_update_recency_model_metrics.csv]
+    position_mm: {x: 62.67, y: 18.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Model / coefficient
+    y_axis: Estimate or CV R2
+  S11C:
+    panel_id: S11C
+    panel_type: peak_source_attribution
+    claim: Leave-one-item-out source attribution identifies which sequence positions contribute to peaks.
+    data_adapter: s11_peak_source_attribution_adapter
+    renderer: render_s11_peak_source_attribution
+    source_priority: [data/metrics/panel_a_peak_source_attribution_summary.csv, data/metrics/panel_a_peak_source_attribution.csv]
+    source_aliases: [data/metrics/supp_s11_leave_one_out_source_details.csv]
+    position_mm: {x: 113.33, y: 18.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Positions from end
+    y_axis: Peak support contribution
+  S11D:
+    panel_id: S11D
+    panel_type: peak_input_overlap_origin
+    claim: Recent input-overlap windows align with final peak locations.
+    data_adapter: s11_peak_input_overlap_origin_adapter
+    renderer: render_s11_peak_input_overlap_origin
+    source_priority: [data/metrics/panel_c_peak_input_overlap_similarity_summary.csv, data/metrics/panel_c_peak_input_overlap_similarity.csv, data/raw/panel_c_peak_input_overlap_example.npz]
+    source_aliases: [data/metrics/supp_s11_recent_overlap_window_robustness.csv, data/metrics/supp_recent_overlap_window_robustness.csv]
+    position_mm: {x: 12.00, y: 54.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Overlap window
+    y_axis: Peak-overlap Dice
+  S11E:
+    panel_id: S11E
+    panel_type: alternative_peak_definitions
+    claim: Peak-origin conclusions are robust to alternative peak definitions.
+    data_adapter: s11_alternative_peak_definitions_adapter
+    renderer: render_s11_alternative_peak_definitions
+    source_priority: [data/metrics/supp_alternative_peak_definitions.csv, data/metrics/supp_peak_definition_sensitivity.csv]
+    source_aliases: [data/metrics/supp_s11_alternative_peak_definitions.csv]
+    position_mm: {x: 62.67, y: 54.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Peak definition
+    y_axis: Stability
+  S11F:
+    panel_id: S11F
+    panel_type: visual_energy_classpair_controls
+    claim: Route/gain interface is not explained by visual energy or class-pair artifacts.
+    data_adapter: s11_visual_energy_classpair_controls_adapter
+    renderer: render_s11_visual_energy_classpair_controls
+    source_priority: [data/metrics/supp_visual_energy_classpair_controls.csv, data/metrics/supp_trial_condition_audit.csv]
+    source_aliases: [data/metrics/supp_s11_visual_energy_classpair_controls.csv]
+    position_mm: {x: 113.33, y: 54.00, w: 45.67, h: 30.00}
+    size_mm: {w: 45.67, h: 30.00}
+    x_axis: Diagnostic
+    y_axis: Difference
+  S12A:
+    panel_id: S12A
+    panel_type: raw_overlap_matched_reentry
+    claim: High vs low peak-weighted overlap effects hold in raw-overlap matched comparisons.
+    data_adapter: s12_raw_overlap_matched_reentry_adapter
+    renderer: render_s12_raw_overlap_matched_reentry
+    source_priority: [data/metrics/panel_d_raw_overlap_matched_peak_reentry.csv, data/metrics/panel_d_matched_raw_overlap_comparison.csv, data/metrics/supp_matched_raw_overlap_peak_comparison.csv]
+    source_aliases: [data/metrics/supp_s12_raw_overlap_matched_peak_overlap_contrast.csv, data/metrics/supp_legacy_panel_d_matched_raw_overlap_comparison.csv]
+    position_mm: {x: 12.00, y: 112.00, w: 45.67, h: 32.00}
+    size_mm: {w: 45.67, h: 32.00}
+    x_axis: Peak-overlap group
+    y_axis: Re-entry strength
+  S12B:
+    panel_id: S12B
+    panel_type: peak_overlap_regression_controls
+    claim: Peak-weighted overlap predicts re-entry after controlling for raw overlap, similarity, and energy.
+    data_adapter: s12_peak_overlap_regression_controls_adapter
+    renderer: render_s12_peak_overlap_regression_controls
+    source_priority: [data/metrics/panel_d_peak_overlap_reentry_regression.csv, data/metrics/panel_d_peak_weighted_overlap_regression.csv, data/metrics/supp_raw_vs_peak_weighted_overlap_regression.csv]
+    source_aliases: [data/metrics/supp_s12_peak_weighted_regression_controls.csv, data/metrics/supp_legacy_panel_d_peak_weighted_overlap_regression.csv]
+    position_mm: {x: 62.67, y: 112.00, w: 45.67, h: 32.00}
+    size_mm: {w: 45.67, h: 32.00}
+    x_axis: Coefficient
+    y_axis: Estimate
+  S12C:
+    panel_id: S12C
+    panel_type: real_rollout_proxy_audit
+    claim: Route-peak perturbation and proxy-mode audits define the scientific-use boundary for Fig.6D/E.
+    data_adapter: s12_real_rollout_proxy_audit_adapter
+    renderer: render_s12_real_rollout_proxy_audit
+    source_priority: [summary.json, data/metrics/panel_de_route_peak_perturbation_scientific_use_audit.csv, data/metrics/panel_d_route_peak_perturbation_audit.csv]
+    source_aliases: [data/metrics/panel_de_real_rollout_scientific_use_audit.csv, data/metrics/supp_s12_real_rollout_scientific_use_audit.csv, data/metrics/supp_trial_condition_audit.csv]
+    position_mm: {x: 113.33, y: 112.00, w: 45.67, h: 32.00}
+    size_mm: {w: 45.67, h: 32.00}
+    x_axis: Audit field
+    y_axis: Status
+  S12D:
+    panel_id: S12D
+    panel_type: downstream_metric_breakdown
+    claim: Route-peak perturbation downstream effects can be decomposed across response displacement and decision deflection metrics.
+    data_adapter: s12_downstream_metric_breakdown_adapter
+    renderer: render_s12_downstream_metric_breakdown
+    source_priority: [data/metrics/panel_e_route_peak_downstream_summary.csv, data/metrics/panel_e_route_peak_downstream_contrast.csv]
+    source_aliases: [data/metrics/supp_s12_downstream_metric_breakdown.csv, data/metrics/panel_e_real_downstream_metrics.csv, data/metrics/panel_e_peak_weighted_downstream_metrics.csv, data/metrics/panel_e_peak_overlap_downstream_regression.csv, data/metrics/panel_e_downstream_regression.csv]
+    position_mm: {x: 12.00, y: 150.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Downstream metric
+    y_axis: Effect
+  S12E:
+    panel_id: S12E
+    panel_type: global_support_spike_controls
+    claim: Peak-weighted downstream effects are not reducible to global support or spike-count controls.
+    data_adapter: s12_global_support_spike_controls_adapter
+    renderer: render_s12_global_support_spike_controls
+    source_priority: [data/metrics/supp_global_support_spike_count_controls.csv, data/metrics/supp_nonoverlap_peak_perturbation_controls.csv, data/metrics/supp_trial_condition_audit.csv]
+    source_aliases: [data/metrics/supp_s12_global_support_spike_count_controls.csv]
+    position_mm: {x: 62.67, y: 150.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Control
+    y_axis: Estimate
+  S12F:
+    panel_id: S12F
+    panel_type: peak_perturbation
+    claim: Route-peak perturbation can upgrade claim strength only if implemented, real, and control-complete.
+    data_adapter: s12_peak_perturbation_adapter
+    renderer: render_s12_peak_perturbation
+    source_priority: [data/metrics/panel_d_route_peak_reentry_loss_summary.csv, data/metrics/panel_e_route_peak_downstream_summary.csv, data/metrics/panel_de_route_peak_perturbation_scientific_use_audit.csv, summary.json]
+    source_aliases: [data/metrics/supp_s12_peak_perturbation_metrics.csv, data/metrics/supp_overlap_aligned_peak_perturbation.csv, data/metrics/supp_nonoverlap_peak_perturbation_controls.csv]
+    optional: true
+    position_mm: {x: 113.33, y: 150.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Perturbation condition
+    y_axis: Contribution metric

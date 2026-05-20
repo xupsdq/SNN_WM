@@ -35,7 +35,11 @@ def export_individual_panels(
         width_mm, height_mm = _size_mm(panel_spec.get("size_mm"))
         width = width_mm / 25.4
         height = height_mm / 25.4
-        fig, ax = plt.subplots(figsize=(width, height), dpi=300)
+        fig = plt.figure(figsize=(width, height), dpi=300)
+        if _needs_3d_axis(panel_spec):
+            ax = fig.add_subplot(111, projection="3d")
+        else:
+            ax = fig.add_subplot(111)
         renderer(ax, panel_data, stats, panel_spec, style=renderer_style)
         fig.text(0.01, 0.99, panel_id, ha="left", va="top", fontweight="bold")
         panel_paths: dict[str, str] = {}
@@ -55,6 +59,10 @@ def _size_mm(size_spec: Any) -> tuple[float, float]:
     if isinstance(size_spec, (list, tuple)) and len(size_spec) >= 2:
         return float(size_spec[0]), float(size_spec[1])
     return 50.0, 50.0
+
+
+def _needs_3d_axis(panel_spec: Mapping[str, Any]) -> bool:
+    return str(panel_spec.get("projection", "")).lower() == "3d" or str(panel_spec.get("panel_type", "")).lower() in {"3d_surface", "surface_3d"}
 
 
 def export_resolved_spec(spec: Mapping[str, Any], output_dir: Path, figure_id: str) -> Path:

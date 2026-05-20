@@ -1,0 +1,122 @@
+figure_id: fig2_supp
+figure_title_draft: "Supplementary Fig. S3-S4: Morphological and functional controls for pair-specific fused STSP states"
+experiment_root_default: results/paper_experiments/fig2_pair_fused_stsp_state
+canvas_mm:
+  width: 165
+  height: 116
+gutters_mm:
+  horizontal: 5
+  vertical: 10
+reading_order: [S3A, S3B, S3C, S4A, S4B, S4C]
+run_modes: [single_network_draft, multi_network_final]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig2_supp_resolved_spec.yaml
+  source_manifest: fig2_supp_source_manifest.json
+  qc_report: fig2_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  canvas_mm: {width: 165, height: 116}
+group_labels:
+  - label: Supplementary Fig. S3 - Morphological integration controls
+    x_mm: 12
+    y_mm: 8
+  - label: Supplementary Fig. S4 - Functional robustness controls
+    x_mm: 12
+    y_mm: 62
+panels:
+  S3A:
+    panel_id: S3A
+    claim: Whole-pair representation index is detectable across layers.
+    panel_type: layerwise_morphology
+    data_adapter: s3_wpri_across_layers_adapter
+    renderer: render_s3_wpri_across_layers
+    source_priority:
+      - data/metrics/supp_layerwise_morphology_metrics.csv
+      - data/metrics/panel_d_pair_level_organization_metrics.csv
+    position_mm: {x: 12.00, y: 18.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Layer
+    y_axis: WPRI
+    reference_lines:
+      - value: 0
+        label: 0
+  S3B:
+    panel_id: S3B
+    claim: Beyond-linear residual pair-specificity is detectable across layers.
+    panel_type: layerwise_morphology
+    data_adapter: s3_residual_across_layers_adapter
+    renderer: render_s3_residual_across_layers
+    source_priority:
+      - data/metrics/supp_layerwise_morphology_metrics.csv
+      - data/metrics/panel_d_linear_residual_pair_specificity_metrics.csv
+    position_mm: {x: 62.67, y: 18.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Layer
+    y_axis: Beyond-linear index
+    reference_lines:
+      - value: 0
+        label: 0
+  S3C:
+    panel_id: S3C
+    claim: Pair state is not fully explained by simple constituent-only or additive linear mixture models.
+    panel_type: linear_model_comparison
+    data_adapter: s3_linear_model_comparison_adapter
+    renderer: render_s3_linear_model_comparison
+    source_priority:
+      - data/metrics/supp_linear_mixture_model_comparison.csv
+      - data/metrics/panel_d_linear_mixture_fit_metrics.csv
+    model_order: [A_only, B_only, mean_AB, sum_AB, unconstrained_AB, convex_AB]
+    position_mm: {x: 113.33, y: 18.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Model
+    y_axis: "Fit R2"
+    reference_lines: []
+  S4A:
+    panel_id: S4A
+    claim: Neutral-ping pair access is robust across ping amplitude.
+    panel_type: ping_sweep
+    data_adapter: s4_ping_sweep_adapter
+    renderer: render_s4_ping_amplitude_sweep
+    source: data/metrics/supp_ping_sweep_metrics.csv
+    sweep_parameter: ping_amp
+    position_mm: {x: 12.00, y: 72.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Ping amplitude
+    y_axis: Pair-member readout (%)
+    conditions: [S0, S_A, S_B, S_AB]
+    reference_lines: []
+  S4B:
+    panel_id: S4B
+    claim: Neutral-ping pair access is robust across ping duration.
+    panel_type: ping_sweep
+    data_adapter: s4_ping_sweep_adapter
+    renderer: render_s4_ping_duration_sweep
+    source: data/metrics/supp_ping_sweep_metrics.csv
+    sweep_parameter: ping_ms
+    position_mm: {x: 62.67, y: 72.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Ping duration (ms)
+    y_axis: Pair-member readout (%)
+    conditions: [S0, S_A, S_B, S_AB]
+    reference_lines: []
+  S4C:
+    panel_id: S4C
+    claim: Pair-state completion gain persists across post-pair delay.
+    panel_type: completion_delay_gain
+    data_adapter: s4_completion_delay_adapter
+    renderer: render_s4_completion_delay_gain
+    source_priority:
+      - data/metrics/supp_completion_delay_sweep_contrast.csv
+      - data/metrics/supp_completion_delay_sweep_metrics.csv
+    position_mm: {x: 113.33, y: 72.00, w: 45.67, h: 34.00}
+    size_mm: {width: 45.67, height: 34.00}
+    x_axis: Post-pair delay (ms)
+    y_axis: Completion gain S_AB - relevant single (%)
+    reference_lines:
+      - value: 0
+        label: 0

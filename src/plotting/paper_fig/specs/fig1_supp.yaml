@@ -1,0 +1,171 @@
+figure_id: fig1_supp
+figure_title_draft: "Supplementary Fig. S1-S2: Architecture, baseline controls, and STSP substrate controls"
+canvas_mm:
+  width: 165
+  height: 220
+gutters_mm:
+  horizontal: 6
+  vertical: 6
+reading_order: [S1A, S1B, S1C, S1D, S2A, S2B, S2C, S2D, S2E]
+run_modes:
+  single_network_draft:
+    min_networks: 1
+    manuscript_status: draft_only
+  multi_network_final:
+    min_networks: 2
+    manuscript_status: final_statistics_ready
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig1_supp_resolved_spec.yaml
+  source_manifest: fig1_supp_source_manifest.json
+  qc_report: fig1_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  single_network_warning: true
+  required_decode_layers: [layer1, layer2, layer3]
+group_labels:
+  - label: Supplementary Fig. S1 - Architecture and baseline classification controls
+    x_mm: 12
+    y_mm: 6
+  - label: Supplementary Fig. S2 - Delay-dependent and substrate-specific STSP controls
+    x_mm: 12
+    y_mm: 86
+panels:
+  S1A:
+    panel_id: S1A
+    claim: Input pipeline converts static images into temporally structured spike trains while preserving spatial structure.
+    panel_type: manual_schematic
+    data_adapter: none
+    renderer: render_supp_temporal_encoding_schematic
+    source: manual_assets/fig1_s1a_temporal_encoding.svg
+    position_mm: {x: 12, y: 14, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: none
+    y_axis: none
+  S1B:
+    panel_id: S1B
+    claim: The network exposes trial-specific STSP u/x states at each layer.
+    panel_type: manual_schematic
+    data_adapter: none
+    renderer: render_supp_stsp_update_schematic
+    source: manual_assets/fig1_s1b_stsp_update.svg
+    position_mm: {x: 88.5, y: 14, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: none
+    y_axis: none
+  S1C:
+    panel_id: S1C
+    claim: Baseline performance is not driven by a small subset of digit classes.
+    panel_type: grouped_dot_bar
+    data_adapter: s1_class_recall_adapter
+    renderer: render_class_recall_by_digit
+    source: data/metrics/supp_class_recall_by_digit.csv
+    position_mm: {x: 12, y: 48, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
+    x_axis: Digit class
+    y_axis: Recall (%)
+    reference_lines:
+      - value: 10
+        label: 10% chance
+  S1D:
+    panel_id: S1D
+    claim: Trained readout produces structured class-specific decisions.
+    panel_type: heatmap
+    data_adapter: s1_confusion_matrix_adapter
+    renderer: render_confusion_matrix
+    source: data/metrics/supp_confusion_matrix_long.csv
+    position_mm: {x: 88.5, y: 48, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
+    x_axis: Predicted class
+    y_axis: True class
+  S2A:
+    panel_id: S2A
+    claim: Population spiking is reduced during delay, supporting activity-silent memory.
+    panel_type: grouped_line_or_bar
+    data_adapter: s2_phase_firing_adapter
+    renderer: render_phase_firing_rates
+    source: data/metrics/supp_phase_firing_rates.csv
+    position_mm: {x: 12, y: 94, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: Phase
+    y_axis: Spike rate (Hz)
+    conditions: [layer1, layer2, layer3]
+  S2B:
+    panel_id: S2B
+    claim: Sample identity remains decodable from STSP variables across delay periods.
+    panel_type: line_timecourse
+    data_adapter: s2_delay_decode_curve_adapter
+    renderer: render_delay_decode_timecourse
+    source_priority:
+      - data/metrics/supp_delay_decode_curve.csv
+      - data/metrics/panel_c_delay_decode_metrics.csv
+    position_mm: {x: 88.5, y: 94, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: Delay (ms)
+    y_axis: Decoding accuracy (%)
+    reference_lines:
+      - value: 10
+        label: 10% chance
+    conditions: [layer1, layer2, layer3]
+    display_labels:
+      layer1: L1
+      layer2: L2
+      layer3: L3
+  S2C:
+    panel_id: S2C
+    claim: Dynamic STSP alters probe classification relative to static-frozen STSP in a delay-dependent manner.
+    panel_type: line_timecourse
+    data_adapter: s2_dms_delay_accuracy_adapter
+    renderer: render_dms_delay_probe_accuracy
+    source: data/metrics/supp_dms_delay_sweep_metrics.csv
+    position_mm: {x: 12, y: 128, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: Delay (ms)
+    y_axis: Probe accuracy (%)
+    conditions: [dynamic_intact, static_frozen]
+    display_labels:
+      dynamic_intact: Dynamic
+      static_frozen: Static frozen
+  S2D:
+    panel_id: S2D
+    claim: Delay-dependent functional effect is summarized as static-minus-dynamic STSP interference.
+    panel_type: line_timecourse_or_bar
+    data_adapter: s2_dms_delay_contrast_adapter
+    renderer: render_stsp_interference_delay
+    source_priority:
+      - data/metrics/supp_dms_delay_sweep_contrast.csv
+      - data/metrics/supp_dms_delay_sweep_metrics.csv
+    position_mm: {x: 88.5, y: 128, w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: Delay (ms)
+    y_axis: Static - dynamic accuracy (%)
+    conditions: [static_minus_dynamic]
+  S2E:
+    panel_id: S2E
+    claim: u/x variables carry the dominant donor-specific component among tested state variables.
+    panel_type: ordered_condition_comparison
+    data_adapter: s2_substrate_specificity_adapter
+    renderer: render_substrate_shuffle_specificity
+    source_priority:
+      - data/metrics/supp_substrate_shuffle_metrics.csv
+      - data/metrics/compat_metrics_condition_summary.csv
+      - data/metrics/compat_metrics_error_bias.csv
+      - data/metrics/compat_metrics_collapse_summary.csv
+    position_mm: {x: 12, y: 164, w: 147, h: 34}
+    size_mm: {w: 147, h: 34}
+    x_axis: ""
+    y_axis: Donor attribution gain (%)
+    conditions:
+      - dynamic_intact
+      - spike_state_shuffle
+      - membrane_state_shuffle
+      - ux_trial_shuffle
+      - static_frozen
+    display_labels:
+      dynamic_intact: Dynamic
+      spike_state_shuffle: Spike shuffle
+      membrane_state_shuffle: Membrane shuffle
+      ux_trial_shuffle: u/x shuffle
+      static_frozen: Static frozen

@@ -8,23 +8,47 @@ figures:
     spec: fig1.yaml
     title: Network and STSP-state functional foundation
     status: implemented_skeleton
+  fig1_supp:
+    spec: fig1_supp.yaml
+    title: Supplementary architecture, baseline, and STSP substrate controls
+    status: implemented_skeleton
   fig2:
     spec: fig2.yaml
     title: Pair-specific fused STSP state
     status: implemented_skeleton
+  fig2_supp:
+    spec: fig2_supp.yaml
+    title: Supplementary morphological and functional Fig.2 controls
+    status: implemented_skeleton
   fig3:
     spec: fig3.yaml
-    title: Directional fused states and shifting multi-item anchors
+    title: Multi-item peak-structured STSP landscape and functional access
+    status: implemented_skeleton
+  fig3_supp:
+    spec: fig3_supp.yaml
+    title: Supplementary multi-item landscape morphology and functional controls
     status: implemented_skeleton
   fig4:
     spec: fig4.yaml
     title: Overlap-gated synaptic re-entry
     status: implemented_skeleton
+  fig4_supp:
+    spec: fig4_supp.yaml
+    title: Supplementary overlap controls and downstream decision-dynamics controls
+    status: implemented_skeleton
   fig5:
     spec: fig5.yaml
     title: Early recruitment and local competition from overlap-aligned support
     status: implemented_skeleton
+  fig5_supp:
+    spec: fig5_supp.yaml
+    title: Supplementary local transition controls and support-perturbation causal controls
+    status: implemented_skeleton
   fig6:
     spec: fig6.yaml
-    title: Recency-weighted STSP peaks implement the shifting anchor
+    title: Peak-amplified overlap-aligned re-entry
+    status: implemented_skeleton
+  fig6_supp:
+    spec: fig6_supp.yaml
+    title: Supplementary peak-origin and peak-weighted re-entry controls
     status: implemented_skeleton

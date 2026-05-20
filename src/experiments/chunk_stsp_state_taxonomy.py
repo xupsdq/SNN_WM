@@ -140,11 +140,11 @@ def build_argparser() -> argparse.ArgumentParser:
         type=str,
         default=str(DEFAULT_PATH_CONFIG.results_root / "chunk_stsp_state_taxonomy"),
     )
-    parser.add_argument("--sample-ms", type=float, default=50.0)
-    parser.add_argument("--delay1-ms", type=float, default=50.0)
-    parser.add_argument("--distractor-ms", type=float, default=50.0)
-    parser.add_argument("--delay2-ms", type=float, default=50.0)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--sample-ms", type=float, default=200.0)
+    parser.add_argument("--delay1-ms", type=float, default=400.0)
+    parser.add_argument("--distractor-ms", type=float, default=200.0)
+    parser.add_argument("--delay2-ms", type=float, default=400.0)
+    parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--max-probes", type=int, default=20)
     parser.add_argument("--samples-per-probe", type=int, default=25)
     parser.add_argument("--max-triplets", type=int, default=500)

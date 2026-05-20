@@ -8,7 +8,7 @@ from src.plotting.paper_fig.utils import add_axes_mm, mm_to_inch
 
 
 def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = None):
-    """Create the Fig.6 canvas and axes using top-left millimeter positions."""
+    """Create the Fig.6 A-F route/gain canvas using top-left millimeter positions."""
     canvas = spec["canvas_mm"]
     fig = plt.figure(figsize=(mm_to_inch(canvas["width"]), mm_to_inch(canvas["height"])), dpi=300)
     axes = {}
@@ -16,7 +16,7 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
         if selected_panels is not None and panel_id not in selected_panels:
             continue
         pos = panel.get("position_mm") or {}
-        axes[panel_id] = add_axes_mm(
+        ax = add_axes_mm(
             fig,
             pos["x"],
             pos["y"],
@@ -25,4 +25,6 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
             canvas_h_mm=canvas["height"],
             canvas_w_mm=canvas["width"],
         )
+        ax.paper_fig_axes_mm = {"x": pos["x"], "y": pos["y"], "w": pos["w"], "h": pos["h"]}
+        axes[panel_id] = ax
     return fig, axes

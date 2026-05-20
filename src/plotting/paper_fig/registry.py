@@ -121,7 +121,7 @@ def validate_registry(repo_root: Path | None = None) -> dict[str, list[str]]:
         for panel_id, panel in panels.items():
             if not panel.get("claim"):
                 failures.append(f"{fig_id}{panel_id}: missing claim")
-            if panel.get("panel_type") != "manual_schematic" and panel.get("data_adapter") in (None, ""):
+            if panel.get("panel_type") not in {"manual_schematic", "manual_or_programmatic_schematic", "programmatic_or_manual_schematic", "two_item_episode_schematic", "multi_item_sequence_schematic", "global_mechanism_schematic"} and panel.get("data_adapter") in (None, ""):
                 warnings.append(f"{fig_id}{panel_id}: data-driven panel has no adapter")
             if not panel.get("renderer"):
                 warnings.append(f"{fig_id}{panel_id}: missing renderer")
@@ -135,4 +135,3 @@ def _indexed_fig_ids() -> list[str]:
     if not isinstance(figures, Mapping):
         return []
     return [str(k) for k in figures.keys()]
-

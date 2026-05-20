@@ -1,21 +1,23 @@
 figure_id: fig2
-figure_title_draft: Two sequential inputs form a pair-specific and functionally accessible fused STSP state
+figure_title_draft: Pair-specific fused STSP state
+experiment_root_default: results/paper_experiments/fig2_pair_fused_stsp_state
+run_modes: [single_network_draft, multi_network_final]
 canvas_mm:
   width: 165
-  height: 135
+  height: 148
 gutters_mm:
-  horizontal: 6
-  vertical: 5
+  horizontal: 5
+  vertical: 7
 reading_order: [A, B, C, D, E, F]
 argument_bands:
-  - band_id: row1_protocol_reference_logic
-    label: Protocol / reference logic
+  - band_id: protocol_definition
+    label: Protocol definition
     panels: [A]
-  - band_id: row2_structural_evidence
-    label: Structural evidence
+  - band_id: morphological_fusion
+    label: Morphological fusion
     panels: [B, C, D]
-  - band_id: row3_functional_evidence
-    label: Functional evidence
+  - band_id: functional_accessibility
+    label: Functional accessibility
     panels: [E, F]
 expected_outputs:
   full_figure: [pdf, svg, png]
@@ -23,223 +25,126 @@ expected_outputs:
   resolved_spec: fig2_resolved_spec.yaml
   source_manifest: fig2_source_manifest.json
   qc_report: fig2_qc_report.md
+supplementary_outputs:
+  - supp_layerwise_morphology_metrics.csv
+  - supp_linear_mixture_model_comparison.csv
+  - supp_ping_sweep_metrics.csv
+  - supp_completion_delay_sweep_metrics.csv
+  - supp_completion_delay_sweep_contrast.csv
 qc_requirements:
   require_claims: true
   require_source_manifest: true
-  canvas_mm: {width: 165, height: 135}
+  canvas_mm: {width: 165, height: 148}
   require_position_mm: true
   require_size_mm: true
-  require_reference_lines:
-    B:
-      - value: 0
-        label: 0
-    D:
-      - value: 0
-        label: 0
-  require_n_networks:
-    B: 20
-    C: 20
-    D: 20
-    E: 20
-    F: 20
+  required_state_conditions: [S0, S_A, S_B, S_AB]
+  required_primary_layers: [layer3]
+  required_state_variables: [g]
+  required_fig2b_conditions: [S_A, S_B]
+  forbidden_fig2b_visual_metrics: [fusion_dual_score]
+  required_fig2d_metrics: [WPRI, beyond_linear_pair_index]
+  fig2d_residual_fallback: residual_pair_specificity
+  required_readout_categories: [A, B, Other, Silent]
+  required_keep_probs: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
 panels:
   A:
     panel_id: A
-    claim: >-
-      Two-item episode and reference-state logic: Item 1 is presented, followed by Delay 1,
-      then Item 2, followed by Delay 2, after which the mixed STSP state is captured and
-      compared with item-specific and pair-composite references.
+    claim: Sequential two-item input defines terminal STSP state S_AB and matched references S0, S_A, S_B.
     panel_type: manual_or_programmatic_schematic
-    renderer: render_fig2a_episode_schematic
+    renderer: render_fig2_episode_schematic
     data_adapter: none
-    size_mm: {width: 155, height: 25}
-    position_mm: {x: 9, y: 0, w: 151, h: 25}
-    content:
-      blank: true
-    source_mapping:
-      source_experiment: chunk_step2_fused_state_experiment
-      source_status: programmatic_schematic
-      reference_files:
-        - results/multi_network/chunk_step2_fused_state_experiment/runs/seed_1000/data/triplets.csv
+    size_mm: {width: 147.00, height: 24.00}
+    position_mm: {x: 12.00, y: 8.00, w: 147.00, h: 24.00}
     x_axis: none
     y_axis: none
     reference_lines: []
-    conditions: []
-    legend_semantics: none
-    stats_expected: none
-    notes: This panel is a horizontal protocol band. It should not be drawn as a vertical flowchart. It should not become a Methods-level parameter diagram. It only needs to explain the two-item episode and why B-D compare mixed state against references.
+    source_mapping:
+      source_status: programmatic_schematic
+    content:
+      sequence: [Item A, delay, Item B, delay, S_AB]
+      references: [S0, S_A, S_B, S_AB]
+      assays: [morphology, functional access]
   B:
     panel_id: B
-    claim: The mixed STSP state retains both constituents rather than being overwritten by Item 2.
-    panel_type: one_sample_dot_summary
-    renderer: render_one_sample_dot_summary
-    data_adapter: fig2_fusion_dual_score
-    size_mm: {width: 46.3333, height: 42}
-    position_mm: {x: 9, y: 34, w: 46.3333, h: 42}
-    metric: fusion_dual_score
-    preferred_layer: Layer 3
-    source_mapping:
-      source_experiment: chunk_step2_fused_state_experiment
-      preferred_files:
-        - results/multi_network/chunk_step2_fused_state_experiment/data/preprobe_fusion_metrics__by_network.csv
-      fallback_files:
-        - results/chunk_step2_fused_state_experiment/data/preprobe_fusion_metrics.csv
-      source_stem_aliases:
-        - panel_c_fusion_dual_score
-    x_axis: none
-    y_axis: Fusion dual score
-    reference_lines:
-      - value: 0
-        label: 0
-    expected_condition: Layer 3
-    conditions: [Layer 3]
-    hide_x_tick_labels: true
-    legend_semantics: none
-    stats_expected:
-      metric: fusion_dual_score
-      unit: score
-      n_networks: 20
-      reference_value: 0
-    notes: Use network-level values, ideally n=20. Show individual networks and mean +/- SEM. The main visual claim is score > 0. Avoid trial-level histograms.
+    claim: Terminal S_AB retains similarity to both constituent item states rather than collapsing to the latest item.
+    panel_type: constituent_similarity
+    renderer: render_fig2_dual_retention_constituents
+    data_adapter: fig2_dual_retention_constituent_adapter
+    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 12.00, y: 39.00, w: 45.67, h: 34.00}
+    metric: constituent_similarity
+    source: data/metrics/panel_b_dual_retention_metrics.csv
+    conditions: [S_A, S_B]
+    x_axis: Constituent reference
+    y_axis: Similarity to S_AB
+    reference_lines: []
   C:
     panel_id: C
-    claim: Experienced true pairs have higher pair-specificity scores than shuffled-pair controls, showing that the mixed state is specific to the actually experienced pair rather than a generic two-input residue.
-    panel_type: paired_condition_plot
-    renderer: render_paired_condition_plot
-    data_adapter: fig2_pair_specificity
-    size_mm: {width: 46.3333, height: 42}
-    position_mm: {x: 61.3333, y: 34, w: 46.3333, h: 42}
+    claim: S_AB is specific to the actually experienced pair rather than arbitrary pair combinations.
+    panel_type: pair_specificity
+    renderer: render_fig2_pair_specificity
+    data_adapter: fig2_pair_specificity_adapter
+    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 62.67, y: 39.00, w: 45.67, h: 34.00}
     metric: pair_specificity_score
-    conditions:
-      - True pair
-      - Shuffled pair
-    source_mapping:
-      source_experiment: chunk_step2_fused_state_experiment
-      preferred_globs:
-        - results/multi_network/chunk_step2_fused_state_experiment/runs/seed_*/data/fusion_specificity_metrics.csv
-      fallback_files:
-        - results/chunk_step2_fused_state_experiment/data/fusion_specificity_metrics.csv
-      source_stem_aliases:
-        - panel_f_true_vs_shuffled_pair_score
-        - panel_f_true_minus_shuffled_control
+    source: data/metrics/panel_c_pair_specificity_metrics.csv
+    conditions: [True pair, Shuffled pair]
     x_axis: Pair condition
-    y_axis: Pair-specificity score
+    y_axis: Pair specificity
     reference_lines: []
-    legend_semantics: pair_condition
-    stats_expected:
-      metric: pair_specificity_score
-      unit: score
-      n_networks: 20
-    notes: This is the strongest structural comparison in Fig.2. Prefer paired network-level lines or paired dots. Do not render as unrelated bars if paired values are available.
   D:
     panel_id: D
-    claim: The mixed state is better described as an experienced-pair composite than by either constituent alone.
-    panel_type: one_sample_dot_summary
-    renderer: render_wpri_density
-    data_adapter: fig2_wpri
-    size_mm: {width: 46.3333, height: 42}
-    position_mm: {x: 113.6667, y: 34, w: 46.3333, h: 42}
-    metric: whole_pair_representation_index
-    preferred_layer: Layer 3
-    source_mapping:
-      source_experiment: chunk_step2_fused_state_experiment
-      preferred_globs:
-        - results/multi_network/chunk_step2_fused_state_experiment/runs/seed_*/data/whole_over_part_metrics.csv
-      fallback_files:
-        - results/chunk_step2_fused_state_experiment/data/whole_over_part_metrics.csv
-      source_stem_aliases:
-        - panel_e_wpri_distribution
-    x_axis: WPRI
-    y_axis: Density
+    claim: S_AB shows whole-pair organization and beyond-linear residual pair-specific structure.
+    panel_type: morphology_closure
+    renderer: render_fig2_morphology_closure
+    data_adapter: fig2_morphology_closure_adapter
+    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 113.33, y: 39.00, w: 45.67, h: 34.00}
+    metric: morphology_closure
+    source_priority:
+      - data/metrics/panel_d_pair_level_organization_metrics.csv
+      - data/metrics/panel_d_linear_residual_pair_specificity_metrics.csv
+      - data/metrics/panel_d_linear_mixture_fit_metrics.csv
+    visual_metrics: [WPRI, beyond_linear_pair_index]
+    fallback_metric: residual_pair_specificity
+    x_axis: Metric
+    y_axis: Score
     reference_lines:
       - value: 0
         label: 0
-    conditions: [Layer 3]
-    legend_semantics: none
-    stats_expected:
-      metric: whole_pair_representation_index
-      unit: score
-      n_networks: 20
-      reference_value: 0
-    notes: Use network-level WPRI values, ideally n=20. The main claim is WPRI > 0. Avoid a trial-level histogram unless only trial-level data exist; if using trial-level fallback, QC must warn.
   E:
     panel_id: E
-    claim: >-
-      The fused state is functionally accessible under a neutral ping: pair-member readout
-      increases relative to no-memory baseline, and first-item accessibility is restored
-      relative to the second-item-only state.
-    panel_type: neutral_ping_functional_access
-    renderer: render_neutral_ping_functional_access
-    data_adapter: fig2_neutral_ping_access
-    size_mm: {width: 46.3333, height: 42}
-    position_mm: {x: 9, y: 84, w: 46.3333, h: 42}
-    preferred_design: two_metric_grouped_summary
-    metrics:
-      - Pair-member readout
-      - Item 1 accessibility
-    conditions:
-      - No memory
-      - Item 2 only
-      - Item 1->Item 2
-    display_conditions:
-      - No memory
-      - Item 2 only
-      - Both memories
-    source_mapping:
-      source_experiment: fig4_chunk_interaction_assay
-      preferred_files:
-        - results/multi_network/fig4_chunk_interaction_assay/data/ping_decomposed_summary__by_network.csv
-      fallback_files:
-        - results/fig4_chunk_interaction_assay/data/ping_decomposed_summary.csv
-        - results/fig4_chunk_interaction_assay/data/ping_decomposed_metrics.csv
-      source_status: data_available_needs_renderer
-    x_axis: Memory state
-    y_axis: Readout probability
+    claim: Fused pair state supports partial-cue recovery for target A.
+    panel_type: partial_cue_target_recovery
+    renderer: render_fig2_partial_cue_target
+    data_adapter: fig2_partial_cue_target_adapter
+    size_mm: {width: 70.00, height: 57.00}
+    position_mm: {x: 12.00, y: 83.00, w: 70.00, h: 57.00}
+    metric: partial_cue_target_recovery
+    source_priority:
+      - data/metrics/panel_f_partial_cue_metrics.csv
+      - data/raw/panel_f_partial_cue_trial_readout.csv
+    target_item: A
+    conditions: [S0, S_A, S_B, S_AB]
+    show_legend: false
+    x_axis: Keep probability
+    y_axis: Target A recovery (%)
     reference_lines: []
-    legend_semantics: functional_metric
-    stats_expected:
-      metric: readout_probability
-      unit: probability
-      n_networks: 20
-    notes: Do not use raw code labels like S_B or S_AB on the plot. If the source data uses S_B/S_AB internally, map them to Item 2 only and Item 1->Item 2. If only stacked readout composition is available, renderer may fall back to a stacked readout profile, but QC must warn that the preferred two-metric design was not available.
   F:
     panel_id: F
-    claim: >-
-      The fused state supports partial-cue completion: under degraded Item 1 probes,
-      the sequential Item 1→Item 2 state produces higher Item 1 recovery than Item 2-only
-      and no-memory states.
-    panel_type: partial_cue_completion
-    renderer: render_partial_cue_completion
-    data_adapter: fig2_partial_cue_completion
-    size_mm: {width: 98.6667, height: 42}
-    position_mm: {x: 61.3333, y: 84, w: 98.6667, h: 42}
-    main_metric: Item 1 recovery probability
-    summary_metric: Item 1 recovery AUC
-    conditions:
-      - No memory
-      - Item 2 only
-      - Item 1->Item 2
-    display_conditions:
-      - No memory
-      - Item 2 only
-      - Item 1→Item 2
-    source_mapping:
-      source_experiment: fig4_chunk_interaction_assay
-      preferred_files:
-        - results/multi_network/fig4_chunk_interaction_assay/data/weak_probe_A_summary__by_network.csv
-      auc_files:
-        - results/multi_network/fig4_chunk_interaction_assay/data/weak_probe_A_auc_summary__by_network.csv
-      fallback_files:
-        - results/fig4_chunk_interaction_assay/data/weak_probe_A_summary.csv
-      auc_fallback_files:
-        - results/fig4_chunk_interaction_assay/data/weak_probe_A_auc_summary.csv
-      source_status: data_available_needs_renderer
-    x_axis: Dropout level
-    y_axis: Item 1 recovery probability
+    claim: Fused pair state supports partial-cue recovery for target B.
+    panel_type: partial_cue_target_recovery
+    renderer: render_fig2_partial_cue_target
+    data_adapter: fig2_partial_cue_target_adapter
+    size_mm: {width: 70.00, height: 57.00}
+    position_mm: {x: 89.00, y: 83.00, w: 70.00, h: 57.00}
+    metric: partial_cue_target_recovery
+    source_priority:
+      - data/metrics/panel_f_partial_cue_metrics.csv
+      - data/raw/panel_f_partial_cue_trial_readout.csv
+    target_item: B
+    conditions: [S0, S_A, S_B, S_AB]
+    show_legend: true
+    x_axis: Keep probability
+    y_axis: Target B recovery (%)
     reference_lines: []
-    legend_semantics: memory_state
-    stats_expected:
-      metric: Item 1 recovery probability
-      unit: probability
-      n_networks: 20
-    notes: Main panel should be a dropout-recovery curve. Include AUC summary as an inset or compact right-side summary if data are available. Do not label the y-axis as P(pred=A); use Item 1 terminology.
