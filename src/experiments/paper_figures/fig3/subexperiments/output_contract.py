@@ -69,8 +69,8 @@ def _write_config_files(ctx: ExperimentContext) -> None:
             "population_morphology_diagnostics": "supplementary",
             "panel_d_neutral_ping": "Configured functional restore of S0/S_final followed by neutral constant-drive ping; readout is serial-position distribution.",
             "panel_e_weak_probe": "Fig.2F-compatible encoded-spike dropout weak probe; same degraded spike probe across cue_only, slot-matched singleton, and final sequence STSP states.",
-            "panel_f_region_ping": "Main Fig.3F; peak/valley/random STSP regions are pinged directly from final landscape without target images or weak cue construction.",
-            "panel_f_structural_weak_cue": "Legacy/supplement only; not the main Fig.3F source for this design version.",
+            "region_ping_scope": "Supplementary/legacy only in Fig.3; region-gated ping evidence is reserved for Fig.6 main-line support.",
+            "panel_f_structural_weak_cue": "Legacy/supplement only; not a main Fig.3 source for this design version.",
             "region_ping": {
                 "enabled": bool(cfg.run_region_ping),
                 "support_metric": str(cfg.region_ping_support_metric),
@@ -100,7 +100,7 @@ def _write_config_files(ctx: ExperimentContext) -> None:
             "fig4_weak_probe_method_compat_enabled": bool(cfg.weak_probe_mask_space == "encoded_spikes"),
             "structural_weak_cue_in_main": False,
             "panel_e": "encoded-spike dropout weak-probe completion",
-            "panel_f": "STSP-region-gated masked ping readout",
+            "region_ping_main_status": "removed_from_fig3_main; reserved for Fig.6 or supplementary audit only",
             "region_ping": {
                 "support_metric": str(cfg.region_ping_support_metric),
                 "region_q": float(cfg.region_ping_q),
@@ -144,17 +144,17 @@ def _write_config_files(ctx: ExperimentContext) -> None:
     _write_json(
         {
             "purpose": "Test whether target-foreground locations with high, low, or random final STSP support differ in weak-cue classification efficacy.",
-            "main_or_supplement": "main_fig3f_with_supplemental_controls",
+            "main_or_supplement": "supplementary_or_legacy_only",
             "target_source_main": "sequence_member_random",
             "mask_mode": str(cfg.weak_cue_mask_mode),
-            "support_map_for_ranking": "structural weak cue remains delta_G-ranked; main region ping defaults to gain_ratio_map",
+            "support_map_for_ranking": "structural weak cue remains delta_G-ranked; region ping is not part of Fig.3 main.",
             "cue_conditions": list(CUE_CONDITIONS),
             "memory_conditions": list(MEMORY_CONDITIONS),
             "primary_metric": "accuracy and memory_gain",
             "keep_fractions": list(cfg.weak_cue_keep_fractions),
             "main_keep_fraction": float(cfg.peak_cue_main_keep_fraction),
             "same_mask_used_across_memory_conditions": True,
-            "main_panel_claim": "Main Fig.3F; peak/valley/random matched foreground masks test whether high-support peak regions provide stronger memory-dependent weak-cue recovery.",
+            "main_panel_claim": "No Fig.3 main-panel claim; retained only for supplementary or legacy audit paths.",
         },
         ctx.config_dir / "structural_weak_cue_spec.json",
     )
@@ -276,7 +276,8 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
             "D": "neutral ping serial-position readout",
             "E": "singleton-matched sequence-state weak-probe completion",
         },
-        "demoted_to_supplement": ["population peak-valley prevalence", "ping recency diagnostics", "target-source and serial-position controls", "region-gated peak/valley/random ping"],
+        "removed_from_main": ["region-gated peak/valley/random ping"],
+        "demoted_to_supplement": ["population peak-valley prevalence", "ping recency diagnostics", "target-source and serial-position controls"],
         "supplement_plan": {
             "S5": "morphology and anchor controls",
             "S6": "functional controls for multi-item and peak-guided access",
@@ -302,7 +303,7 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         },
         "legacy_region_ping": {
             "enabled": bool(ctx.cfg.run_region_ping),
-            "main_status": "demoted_to_fig6_or_supplement",
+            "main_status": "removed_from_fig3_main_reserved_for_fig6_or_supplement",
             "support_metric": str(ctx.cfg.region_ping_support_metric),
             "region_q": float(ctx.cfg.region_ping_q),
             "region_conditions": list(ctx.cfg.region_ping_conditions),
@@ -317,7 +318,7 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         },
         "legacy_peak_cue_outputs_available": legacy_peak_available,
         "region_ping_outputs_available": region_available,
-        "main_fig3_region_ping_status": "supplementary_legacy_available" if bool(ctx.cfg.run_region_ping) else "not_required_for_main",
+        "main_fig3_region_ping_status": "removed_from_main_supplementary_legacy_available" if bool(ctx.cfg.run_region_ping) else "removed_from_main_not_required",
         "panel_f_peak_cue_available": bool(ctx.completed_modules.get("peak_cue_main", False)),
         "panel_f_peak_cue_missing_optional_fields": missing_panel_f_optional,
         "unseen_target_control_available": unseen_target_control_available,

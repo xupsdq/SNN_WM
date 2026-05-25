@@ -1136,7 +1136,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--max-pairs", type=int, default=500)
     parser.add_argument("--num-similarity-bins", type=int, default=5)
     parser.add_argument("--num-overlap-bins", type=int, default=3)
-    parser.add_argument("--foreground-threshold", type=float, default=0.0)
+    parser.add_argument("--foreground-threshold", type=float, default=0.1)
     parser.add_argument("--dilation-radius", type=int, default=1)
     parser.add_argument("--random-mask-candidates", type=int, default=32)
     parser.add_argument("--n-null", type=int, default=100)

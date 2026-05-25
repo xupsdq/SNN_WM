@@ -24,7 +24,6 @@ MAIN_SUBEXPERIMENTS = (
     "peak_valley_landscape",
     "neutral_ping",
     "weak_probe",
-    "region_ping",
 )
 SUPPLEMENT_SUBEXPERIMENTS = (
     "state_bank",
