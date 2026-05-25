@@ -71,13 +71,23 @@ def render_fig4_overlap_localization(ax, panel_data: pd.DataFrame | None, stats:
         return
     order = ["Low overlap", "High overlap"]
     colors = [get_plot_color("shuffled_pair"), get_plot_color("true_pair")]
-    _paired_or_dots(ax, df, order, colors)
-    ax.set_xticks([0, 1], ["Low\noverlap", "High\noverlap"])
+    x = np.arange(len(order), dtype=float)
+    means: list[float] = []
+    sems: list[float] = []
+    for condition in order:
+        vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna()
+        means.append(float(vals.mean()) if len(vals) else np.nan)
+        sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
+    ax.bar(x, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.7, zorder=1)
+    ax.set_xticks(x, order)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
     _tidy(ax)
     _compact(ax)
-    ax.paper_fig_plot_form = "fig4_overlap_localization"
+    ax.paper_fig_plot_form = "fig4_overlap_localization_bar"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_paired_lines = False
 
 
 def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -258,9 +268,6 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
         vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna()
         means.append(float(vals.mean()) if len(vals) else np.nan)
         sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
-        if len(vals):
-            jitter = np.linspace(-0.12, 0.12, len(vals)) if len(vals) > 1 else np.array([0.0])
-            ax.scatter(np.full(len(vals), x[order.index(condition)]) + jitter, vals, s=7, color=colors[order.index(condition)], alpha=0.28, zorder=3)
     ax.bar(x, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.7, zorder=1)
     label_map = {"Dynamic": "Dyn", "Overlap support": "Overlap", "Non-overlap support": "Non", "Random matched": "Random", "Static": "Static", "Static baseline": "Static"}
@@ -269,7 +276,9 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop vs static")))
     _tidy(ax)
     _compact(ax)
-    ax.paper_fig_plot_form = "fig4_overlap_perturbation"
+    ax.paper_fig_plot_form = "fig4_overlap_perturbation_bar"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_jitter_points = False
 
 
 def _draw_process_group(ax, part: pd.DataFrame, *, color: str, marker: str) -> None:

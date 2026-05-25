@@ -1,10 +1,10 @@
 figure_id: fig3_supp
-figure_title_draft: "Supplementary Fig. S5-S6: Multi-item landscape morphology and functional controls"
+figure_title_draft: "Supplementary Fig. S4: Controls for multi-item STSP morphology and functional reactivation"
 experiment_root_default: results/paper_experiments/fig3_multiitem_peak_landscape
 canvas_mm:
   width: 165
-  height: 190
-reading_order: [S5A, S5B, S5C, S5D, S6A, S6B, S6C, S6D, S6E]
+  height: 116
+reading_order: [S4A, S4B, S4C, S4D, S4E, S4F]
 run_modes:
   - single_network_draft
   - multi_network_final
@@ -16,20 +16,19 @@ expected_outputs:
 qc_requirements:
   require_claims: true
   require_source_manifest: true
-  canvas_mm: {width: 165, height: 190}
+  canvas_mm: {width: 165, height: 116}
   require_position_mm: true
   require_size_mm: true
   single_network_warning: true
 group_labels:
-  - label: Supplementary Fig. S5 - Morphology and anchor controls
+  - label: Supplementary Fig. S4 - Morphology and functional reactivation controls
     x_mm: 12
-    y_mm: 8
-  - label: Supplementary Fig. S6 - Functional controls for multi-item and peak-guided access
-    x_mm: 12
-    y_mm: 98
+    y_mm: 7
+    fontsize: 7.4
 panels:
-  S5A:
-    panel_id: S5A
+  S4A:
+    panel_id: S4A
+    legacy_panel_id: old_S5A
     claim: Peak regions show higher final support than random-matched or valley regions.
     panel_type: grouped_dot_bar
     data_adapter: s5_peak_valley_contrast_adapter
@@ -37,12 +36,15 @@ panels:
     source_priority:
       - data/metrics/supp_peak_valley_contrast.csv
       - data/metrics/panel_d_peak_valley_contrast.csv
-    position_mm: {x: 12.00, y: 18.00, w: 70.50, h: 32.00}
-    size_mm: {width: 70.50, height: 32.00}
+      - data/metrics/panel_c_example_landscape_summary.csv
+    position_mm: {x: 12.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 7.00, y: 16.00}
     x_axis: Region
     y_axis: Support
-  S5B:
-    panel_id: S5B
+  S4B:
+    panel_id: S4B
+    legacy_panel_id: old_S5B
     claim: Final support landscape is spatially concentrated rather than flat.
     panel_type: grouped_metric_summary
     data_adapter: s5_landscape_nonflatness_adapter
@@ -50,13 +52,16 @@ panels:
     source_priority:
       - data/metrics/supp_landscape_nonflatness.csv
       - data/metrics/panel_d_landscape_nonflatness.csv
-    position_mm: {x: 88.50, y: 18.00, w: 70.50, h: 32.00}
-    size_mm: {width: 70.50, height: 32.00}
+      - data/raw/panel_c_example_landscape.npz
+    position_mm: {x: 62.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 57.00, y: 16.00}
     x_axis: Metric
     y_axis: Value
     metrics: [top_q_mass_fraction, support_gini, support_cv]
-  S5C:
-    panel_id: S5C
+  S4C:
+    panel_id: S4C
+    legacy_panel_id: old_S5C
     claim: Observed peak-valley structure exceeds null expectations across sequences/networks.
     panel_type: observed_null_summary
     data_adapter: s5_peak_valley_null_adapter
@@ -66,12 +71,15 @@ panels:
       - data/metrics/supp_network_peak_valley_summary.csv
       - data/metrics/panel_d_peak_valley_prevalence.csv
       - data/metrics/panel_d_network_peak_valley_summary.csv
-    position_mm: {x: 12.00, y: 56.00, w: 70.50, h: 32.00}
-    size_mm: {width: 70.50, height: 32.00}
+      - data/metrics/panel_c_example_landscape_summary.csv
+    position_mm: {x: 112.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 107.00, y: 16.00}
     x_axis: Contrast
     y_axis: Structured fraction or observed-null contrast
-  S5D:
-    panel_id: S5D
+  S4D:
+    panel_id: S4D
+    legacy_panel_id: old_S5D
     claim: Sequence-state anchors show progressive but not purely latest-item dynamics.
     panel_type: sequence_stage_curve
     data_adapter: s5_anchor_dynamics_adapter
@@ -80,73 +88,38 @@ panels:
       - data/metrics/supp_anchor_dynamics_metrics.csv
       - data/metrics/supp_recency_only_controls.csv
       - data/metrics/panel_b_progressive_update_metrics.csv
-    position_mm: {x: 88.50, y: 56.00, w: 70.50, h: 32.00}
-    size_mm: {width: 70.50, height: 32.00}
+    position_mm: {x: 12.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 7.00, y: 69.00}
     x_axis: Sequence stage
     y_axis: Anchor COM / residual metric
-  S6A:
-    panel_id: S6A
-    claim: Neutral-ping readout has recent bias while retaining earlier-item residual mass.
-    panel_type: diagnostic_bar
-    data_adapter: s6_ping_recency_diagnostics_adapter
-    renderer: render_s6_ping_recency_diagnostics
+  S4E:
+    panel_id: S4E
+    legacy_panel_id: old_S5E
+    claim: Neutral ping recovers latest-biased readout while retaining recent and earlier residual mass.
+    panel_type: ping_recency_decomposition
+    data_adapter: s5_ping_recency_decomposition_adapter
+    renderer: render_s5_ping_recency_decomposition
     source_priority:
-      - data/metrics/supp_ping_recency_diagnostics.csv
-      - data/metrics/panel_d_ping_summary.csv
       - data/metrics/panel_d_ping_position_distribution.csv
-    position_mm: {x: 12.00, y: 108.00, w: 45.67, h: 32.00}
-    size_mm: {width: 45.67, height: 32.00}
-    x_axis: Diagnostic
+      - data/metrics/panel_d_ping_summary.csv
+      - data/metrics/supp_ping_recency_diagnostics.csv
+    position_mm: {x: 62.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 57.00, y: 69.00}
+    x_axis: Readout class
     y_axis: Readout mass
-  S6B:
-    panel_id: S6B
-    claim: Weak-probe recovery separates cue-only, slot-matched singleton, and sequence-state readout across target recency bins.
-    panel_type: weak_probe_position_stratified
-    data_adapter: s6_weak_probe_position_stratified_adapter
-    renderer: render_s6_weak_probe_position_stratified
+  S4F:
+    panel_id: S4F
+    legacy_panel_id: old_S5F
+    claim: Weak-cue recovery gain remains available across target recency bins.
+    panel_type: weak_probe_recency_gain
+    data_adapter: s5_weak_probe_recency_gain_adapter
+    renderer: render_s5_weak_probe_recency_gain
     source_priority:
       - data/metrics/panel_e_weak_probe_position_stratified_metrics.csv
-    position_mm: {x: 62.67, y: 108.00, w: 45.67, h: 32.00}
-    size_mm: {width: 45.67, height: 32.00}
+    position_mm: {x: 112.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 107.00, y: 69.00}
     x_axis: Target position bin
-    y_axis: Target recovery (%)
-  S6C:
-    panel_id: S6C
-    claim: Peak, valley, and random region-ping masks are matched for active unit count and total ping current.
-    panel_type: region_ping_current_matching
-    data_adapter: s6_region_ping_current_matching_adapter
-    renderer: render_s6_region_ping_current_matching
-    source_priority:
-      - data/metrics/panel_f_region_ping_current_matching.csv
-    position_mm: {x: 113.33, y: 108.00, w: 45.67, h: 32.00}
-    size_mm: {width: 45.67, height: 32.00}
-    x_axis: Region
-    y_axis: Matched current / units
-    metrics: [active_unit_count_mean, total_ping_current_mean]
-  S6D:
-    panel_id: S6D
-    claim: S0 region-ping control separates no-memory drive from sequence-state region-gated readout.
-    panel_type: region_ping_s0_control
-    data_adapter: s6_region_ping_s0_control_adapter
-    renderer: render_s6_region_ping_s0_control
-    source_priority:
-      - data/metrics/panel_f_region_ping_position_distribution.csv
-      - data/metrics/panel_f_region_ping_summary.csv
-    position_mm: {x: 12.00, y: 146.00, w: 96.33, h: 34.00}
-    size_mm: {width: 96.33, height: 34.00}
-    x_axis: Region / serial bin
-    y_axis: S0 readout mass
-  S6E:
-    panel_id: S6E
-    claim: Region-ping latency and amplitude controls track firing threshold without relying on weak-cue target construction.
-    panel_type: region_ping_latency
-    data_adapter: s6_region_ping_latency_adapter
-    renderer: render_s6_region_ping_latency
-    source_priority:
-      - data/metrics/supp_region_ping_amp_sweep_latency.csv
-      - data/metrics/supp_region_ping_amp_sweep_summary.csv
-      - data/metrics/panel_f_region_ping_summary.csv
-    position_mm: {x: 113.33, y: 146.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
-    x_axis: Ping amplitude / region
-    y_axis: Latency / P(seen)
+    y_axis: Recovery gain (pp)

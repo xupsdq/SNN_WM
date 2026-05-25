@@ -13,6 +13,26 @@ from src.plotting.paper_fig.utils import read_json
 
 DEFAULT_EXPERIMENT_ROOT = "results/paper_experiments/fig6_peak_amplified_reentry"
 DRAFT_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
+FIG6_SCORE_NAME = "entry_gated_stsp_gain_score"
+FIG6_SCORE_DEFINITION = "mean g_final/g_baseline over entry-active presynaptic sites in each Layer 1 receptive field"
+FIG6_SCORE_EXCLUDES = ["connection_weights", "inhibition", "voltage", "threshold", "WTA", "final_label"]
+FIG6_PRIMARY_ENDPOINT = "Layer 1 spatial spike enrichment / recruitment"
+FIG6_INTERPRETATION_BOUNDARY = (
+    "The score predicts spike enrichment in high-score regions, not one-to-one firing or final-label prediction."
+)
+FIG6_MECHANISM_STATEMENT = "Multi-item STSP fields bias Layer 1 recruitment only where later input enters the high-gain field."
+FIG6_FORBIDDEN_CLAIMS = [
+    "score predicts final label",
+    "deterministic final-label prediction",
+    "STSP alone determines firing",
+    "high STSP automatically fires without entry",
+    "connection weights define the main score",
+    "inhibition is part of the STSP score",
+    "peak-gated re-entry",
+    "route-peak perturbation",
+    "peaks = gain",
+    "overlap = route",
+]
 
 GROUP_LABELS = {
     "single_old": "Single old",
@@ -36,6 +56,636 @@ DOWNSTREAM_LABELS = {
     "response_pattern_displacement_real": "Response reshaping",
     "decision_deflection_score_real": "Decision deflection",
 }
+
+
+def build_fig6_entry_score_metadata_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6A/F metadata for the entry-gated STSP gain score and interpretation boundary."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    metric = str(spec.get("metric") or FIG6_SCORE_NAME)
+    for seed_dir in seeds:
+        gain_path = seed_dir / "data" / "metrics" / "fig6_gain_ratio_audit.csv"
+        entry_path = seed_dir / "data" / "metrics" / "fig6_entry_score_audit.csv"
+        checked_paths.extend([gain_path, entry_path])
+        if not gain_path.exists() or not entry_path.exists():
+            missing = [str(path.relative_to(seed_dir)) for path in (gain_path, entry_path) if not path.exists()]
+            warnings.append(f"{seed_dir.name}: missing required Fig.6 STSP audit files {missing}")
+            continue
+        gain_df = _read_csv_with_warning(gain_path, warnings, "Fig.6 gain-ratio audit")
+        entry_df = _read_csv_with_warning(entry_path, warnings, "Fig.6 entry-score audit")
+        if gain_df is None or entry_df is None:
+            continue
+        source_paths.extend([gain_path, entry_path])
+        rows.append(
+            _row(
+                figure_id,
+                panel_id,
+                metric,
+                "metadata",
+                "layer1",
+                seed_dir,
+                _audit_seed_fallback(gain_df, entry_df),
+                1.0,
+                "present",
+                entry_path,
+                repo_root,
+                score_name=FIG6_SCORE_NAME,
+                score_definition=FIG6_SCORE_DEFINITION,
+                score_excludes="; ".join(FIG6_SCORE_EXCLUDES),
+                primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                interpretation_boundary=FIG6_INTERPRETATION_BOUNDARY,
+                gain_ratio_audit_rows=int(len(gain_df)),
+                entry_score_audit_rows=int(len(entry_df)),
+                source_level="entry_gated_stsp_gain_score_metadata",
+                final_label_claim=False,
+            )
+        )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["metric", "condition"],
+        stats_extra=_fig6_score_stats(metric, "entry_gated_stsp_gain_score_metadata"),
+        manifest_extra=_fig6_score_manifest("entry_gated_stsp_gain_score_metadata"),
+    )
+
+
+def build_fig6_high_stsp_overlap_ablation_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6A: high-STSP-overlap ablation promoted from the older Fig.6F inset."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    checked: list[Path] = []
+    for seed_dir in seeds:
+        path, df, candidates = _first_existing(
+            seed_dir,
+            [
+                "data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv",
+                "data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv",
+            ],
+        )
+        checked.extend(candidates)
+        if path is None or df is None or df.empty:
+            warnings.append(f"Missing Fig.6A high-STSP-overlap ablation summary under {_rel(seed_dir, repo_root)}.")
+            continue
+        sources.append(path)
+        for _, r in df.iterrows():
+            value_col = _first_col(pd.DataFrame([r]), ["loss_delta_spike_probability", "delta_spike_probability_loss", "loss"])
+            if value_col is None:
+                continue
+            condition = str(r.get("loss_condition", r.get("condition", r.get("ablation_condition", "")))).strip()
+            if not condition:
+                condition = "high_stsp_overlap"
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "loss_delta_spike_probability",
+                    condition,
+                    "layer1",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get(value_col)),
+                    "probability difference",
+                    path,
+                    repo_root,
+                    sequence_id=r.get("sequence_id", ""),
+                    probe_id=r.get("probe_id", ""),
+                    probe_label=r.get("probe_label", ""),
+                    early_window_ms=_num(r.get("early_window_ms")),
+                    removed_active_area=_num(r.get("removed_active_area")),
+                    removed_input_energy=_num(r.get("removed_input_energy")),
+                    score_name=FIG6_SCORE_NAME,
+                    primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                    final_label_claim=False,
+                    high_stsp_alone_sufficient=False,
+                    legacy_source_alias=path.name.startswith("panel_f_"),
+                )
+            )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        sources,
+        checked,
+        warnings,
+        ["condition", "metric"],
+        stats_extra={
+            **_fig6_score_stats("loss_delta_spike_probability", "high_stsp_overlap_ablation_vs_matched_removal"),
+            "source_level": "high_stsp_overlap_ablation",
+        },
+        manifest_extra={
+            **_fig6_score_manifest("high_stsp_overlap_ablation_vs_matched_removal"),
+            "source_mode": "high_stsp_overlap_ablation",
+            "canonical_source": "data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv",
+            "legacy_alias_source": "data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv",
+        },
+    )
+
+
+def build_fig6_region_ping_readout_bias_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6B: region-gated ping readout mass moved from the Fig.3 ping result."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_b_region_ping_readout_bias.csv"
+        checked_paths.append(path)
+        df = _read_required_fig6_csv(path, warnings, "Fig.6B region ping readout bias")
+        if df is None:
+            continue
+        source_paths.append(path)
+        for _, r in df.iterrows():
+            condition = _entry_condition_label(r.get("entry_condition", r.get("condition", "")))
+            if "other_mass" not in df.columns:
+                warnings.append(f"{seed_dir.name}: Fig.6B source lacks optional other_mass column.")
+            for metric in ("old_mass", "middle_mass", "recent_mass", "other_mass", "silent_rate"):
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        condition,
+                        "readout",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        "fraction",
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        n_trials=_num(r.get("n_trials")),
+                        ping_active_sites=_num(r.get("ping_active_sites")),
+                        total_ping_current=_num(r.get("total_ping_current")),
+                        entry_condition=r.get("entry_condition", condition),
+                    )
+                )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["condition", "metric"],
+        stats_extra={"main_metric": "serial_readout_mass", "claim": "field_entry_topology_exposes_serial_content_bias", "mask_basis": "rho_based"},
+        manifest_extra={"main_metric": "serial_readout_mass", "claim": "field_entry_topology_exposes_serial_content_bias", "mask_basis": "rho_based"},
+    )
+
+
+def build_fig6_ping_score_spike_prediction_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6C: ping score quantiles versus early Layer 1 spike recruitment."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    metric_units = {
+        "spike_probability": "probability",
+        "mean_early_spike_count": "spike count",
+        "mean_first_spike_latency_ms": "ms",
+        "fired_site_score_percentile_mean": "percentile",
+    }
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_c_ping_score_spike_prediction.csv"
+        checked_paths.append(path)
+        df = _read_required_fig6_csv(path, warnings, "Fig.6C ping score spike prediction")
+        if df is None:
+            continue
+        source_paths.append(path)
+        for row_idx, r in df.iterrows():
+            condition = _entry_condition_label(r.get("entry_condition", r.get("condition", "")))
+            x_value = _score_quantile_x(r.get("score_quantile_bin", row_idx), row_idx)
+            for metric, unit in metric_units.items():
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        condition,
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        unit,
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        entry_condition=r.get("entry_condition", condition),
+                        early_window_ms=_num(r.get("early_window_ms")),
+                        score_quantile_bin=r.get("score_quantile_bin", ""),
+                        x_value=x_value,
+                        mean_score=_num(r.get("mean_score")),
+                        n_sites=_num(r.get("n_sites")),
+                        fired_site_count=_num(r.get("fired_site_count")),
+                        shuffled_baseline_value=_num(r.get("shuffled_baseline_value")),
+                        score_name=FIG6_SCORE_NAME,
+                        primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                    )
+                )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["condition", "metric", "score_quantile_bin"],
+        stats_extra=_fig6_score_stats("spike_probability_by_score_quantile", "ping_score_predicts_l1_recruitment"),
+        manifest_extra=_fig6_score_manifest("ping_score_predicts_l1_recruitment"),
+    )
+
+
+def build_fig6_global_ping_score_spike_prediction_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6C: global-ping STSP score quantiles versus early Layer 1 spike recruitment."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    metric_units = {
+        "spike_probability": "probability",
+        "mean_early_spike_count": "spike count",
+        "mean_first_spike_latency_ms": "ms",
+        "fired_site_score_percentile_mean": "percentile",
+    }
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_c_global_ping_score_spike_prediction.csv"
+        checked_paths.append(path)
+        df = _read_required_fig6_csv(path, warnings, "Fig.6C global-ping score spike prediction")
+        if df is None:
+            continue
+        source_paths.append(path)
+        for row_idx, r in df.iterrows():
+            x_value = _score_quantile_x(r.get("score_quantile_bin", row_idx), row_idx)
+            for metric, unit in metric_units.items():
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        "Global ping",
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        unit,
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        early_window_ms=_num(r.get("early_window_ms")),
+                        score_quantile_bin=r.get("score_quantile_bin", ""),
+                        x_value=x_value,
+                        mean_score=_num(r.get("mean_score")),
+                        n_sites=_num(r.get("n_sites")),
+                        fired_site_count=_num(r.get("fired_site_count")),
+                        score_name=FIG6_SCORE_NAME,
+                        primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                        primary_endpoint_detail="Layer 1 spatial spike enrichment / recruitment",
+                    )
+                )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["condition", "metric", "score_quantile_bin"],
+        stats_extra={
+            **_fig6_score_stats("spike_probability_by_score_quantile", "global_ping_score_predicts_l1_recruitment"),
+            "entry_type": "global_ping",
+        },
+        manifest_extra={
+            **_fig6_score_manifest("global_ping_score_predicts_l1_recruitment"),
+            "entry_type": "global_ping",
+            "source_file_contract": "data/metrics/panel_c_global_ping_score_spike_prediction.csv",
+        },
+    )
+
+
+def build_fig6_real_probe_score_spike_deflection_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6D: real-probe score quantiles versus Layer 1 firing deflection."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    metric_units = {
+        "delta_spike_probability": "probability difference",
+        "mean_delta_spike_count": "spike count difference",
+        "recruit_probability": "probability",
+        "advance_probability": "probability",
+    }
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_d_real_probe_score_spike_deflection.csv"
+        checked_paths.append(path)
+        df = _read_required_fig6_csv(path, warnings, "Fig.6D real-probe score spike deflection")
+        if df is None:
+            continue
+        source_paths.append(path)
+        for row_idx, r in df.iterrows():
+            x_value = _score_quantile_x(r.get("score_quantile_bin", row_idx), row_idx)
+            for metric, unit in metric_units.items():
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        "Real probe",
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        unit,
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        probe_id=r.get("probe_id", ""),
+                        probe_label=r.get("probe_label", ""),
+                        early_window_ms=_num(r.get("early_window_ms")),
+                        score_quantile_bin=r.get("score_quantile_bin", ""),
+                        x_value=x_value,
+                        mean_score=_num(r.get("mean_score")),
+                        n_sites=_num(r.get("n_sites")),
+                        dynamic_spike_probability=_num(r.get("dynamic_spike_probability")),
+                        baseline_spike_probability=_num(r.get("baseline_spike_probability")),
+                        valid_site_count=_num(r.get("valid_site_count")),
+                        probe_active_area=_num(r.get("probe_active_area")),
+                        prior_updated_overlap_area=_num(r.get("prior_updated_overlap_area")),
+                        score_name=FIG6_SCORE_NAME,
+                        primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                    )
+                )
+    stats_extra = _fig6_score_stats("delta_spike_probability_by_score_quantile", "real_probe_score_predicts_l1_spike_deflection")
+    stats_extra["baseline"] = "S0 or detected baseline"
+    manifest_extra = _fig6_score_manifest("real_probe_score_predicts_l1_spike_deflection")
+    manifest_extra["baseline"] = "S0 or detected baseline"
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["condition", "metric", "score_quantile_bin"],
+        stats_extra=stats_extra,
+        manifest_extra=manifest_extra,
+    )
+
+
+def build_fig6_score_basin_sparsification_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6E: sparse Layer 1 firing remains enriched in high-score basins."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    metric_units = {
+        "fired_site_score_percentile_mean": "percentile",
+        "high_score_basin_hit_rate": "fraction",
+        "enrichment_over_shuffle": "fold",
+        "shuffled_hit_rate": "fraction",
+    }
+    basin_radii: list[float] = []
+    top_quantiles: list[float] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_e_score_basin_sparsification.csv"
+        overlay_path = seed_dir / "data" / "raw" / "panel_e_example_score_spike_overlay.npz"
+        checked_paths.extend([path, overlay_path])
+        df = _read_required_fig6_csv(path, warnings, "Fig.6E score-basin sparsification")
+        if df is None:
+            continue
+        source_paths.append(path)
+        if overlay_path.exists():
+            source_paths.append(overlay_path)
+        for _, r in df.iterrows():
+            condition = _basin_condition_label(r)
+            basin_radii.append(_num(r.get("basin_radius")))
+            top_quantiles.append(_num(r.get("top_score_quantile")))
+            for metric, unit in metric_units.items():
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        condition,
+                        "layer1",
+                        seed_dir,
+                        r.get("network_seed", ""),
+                        _num(r.get(metric)),
+                        unit,
+                        path,
+                        repo_root,
+                        sequence_id=r.get("sequence_id", ""),
+                        entry_type=r.get("entry_type", ""),
+                        entry_condition=r.get("entry_condition", ""),
+                        basin_radius=_num(r.get("basin_radius")),
+                        top_score_quantile=_num(r.get("top_score_quantile")),
+                        n_fired_sites=_num(r.get("n_fired_sites")),
+                        fired_site_score_percentile_sem=_num(r.get("fired_site_score_percentile_sem")),
+                        score_name=FIG6_SCORE_NAME,
+                        primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                    )
+                )
+    stats_extra = _fig6_score_stats(
+        "fired_site_score_percentile_mean",
+        "actual_fired_sites_are_enriched_at_high_stsp_score_percentiles",
+    )
+    stats_extra["reference_percentile"] = 0.5
+    stats_extra["basin_radius"] = _first_finite(basin_radii)
+    stats_extra["top_score_quantile"] = _first_finite(top_quantiles)
+    manifest_extra = _fig6_score_manifest("actual_fired_sites_are_enriched_at_high_stsp_score_percentiles")
+    manifest_extra["main_metric"] = "fired_site_score_percentile_mean"
+    manifest_extra["reference_percentile"] = 0.5
+    manifest_extra["optional_raw"] = "data/raw/panel_e_example_score_spike_overlay.npz"
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["condition", "metric"],
+        stats_extra=stats_extra,
+        manifest_extra=manifest_extra,
+    )
+
+
+def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Fig.6E: high/low STSP by probe-overlap 2x2 recruitment test."""
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _seed_dirs(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    source_paths: list[Path] = []
+    checked_paths: list[Path] = []
+    quantiles: list[float] = []
+    thresholds: list[float] = []
+    for seed_dir in seeds:
+        recruitment_path = seed_dir / "data" / "metrics" / "panel_e_overlap_gated_stsp_recruitment.csv"
+        interaction_path = seed_dir / "data" / "metrics" / "panel_e_overlap_gated_stsp_interaction.csv"
+        checked_paths.extend([recruitment_path, interaction_path])
+        recruitment_df = _read_required_fig6_csv(recruitment_path, warnings, "Fig.6E overlap-gated STSP recruitment")
+        interaction_df = _read_required_fig6_csv(interaction_path, warnings, "Fig.6E overlap-gated STSP interaction")
+        if recruitment_df is not None:
+            source_paths.append(recruitment_path)
+            for _, r in recruitment_df.iterrows():
+                stsp_group = _stsp_group_label(r.get("stsp_group"))
+                overlap_group = _overlap_group_label(r.get("overlap_group"))
+                if not stsp_group or not overlap_group:
+                    warnings.append(f"{seed_dir.name}: Fig.6E recruitment row lacks stsp_group or overlap_group.")
+                    continue
+                quantiles.append(_num(r.get("stsp_group_quantile")))
+                thresholds.append(_num(r.get("overlap_threshold")))
+                condition = f"{stsp_group.title()} STSP + {'Overlap' if overlap_group == 'overlap' else 'No overlap'}"
+                for metric, unit in (
+                    ("delta_spike_probability", "probability difference"),
+                    ("dynamic_spike_probability", "probability"),
+                    ("baseline_spike_probability", "probability"),
+                    ("mean_delta_spike_count", "spike count difference"),
+                    ("recruit_probability", "probability"),
+                ):
+                    if metric not in recruitment_df.columns:
+                        continue
+                    rows.append(
+                        _row(
+                            figure_id,
+                            panel_id,
+                            metric,
+                            condition,
+                            "layer1",
+                            seed_dir,
+                            r.get("network_seed", ""),
+                            _num(r.get(metric)),
+                            unit,
+                            recruitment_path,
+                            repo_root,
+                            sequence_id=r.get("sequence_id", ""),
+                            probe_id=r.get("probe_id", ""),
+                            probe_label=r.get("probe_label", ""),
+                            early_window_ms=_num(r.get("early_window_ms")),
+                            stsp_group=stsp_group,
+                            overlap_group=overlap_group,
+                            x_group=overlap_group,
+                            hue_group=stsp_group,
+                            n_sites=_num(r.get("n_sites")),
+                            mean_local_stsp_score=_num(r.get("mean_local_stsp_score")),
+                            mean_probe_overlap=_num(r.get("mean_probe_overlap")),
+                            dynamic_spike_probability=_num(r.get("dynamic_spike_probability")),
+                            baseline_spike_probability=_num(r.get("baseline_spike_probability")),
+                            mean_delta_spike_count=_num(r.get("mean_delta_spike_count")),
+                            recruit_probability=_num(r.get("recruit_probability")),
+                            stsp_group_quantile=_num(r.get("stsp_group_quantile")),
+                            overlap_threshold=_num(r.get("overlap_threshold")),
+                            score_name=FIG6_SCORE_NAME,
+                            primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                        )
+                    )
+        if interaction_df is None:
+            continue
+        source_paths.append(interaction_path)
+        for _, r in interaction_df.iterrows():
+            quantiles.append(_num(r.get("stsp_group_quantile")))
+            thresholds.append(_num(r.get("overlap_threshold")))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "interaction_delta",
+                    "overlap_gated_stsp_interaction",
+                    "layer1",
+                    seed_dir,
+                    r.get("network_seed", ""),
+                    _num(r.get("interaction_delta")),
+                    "probability difference",
+                    interaction_path,
+                    repo_root,
+                    sequence_id=r.get("sequence_id", ""),
+                    probe_id=r.get("probe_id", ""),
+                    probe_label=r.get("probe_label", ""),
+                    early_window_ms=_num(r.get("early_window_ms")),
+                    stsp_group_quantile=_num(r.get("stsp_group_quantile")),
+                    overlap_threshold=_num(r.get("overlap_threshold")),
+                    stsp_effect_with_overlap=_num(r.get("stsp_effect_with_overlap")),
+                    stsp_effect_without_overlap=_num(r.get("stsp_effect_without_overlap")),
+                    high_overlap_delta=_num(r.get("high_overlap_delta")),
+                    low_overlap_delta=_num(r.get("low_overlap_delta")),
+                    high_nooverlap_delta=_num(r.get("high_nooverlap_delta")),
+                    low_nooverlap_delta=_num(r.get("low_nooverlap_delta")),
+                    n_sites_high_overlap=_num(r.get("n_sites_high_overlap")),
+                    n_sites_low_overlap=_num(r.get("n_sites_low_overlap")),
+                    n_sites_high_nooverlap=_num(r.get("n_sites_high_nooverlap")),
+                    n_sites_low_nooverlap=_num(r.get("n_sites_low_nooverlap")),
+                    score_name=FIG6_SCORE_NAME,
+                    primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                )
+            )
+    stats_extra = _fig6_score_stats("overlap_gated_delta_spike_probability", "probe_overlap_gates_high_stsp_expression")
+    stats_extra.update(
+        {
+            "interaction_metric": "interaction_delta",
+            "stsp_group_quantile": _first_finite(quantiles),
+            "overlap_threshold": _first_finite(thresholds),
+        }
+    )
+    manifest_extra = _fig6_score_manifest("probe_overlap_gates_high_stsp_expression")
+    manifest_extra.update(
+        {
+            "interaction_metric": "interaction_delta",
+            "stsp_group_quantile": _first_finite(quantiles),
+            "overlap_threshold": _first_finite(thresholds),
+            "source_file_contract": [
+                "data/metrics/panel_e_overlap_gated_stsp_recruitment.csv",
+                "data/metrics/panel_e_overlap_gated_stsp_interaction.csv",
+            ],
+        }
+    )
+    return _finish(
+        spec,
+        output_dir,
+        root,
+        seeds,
+        rows,
+        source_paths,
+        checked_paths,
+        warnings,
+        ["metric", "stsp_group", "overlap_group"],
+        stats_extra=stats_extra,
+        manifest_extra=manifest_extra,
+    )
 
 
 def build_fig6_peak_source_attribution_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -224,25 +874,19 @@ def build_fig6_route_peak_reentry_loss_adapter(spec: Mapping[str, Any], repo_roo
     sources: list[Path] = []
     checked: list[Path] = []
     for seed_dir in seeds:
-        path, _, candidates = _first_existing(
-            seed_dir,
-            [
-                "data/metrics/panel_d_route_peak_reentry_loss_summary.csv",
-                "data/raw/panel_d_route_peak_perturbation_trial_readout.csv",
-            ],
-        )
+        path = seed_dir / "data" / "metrics" / "panel_d_route_peak_reentry_loss_summary.csv"
         contrast_path = seed_dir / "data" / "metrics" / "panel_d_route_peak_reentry_loss_contrast.csv"
-        audit_path = seed_dir / "data" / "metrics" / "panel_de_route_peak_perturbation_scientific_use_audit.csv"
-        checked.extend(candidates + [contrast_path, audit_path])
-        if path is None:
-            warnings.append(f"Missing Fig.6D route-peak perturbation source under {_rel(seed_dir, repo_root)}.")
-            continue
-        sources.append(path)
-        if contrast_path.exists():
-            sources.append(contrast_path)
-        if audit_path.exists():
-            sources.append(audit_path)
-        df = pd.read_csv(path)
+        audit_path = seed_dir / "data" / "metrics" / "panel_d_route_peak_perturbation_audit.csv"
+        scientific_audit_path = seed_dir / "data" / "metrics" / "panel_de_route_peak_perturbation_scientific_use_audit.csv"
+        checked.extend([path, contrast_path, audit_path, scientific_audit_path])
+        df = _read_required_route_peak_csv(path, "Fig.6D route-peak re-entry summary")
+        _read_required_route_peak_csv(contrast_path, "Fig.6D route-peak re-entry contrast")
+        audit = _read_required_route_peak_csv(audit_path, "Fig.6D route-peak perturbation audit")
+        scientific_audit = _read_required_route_peak_csv(scientific_audit_path, "Fig.6D/E route-peak scientific-use audit")
+        _validate_route_peak_summary(df, panel="D", value_col="mean_normalized_reentry_loss")
+        _validate_route_peak_audit(audit, "Fig.6D route-peak perturbation audit")
+        _validate_route_peak_audit(scientific_audit, "Fig.6D/E route-peak scientific-use audit")
+        sources.extend([path, contrast_path, audit_path, scientific_audit_path])
         rows.extend(_route_peak_reentry_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
     return _finish(
         spec,
@@ -266,25 +910,18 @@ def build_fig6_route_peak_downstream_adapter(spec: Mapping[str, Any], repo_root:
     sources: list[Path] = []
     checked: list[Path] = []
     for seed_dir in seeds:
-        path, _, candidates = _first_existing(
-            seed_dir,
-            [
-                "data/metrics/panel_e_route_peak_downstream_summary.csv",
-                "data/raw/panel_e_route_peak_downstream_trial_readout.csv",
-            ],
-        )
+        path = seed_dir / "data" / "metrics" / "panel_e_route_peak_downstream_summary.csv"
         contrast_path = seed_dir / "data" / "metrics" / "panel_e_route_peak_downstream_contrast.csv"
         dist_path = seed_dir / "data" / "metrics" / "panel_e_route_peak_output_distribution.csv"
         audit_path = seed_dir / "data" / "metrics" / "panel_de_route_peak_perturbation_scientific_use_audit.csv"
-        checked.extend(candidates + [contrast_path, dist_path, audit_path])
-        if path is None:
-            warnings.append(f"Missing Fig.6E route-peak downstream source under {_rel(seed_dir, repo_root)}.")
-            continue
-        sources.append(path)
-        for extra in (contrast_path, dist_path, audit_path):
-            if extra.exists():
-                sources.append(extra)
-        df = pd.read_csv(path)
+        checked.extend([path, contrast_path, dist_path, audit_path])
+        df = _read_required_route_peak_csv(path, "Fig.6E route-peak downstream summary")
+        _read_required_route_peak_csv(contrast_path, "Fig.6E route-peak downstream contrast")
+        _read_required_route_peak_csv(dist_path, "Fig.6E route-peak output distribution")
+        audit = _read_required_route_peak_csv(audit_path, "Fig.6D/E route-peak scientific-use audit")
+        _validate_route_peak_summary(df, panel="E", value_col="P_output_switch")
+        _validate_route_peak_audit(audit, "Fig.6D/E route-peak scientific-use audit")
+        sources.extend([path, contrast_path, dist_path, audit_path])
         rows.extend(_route_peak_downstream_rows(figure_id, panel_id, seed_dir, path, repo_root, df))
     return _finish(
         spec,
@@ -645,39 +1282,36 @@ def build_fig6_global_mechanism_adapter(spec: Mapping[str, Any], repo_root: Path
         summary = read_json(summary_path) if summary_path.exists() else {}
         if metadata_path.exists():
             sources.append(metadata_path)
-        if summary_path.exists():
-            sources.append(summary_path)
-        if not metadata and not summary:
+        if not metadata:
             warnings.append(f"Missing Fig.6F mechanism metadata under {_rel(seed_dir, repo_root)}.")
             continue
-        perturb_implemented = _bool_value(metadata.get("peak_perturbation_implemented", summary.get("peak_perturbation_implemented", False)))
-        perturb_success = _bool_value(metadata.get("peak_perturbation_successful", summary.get("peak_perturbation_successful", False)))
-        allowed = str(summary.get("allowed_claim_strength", metadata.get("allowed_claim_strength", "predictive_peak_amplified")))
         rows.append(
             _row(
                 figure_id,
                 panel_id,
                 "mechanism_statement",
-                "Overlap route plus peak gain",
+                "overlap_gated_stsp_recruitment",
                 "mechanism",
                 seed_dir,
                 summary.get("network_seed", ""),
                 1.0,
                 "present",
-                metadata_path if metadata_path.exists() else summary_path,
+                metadata_path,
                 repo_root,
-                route_statement="overlap = route",
-                gain_statement="peaks = gain",
-                mechanism_statement="predictive peak-amplified overlap-aligned re-entry",
-                allowed_claim_strength=allowed,
+                mechanism_statement=FIG6_MECHANISM_STATEMENT,
+                route_statement="probe entry gates STSP expression",
+                gain_statement="entry-gated high-STSP field biases early Layer 1 recruitment",
+                score_name=FIG6_SCORE_NAME,
+                score_definition=FIG6_SCORE_DEFINITION,
+                score_excludes="; ".join(FIG6_SCORE_EXCLUDES),
+                primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                final_label_claim=False,
+                high_stsp_alone_sufficient=False,
+                forbidden_claims="; ".join(FIG6_FORBIDDEN_CLAIMS),
                 proxy_mode=_bool_value(summary.get("proxy_mode", False)),
                 final_scientific_use=_bool_value(summary.get("final_scientific_use", True)),
-                peak_perturbation_implemented=perturb_implemented,
-                peak_perturbation_successful=perturb_success,
-                formula_proxy_reentry_removed_from_main=_bool_value(summary.get("formula_proxy_reentry_removed_from_main", False)),
                 fig6_design_version=str(summary.get("fig6_design_version", "")),
                 figure_chain="; ".join(_figure_chain(metadata)),
-                forbidden_language="; ".join(_forbidden_language(metadata, summary)),
             )
         )
     return _finish(
@@ -690,9 +1324,144 @@ def build_fig6_global_mechanism_adapter(spec: Mapping[str, Any], repo_root: Path
         checked,
         warnings,
         ["metric", "condition"],
-        stats_extra={"source_level": "global_mechanism", "allowed_claim_strength": _claim_strength(seeds)},
-        manifest_extra={"source_mode": "global_mechanism", "claim_strength": _claim_strength(seeds), "forbidden_language": _forbidden_language_from_seeds(seeds)},
+        stats_extra={
+            **_fig6_score_stats("mechanism_statement", "overlap_gated_stsp_recruitment_synthesis"),
+            "source_level": "global_mechanism",
+            "final_label_claim": False,
+            "high_stsp_alone_sufficient": False,
+        },
+        manifest_extra={
+            **_fig6_score_manifest("overlap_gated_stsp_recruitment_synthesis"),
+            "source_mode": "global_mechanism",
+            "mechanism_statement": FIG6_MECHANISM_STATEMENT,
+            "final_label_claim": False,
+            "high_stsp_alone_sufficient": False,
+            "forbidden_claims": FIG6_FORBIDDEN_CLAIMS,
+            "pure_mechanism_schematic": True,
+        },
     )
+
+
+def _fig6_score_stats(main_metric: str, claim: str) -> dict[str, Any]:
+    return {
+        "main_metric": main_metric,
+        "claim": claim,
+        "score_name": FIG6_SCORE_NAME,
+        "score_definition": FIG6_SCORE_DEFINITION,
+        "score_excludes": list(FIG6_SCORE_EXCLUDES),
+        "primary_endpoint": FIG6_PRIMARY_ENDPOINT,
+        "interpretation_boundary": FIG6_INTERPRETATION_BOUNDARY,
+    }
+
+
+def _fig6_score_manifest(claim: str) -> dict[str, Any]:
+    return {
+        "score_name": FIG6_SCORE_NAME,
+        "score_definition": FIG6_SCORE_DEFINITION,
+        "score_excludes": list(FIG6_SCORE_EXCLUDES),
+        "primary_endpoint": FIG6_PRIMARY_ENDPOINT,
+        "interpretation_boundary": FIG6_INTERPRETATION_BOUNDARY,
+        "claim": claim,
+    }
+
+
+def _read_required_fig6_csv(path: Path, warnings: list[str], label: str) -> pd.DataFrame | None:
+    if not path.exists():
+        warnings.append(f"{label} missing required source: {path}")
+        return None
+    return _read_csv_with_warning(path, warnings, label)
+
+
+def _read_csv_with_warning(path: Path, warnings: list[str], label: str) -> pd.DataFrame | None:
+    try:
+        df = pd.read_csv(path)
+    except Exception as exc:
+        warnings.append(f"{label} unreadable at {path}: {exc}")
+        return None
+    if df.empty:
+        warnings.append(f"{label} empty at {path}")
+        return None
+    return df
+
+
+def _audit_seed_fallback(*frames: pd.DataFrame) -> Any:
+    for df in frames:
+        for col in ("network_seed", "seed_id", "seed"):
+            if col in df.columns and len(df[col].dropna()):
+                return df[col].dropna().iloc[0]
+    return ""
+
+
+def _entry_condition_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    key = raw.lower().replace("_", " ").replace("-", " ")
+    if "peak" in key:
+        return "Peak ping"
+    if "valley" in key:
+        return "Valley ping"
+    if "random" in key:
+        return "Random ping"
+    return raw or "Ping"
+
+
+def _stsp_group_label(value: Any) -> str:
+    raw = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if raw in {"high", "high_stsp", "top", "top_stsp"}:
+        return "high"
+    if raw in {"low", "low_stsp", "bottom", "bottom_stsp"}:
+        return "low"
+    return raw if raw in {"high", "low"} else ""
+
+
+def _overlap_group_label(value: Any) -> str:
+    raw = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if raw in {"overlap", "with_overlap", "high_overlap", "probe_overlap"}:
+        return "overlap"
+    if raw in {"no_overlap", "without_overlap", "low_overlap", "nonoverlap", "none"}:
+        return "no_overlap"
+    return raw if raw in {"overlap", "no_overlap"} else ""
+
+
+def _score_quantile_x(value: Any, fallback_index: int) -> float:
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return float(fallback_index)
+    text = str(value).strip()
+    parsed = _num(text)
+    if math.isfinite(parsed):
+        return parsed
+    cleaned = text.replace("%", "").replace("q", "").replace("Q", "")
+    for sep in ("-", "_", "to", ":"):
+        if sep in cleaned:
+            parts = [part.strip() for part in cleaned.split(sep) if part.strip()]
+            nums = [_num(part) for part in parts]
+            nums = [num for num in nums if math.isfinite(num)]
+            if nums:
+                return float(sum(nums) / len(nums))
+    digits = "".join(ch if ch.isdigit() or ch == "." else " " for ch in text).split()
+    nums = [_num(part) for part in digits]
+    nums = [num for num in nums if math.isfinite(num)]
+    if nums:
+        return float(sum(nums) / len(nums))
+    return float(fallback_index)
+
+
+def _basin_condition_label(row: Mapping[str, Any]) -> str:
+    entry_type = str(row.get("entry_type", "") or "").strip().lower()
+    entry_condition = str(row.get("entry_condition", "") or "").strip()
+    if entry_type == "ping":
+        return "Ping"
+    if entry_type in {"real_probe", "probe", "real probe"}:
+        return "Real probe"
+    if entry_condition:
+        return _entry_condition_label(entry_condition) if "ping" in entry_condition.lower() else entry_condition
+    return str(row.get("entry_type", "") or "Entry")
+
+
+def _first_finite(values: Sequence[float]) -> float | None:
+    for value in values:
+        if math.isfinite(float(value)):
+            return float(value)
+    return None
 
 
 def _position_from_end(row: Mapping[str, Any]) -> float:
@@ -900,6 +1669,7 @@ def _route_peak_downstream_rows(figure_id: str, panel_id: str, seed_dir: Path, p
                     perturbation_unit_set=unit_set,
                     x_value=float(_unit_set_order(unit_set)),
                     y_value=value,
+                    sem=_num(r.get("sem_output_switch")),
                     n_trials=r.get("n_trials", ""),
                     n_valid_trials=r.get("n_valid_trials", ""),
                     mean_response_displacement_loss=_num(r.get("mean_response_displacement_loss")),
@@ -931,6 +1701,53 @@ def _route_peak_downstream_rows(figure_id: str, panel_id: str, seed_dir: Path, p
             )
         )
     return rows
+
+
+def _read_required_route_peak_csv(path: Path, label: str) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} is required for formal Fig.6 D/E build: {path}")
+    df = pd.read_csv(path)
+    if df.empty:
+        raise RuntimeError(f"{label} is empty; formal Fig.6 D/E build requires valid route-peak perturbation data: {path}")
+    return df
+
+
+def _validate_route_peak_summary(df: pd.DataFrame, *, panel: str, value_col: str) -> None:
+    if value_col not in df.columns:
+        raise RuntimeError(f"Fig.6{panel} route-peak summary missing required column {value_col}.")
+    values = pd.to_numeric(df[value_col], errors="coerce")
+    if not values.notna().any():
+        raise RuntimeError(f"Fig.6{panel} required route-peak perturbation data missing or invalid: {value_col} is all NaN.")
+    if "n_valid_trials" not in df.columns:
+        raise RuntimeError(f"Fig.6{panel} route-peak summary missing n_valid_trials.")
+    valid = pd.to_numeric(df["n_valid_trials"], errors="coerce").fillna(0)
+    if not valid.gt(0).any():
+        raise RuntimeError("Fig.6D/E required route-peak perturbation data missing or invalid.")
+    present = set(df.get("perturbation_unit_set", pd.Series(dtype=str)).astype(str))
+    missing = [unit_set for unit_set in ("route_peak", "route_nonpeak", "nonroute_peak", "random_matched") if unit_set not in present]
+    invalid = [
+        unit_set
+        for unit_set in ("route_peak", "route_nonpeak", "nonroute_peak", "random_matched")
+        if unit_set in present
+        and pd.to_numeric(df.loc[df["perturbation_unit_set"].astype(str).eq(unit_set), "n_valid_trials"], errors="coerce").fillna(0).sum() <= 0
+    ]
+    if missing or invalid:
+        raise RuntimeError(
+            "Fig.6D/E required route-peak perturbation data missing or invalid: "
+            f"missing_unit_sets={missing or 'none'}, invalid_unit_sets={invalid or 'none'}."
+        )
+
+
+def _validate_route_peak_audit(df: pd.DataFrame, label: str) -> None:
+    success = _bool_series(df.get("route_peak_perturbation_success", pd.Series(dtype=object))).any()
+    final_use = _bool_series(df.get("final_scientific_use", pd.Series(dtype=object))).any()
+    proxy = _bool_series(df.get("proxy_mode", pd.Series(dtype=object))).any()
+    claim = set(df.get("allowed_claim_strength", pd.Series(dtype=str)).astype(str))
+    if proxy:
+        raise RuntimeError(f"{label} reports proxy_mode=true; formal Fig.6 D/E build forbids proxy outputs.")
+    if not success or not final_use or "causal_route_peak_gain" not in claim:
+        reason = ";".join(str(v) for v in df.get("failure_reason", pd.Series(dtype=str)).dropna().tolist() if str(v).strip())
+        raise RuntimeError(f"{label} did not clear formal Fig.6 D/E scientific-use audit. failure_reason={reason or 'not reported'}")
 
 
 def _parse_overlap_window(value: Any) -> tuple[str, float]:

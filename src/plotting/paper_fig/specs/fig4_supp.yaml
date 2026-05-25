@@ -1,17 +1,14 @@
 figure_id: fig4_supp
-figure_title_draft: "Supplementary Fig. S7-S8: Overlap controls and downstream decision-dynamics controls"
+figure_title_draft: "Supplementary Fig. S5: Controls for overlap-aligned re-entry and downstream decision dynamics"
 experiment_root: results/paper_experiments/fig4_overlap_reentry
 canvas_mm:
   width: 165
-  height: 228
-reading_order: [S7A, S7B, S7C, S7D, S7E, S8A, S8B, S8C, S8D]
+  height: 128
+reading_order: [S5A, S5B, S5C, S5D, S5E]
 group_labels:
-  - label: Supplementary Fig. S7 - Overlap transition and similarity-dissociation controls
+  - label: Supplementary Fig. S5 - Overlap controls and downstream decision-dynamics controls
     x_mm: 12
     y_mm: 8
-  - label: Supplementary Fig. S8 - Decision-dynamics and trajectory-deflection controls
-    x_mm: 12
-    y_mm: 138
 expected_outputs:
   full_figure: [pdf, svg, png]
   individual_panels: [svg, png]
@@ -25,102 +22,72 @@ qc_requirements:
   require_size_mm: true
   single_network_warning: true
 panels:
-  S7A:
-    panel_id: S7A
-    panel_type: similarity_full_trend
-    claim: Similarity-bin relationship is stable across the full pair-level distribution.
-    data_adapter: s7_similarity_full_trend_adapter
-    renderer: render_s7_similarity_full_trend
-    source_priority: [data/metrics/panel_b_similarity_entry_metrics.csv, data/metrics/panel_b_similarity_bin_summary.csv]
-    position_mm: {x: 12.00, y: 18.00, w: 70.50, h: 28.00}
-    size_mm: {w: 70.50, h: 28.00}
-    x_axis: Similarity bin
+  S5A:
+    panel_id: S5A
+    legacy_panel_id: old_S7A
+    panel_type: similarity_overlap_2x2
+    claim: Similarity defines the re-entry regime, while overlap separates high- and low-effect cases within that regime.
+    data_adapter: s7_similarity_overlap_2x2_adapter
+    renderer: render_s7_similarity_overlap_2x2
+    source_priority: [data/metrics/supp_overlap_similarity_2x2.csv]
+    plot_metric: acc_drop
+    position_mm: {x: 12.00, y: 24.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    panel_label_mm: {x: 9.00, y: 14.00}
+    x_axis: Similarity group
     y_axis: Accuracy drop
-  S7B:
-    panel_id: S7B
-    panel_type: matching_diagnostics
-    claim: High- and low-overlap matched sets are balanced for visual similarity and input energy.
-    data_adapter: s7_matching_diagnostics_adapter
-    renderer: render_s7_matching_diagnostics
-    source_priority: [data/metrics/panel_d_matching_balance_diagnostics.csv, data/metrics/panel_d_iso_similarity_matched_pairs.csv, data/metrics/panel_c_overlap_matched_comparison.csv]
-    position_mm: {x: 88.50, y: 18.00, w: 70.50, h: 28.00}
-    size_mm: {w: 70.50, h: 28.00}
-    x_axis: Diagnostic metric
-    y_axis: Difference
-  S7C:
-    panel_id: S7C
-    panel_type: iso_similarity_matching
-    claim: Overlap predicts drop events even under iso-similarity matching.
-    data_adapter: s7_iso_similarity_matching_adapter
-    renderer: render_s7_iso_similarity_matching
-    source_priority: [data/metrics/panel_d_iso_similarity_matched_pairs.csv, data/metrics/panel_d_overlap_accuracy_contrast_by_network.csv, data/metrics/panel_d_matching_balance_diagnostics.csv]
-    position_mm: {x: 12.00, y: 52.00, w: 147.00, h: 38.00}
-    size_mm: {w: 147.00, h: 38.00}
-    x_axis: Matched overlap group
-    y_axis: Drop event rate / high-minus-low delta
-  S7D:
-    panel_id: S7D
-    panel_type: overlap_regression
-    claim: Overlap effect remains after controlling for similarity and energy.
+  S5B:
+    panel_id: S5B
+    legacy_panel_id: old_S7B
+    panel_type: overlap_excess_iso_similarity
+    claim: Overlap-excess bins show larger accuracy loss after similarity stratification.
+    data_adapter: s7_overlap_excess_adapter
+    renderer: render_s7_overlap_excess
+    source_priority: [data/metrics/supp_overlap_excess_accuracy_metrics.csv, data/metrics/supp_overlap_matching_diagnostics.csv]
+    plot_metric: mean_acc_drop
+    position_mm: {x: 62.67, y: 24.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    panel_label_mm: {x: 59.67, y: 14.00}
+    x_axis: Overlap-excess group
+    y_axis: Accuracy drop
+  S5C:
+    panel_id: S5C
+    legacy_panel_id: old_S7C
+    panel_type: overlap_regression_controls
+    claim: Overlap remains the dominant positive predictor after controlling for similarity and input energy.
     data_adapter: s7_overlap_regression_adapter
     renderer: render_s7_overlap_regression
     source_priority: [data/metrics/supp_overlap_similarity_regression.csv, data/metrics/panel_c_overlap_localization_metrics.csv]
-    position_mm: {x: 12.00, y: 96.00, w: 70.50, h: 30.00}
-    size_mm: {w: 70.50, h: 30.00}
-    x_axis: Coefficient
-    y_axis: Estimate
-  S7E:
-    panel_id: S7E
-    panel_type: random_nonoverlap_perturbation
-    claim: Perturbation controls separate accuracy-drop preservation from random-matched and non-overlap support.
-    data_adapter: s7_random_nonoverlap_perturbation_adapter
-    renderer: render_s7_random_nonoverlap_perturbation
-    source_priority: [data/metrics/supp_overlap_preserving_perturbation_metrics.csv, data/metrics/supp_random_mask_perturbation_controls.csv, data/metrics/panel_d_overlap_perturbation_metrics.csv]
-    position_mm: {x: 88.50, y: 96.00, w: 70.50, h: 30.00}
-    size_mm: {w: 70.50, h: 30.00}
-    x_axis: Perturbation condition
-    y_axis: Accuracy drop vs static
-  S8A:
-    panel_id: S8A
-    panel_type: time_resolved_l3
-    claim: Time-resolved L3 displacement effect is robust across full perturbation conditions.
-    data_adapter: s8_time_resolved_l3_adapter
-    renderer: render_s8_time_resolved_l3
-    source: data/metrics/panel_e_time_resolved_l3_displacement.csv
-    position_mm: {x: 12.00, y: 148.00, w: 70.50, h: 30.00}
-    size_mm: {w: 70.50, h: 30.00}
-    x_axis: Probe time
-    y_axis: L3 dynamic-pattern index
-  S8B:
-    panel_id: S8B
+    plotted_outcomes: [DPI_L3, acc_drop]
+    position_mm: {x: 113.33, y: 24.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    panel_label_mm: {x: 110.33, y: 14.00}
+    x_axis: Regression term
+    y_axis: Coefficient
+  S5D:
+    panel_id: S5D
+    legacy_panel_id: old_S7D
+    panel_type: perturbation_specificity_contrast
+    claim: Preserving overlap support yields larger L3 recovery than non-overlap or random matched support under the same perturbation audit.
+    data_adapter: s7_perturbation_specificity_contrast_adapter
+    renderer: render_s7_perturbation_specificity_contrast
+    source_priority: [data/metrics/panel_d_overlap_perturbation_contrast.csv, data/metrics/supp_random_mask_perturbation_controls.csv, data/metrics/panel_d_l1_stsp_overlap_perturbation_audit.csv]
+    plot_metric: DPI_L3_contrast
+    position_mm: {x: 12.00, y: 82.00, w: 70.50, h: 34.00}
+    size_mm: {w: 70.50, h: 34.00}
+    panel_label_mm: {x: 9.00, y: 72.00}
+    x_axis: Contrast
+    y_axis: L3 DPI difference
+  S5E:
+    panel_id: S5E
+    legacy_panel_id: old_S7E
     panel_type: decision_spike_summary
-    claim: Decision-spike or readout-step displacement summarizes the time-resolved L3 effect.
-    data_adapter: s8_decision_spike_summary_adapter
-    renderer: render_s8_decision_spike_summary
-    source: data/metrics/panel_e_decision_spike_displacement.csv
-    position_mm: {x: 88.50, y: 148.00, w: 70.50, h: 30.00}
-    size_mm: {w: 70.50, h: 30.00}
+    claim: Overlap-specific support propagates into decision-step L3/readout dynamics.
+    data_adapter: s7_decision_spike_summary_adapter
+    renderer: render_s7_decision_spike_summary
+    source_priority: [data/metrics/panel_e_decision_spike_displacement.csv]
+    position_mm: {x: 88.50, y: 82.00, w: 70.50, h: 34.00}
+    size_mm: {w: 70.50, h: 34.00}
+    panel_label_mm: {x: 85.50, y: 72.00}
     x_axis: Condition
-    y_axis: Decision-step displacement
-  S8C:
-    panel_id: S8C
-    panel_type: l3_accumulator_replay_detail
-    claim: L3 accumulator deletion/replacement replay shows region-level causal effects.
-    data_adapter: s8_l3_accumulator_replay_detail_adapter
-    renderer: render_s8_l3_accumulator_replay_detail
-    source_priority: [data/metrics/panel_f_l3_accumulator_region_replay_metrics.csv, data/metrics/panel_f_l3_accumulator_summary.csv, data/raw/panel_f_l3_accumulator_region_effects.npz, data/raw/panel_f_l3_accumulator_pair_vectors.npz]
-    position_mm: {x: 12.00, y: 184.00, w: 70.50, h: 34.00}
-    size_mm: {w: 70.50, h: 34.00}
-    x_axis: Replay metric
-    y_axis: Effect
-  S8D:
-    panel_id: S8D
-    panel_type: decision_deflection_summary
-    claim: Response-vector decision deflection summary is consistent with the L3 accumulator process plot.
-    data_adapter: s8_decision_deflection_summary_adapter
-    renderer: render_s8_decision_deflection_summary
-    source_priority: [data/metrics/panel_f_decision_deflection_metrics.csv, data/metrics/panel_f_l3_accumulator_summary.csv]
-    position_mm: {x: 88.50, y: 184.00, w: 70.50, h: 34.00}
-    size_mm: {w: 70.50, h: 34.00}
-    x_axis: Static-to-dynamic push
-    y_axis: Dynamic-like recovery
+    y_axis: Decision-step L3 DPI

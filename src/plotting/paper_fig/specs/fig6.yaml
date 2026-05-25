@@ -1,169 +1,166 @@
 figure_id: fig6
-figure_title_draft: Peak-amplified overlap-aligned re-entry
+figure_title_draft: Overlap-gated STSP fields bias Layer 1 recruitment
 experiment_root: results/paper_experiments/fig6_peak_amplified_reentry
 canvas_mm:
   width: 165
-  height: 158
+  height: 112
 reading_order: [A, B, C, D, E, F]
+score_name: entry_gated_stsp_gain_score
+primary_endpoint: Layer 1 spatial spike enrichment / recruitment
 argument_bands:
-  - band_id: peak_origin_and_interface
-    label: Peak origin and route/gain interface
-    panels: [A, B, C]
-  - band_id: peak_amplified_function
-    label: Peak-amplified real rollout function
-    panels: [D, E]
-  - band_id: mechanism_closure
-    label: Mechanism closure
-    panels: [F]
+  - band_id: causal_control
+    label: High-STSP-overlap control
+    panels: [A]
+  - band_id: entry_gated_readout
+    label: Entry-gated STSP readout bias
+    panels: [B]
+  - band_id: l1_recruitment_prediction
+    label: Layer 1 recruitment prediction
+    panels: [C, D]
+  - band_id: overlap_gated_expression
+    label: Probe-overlap gated STSP expression
+    panels: [E, F]
 forbidden_language:
-  - peaks replace overlap
+  - score predicts final label
+  - deterministic final-label prediction
+  - STSP alone determines firing
+  - high STSP automatically fires without entry
+  - connection weights define the main score
+  - inhibition is part of the STSP score
   - peak-gated re-entry
-  - peak-driven re-entry
-  - peaks provide the route
-allowed_claim_language:
-  - predictive peak-amplified overlap-aligned re-entry
-  - peak-modulated overlap-aligned re-entry
-  - overlap = route
+  - route-peak perturbation
   - peaks = gain
+  - overlap = route
+allowed_claim_language:
+  - entry-gated STSP gain predicts Layer 1 spike recruitment
+  - global ping reveals local STSP score-dependent recruitment
+  - real probe entry-gated score predicts Layer 1 spike deflection
+  - probe overlap gates high-STSP expression
+  - high STSP without probe entry is not sufficient for increased firing
+  - high-STSP-overlap removal causes a larger recruitment loss than matched removal
+  - STSP field biases early Layer 1 recruitment, not deterministic final-label prediction
 expected_outputs:
   full_figure: [pdf, svg, png]
   individual_panels: [svg, png]
   resolved_spec: fig6_resolved_spec.yaml
   source_manifest: fig6_source_manifest.json
   qc_report: fig6_qc_report.md
+required_outputs:
+  - data/metrics/panel_a_high_stsp_overlap_ablation.csv
+  - data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv
+  - data/metrics/panel_b_region_ping_readout_bias.csv
+  - data/metrics/panel_c_global_ping_score_spike_prediction.csv
+  - data/metrics/panel_d_real_probe_score_spike_deflection.csv
+  - data/metrics/panel_e_overlap_gated_stsp_recruitment.csv
+  - data/metrics/panel_e_overlap_gated_stsp_interaction.csv
+  - data/raw/panel_f_global_mechanism_metadata.json
+legacy_alias_outputs:
+  - data/metrics/panel_f_high_stsp_overlap_ablation.csv
+  - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
 qc_requirements:
   require_claims: true
   require_source_manifest: true
   require_position_mm: true
   require_size_mm: true
-  canvas_mm: {width: 165, height: 158}
+  canvas_mm: {width: 165, height: 112}
+  score_name: entry_gated_stsp_gain_score
+  score_excludes:
+    - connection_weights
+    - inhibition
+    - voltage
+    - threshold
+    - WTA
+    - final_label
+  primary_endpoint: Layer 1 spatial spike enrichment / recruitment
+  primary_early_window_ms: 10
 panels:
   A:
     panel_id: A
-    panel_type: source_attribution
-    claim: Final peaks are mainly sourced by late sequence updates.
-    renderer: render_fig6_peak_source_attribution
-    data_adapter: fig6_peak_source_attribution_adapter
+    panel_type: ablation_bar
+    claim: Removing high-STSP-overlap input sites causes a larger Layer 1 recruitment loss than matched removal.
+    renderer: render_fig6_high_stsp_overlap_ablation
+    data_adapter: fig6_high_stsp_overlap_ablation_adapter
     source_priority:
-      - data/metrics/panel_a_peak_source_attribution_summary.csv
-      - data/raw/panel_a_peak_source_attribution.csv
-    source_aliases:
-      - data/metrics/panel_a_peak_source_attribution.csv
-      - data/metrics/supp_legacy_panel_a_peak_enrichment_summary.csv
-      - data/metrics/supp_legacy_panel_a_multi_recent_peak_enrichment.csv
-      - data/metrics/supp_s11_peak_update_group_enrichment.csv
-    position_mm: {x: 12.00, y: 8.00, w: 45.67, h: 38.00}
-    size_mm: {w: 45.67, h: 38.00}
-    metric: peak_loss_fraction
-    x_axis: Position from end
-    y_axis: Peak loss fraction
-    main_metric: peak_loss_fraction
-    source_attribution_mode: leave_one_item_out
+      - data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv
+      - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
+    position_mm: {x: 8.00, y: 8.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: loss_delta_spike_probability
+    x_axis: Removed input sites
+    y_axis: Loss in L1 recruitment
+    conditions: [high_stsp_overlap, matched_removal]
   B:
     panel_id: B
-    panel_type: update_count_probability
-    claim: Final peaks are enriched at positions updated multiple times.
-    renderer: render_fig6_peak_update_history
-    data_adapter: fig6_peak_update_history_adapter
-    source: data/raw/panel_b_peak_update_history.csv
+    panel_type: grouped_or_stacked_bar
+    claim: Different entries into the multi-item STSP field expose different serial-content biases.
+    renderer: render_fig6_region_ping_readout_bias
+    data_adapter: fig6_region_ping_readout_bias_adapter
     source_priority:
-      - data/raw/panel_b_peak_update_history.csv
-      - data/metrics/panel_b_peak_update_history_summary.csv
-    source_aliases:
-      - data/metrics/supp_legacy_panel_b_update_recency_model_metrics.csv
-      - data/metrics/supp_update_recency_support_model_metrics.csv
-      - data/metrics/supp_s11_update_recency_model_comparison.csv
-    position_mm: {x: 62.67, y: 8.00, w: 45.67, h: 38.00}
-    size_mm: {w: 45.67, h: 38.00}
-    metric: P_peak
-    x_axis: Update count
-    y_axis: P(peak)
-    main_metric: P_peak_by_update_count
+      - data/metrics/panel_b_region_ping_readout_bias.csv
+    position_mm: {x: 60.00, y: 8.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: old_middle_recent_readout_mass
+    x_axis: Ping entry
+    y_axis: Readout mass
+    conditions: [Peak ping, Valley ping, Random ping]
+    main_metric: serial_readout_mass
   C:
     panel_id: C
-    panel_type: peak_overlap_alignment
-    claim: Final peaks are more likely to fall in high foreground-overlap regions, especially recent overlap routes.
-    renderer: render_fig6_peak_input_overlap_origin
-    data_adapter: fig6_peak_overlap_alignment_adapter
+    panel_type: score_quantile_line
+    claim: Under global unbiased ping, local STSP gain score predicts Layer 1 spike recruitment.
+    renderer: render_fig6_global_ping_score_spike_prediction
+    data_adapter: fig6_global_ping_score_spike_prediction_adapter
     source_priority:
-      - data/metrics/panel_c_peak_input_overlap_summary.csv
-      - data/metrics/panel_c_peak_input_overlap_similarity.csv
-    source_aliases:
-      - data/metrics/panel_c_peak_input_overlap_similarity_summary.csv
-      - data/metrics/supp_legacy_panel_c_peak_weighted_overlap_definitions.csv
-    position_mm: {x: 113.33, y: 8.00, w: 45.67, h: 38.00}
-    size_mm: {w: 45.67, h: 38.00}
-    metric: peak_coverage
-    x_axis: Old-k / All / Recent-k
-    y_axis: P(high-overlap | peak)
-    selected_windows: [Old-k, All, Recent-k]
+      - data/metrics/panel_c_global_ping_score_spike_prediction.csv
+    position_mm: {x: 112.00, y: 8.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: spike_probability_by_score_quantile
+    x_axis: STSP score quantile
+    y_axis: Early L1 spike probability
+    primary_early_window_ms: 10
+    score_name: entry_gated_stsp_gain_score
   D:
     panel_id: D
-    panel_type: route_peak_perturbation
-    claim: Route-aligned peak-STSP reset reduces real re-entry when the perturbation audit passes; otherwise the panel is diagnostic only.
-    renderer: render_fig6_route_peak_reentry_loss
-    data_adapter: fig6_route_peak_reentry_loss_adapter
+    panel_type: score_quantile_line
+    claim: Under real probe input, entry-gated STSP score predicts Layer 1 spike deflection relative to baseline.
+    renderer: render_fig6_real_probe_score_spike_deflection
+    data_adapter: fig6_real_probe_score_spike_deflection_adapter
     source_priority:
-      - data/metrics/panel_d_route_peak_reentry_loss_summary.csv
-      - data/metrics/panel_d_route_peak_reentry_loss_contrast.csv
-      - data/raw/panel_d_route_peak_perturbation_trial_readout.csv
-    source_aliases:
-      - data/metrics/panel_d_real_reentry_metrics.csv
-      - data/metrics/panel_d_peak_weighted_reentry_metrics.csv
-      - data/metrics/supp_legacy_panel_d_peak_weighted_reentry_metrics.csv
-      - data/metrics/supp_legacy_panel_d_matched_raw_overlap_comparison.csv
-      - data/metrics/supp_legacy_panel_d_peak_weighted_overlap_regression.csv
-      - data/metrics/supp_matched_raw_overlap_peak_comparison.csv
-      - data/metrics/supp_s12_raw_overlap_matched_peak_overlap_contrast.csv
-    position_mm: {x: 12.00, y: 54.00, w: 70.50, h: 52.00}
-    size_mm: {w: 70.50, h: 52.00}
-    metric: normalized_reentry_loss
-    x_axis: Perturbation unit set
-    y_axis: Normalized re-entry loss
-    perturbation_unit_sets: [Route peak, Route non-peak, Non-route peak, Random]
+      - data/metrics/panel_d_real_probe_score_spike_deflection.csv
+    position_mm: {x: 8.00, y: 58.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: delta_spike_probability_by_score_quantile
+    x_axis: STSP score quantile
+    y_axis: Dynamic minus baseline L1 firing
+    primary_early_window_ms: 10
+    score_name: entry_gated_stsp_gain_score
   E:
     panel_id: E
-    panel_type: route_peak_downstream
-    claim: The same route-peak perturbation changes downstream response or decision output when the perturbation audit passes; otherwise the panel is diagnostic only.
-    renderer: render_fig6_route_peak_downstream
-    data_adapter: fig6_route_peak_downstream_adapter
+    panel_type: two_by_two_interaction
+    claim: Probe overlap gates the expression of high-STSP regions.
+    renderer: render_fig6_overlap_gated_stsp_recruitment
+    data_adapter: fig6_overlap_gated_stsp_recruitment_adapter
     source_priority:
-      - data/metrics/panel_e_route_peak_downstream_summary.csv
-      - data/metrics/panel_e_route_peak_downstream_contrast.csv
-      - data/raw/panel_e_route_peak_downstream_trial_readout.csv
-    source_aliases:
-      - data/metrics/panel_e_real_downstream_metrics.csv
-      - data/metrics/panel_e_peak_weighted_downstream_metrics.csv
-      - data/metrics/supp_legacy_panel_e_peak_weighted_downstream_metrics.csv
-      - data/metrics/supp_legacy_panel_e_downstream_regression.csv
-      - data/metrics/supp_s12_downstream_metric_breakdown.csv
-    position_mm: {x: 88.50, y: 54.00, w: 70.50, h: 52.00}
-    size_mm: {w: 70.50, h: 52.00}
-    metric: P_output_switch
-    x_axis: Perturbation unit set
-    y_axis: Output switch probability
-    perturbation_unit_sets: [Route peak, Route non-peak, Non-route peak, Random]
+      - data/metrics/panel_e_overlap_gated_stsp_recruitment.csv
+      - data/metrics/panel_e_overlap_gated_stsp_interaction.csv
+    position_mm: {x: 60.00, y: 58.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: overlap_gated_delta_spike_probability
+    x_axis: Probe overlap
+    y_axis: Dynamic minus baseline L1 firing
+    primary_early_window_ms: 10
+    score_name: entry_gated_stsp_gain_score
   F:
     panel_id: F
-    panel_type: global_mechanism_schematic
-    claim: Overlap is the route and peaks are gain; causal route-peak gain wording is allowed only if the perturbation audit passes.
-    renderer: render_fig6_global_mechanism
+    panel_type: mechanism_schematic
+    claim: Multi-item STSP fields bias Layer 1 recruitment only where later input enters the high-gain field.
+    renderer: render_fig6_stsp_overlap_gated_recruitment_synthesis
     data_adapter: fig6_global_mechanism_adapter
     source_priority:
       - data/raw/panel_f_global_mechanism_metadata.json
-      - summary.json
-    position_mm: {x: 12.00, y: 114.00, w: 147.00, h: 36.00}
-    size_mm: {w: 147.00, h: 36.00}
+    position_mm: {x: 112.00, y: 58.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
     metric: mechanism_statement
     x_axis: Mechanism chain
-    y_axis: Route and gain
-    required_statements:
-      - overlap = route
-      - peaks = gain
-    figure_chain:
-      - Fig.1 functional STSP substrate
-      - Fig.2 two-item fused state
-      - Fig.3 multi-item peak landscape
-      - Fig.4 overlap re-entry route
-      - Fig.5 local support / competition conversion
-      - Fig.6 peak-amplified re-entry
+    y_axis: Layer 1 recruitment
+    score_name: entry_gated_stsp_gain_score

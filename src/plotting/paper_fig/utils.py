@@ -40,6 +40,12 @@ def paper_fig_root() -> Path:
     return Path(__file__).resolve().parent
 
 
+def paper_fig_output_root(repo_root: Path | None = None) -> Path:
+    """Return the default generated-output root for paper figures."""
+    root = repo_root or repo_root_from_here()
+    return root / "results" / "paper_figures" / "outputs"
+
+
 def repo_root_from_here() -> Path:
     """Find the repository root by walking up from this file."""
     current = Path(__file__).resolve()
@@ -113,4 +119,3 @@ def _json_safe(value: Any) -> Any:
     except Exception:
         pass
     return value
-

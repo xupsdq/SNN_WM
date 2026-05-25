@@ -31,6 +31,95 @@ PERTURBATION_KEEP = (
 )
 
 
+def build_s7_similarity_overlap_2x2_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _roots(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "supp_overlap_similarity_2x2.csv"
+        sources.append(_source(path, seed_dir))
+        if not path.exists():
+            warnings.append(f"{_display(path, repo_root)} missing.")
+            continue
+        df = pd.read_csv(path)
+        required = {"similarity_group", "overlap_group", "metric", "value"}
+        missing = sorted(required.difference(df.columns))
+        if missing:
+            warnings.append(f"{_display(path, repo_root)} lacks columns {missing}.")
+            continue
+        for _, r in df.iterrows():
+            similarity = str(r.get("similarity_group", ""))
+            overlap = str(r.get("overlap_group", ""))
+            metric = str(r.get("metric", ""))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    metric,
+                    f"{similarity}|{overlap}",
+                    _num(r.get("value")),
+                    "metric_value",
+                    seed_dir,
+                    path,
+                    repo_root,
+                    similarity_group=similarity,
+                    overlap_group=overlap,
+                    n_pairs=r.get("n_pairs", ""),
+                    similarity_order=0 if similarity.startswith("low") else 1,
+                    overlap_order=0 if overlap.startswith("low") else 1,
+                )
+            )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, str(spec.get("plot_metric", "acc_drop")), ["metric", "similarity_group", "overlap_group"])
+
+
+def build_s7_overlap_excess_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _roots(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        excess_path = seed_dir / "data" / "metrics" / "supp_overlap_excess_accuracy_metrics.csv"
+        matching_path = seed_dir / "data" / "metrics" / "supp_overlap_matching_diagnostics.csv"
+        sources.extend([_source(excess_path, seed_dir), _source(matching_path, seed_dir)])
+        if not excess_path.exists():
+            warnings.append(f"{_display(excess_path, repo_root)} missing.")
+            continue
+        df = pd.read_csv(excess_path)
+        required = {"iso_similarity_bin", "overlap_excess_group", "mean_acc_drop"}
+        missing = sorted(required.difference(df.columns))
+        if missing:
+            warnings.append(f"{_display(excess_path, repo_root)} lacks columns {missing}.")
+            continue
+        for _, r in df.iterrows():
+            group = str(r.get("overlap_excess_group", ""))
+            condition = "High overlap excess" if group.startswith("high") else "Low overlap excess"
+            for metric, unit in (("mean_acc_drop", "probability_delta"), ("drop_rate", "probability")):
+                if metric not in df.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        condition,
+                        _num(r.get(metric)),
+                        unit,
+                        seed_dir,
+                        excess_path,
+                        repo_root,
+                        iso_similarity_bin=str(r.get("iso_similarity_bin", "")),
+                        iso_similarity_bin_order=_bin_order(r.get("iso_similarity_bin", "")),
+                        overlap_excess_group=group,
+                        mean_pixel_similarity=_num(r.get("mean_pixel_similarity")),
+                        mean_dice_overlap=_num(r.get("mean_dice_overlap")),
+                        mean_overlap_excess=_num(r.get("mean_overlap_excess")),
+                        n_pairs=r.get("n_pairs", ""),
+                    )
+                )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, str(spec.get("plot_metric", "mean_acc_drop")), ["metric", "condition", "iso_similarity_bin"])
+
+
 def build_s7_similarity_full_trend_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _roots(spec, repo_root)
@@ -42,7 +131,7 @@ def build_s7_similarity_full_trend_adapter(spec: Mapping[str, Any], repo_root: P
         sources.extend([_source(pair_path, seed_dir), _source(bin_path, seed_dir)])
         path = pair_path if pair_path.exists() else bin_path if bin_path.exists() else None
         if path is None:
-            warnings.append(f"Missing S7A similarity trend sources under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S5A similarity trend sources under {_display(seed_dir, repo_root)}.")
             continue
         df = pd.read_csv(path)
         bin_col = _first_existing_col(df, ["similarity_bin", "bin", "iso_similarity_bin"])
@@ -72,7 +161,7 @@ def build_s7_matching_diagnostics_adapter(spec: Mapping[str, Any], repo_root: Pa
         sources.extend(_source(path, seed_dir) for path in candidates)
         path = next((candidate for candidate in candidates if candidate.exists()), None)
         if path is None:
-            warnings.append(f"Missing S7B matching diagnostic sources under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S5B matching diagnostic sources under {_display(seed_dir, repo_root)}.")
             continue
         df = pd.read_csv(path)
         for _, r in df.iterrows():
@@ -147,32 +236,153 @@ def build_s7_overlap_regression_adapter(spec: Mapping[str, Any], repo_root: Path
     root, seeds, warnings = _roots(spec, repo_root)
     rows: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
-    wanted = ("overlap", "similarity", "sample_energy", "probe_energy")
+    wanted = ("overlap", "similarity", "sample_energy", "probe_energy", "input_energy")
+    plotted_outcomes = set(map(str, spec.get("plotted_outcomes") or []))
     for seed_dir in seeds:
         candidates = [seed_dir / "data" / "metrics" / "supp_overlap_similarity_regression.csv", seed_dir / "data" / "metrics" / "panel_c_overlap_localization_metrics.csv"]
         sources.extend(_source(path, seed_dir) for path in candidates)
         path = next((candidate for candidate in candidates if candidate.exists()), None)
         if path is None:
-            warnings.append(f"Missing S7D regression sources under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing overlap regression sources under {_display(seed_dir, repo_root)}.")
             continue
         df = pd.read_csv(path)
         if "term" in df.columns:
             for _, r in df.iterrows():
+                outcome = str(r.get("metric", r.get("outcome", "")))
+                if plotted_outcomes and outcome and outcome not in plotted_outcomes:
+                    continue
                 term = str(r.get("term", ""))
                 if not any(key in term.lower() for key in wanted):
                     continue
                 value_col = _first_existing_col(df, ["estimate", "coef", "coefficient", "beta", "value"])
-                rows.append(_row(figure_id, panel_id, "regression_coefficient", term, _num(r.get(value_col)) if value_col else np.nan, "coefficient", seed_dir, path, repo_root, se=_num(r.get("se", r.get("stderr", np.nan))), p_value=_num(r.get("p_value", r.get("p", np.nan)))))
+                rows.append(_row(figure_id, panel_id, "regression_coefficient", _normalise_regression_term(term), _num(r.get(value_col)) if value_col else np.nan, "coefficient", seed_dir, path, repo_root, outcome_metric=outcome, se=_num(r.get("se", r.get("stderr", np.nan))), p_value=_num(r.get("p_value", r.get("p", np.nan)))))
         else:
-            for term in ("beta_overlap", "beta_similarity", "beta_sample_energy", "beta_probe_energy"):
-                if term in df.columns:
-                    for _, r in df.iterrows():
-                        rows.append(_row(figure_id, panel_id, "regression_coefficient", term.replace("beta_", ""), _num(r.get(term)), "coefficient", seed_dir, path, repo_root))
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, "regression_coefficient", ["condition"])
+            for _, r in df.iterrows():
+                outcome = str(r.get("metric", r.get("outcome", "")))
+                if plotted_outcomes and outcome and outcome not in plotted_outcomes:
+                    continue
+                for term in ("beta_overlap", "beta_similarity", "beta_input_energy", "beta_sample_energy", "beta_probe_energy"):
+                    if term not in df.columns:
+                        continue
+                    rows.append(
+                        _row(
+                            figure_id,
+                            panel_id,
+                            "regression_coefficient",
+                            _normalise_regression_term(term),
+                            _num(r.get(term)),
+                            "coefficient",
+                            seed_dir,
+                            path,
+                            repo_root,
+                            outcome_metric=outcome,
+                            r2=_num(r.get("r2")),
+                            n_pairs=r.get("n_pairs", ""),
+                            p_overlap=_num(r.get("p_overlap")),
+                        )
+                    )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, "regression_coefficient", ["outcome_metric", "condition"])
 
 
 def build_s7_random_nonoverlap_perturbation_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     return _build_perturbation_subset(spec, repo_root, output_dir, PERTURBATION_KEEP)
+
+
+def build_s7_alternative_overlap_definitions_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _roots(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "supp_alternative_overlap_definitions.csv"
+        sources.append(_source(path, seed_dir))
+        if not path.exists():
+            warnings.append(f"{_display(path, repo_root)} missing.")
+            continue
+        df = pd.read_csv(path)
+        required = {"overlap_definition", "overlap_value", "dynamic_effect_metric", "metric_value"}
+        missing = sorted(required.difference(df.columns))
+        if missing:
+            warnings.append(f"{_display(path, repo_root)} lacks columns {missing}.")
+            continue
+        for (definition, effect_metric), part in df.groupby(["overlap_definition", "dynamic_effect_metric"], dropna=False, sort=False):
+            x = pd.to_numeric(part["overlap_value"], errors="coerce")
+            y = pd.to_numeric(part["metric_value"], errors="coerce")
+            valid = x.notna() & y.notna()
+            corr = float(x[valid].corr(y[valid])) if int(valid.sum()) > 1 else np.nan
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "overlap_dpi_correlation" if str(effect_metric) == "DPI_L3" else f"overlap_{effect_metric}_correlation",
+                    str(definition),
+                    corr,
+                    "pearson_r",
+                    seed_dir,
+                    path,
+                    repo_root,
+                    dynamic_effect_metric=str(effect_metric),
+                    n_pairs=int(valid.sum()),
+                )
+            )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, "overlap_dpi_correlation", ["metric", "condition"])
+
+
+def build_s7_perturbation_specificity_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _roots(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    contrast_specs = (
+        ("overlap_minus_nonoverlap_DPI", "Overlap - non-overlap", "DPI_L3_contrast"),
+        ("overlap_minus_random_DPI", "Overlap - random", "DPI_L3_contrast"),
+        ("overlap_minus_nonoverlap_recovery", "Recovery - non-overlap", "recovery_contrast"),
+        ("overlap_minus_random_recovery", "Recovery - random", "recovery_contrast"),
+    )
+    for seed_dir in seeds:
+        contrast_path = seed_dir / "data" / "metrics" / "panel_d_overlap_perturbation_contrast.csv"
+        random_path = seed_dir / "data" / "metrics" / "supp_random_mask_perturbation_controls.csv"
+        audit_path = seed_dir / "data" / "metrics" / "panel_d_l1_stsp_overlap_perturbation_audit.csv"
+        sources.extend([_source(contrast_path, seed_dir), _source(random_path, seed_dir), _source(audit_path, seed_dir)])
+        audit: dict[str, Any] = {}
+        if audit_path.exists():
+            audit_df = pd.read_csv(audit_path)
+            if not audit_df.empty:
+                audit = audit_df.iloc[0].to_dict()
+        if not contrast_path.exists():
+            warnings.append(f"{_display(contrast_path, repo_root)} missing.")
+            continue
+        contrast = pd.read_csv(contrast_path)
+        for _, r in contrast.iterrows():
+            for source_col, label, metric in contrast_specs:
+                if source_col not in contrast.columns:
+                    continue
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        metric,
+                        label,
+                        _num(r.get(source_col)),
+                        "index_delta",
+                        seed_dir,
+                        contrast_path,
+                        repo_root,
+                        source_metric=source_col,
+                        n_pairs=r.get("n_pairs", ""),
+                        probe_input_unchanged=bool(audit.get("probe_input_unchanged", False)),
+                        sample_input_complete=bool(audit.get("sample_input_complete", False)),
+                        perturbed_layer=audit.get("perturbed_layer", ""),
+                        perturbed_variables=audit.get("perturbed_variables", ""),
+                        l2_stsp_frozen=bool(audit.get("l2_stsp_frozen", False)),
+                        l3_stsp_frozen=bool(audit.get("l3_stsp_frozen", False)),
+                    )
+                )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, "DPI_L3_contrast", ["metric", "condition"])
+
+
+def build_s7_decision_spike_summary_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_s8_decision_spike_summary_adapter(spec, repo_root, output_dir)
 
 
 def build_s8_time_resolved_l3_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -295,7 +505,7 @@ def _build_perturbation_subset(spec: Mapping[str, Any], repo_root: Path, output_
         if metric_col is None:
             warnings.append(f"{_display(path, repo_root)} lacks probe_accuracy or diagnostic fallback metric columns.")
             continue
-        warnings.append(f"{_display(path, repo_root)} lacks static probe_accuracy baseline; S7E uses diagnostic fallback {metric_col}.")
+        warnings.append(f"{_display(path, repo_root)} lacks static probe_accuracy baseline; S5E uses diagnostic fallback {metric_col}.")
         df = df[df["condition"].astype(str).isin(keep)]
         for _, r in df.iterrows():
             raw = str(r.get("condition", ""))
@@ -388,7 +598,7 @@ def _finish(
         "source_files_used": [src["path"] for src in sources if src.get("exists")],
         "sources": sources,
         "warnings": list(stats["warnings"]),
-        "fallback_used": any("fallback" in str(src.get("path", "")).lower() or "supp_" in str(src.get("path", "")).lower() for src in sources if src.get("exists")),
+        "fallback_used": any("fallback" in str(src.get("path", "")).lower() for src in sources if src.get("exists")),
     }
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(stats["warnings"]))
 
@@ -401,6 +611,22 @@ def _bin_order(label: Any) -> int:
     text = str(label)
     digits = "".join(ch for ch in text if ch.isdigit())
     return int(digits) if digits else 0
+
+
+def _normalise_regression_term(term: Any) -> str:
+    text = str(term).strip()
+    text = text.replace("beta_", "")
+    if text in {"dice_overlap", "overlap_value"} or "overlap" in text:
+        return "overlap"
+    if "similarity" in text:
+        return "similarity"
+    if text in {"input_energy", "energy"} or "input_energy" in text:
+        return "input_energy"
+    if "sample_energy" in text:
+        return "sample_energy"
+    if "probe_energy" in text:
+        return "probe_energy"
+    return text
 
 
 def _values(df: pd.DataFrame) -> list[float]:

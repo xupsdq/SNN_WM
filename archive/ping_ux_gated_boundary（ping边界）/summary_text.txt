@@ -1,6 +1,0 @@
-Short ping: no condition satisfied the current beneficial latent-window rule.
-Long ping: overt reactivation threshold appears at 30 ms / 0.010; D_L1=0.4869, decode=0.8720.
-Long ping: overt reactivation co-occurs with latent-state reorganization at 30 ms / 0.060; immediate_latent=-0.0267, preprobe_latent=-0.0147, delta_probe=-32.0000.
-Same-dose control: 5 vs 30 ms at matched D_L1.
-Same-burden control: 5 vs 30 ms at matched L2 burden.
-Overall: the sweep is more consistent with two regimes, selective beneficial latent modulation under short ping and broader overt-but-destructive reactivation under long ping.

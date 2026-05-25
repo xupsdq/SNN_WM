@@ -18,7 +18,7 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
             str(group.get("label", "")),
             ha="left",
             va="top",
-            fontsize=8.0,
+            fontsize=float(group.get("fontsize", 8.0)),
             fontweight="bold",
         )
     axes = {}

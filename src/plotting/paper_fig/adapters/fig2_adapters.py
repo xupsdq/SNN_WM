@@ -14,7 +14,7 @@ DEFAULT_EXPERIMENT_ROOT = Path("results") / "paper_experiments" / "fig2_pair_fus
 SINGLE_NETWORK_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
 STATE_CONDITIONS = ("S0", "S_A", "S_B", "S_AB")
 STATE_LABELS = {"S0": "No memory", "S_A": "Item 1 only", "S_B": "Item 2 only", "S_AB": "Item 1->Item 2"}
-COMPOSITION_CATEGORIES = ("A", "B", "Other", "Silent")
+COMPOSITION_CATEGORIES = ("Other", "A", "B", "Silent")
 
 
 def build_fig2_dual_retention_constituent_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -67,10 +67,12 @@ def build_fig2_dual_retention_constituent_adapter(spec: Mapping[str, Any], repo_
                 )
     if not sources:
         return missing_adapter_result(spec, repo_root, output_dir, "Missing panel_b_dual_retention_metrics.csv for Fig.2B.")
-    panel_df = _sort_conditions(pd.DataFrame(rows), ["S_A", "S_B"])
+    raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["S_A", "S_B"])
+    panel_df = _seed_level_summary(raw_panel_df, ["condition"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "constituent_similarity", _run_mode(seeds), ["condition"])
     stats["metadata_metrics_retained_not_plotted"] = ["fusion_dual_score", "min_component_similarity", "sim_to_A_minus_B"]
     _add_processing_stats(stats, sources, raw_rows, filtered_rows, len(panel_df))
+    _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["metadata_metrics_retained_not_plotted"] = stats["metadata_metrics_retained_not_plotted"]
     manifest["visual_categories"] = ["S_A", "S_B"]
@@ -124,9 +126,11 @@ def build_fig2_pair_specificity_adapter(spec: Mapping[str, Any], repo_root: Path
                 )
     if not sources:
         return missing_adapter_result(spec, repo_root, output_dir, "Missing panel_c_pair_specificity_metrics.csv for Fig.2C.")
-    panel_df = _sort_conditions(pd.DataFrame(rows), ["True pair", "Shuffled pair"])
+    raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["True pair", "Shuffled pair"])
+    panel_df = _seed_level_summary(raw_panel_df, ["condition"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "pair_specificity_score", _run_mode(seeds), ["condition"])
     _add_processing_stats(stats, sources, raw_rows, filtered_rows, len(panel_df))
+    _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
@@ -216,11 +220,13 @@ def build_fig2_morphology_closure_adapter(spec: Mapping[str, Any], repo_root: Pa
             warnings.append(f"Linear mixture metrics unavailable for Fig.2D source manifest: {_display_path(mix_path, repo_root)}")
     if not any(source["exists"] for source in sources):
         return missing_adapter_result(spec, repo_root, output_dir, "Missing Fig.2D morphology closure sources.")
-    panel_df = _sort_conditions(pd.DataFrame(rows), ["WPRI", "Beyond-linear"])
+    raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["WPRI", "Beyond-linear"])
+    panel_df = _seed_level_summary(raw_panel_df, ["condition", "metric"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "morphology_closure", _run_mode(seeds), ["metric", "condition"])
     stats["visual_metrics"] = _unique(panel_df, "metric")
     stats["linear_model_comparison_plotted"] = False
     _add_processing_stats(stats, sources, raw_rows, filtered_rows, len(panel_df))
+    _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["visual_metrics"] = stats["visual_metrics"]
     manifest["linear_model_comparison_plotted"] = False
@@ -282,9 +288,9 @@ def build_fig2_neutral_ping_composition_adapter(spec: Mapping[str, Any], repo_ro
 
 def build_fig2_partial_cue_target_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     figure_id, panel_id = _ids(spec)
-    target_item = str(spec.get("target_item", "")).upper()
-    if target_item not in {"A", "B"}:
-        return missing_adapter_result(spec, repo_root, output_dir, f"Fig.2 partial cue target_item must be A or B, found {target_item!r}.")
+    target_items = _partial_target_items(spec)
+    if not target_items:
+        return missing_adapter_result(spec, repo_root, output_dir, "Fig.2 partial cue target_items must include A and/or B.")
     seeds = _seed_dirs(spec, repo_root)
     if not seeds:
         return missing_adapter_result(spec, repo_root, output_dir, "Fig.2 experiment seed directory not found.")
@@ -302,18 +308,20 @@ def build_fig2_partial_cue_target_adapter(spec: Mapping[str, Any], repo_root: Pa
             df = pd.read_csv(curve_path)
             raw_rows += len(df)
             sources.append(_source_entry(curve_path, repo_root))
-            part = df[df.get("target_item", pd.Series(dtype=str)).astype(str).str.upper().eq(target_item)].copy()
-            filtered_rows += len(part)
-            rows.extend(_partial_cue_rows_from_metrics(part, figure_id, panel_id, target_item, curve_path, repo_root, seed_dir, seeds))
+            for target_item in target_items:
+                part = df[df.get("target_item", pd.Series(dtype=str)).astype(str).str.upper().eq(target_item)].copy()
+                filtered_rows += len(part)
+                rows.extend(_partial_cue_rows_from_metrics(part, figure_id, panel_id, target_item, curve_path, repo_root, seed_dir, seeds))
             if raw_path.exists():
                 sources.append(_source_entry(raw_path, repo_root))
         elif raw_path.exists():
             df = pd.read_csv(raw_path)
             raw_rows += len(df)
             sources.append(_source_entry(raw_path, repo_root))
-            part = df[df.get("target_item", pd.Series(dtype=str)).astype(str).str.upper().eq(target_item)].copy()
-            filtered_rows += len(part)
-            rows.extend(_partial_cue_rows_from_trials(part, figure_id, panel_id, target_item, raw_path, repo_root, seed_dir, seeds))
+            for target_item in target_items:
+                part = df[df.get("target_item", pd.Series(dtype=str)).astype(str).str.upper().eq(target_item)].copy()
+                filtered_rows += len(part)
+                rows.extend(_partial_cue_rows_from_trials(part, figure_id, panel_id, target_item, raw_path, repo_root, seed_dir, seeds))
             warnings.append(f"Fig.2{panel_id} used raw partial-cue fallback.")
         else:
             warnings.append(f"Missing partial cue target sources under {_display_path(seed_dir, repo_root)}")
@@ -325,16 +333,20 @@ def build_fig2_partial_cue_target_adapter(spec: Mapping[str, Any], repo_root: Pa
         return missing_adapter_result(spec, repo_root, output_dir, "Missing Fig.2 partial cue target sources.")
     panel_df = _sort_partial(pd.DataFrame(rows))
     stats = _stats_payload(figure_id, panel_id, panel_df, "partial_cue_target_recovery", _run_mode(seeds), ["target_item", "condition", "keep_prob"])
-    stats["target_item"] = target_item
+    stats["target_item"] = target_items[0] if len(target_items) == 1 else "A+B"
+    stats["target_items"] = target_items
     stats["state_conditions"] = _unique(panel_df, "state_condition")
     stats["keep_probs"] = _unique_numeric(panel_df, "keep_prob")
-    stats["relevant_single_condition"] = "S_A" if target_item == "A" else "S_B"
-    stats["irrelevant_single_condition"] = "S_B" if target_item == "A" else "S_A"
+    if len(target_items) == 1:
+        target_item = target_items[0]
+        stats["relevant_single_condition"] = "S_A" if target_item == "A" else "S_B"
+        stats["irrelevant_single_condition"] = "S_B" if target_item == "A" else "S_A"
     stats["functional_readout_mode"] = _functional_readout_mode(seeds)
     stats["proxy_used_for_main"] = False
     _add_processing_stats(stats, sources, raw_rows, filtered_rows, len(panel_df))
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
-    manifest["target_item"] = target_item
+    manifest["target_item"] = stats["target_item"]
+    manifest["target_items"] = target_items
     manifest["state_conditions"] = stats["state_conditions"]
     manifest["keep_probs"] = stats["keep_probs"]
     manifest["functional_readout_mode"] = _functional_readout_mode(seeds)
@@ -593,6 +605,20 @@ def _ids(spec: Mapping[str, Any]) -> tuple[str, str]:
     return str(spec.get("figure_id", "fig2")), str(spec.get("panel_id", "")).upper()
 
 
+def _partial_target_items(spec: Mapping[str, Any]) -> list[str]:
+    raw_items = spec.get("target_items")
+    if raw_items is None:
+        raw_items = [spec.get("target_item")]
+    if isinstance(raw_items, str):
+        raw_items = [raw_items]
+    out: list[str] = []
+    for item in raw_items or []:
+        target = str(item).upper()
+        if target in {"A", "B"} and target not in out:
+            out.append(target)
+    return out
+
+
 def _seed_dirs(spec: Mapping[str, Any], repo_root: Path) -> list[Path]:
     raw_root = spec.get("experiment_root") or spec.get("experiment_root_default") or DEFAULT_EXPERIMENT_ROOT
     root = Path(str(raw_root))
@@ -690,6 +716,34 @@ def _add_processing_stats(stats: dict[str, Any], sources: Sequence[Mapping[str, 
             "source_appeared_preaggregated": False,
         }
     )
+
+
+def _add_seed_aggregation_stats(stats: dict[str, Any], raw_df: pd.DataFrame, panel_df: pd.DataFrame) -> None:
+    stats["seed_level_aggregation"] = True
+    stats["rows_before_seed_aggregation"] = int(len(raw_df))
+    stats["rows_after_seed_aggregation"] = int(len(panel_df))
+    stats["replicate_unit"] = "network_seed"
+    stats["averaging_performed"] = len(raw_df) != len(panel_df)
+
+
+def _seed_level_summary(df: pd.DataFrame, group_cols: Sequence[str]) -> pd.DataFrame:
+    if df.empty or "seed_id" not in df.columns or "value" not in df.columns:
+        return df
+    keys = ["seed_id", *[col for col in group_cols if col in df.columns]]
+    out_rows: list[dict[str, Any]] = []
+    for _, part in df.groupby(keys, dropna=False, sort=False):
+        values = pd.to_numeric(part["value"], errors="coerce").dropna()
+        if values.empty:
+            continue
+        row = part.iloc[0].to_dict()
+        row["value"] = float(values.mean())
+        row["seed_level_n"] = int(values.count())
+        row["seed_level_sem"] = float(values.sem()) if values.count() > 1 else 0.0
+        row["replicate_unit"] = "network_seed"
+        if "pair_id" in row:
+            row["pair_id"] = "seed_mean"
+        out_rows.append(row)
+    return pd.DataFrame(out_rows).reset_index(drop=True)
 
 
 def _manifest(figure_id: str, panel_id: str, sources: list[dict[str, Any]], seeds: Sequence[Path], *, status: str) -> dict[str, Any]:

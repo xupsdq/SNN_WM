@@ -66,8 +66,12 @@ python -m src.plotting.paper_fig.build --all
 Default output location:
 
 ```text
-src/plotting/paper_fig/outputs/<figure_id>/
+results/paper_figures/outputs/<figure_id>/
 ```
+
+This keeps generated manuscript figures, panel CSVs, stats JSON, source
+manifests, and QC reports outside the source tree. A figure spec may still set
+`output_root` when a task needs a custom repository-relative destination.
 
 For Fig.1, expected outputs include:
 

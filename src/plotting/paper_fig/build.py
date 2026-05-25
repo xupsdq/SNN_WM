@@ -8,7 +8,7 @@ from typing import Any, Mapping
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result
+from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, panel_stem
 from src.plotting.paper_fig.export import (
     export_full_figure,
     export_individual_panels,
@@ -17,7 +17,7 @@ from src.plotting.paper_fig.export import (
 )
 from src.plotting.paper_fig.qc import run_qc
 from src.plotting.paper_fig.registry import get_figure_index, get_figure_spec, validate_registry
-from src.plotting.paper_fig.utils import paper_fig_root, read_json, repo_root_from_here
+from src.plotting.paper_fig.utils import paper_fig_output_root, paper_fig_root, read_json, repo_root_from_here
 
 
 def build_figure(
@@ -34,11 +34,12 @@ def build_figure(
     spec = get_figure_spec(fig_id)
     if experiment_root is not None:
         spec["experiment_root"] = str(experiment_root)
+    implementation_id = _implementation_id(spec, fig_id)
     output_root = spec.get("output_root")
     if output_root:
         output_dir = repo_root / str(output_root) / fig_id
     else:
-        output_dir = paper_fig_root() / "outputs" / fig_id
+        output_dir = paper_fig_output_root(repo_root) / fig_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     registry_report = validate_registry(repo_root)
@@ -46,13 +47,15 @@ def build_figure(
         raise RuntimeError("Registry validation failed: " + "; ".join(registry_report["failures"]))
 
     panels = _selected_panels(spec, selected)
+    if selected is None:
+        _clean_inactive_panel_outputs(output_dir, fig_id, panels)
     adapter_results: dict[str, AdapterResult] = {}
     for pid, panel in panels.items():
         adapter_name = panel.get("data_adapter")
         if adapter_name in (None, "", "none") or panel.get("panel_type") in _schematic_panel_types():
             continue
         panel_spec = _panel_spec(spec, pid, panel)
-        adapter_results[pid] = _run_adapter(fig_id, str(adapter_name), panel_spec, repo_root, output_dir)
+        adapter_results[pid] = _run_adapter(implementation_id, str(adapter_name), panel_spec, repo_root, output_dir)
 
     aggregate_manifest = _aggregate_source_manifest(spec, panels, adapter_results)
     export_resolved_spec(spec, output_dir, fig_id)
@@ -62,12 +65,12 @@ def build_figure(
     placeholder_reasons: dict[str, str] = {}
     render_metadata: dict[str, dict[str, Any]] = {}
     if not check_only:
-        fig, axes = _create_layout(fig_id, spec, selected)
+        fig, axes = _create_layout(implementation_id, spec, selected)
         render_jobs: dict[str, tuple[Any, Any, Mapping[str, Any], Any]] = {}
         for pid, ax in axes.items():
             panel = panels[pid]
             panel_spec = _panel_spec(spec, pid, panel)
-            renderer = _resolve_renderer(fig_id, str(panel.get("renderer") or "render_generic_placeholder"))
+            renderer = _resolve_renderer(implementation_id, str(panel.get("renderer") or "render_generic_placeholder"))
             panel_data, stats = _load_adapter_payload(adapter_results.get(pid))
             renderer(ax, panel_data, stats, panel_spec, style={})
             render_metadata[pid] = _collect_render_metadata(ax)
@@ -146,13 +149,20 @@ def _panel_spec(spec: Mapping[str, Any], panel_id: str, panel: Mapping[str, Any]
     panel_spec.setdefault("panel_id", panel_id)
     if spec.get("experiment_root") is not None:
         panel_spec.setdefault("experiment_root", spec.get("experiment_root"))
+    if spec.get("experiment_root_default") is not None:
+        panel_spec.setdefault("experiment_root_default", spec.get("experiment_root_default"))
     return panel_spec
 
 
-def _run_adapter(fig_id: str, adapter_name: str, panel_spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+def _implementation_id(spec: Mapping[str, Any], fig_id: str) -> str:
+    """Return the implementation module id for specs that intentionally reuse code."""
+    return str(spec.get("implementation_id") or fig_id).lower()
+
+
+def _run_adapter(implementation_id: str, adapter_name: str, panel_spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     func_name = f"build_{adapter_name}"
     try:
-        module = importlib.import_module(f"src.plotting.paper_fig.adapters.{fig_id}_adapters")
+        module = importlib.import_module(f"src.plotting.paper_fig.adapters.{implementation_id}_adapters")
         func = getattr(module, func_name)
     except Exception as exc:
         return missing_adapter_result(panel_spec, repo_root, output_dir, f"Adapter {func_name} unavailable: {exc}")
@@ -162,18 +172,18 @@ def _run_adapter(fig_id: str, adapter_name: str, panel_spec: Mapping[str, Any], 
         return missing_adapter_result(panel_spec, repo_root, output_dir, f"Adapter {func_name} failed: {exc}")
 
 
-def _resolve_renderer(fig_id: str, renderer_name: str):
+def _resolve_renderer(implementation_id: str, renderer_name: str):
     try:
-        module = importlib.import_module(f"src.plotting.paper_fig.panels.{fig_id}_panels")
+        module = importlib.import_module(f"src.plotting.paper_fig.panels.{implementation_id}_panels")
         return getattr(module, renderer_name)
     except Exception:
         module = importlib.import_module("src.plotting.paper_fig.panels.fig1_panels")
         return getattr(module, "render_generic_placeholder")
 
 
-def _create_layout(fig_id: str, spec: Mapping[str, Any], selected: set[str] | None):
+def _create_layout(implementation_id: str, spec: Mapping[str, Any], selected: set[str] | None):
     try:
-        module = importlib.import_module(f"src.plotting.paper_fig.layouts.{fig_id}_layout")
+        module = importlib.import_module(f"src.plotting.paper_fig.layouts.{implementation_id}_layout")
     except Exception:
         module = importlib.import_module("src.plotting.paper_fig.layouts.generic_layout")
     return module.create_layout(spec, selected_panels=selected)
@@ -213,6 +223,8 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "x_tick_fontstyles": [str(label.get_fontstyle()) for label in ax.get_xticklabels()],
         "axes_bounds": [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)],
         "plot_axes_bounds": getattr(ax, "paper_fig_plot_axes_bounds", [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)]),
+        "inner_axes_bounds": getattr(ax, "paper_fig_inner_axes_bounds", []),
+        "inner_axes_aligned": bool(getattr(ax, "paper_fig_inner_axes_aligned", False)),
         "axes_mm": getattr(ax, "paper_fig_axes_mm", {}),
         "panel_bounds": getattr(ax, "paper_fig_panel_bounds", [float(pos.x0), float(pos.y0), float(pos.x1), float(pos.y1)]),
         "legend_overlaps_axes_bbox": False,
@@ -222,6 +234,13 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "legend_above_plot": bool(getattr(ax, "paper_fig_legend_above_plot", False)),
         "x_metric": str(getattr(ax, "paper_fig_x_metric", "")),
         "y_metric": str(getattr(ax, "paper_fig_y_metric", "")),
+        "score_name": str(getattr(ax, "paper_fig_score_name", "")),
+        "score_excludes": getattr(ax, "paper_fig_score_excludes", []),
+        "primary_endpoint": str(getattr(ax, "paper_fig_primary_endpoint", "")),
+        "score_interpretation": str(getattr(ax, "paper_fig_score_interpretation", "")),
+        "final_label_claim": getattr(ax, "paper_fig_final_label_claim", None),
+        "pure_mechanism_schematic": bool(getattr(ax, "paper_fig_pure_mechanism_schematic", False)),
+        "optional_placeholder": bool(getattr(ax, "paper_fig_optional_placeholder", False)),
         "y_range_mode": str(getattr(ax, "paper_fig_y_range_mode", "")),
         "raw_point_count": int(getattr(ax, "paper_fig_raw_point_count", 0) or 0),
         "raw_point_alpha": float(getattr(ax, "paper_fig_raw_point_alpha", 0.0) or 0.0),
@@ -389,7 +408,7 @@ def _draw_panel_labels(fig, spec: Mapping[str, Any], panels: Mapping[str, Mappin
             ha="left",
             va="top",
             fontweight="bold",
-            fontsize=12,
+            fontsize=float(panel.get("panel_label_fontsize", spec.get("panel_label_fontsize", 12))),
         )
         artists[panel_id].paper_fig_panel_label_gap_mm = float(pos.get("y", 0.0)) - y_mm
     return artists
@@ -438,7 +457,31 @@ def _aggregate_source_manifest(
                     "source_mapping": panel.get("source_mapping") or {},
                 }
             )
-    return {"figure_id": figure_id, "sources": sources}
+    return {"figure_id": figure_id, "active_panels": list(panels.keys()), "sources": sources}
+
+
+def _clean_inactive_panel_outputs(output_dir: Path, figure_id: str, panels: Mapping[str, Mapping[str, Any]]) -> None:
+    """Remove generated per-panel artifacts whose panel ids are no longer active."""
+    active_stems = {panel_stem(figure_id, panel_id) for panel_id in panels}
+    active_individual_stems = {f"{figure_id}{panel_id.lower()}" for panel_id in panels}
+    suffix_by_subdir = {
+        "panel_data": "_panel_data.csv",
+        "stats": "_stats.json",
+        "source_manifests": "_sources.json",
+    }
+    for subdir, suffix in suffix_by_subdir.items():
+        folder = output_dir / subdir
+        if not folder.exists():
+            continue
+        for path in folder.glob(f"{figure_id}*"):
+            stem = path.name.removesuffix(suffix)
+            if path.is_file() and stem not in active_stems:
+                path.unlink()
+    panel_dir = output_dir / "individual_panels"
+    if panel_dir.exists():
+        for path in panel_dir.glob(f"{figure_id}*"):
+            if path.is_file() and path.stem not in active_individual_stems:
+                path.unlink()
 
 
 def _schematic_panel_types() -> set[str]:

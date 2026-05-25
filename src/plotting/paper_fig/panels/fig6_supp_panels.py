@@ -19,6 +19,149 @@ from src.plotting.paper_fig.panels.fig6_panels import (
 )
 
 
+def render_s11_score_input_ping_audit(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.axis("off")
+    items = [
+        ("nonfinite_raw_count", "nonfinite", "count"),
+        ("baseline_floor_count", "baseline floor", "count"),
+        ("clipped_ratio_max", "clip max", "ratio"),
+        ("mean_valid_site_count", "entry sites", "sites"),
+        ("mean_entry_area", "entry area", "px"),
+        ("ping_active_sites", "ping sites", "sites"),
+        ("total_ping_current", "ping current", "current"),
+    ]
+    y = 0.92
+    for metric, label, unit in items:
+        vals = pd.to_numeric(df.loc[df["metric"].astype(str).eq(metric), "value"], errors="coerce").dropna()
+        if vals.empty:
+            continue
+        value = float(vals.mean())
+        color = get_plot_color("peak_region", context="fig6") if metric in {"clipped_ratio_max", "ping_active_sites", "total_ping_current"} else "0.18"
+        ax.text(0.02, y, label, transform=ax.transAxes, ha="left", va="center", fontsize=5.0, color="0.20")
+        ax.text(0.92, y, f"{_format_compact(value)} {unit}", transform=ax.transAxes, ha="right", va="center", fontsize=5.0, color=color)
+        ax.plot([0.02, 0.92], [y - 0.055, y - 0.055], transform=ax.transAxes, color="0.86", linewidth=0.35)
+        y -= 0.125
+        if y < 0.08:
+            break
+    ax.paper_fig_plot_form = "s11_score_input_ping_audit"
+
+
+def render_s11_global_ping_count_endpoint(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("mean_early_spike_count")] if not df.empty else df
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    _line_by_x(ax, use, "x_value", "Early spike count", show_points=False)
+    ax.set_xlabel("STSP score quantile")
+    ax.paper_fig_plot_form = "s11_global_ping_count_endpoint"
+    _tidy(ax)
+
+
+def render_s11_real_probe_window_robustness(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _window_line_panel(ax, panel_data, stats, spec, style, "q5_minus_q1_delta_spike_probability", "Q5 - Q1 deflection", "s11_real_probe_window_robustness")
+
+
+def render_s11_overlap_interaction_window_robustness(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _window_line_panel(ax, panel_data, stats, spec, style, "interaction_delta", "Interaction", "s11_overlap_interaction_window_robustness")
+
+
+def render_s11_overlap_site_availability(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("mean_sites")] if not df.empty else df
+    if use.empty or not {"stsp_group", "overlap_group"}.issubset(use.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    stsp_order = _ordered_unique(use["stsp_group"], ["high", "high_stsp", "low", "low_stsp"])
+    overlap_order = _ordered_unique(use["overlap_group"], ["overlap", "no_overlap", "nonoverlap"])
+    matrix = np.full((len(stsp_order), len(overlap_order)), np.nan)
+    nonzero = np.full_like(matrix, np.nan, dtype=float)
+    for i, stsp in enumerate(stsp_order):
+        for j, overlap in enumerate(overlap_order):
+            part = use[use["stsp_group"].astype(str).eq(str(stsp)) & use["overlap_group"].astype(str).eq(str(overlap))]
+            if part.empty:
+                continue
+            matrix[i, j] = float(pd.to_numeric(part["value"], errors="coerce").mean())
+            nonzero[i, j] = float(pd.to_numeric(part.get("nonzero_fraction", pd.Series(dtype=float)), errors="coerce").mean())
+    vmax = float(np.nanmax(matrix)) if np.isfinite(matrix).any() else 1.0
+    im = ax.imshow(matrix, cmap="Greens", vmin=0.0, vmax=max(vmax, 1e-6), aspect="auto")
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            if not np.isfinite(matrix[i, j]):
+                continue
+            ax.text(j, i, f"{matrix[i, j]:.1f}\n{nonzero[i, j]:.2f}", ha="center", va="center", fontsize=5.0, color="0.08")
+    ax.set_xticks(np.arange(len(overlap_order)), [_short_s11(v) for v in overlap_order])
+    ax.set_yticks(np.arange(len(stsp_order)), [_short_s11(v) for v in stsp_order])
+    ax.set_xlabel("Probe overlap")
+    ax.set_ylabel("STSP group")
+    ax.paper_fig_plot_form = "s11_overlap_site_availability"
+    ax.paper_fig_colorbar_needed = False
+    _tidy(ax)
+
+
+def render_s11_high_stsp_ablation_paired_difference(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("high_stsp_overlap_minus_matched_loss")] if not df.empty else df
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    vals = pd.to_numeric(use["value"], errors="coerce").dropna().to_numpy(dtype=float)
+    if vals.size == 0:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    mean = float(np.mean(vals))
+    err = float(np.std(vals, ddof=1) / np.sqrt(vals.size)) if vals.size > 1 else 0.0
+    ax.axhline(0, color="0.42", linestyle="--", linewidth=0.65, zorder=1)
+    ax.bar([0], [mean], width=0.55, color=get_plot_color("peak_region", context="fig6"), edgecolor="0.20", linewidth=0.55, zorder=2)
+    ax.errorbar([0], [mean], yerr=[err], fmt="none", color="0.12", linewidth=0.65, capsize=2.0, zorder=3)
+    frac = float(np.mean(vals > 0)) if vals.size else np.nan
+    ax.text(0.95, 0.94, f"n={vals.size}\nP>0={frac:.2f}", transform=ax.transAxes, ha="right", va="top", fontsize=5.4, color="0.28")
+    ax.set_xticks([0], ["high-STSP\nminus matched"])
+    ax.set_xlim(-0.75, 0.75)
+    ax.set_ylabel("Loss difference")
+    ax.paper_fig_plot_form = "s11_high_stsp_ablation_paired_difference"
+    _tidy(ax)
+
+
+def render_s11_score_shuffle_null(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _optional_extension_panel(ax, panel_data, stats, spec, style, "score-shuffle\nnot run", "s11_score_shuffle_null")
+
+
+def render_s11_threshold_sensitivity(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    df = _clean(panel_data)
+    if _is_optional_placeholder(df):
+        _optional_extension_panel(ax, panel_data, stats, spec, style, "threshold sweep\nnot run", "s11_threshold_sensitivity")
+        return
+    if not df.empty and {"stsp_group_quantile", "overlap_threshold"}.issubset(df.columns):
+        q = sorted(pd.to_numeric(df["stsp_group_quantile"], errors="coerce").dropna().unique())
+        t = sorted(pd.to_numeric(df["overlap_threshold"], errors="coerce").dropna().unique())
+        if q and t:
+            matrix = np.full((len(q), len(t)), np.nan)
+            for i, qv in enumerate(q):
+                for j, tv in enumerate(t):
+                    part = df[np.isclose(pd.to_numeric(df["stsp_group_quantile"], errors="coerce"), qv) & np.isclose(pd.to_numeric(df["overlap_threshold"], errors="coerce"), tv)]
+                    if not part.empty:
+                        matrix[i, j] = float(pd.to_numeric(part["value"], errors="coerce").mean())
+            vmax = float(np.nanmax(np.abs(matrix))) if np.isfinite(matrix).any() else 1.0
+            ax.imshow(matrix, cmap="RdBu_r", vmin=-vmax, vmax=vmax, aspect="auto")
+            for i in range(matrix.shape[0]):
+                for j in range(matrix.shape[1]):
+                    if np.isfinite(matrix[i, j]):
+                        ax.text(j, i, f"{matrix[i, j]:.2f}", ha="center", va="center", fontsize=5.0)
+            ax.set_xticks(np.arange(len(t)), [f"{v:.2f}" for v in t])
+            ax.set_yticks(np.arange(len(q)), [f"{v:.2f}" for v in q])
+            ax.set_xlabel("Overlap threshold")
+            ax.set_ylabel("STSP quantile")
+            ax.paper_fig_plot_form = "s11_threshold_sensitivity"
+            _tidy(ax)
+            return
+    _generic_dot(ax, panel_data, stats, spec, "s11_threshold_sensitivity", "Effect")
+
+
 def render_s11_peak_update_history(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     df = _clean(panel_data)
     if df.empty:
@@ -154,6 +297,54 @@ def render_s12_peak_perturbation(ax, panel_data: pd.DataFrame | None, stats: Map
     _generic_dot(ax, panel_data, stats, spec, "s12_peak_perturbation", "Perturbation effect")
 
 
+def _window_line_panel(
+    ax,
+    panel_data: pd.DataFrame | None,
+    stats: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    style: Mapping[str, Any] | None,
+    metric: str,
+    ylabel: str,
+    plot_form: str,
+) -> None:
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq(metric)] if not df.empty else df
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.axhline(0, color="0.42", linestyle="--", linewidth=0.65, zorder=1)
+    _line_by_x(ax, use, "early_window_ms", ylabel, show_points=False)
+    ax.set_xlabel("Early window (ms)")
+    ax.paper_fig_plot_form = plot_form
+    _tidy(ax)
+
+
+def _optional_extension_panel(
+    ax,
+    panel_data: pd.DataFrame | None,
+    stats: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    style: Mapping[str, Any] | None,
+    placeholder_text: str,
+    plot_form: str,
+) -> None:
+    df = _clean(panel_data)
+    if _is_optional_placeholder(df) or df.empty:
+        ax.axis("off")
+        ax.text(0.5, 0.58, placeholder_text, transform=ax.transAxes, ha="center", va="center", fontsize=7.0, color="0.28")
+        ax.text(0.5, 0.34, "optional extension", transform=ax.transAxes, ha="center", va="center", fontsize=5.8, color="0.45")
+        ax.paper_fig_plot_form = f"{plot_form}_placeholder"
+        ax.paper_fig_optional_placeholder = True
+        return
+    _generic_dot(ax, panel_data, stats, spec, plot_form, "Observed - null")
+
+
+def _is_optional_placeholder(df: pd.DataFrame) -> bool:
+    if df.empty or "metric" not in df.columns:
+        return False
+    return df["metric"].astype(str).eq("optional_placeholder").any()
+
+
 def _generic_dot(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], plot_form: str, ylabel: str) -> None:
     df = _clean(panel_data)
     if df.empty:
@@ -199,3 +390,27 @@ def _short(value: Any) -> str:
         .replace("nonpeak_support", "nonpeak\nsupport")
         .replace("_", "\n")
     )
+
+
+def _short_s11(value: Any) -> str:
+    return (
+        str(value)
+        .replace("high_stsp", "high\nSTSP")
+        .replace("low_stsp", "low\nSTSP")
+        .replace("no_overlap", "no\nentry")
+        .replace("nonoverlap", "no\nentry")
+        .replace("overlap", "entry")
+        .replace("_", "\n")
+    )
+
+
+def _format_compact(value: float) -> str:
+    if not np.isfinite(value):
+        return "nan"
+    if abs(value) >= 100:
+        return f"{value:.0f}"
+    if abs(value) >= 10:
+        return f"{value:.1f}"
+    if abs(value) >= 1:
+        return f"{value:.2f}"
+    return f"{value:.3f}"

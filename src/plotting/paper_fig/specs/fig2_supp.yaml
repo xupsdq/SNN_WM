@@ -1,13 +1,13 @@
 figure_id: fig2_supp
-figure_title_draft: "Supplementary Fig. S3-S4: Morphological and functional controls for pair-specific fused STSP states"
-experiment_root_default: results/paper_experiments/fig2_pair_fused_stsp_state
+figure_title_draft: "Supplementary Fig. S3: Morphological and functional controls for pair-specific fused STSP states"
+experiment_root_default: results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state
 canvas_mm:
   width: 165
   height: 116
 gutters_mm:
   horizontal: 5
   vertical: 10
-reading_order: [S3A, S3B, S3C, S4A, S4B, S4C]
+reading_order: [S3A, S3B, S3C, S3D, S3E]
 run_modes: [single_network_draft, multi_network_final]
 expected_outputs:
   full_figure: [pdf, svg, png]
@@ -25,7 +25,7 @@ group_labels:
   - label: Supplementary Fig. S3 - Morphological integration controls
     x_mm: 12
     y_mm: 8
-  - label: Supplementary Fig. S4 - Functional robustness controls
+  - label: Functional robustness and retention-window controls
     x_mm: 12
     y_mm: 62
 panels:
@@ -76,9 +76,10 @@ panels:
     x_axis: Model
     y_axis: "Fit R2"
     reference_lines: []
-  S4A:
-    panel_id: S4A
-    claim: Neutral-ping pair access is robust across ping amplitude.
+  S3D:
+    panel_id: S3D
+    legacy_panel_id: old_S4A
+    claim: Neutral-ping access to the fused state is preserved across a tested range of ping amplitudes.
     panel_type: ping_sweep
     data_adapter: s4_ping_sweep_adapter
     renderer: render_s4_ping_amplitude_sweep
@@ -90,23 +91,10 @@ panels:
     y_axis: Pair-member readout (%)
     conditions: [S0, S_A, S_B, S_AB]
     reference_lines: []
-  S4B:
-    panel_id: S4B
-    claim: Neutral-ping pair access is robust across ping duration.
-    panel_type: ping_sweep
-    data_adapter: s4_ping_sweep_adapter
-    renderer: render_s4_ping_duration_sweep
-    source: data/metrics/supp_ping_sweep_metrics.csv
-    sweep_parameter: ping_ms
-    position_mm: {x: 62.67, y: 72.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
-    x_axis: Ping duration (ms)
-    y_axis: Pair-member readout (%)
-    conditions: [S0, S_A, S_B, S_AB]
-    reference_lines: []
-  S4C:
-    panel_id: S4C
-    claim: Pair-state completion gain persists across post-pair delay.
+  S3E:
+    panel_id: S3E
+    legacy_panel_id: old_S4B
+    claim: Pair-state completion gain is strongest at short post-pair delays and decays across the retention interval, defining the functional completion window.
     panel_type: completion_delay_gain
     data_adapter: s4_completion_delay_adapter
     renderer: render_s4_completion_delay_gain
@@ -117,6 +105,7 @@ panels:
     size_mm: {width: 45.67, height: 34.00}
     x_axis: Post-pair delay (ms)
     y_axis: Completion gain S_AB - relevant single (%)
+    expected_delay_ms: [100, 200, 300, 400, 800, 1200]
     reference_lines:
       - value: 0
         label: 0

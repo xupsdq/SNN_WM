@@ -30,8 +30,14 @@ def render_s5_peak_valley_null(ax, panel_data, stats, spec, style=None):
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     order = ["observed_peak_valley_delta", "null_peak_valley_delta_p95", "is_structured", "fraction_structured_sequences"]
-    labels = ["Observed", "Null p95", "Structured", "Fraction"]
-    _metric_bar(ax, df, stats, spec, metrics=order, labels=labels, ylabel="Value")
+    label_map = {
+        "observed_peak_valley_delta": "Observed",
+        "null_peak_valley_delta_p95": "Null p95",
+        "is_structured": "Structured",
+        "fraction_structured_sequences": "Fraction",
+    }
+    present = [metric for metric in order if metric in set(df["metric"].astype(str))]
+    _metric_bar(ax, df, stats, spec, metrics=present or order, labels=[label_map.get(metric, metric) for metric in (present or order)], ylabel="Value")
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.55)
     ax.paper_fig_plot_form = "s5_peak_valley_null"
 
@@ -50,6 +56,59 @@ def render_s5_anchor_dynamics(ax, panel_data, stats, spec, style=None):
     ax.set_ylabel("Anchor COM")
     _finish_axes(ax, spec)
     ax.paper_fig_plot_form = "s5_anchor_dynamics"
+
+
+def render_s5_ping_recency_decomposition(ax, panel_data, stats, spec, style=None):
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("readout_mass")].copy() if "metric" in df.columns else pd.DataFrame()
+    if use.empty or "readout_class" not in use.columns:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = [name for name in ["latest", "recent", "earlier", "silent"] if name in set(use["readout_class"].astype(str))]
+    colors = {"latest": PEAK, "recent": "#E69F00", "earlier": MAIN, "silent": "0.78"}
+    xs = np.arange(len(order))
+    means = []
+    sems = []
+    for readout_class in order:
+        vals = pd.to_numeric(use.loc[use["readout_class"].astype(str).eq(readout_class), "value"], errors="coerce").dropna().to_numpy(dtype=float)
+        means.append(float(vals.mean()) if vals.size else 0.0)
+        sems.append(_sem(vals) if vals.size else 0.0)
+    ax.bar(xs, means, yerr=sems, width=0.64, color=[colors.get(name, MAIN) for name in order], edgecolor="white", linewidth=0.35, error_kw={"linewidth": 0.6, "capsize": 2.0})
+    ax.set_xticks(xs, [name.title() for name in order], rotation=18, ha="right")
+    ax.set_ylabel("Readout mass")
+    upper = max(0.08, max([m + s for m, s in zip(means, sems)] or [0.0]) * 1.25)
+    ax.set_ylim(0, min(1.05, upper if upper > 0 else 1.0))
+    _finish_axes(ax, spec)
+    ax.paper_fig_plot_form = "s5_ping_recency_decomposition"
+    ax.paper_fig_readout_classes = order
+
+
+def render_s5_weak_probe_recency_gain(ax, panel_data, stats, spec, style=None):
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("target_recovery_gain")].copy() if "metric" in df.columns else pd.DataFrame()
+    if use.empty or "target_position_bin" not in use.columns:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = [name for name in ["early", "middle", "recent", "latest"] if name in set(use["target_position_bin"].astype(str))]
+    xs = np.arange(len(order))
+    means = []
+    sems = []
+    for target_bin in order:
+        vals = pd.to_numeric(use.loc[use["target_position_bin"].astype(str).eq(target_bin), "value"], errors="coerce").dropna().to_numpy(dtype=float)
+        means.append(float(vals.mean()) if vals.size else 0.0)
+        sems.append(_sem(vals) if vals.size else 0.0)
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.55)
+    ax.bar(xs, means, yerr=sems, width=0.64, color=MAIN, edgecolor="white", linewidth=0.35, error_kw={"linewidth": 0.6, "capsize": 2.0})
+    ax.set_xticks(xs, [name.title() for name in order], rotation=18, ha="right")
+    ax.set_ylabel("Recovery gain (pp)")
+    if means:
+        lo = min(m - s for m, s in zip(means, sems))
+        hi = max(m + s for m, s in zip(means, sems))
+        pad = max(2.0, (hi - lo) * 0.18)
+        ax.set_ylim(min(0.0, lo - pad), max(0.0, hi + pad))
+    _finish_axes(ax, spec)
+    ax.paper_fig_plot_form = "s5_weak_probe_recency_gain"
+    ax.paper_fig_y_metric = "target_recovery_gain"
 
 
 def render_s6_ping_recency_diagnostics(ax, panel_data, stats, spec, style=None):

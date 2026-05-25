@@ -1,6 +1,6 @@
 # Configs
 
-`configs/` 是当前项目的最小可用配置目录，不追求一次性覆盖全部实验，只为主线 runner / plotting 提供统一入口。
+`configs/` 是当前项目的最小可用配置目录，为主线 runner / plotting 提供统一入口。
 
 ## 目录组织
 
@@ -33,8 +33,7 @@ CLI > YAML > 默认值
 
 ## 当前已有配置文件
 
-- `configs/experiment/similarity_bias_experiment.yaml`
-- `configs/experiment/engram_decode.yaml`
+- `configs/experiment/*.yaml` 覆盖当前 `src/experiments/catalog.py` 注册的所有主线实验。
 - `configs/model/default.yaml`
 - `configs/data/mnist.yaml`
 - `configs/plotting/default.yaml`
@@ -43,9 +42,7 @@ CLI > YAML > 默认值
 
 - 所有 `src/experiments/runners/*` 公共入口都支持可选 `--config`
 - 所有 `src/plotting/experiments/*` 公共入口都支持可选 `--config`
-- 仓库目前只提供两份实验样例 YAML：
-  - `similarity_bias_experiment`
-  - `engram_decode`
+- 仓库为当前 catalog 注册的每个主线实验提供一份实验样例 YAML。
 
 ## 如何新增一个实验配置
 
@@ -66,4 +63,4 @@ CLI > YAML > 默认值
 
 - 可以完全不写 YAML，直接用 CLI 参数运行
 - legacy 实验内部参数体系没有被强制改写
-- 第二阶段不要求把所有实验都改成完整配置驱动
+- legacy 实验内部的专用参数仍通过 CLI/smoke 参数保留；YAML 负责公共入口字段。

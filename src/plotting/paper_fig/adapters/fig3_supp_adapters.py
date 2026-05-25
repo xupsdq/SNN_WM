@@ -18,6 +18,7 @@ from src.plotting.paper_fig.adapters.fig3_adapters import (
     _first_existing,
     _float,
     _ids,
+    _max_numeric,
     _missing,
     _normalize_cue,
     _normalize_region,
@@ -32,34 +33,64 @@ from src.plotting.paper_fig.adapters.fig3_adapters import (
 )
 
 
+READOUT_CLASS_ORDER = ("latest", "recent", "earlier", "silent")
+TARGET_POSITION_BIN_ORDER = ("early", "middle", "recent", "latest")
+
+
 def build_s5_peak_valley_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return _build_region_support(spec, repo_root, output_dir, ["supp_peak_valley_contrast.csv", "panel_d_peak_valley_contrast.csv"])
+    return _build_region_support(spec, repo_root, output_dir, ["supp_peak_valley_contrast.csv", "panel_d_peak_valley_contrast.csv", "panel_c_example_landscape_summary.csv"])
 
 
 def build_s5_landscape_nonflatness_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id, root, seeds, warnings, sources = _start(spec, repo_root, ["supp_landscape_nonflatness.csv", "panel_d_landscape_nonflatness.csv"])
+    names = ["supp_landscape_nonflatness.csv", "panel_d_landscape_nonflatness.csv"]
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    sources: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
-    for seed_dir, path in _seed_paths(seeds, ["supp_landscape_nonflatness.csv", "panel_d_landscape_nonflatness.csv"]):
-        if path is None:
+    for seed_dir in seeds:
+        path = _first_existing(seed_dir / "data" / "metrics", names)
+        if path is not None:
+            sources.append(_source(path, repo_root, seed_dir))
+            df = pd.read_csv(path)
+            for _, row in df.iterrows():
+                for metric in ("top_q_mass_fraction", "support_gini", "support_cv"):
+                    value = _float(row.get(metric))
+                    if np.isfinite(value):
+                        rows.append(_row(figure_id, panel_id, metric, metric, value, "value", row, seed_dir, path, repo_root, sequence_id=row.get("sequence_id", ""), seq_len=row.get("seq_len", "")))
             continue
-        df = pd.read_csv(path)
-        for _, row in df.iterrows():
-            for metric in ("top_q_mass_fraction", "support_gini", "support_cv"):
-                value = _float(row.get(metric))
-                if np.isfinite(value):
-                    rows.append(_row(figure_id, panel_id, metric, metric, value, "value", row, seed_dir, path, repo_root, sequence_id=row.get("sequence_id", ""), seq_len=row.get("seq_len", "")))
+        raw_path = seed_dir / "data" / "raw" / "panel_c_example_landscape.npz"
+        if not raw_path.exists():
+            sources.extend(_source(seed_dir / "data" / "metrics" / name, repo_root, seed_dir) for name in names)
+            sources.append(_source(raw_path, repo_root, seed_dir))
+            continue
+        sources.append(_source(raw_path, repo_root, seed_dir))
+        warnings.append(f"S4B degraded morphology fallback used representative panel_c_example_landscape.npz under {_display(seed_dir, repo_root)}.")
+        rows.extend(_landscape_nonflatness_from_npz(figure_id, panel_id, seed_dir, raw_path, repo_root))
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "top_q_mass_fraction", ["metric"])
 
 
 def build_s5_peak_valley_null_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    names = ["supp_peak_valley_prevalence.csv", "supp_network_peak_valley_summary.csv", "panel_d_peak_valley_prevalence.csv", "panel_d_network_peak_valley_summary.csv"]
-    figure_id, panel_id, root, seeds, warnings, sources = _start(spec, repo_root, names)
+    names = ["supp_peak_valley_prevalence.csv", "supp_network_peak_valley_summary.csv", "panel_d_peak_valley_prevalence.csv", "panel_d_network_peak_valley_summary.csv", "panel_c_example_landscape_summary.csv"]
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    sources: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     for seed_dir, path in _seed_paths(seeds, names):
         if path is None:
+            sources.extend(_source(seed_dir / "data" / "metrics" / name, repo_root, seed_dir) for name in names)
             continue
+        sources.append(_source(path, repo_root, seed_dir))
         df = pd.read_csv(path)
         for _, row in df.iterrows():
+            if path.name == "panel_c_example_landscape_summary.csv":
+                peak = _float(row.get("peak_mean_support"))
+                valley = _float(row.get("valley_mean_support"))
+                delta = peak - valley if np.isfinite(peak) and np.isfinite(valley) else float("nan")
+                if np.isfinite(delta):
+                    warnings.append(f"S4C degraded morphology fallback used representative panel_c_example_landscape_summary.csv under {_display(seed_dir, repo_root)}.")
+                    rows.append(_row(figure_id, panel_id, "observed_peak_valley_delta", "observed_peak_valley_delta", delta, "value", row, seed_dir, path, repo_root, seq_len=row.get("seq_len", ""), n_trials=1, fallback_scope="representative_landscape"))
+                    rows.append(_row(figure_id, panel_id, "is_structured", "is_structured", float(delta > 0), "value", row, seed_dir, path, repo_root, seq_len=row.get("seq_len", ""), n_trials=1, fallback_scope="representative_landscape"))
+                continue
             for metric in ("observed_peak_valley_delta", "null_peak_valley_delta_p95", "is_structured", "fraction_structured_sequences"):
                 value = _float(row.get(metric))
                 if np.isfinite(value):
@@ -74,6 +105,8 @@ def build_s5_anchor_dynamics_adapter(spec: Mapping[str, Any], repo_root: Path, o
     for seed_dir, path in _seed_paths(seeds, names):
         if path is None:
             continue
+        if path.name == "panel_b_progressive_update_metrics.csv":
+            warnings.append(f"S4D fallback used panel_b_progressive_update_metrics.csv under {_display(seed_dir, repo_root)} because supplement anchor metrics are missing.")
         df = pd.read_csv(path)
         for _, row in df.iterrows():
             for metric in ("anchor_COM", "similarity_entropy", "state_displacement", "earlier_residual_proxy", "earlier_item_residual_mass"):
@@ -81,6 +114,47 @@ def build_s5_anchor_dynamics_adapter(spec: Mapping[str, Any], repo_root: Path, o
                 if np.isfinite(value):
                     rows.append(_row(figure_id, panel_id, metric, metric, value, "value", row, seed_dir, path, repo_root, stage_k=row.get("stage_k", ""), x_value=row.get("stage_k", ""), y_value=value, seq_len=row.get("seq_len", "")))
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "anchor_COM", ["stage_k"])
+
+
+def build_s5_ping_recency_decomposition_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    names = ["panel_d_ping_position_distribution.csv", "panel_d_ping_summary.csv", "supp_ping_recency_diagnostics.csv"]
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    sources: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        metrics_dir = seed_dir / "data" / "metrics"
+        path = _first_existing(metrics_dir, names)
+        if path is None:
+            sources.extend(_source(metrics_dir / name, repo_root, seed_dir) for name in names)
+            warnings.append(f"Missing S4E ping recency source under {_display(seed_dir, repo_root)}")
+            continue
+        sources.append(_source(path, repo_root, seed_dir))
+        df = pd.read_csv(path)
+        if path.name == "panel_d_ping_position_distribution.csv":
+            rows.extend(_ping_recency_rows_from_distribution(df, figure_id, panel_id, seed_dir, path, repo_root, warnings))
+        else:
+            warnings.append(f"S4E degraded fallback used {path.name}; panel_d_ping_position_distribution.csv is preferred for latest/recent/earlier/silent decomposition.")
+            rows.extend(_ping_recency_rows_from_diagnostics(df, figure_id, panel_id, seed_dir, path, repo_root))
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "readout_mass", ["readout_class"])
+
+
+def build_s5_weak_probe_recency_gain_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    names = ["panel_e_weak_probe_position_stratified_metrics.csv"]
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    sources: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = _first_existing(seed_dir / "data" / "metrics", names)
+        if path is None:
+            missing = seed_dir / "data" / "metrics" / names[0]
+            sources.append(_source(missing, repo_root, seed_dir))
+            warnings.append(f"Missing S4F weak-probe recency source under {_display(seed_dir, repo_root)}")
+            continue
+        sources.append(_source(path, repo_root, seed_dir))
+        rows.extend(_weak_probe_recency_gain_rows(pd.read_csv(path), figure_id, panel_id, seed_dir, path, repo_root, warnings))
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "target_recovery_gain", ["target_position_bin"])
 
 
 def build_s6_ping_recency_diagnostics_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -410,12 +484,293 @@ def build_s6_region_ping_amp_sweep_adapter(spec: Mapping[str, Any], repo_root: P
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "P_seen_item", ["region_condition", "ping_amp"])
 
 
+def _landscape_nonflatness_from_npz(figure_id: str, panel_id: str, seed_dir: Path, path: Path, repo_root: Path) -> list[dict[str, Any]]:
+    data = np.load(path)
+    metric_name = "delta_gain_map" if "delta_gain_map" in data.files else "G_final" if "G_final" in data.files else ""
+    if not metric_name:
+        return []
+    values = np.asarray(data[metric_name], dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return []
+    support = values.copy()
+    min_value = float(np.nanmin(support))
+    if min_value < 0:
+        support = support - min_value
+    support = np.maximum(support, 0.0)
+    total = float(support.sum())
+    if total <= 0:
+        support = np.abs(values)
+        total = float(support.sum())
+    if total <= 0:
+        return []
+    top_n = max(1, int(np.ceil(0.2 * support.size)))
+    top_q_mass_fraction = float(np.sort(support)[-top_n:].sum() / total)
+    mean = float(np.mean(support))
+    metrics = {
+        "top_q_mass_fraction": top_q_mass_fraction,
+        "support_gini": _gini(support),
+        "support_cv": float(np.std(support) / mean) if mean > 0 else float("nan"),
+    }
+    rows: list[dict[str, Any]] = []
+    for metric, value in metrics.items():
+        if np.isfinite(value):
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric=metric,
+                    condition=metric,
+                    layer="layer1",
+                    seed_id=_seed_id(seed_dir),
+                    value=value,
+                    unit="value",
+                    source_file=_display(path, repo_root),
+                    fallback_scope="representative_landscape",
+                    landscape_metric_used=metric_name,
+                )
+            )
+    return rows
+
+
+def _ping_recency_rows_from_distribution(
+    df: pd.DataFrame,
+    figure_id: str,
+    panel_id: str,
+    seed_dir: Path,
+    path: Path,
+    repo_root: Path,
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    if df.empty or "serial_bin" not in df.columns or "readout_mass" not in df.columns:
+        return []
+    work = df.copy()
+    if "network_seed" not in work.columns:
+        work["network_seed"] = _seed_id(seed_dir)
+    if "state_condition" not in work.columns:
+        work["state_condition"] = "S_final"
+    elif work["state_condition"].astype(str).eq("S_final").any():
+        work = work[work["state_condition"].astype(str).eq("S_final")].copy()
+    else:
+        warnings.append(f"S4E panel_d_ping_position_distribution.csv under {_display(seed_dir, repo_root)} has no S_final rows; using available states.")
+    if "seq_len" not in work.columns:
+        positions = [_serial_position(value) for value in work["serial_bin"]]
+        positions = [pos for pos in positions if pos is not None]
+        work["seq_len"] = max(positions) if positions else ""
+    work["readout_mass"] = pd.to_numeric(work["readout_mass"], errors="coerce").fillna(0.0)
+    work["serial_position"] = pd.to_numeric(work["serial_bin"].map(_serial_position), errors="coerce")
+    rows: list[dict[str, Any]] = []
+    group_cols = ["network_seed", "state_condition", "seq_len"]
+    for (seed, state, seq_len), part in work.groupby(group_cols, dropna=False, sort=False):
+        numeric = part.dropna(subset=["serial_position"]).copy()
+        if numeric.empty:
+            continue
+        max_pos = int(pd.to_numeric(numeric["serial_position"], errors="coerce").max())
+        recent_floor = max(1, max_pos - 2)
+        latest = float(numeric.loc[numeric["serial_position"].eq(max_pos), "readout_mass"].sum())
+        recent = float(numeric.loc[numeric["serial_position"].ge(recent_floor) & numeric["serial_position"].lt(max_pos), "readout_mass"].sum())
+        earlier = float(numeric.loc[numeric["serial_position"].lt(recent_floor), "readout_mass"].sum())
+        non_numeric = part[part["serial_position"].isna()].copy()
+        labels = non_numeric["serial_bin"].astype(str).str.lower()
+        silent = float(non_numeric.loc[labels.isin(["silent", "silence", "no_readout", "none"]), "readout_mass"].sum())
+        other = float(non_numeric.loc[~labels.isin(["silent", "silence", "no_readout", "none"]), "readout_mass"].sum())
+        values = {"latest": latest, "recent": recent, "earlier": earlier, "silent": silent + other}
+        n_trials = _max_numeric(part.get("n_trials", pd.Series(dtype=float)))
+        for readout_class in READOUT_CLASS_ORDER:
+            value = float(values.get(readout_class, 0.0))
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="readout_mass",
+                    condition=readout_class,
+                    layer="layer3",
+                    seed_id=seed,
+                    value=value,
+                    unit="probability",
+                    source_file=_display(path, repo_root),
+                    readout_class=readout_class,
+                    readout_class_order=_readout_class_order(readout_class),
+                    state_condition=str(state),
+                    seq_len=seq_len,
+                    latest_position=max_pos,
+                    recent_positions=",".join(str(pos) for pos in range(recent_floor, max_pos)),
+                    earlier_positions=",".join(str(pos) for pos in range(1, recent_floor)),
+                    other_mass_included_in_silent=bool(other > 0),
+                    n_trials=n_trials if np.isfinite(n_trials) else "",
+                    x_value=_readout_class_order(readout_class),
+                    y_value=value,
+                )
+            )
+    return rows
+
+
+def _ping_recency_rows_from_diagnostics(
+    df: pd.DataFrame,
+    figure_id: str,
+    panel_id: str,
+    seed_dir: Path,
+    path: Path,
+    repo_root: Path,
+) -> list[dict[str, Any]]:
+    if df.empty:
+        return []
+    work = df.copy()
+    if "state_condition" in work.columns and work["state_condition"].astype(str).eq("S_final").any():
+        work = work[work["state_condition"].astype(str).eq("S_final")].copy()
+    rows: list[dict[str, Any]] = []
+    for _, row in work.iterrows():
+        latest = _float(row.get("latest_item_mass"))
+        recent = _float(row.get("recent_item_mass"))
+        earlier = _float(row.get("earlier_item_residual_mass"))
+        silent = _float(row.get("P_silent"))
+        values = {
+            "latest": latest if np.isfinite(latest) else 0.0,
+            "recent": recent if np.isfinite(recent) else 0.0,
+            "earlier": earlier if np.isfinite(earlier) else 0.0,
+            "silent": silent if np.isfinite(silent) else 0.0,
+        }
+        for readout_class in READOUT_CLASS_ORDER:
+            value = float(values[readout_class])
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "readout_mass",
+                    readout_class,
+                    value,
+                    "probability",
+                    row,
+                    seed_dir,
+                    path,
+                    repo_root,
+                    readout_class=readout_class,
+                    readout_class_order=_readout_class_order(readout_class),
+                    state_condition=row.get("state_condition", ""),
+                    seq_len=row.get("seq_len", ""),
+                    x_value=_readout_class_order(readout_class),
+                    y_value=value,
+                    degraded_from_summary=True,
+                )
+            )
+    return rows
+
+
+def _weak_probe_recency_gain_rows(
+    df: pd.DataFrame,
+    figure_id: str,
+    panel_id: str,
+    seed_dir: Path,
+    path: Path,
+    repo_root: Path,
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    required = {"target_position_bin", "memory_condition", "P_target"}
+    if df.empty or not required.issubset(df.columns):
+        return []
+    work = df.copy()
+    if "network_seed" not in work.columns:
+        work["network_seed"] = _seed_id(seed_dir)
+    if "seq_len" not in work.columns:
+        work["seq_len"] = ""
+    work["P_target"] = pd.to_numeric(work["P_target"], errors="coerce")
+    work["n_trials"] = pd.to_numeric(work.get("n_trials", pd.Series(np.ones(len(work)))), errors="coerce").fillna(1.0)
+    rows: list[dict[str, Any]] = []
+    warned_cue_fallback = False
+    group_cols = ["network_seed", "seq_len", "target_position_bin"]
+    for (seed, seq_len, target_bin), part in work.groupby(group_cols, dropna=False, sort=False):
+        target_bin = str(target_bin)
+        if not target_bin or target_bin.lower() == "nan":
+            continue
+        means: dict[str, float] = {}
+        n_by_memory: dict[str, float] = {}
+        for memory, memory_part in part.groupby("memory_condition", dropna=False, sort=False):
+            memory = str(memory)
+            values = pd.to_numeric(memory_part["P_target"], errors="coerce")
+            weights = pd.to_numeric(memory_part["n_trials"], errors="coerce").fillna(1.0)
+            valid = values.notna()
+            if valid.any():
+                means[memory] = _weighted_mean(values[valid].to_numpy(dtype=float), weights[valid].to_numpy(dtype=float))
+                n_by_memory[memory] = float(weights[valid].sum())
+        if "sequence_state" not in means:
+            continue
+        baseline = "single_item_memory" if "single_item_memory" in means else "cue_only" if "cue_only" in means else ""
+        if not baseline:
+            continue
+        if baseline == "cue_only" and not warned_cue_fallback:
+            warnings.append(f"S4F fallback used sequence_state - cue_only under {_display(seed_dir, repo_root)} because single_item_memory rows are missing.")
+            warned_cue_fallback = True
+        gain = means["sequence_state"] - means[baseline]
+        y = _scale_delta_to_percent(gain)
+        rows.append(
+            _canonical(
+                figure_id,
+                panel_id,
+                metric="target_recovery_gain",
+                condition=target_bin,
+                layer="layer3",
+                seed_id=seed,
+                value=y,
+                unit="percent_delta",
+                source_file=_display(path, repo_root),
+                target_position_bin=target_bin,
+                target_position_bin_order=_target_position_bin_order(target_bin),
+                memory_condition="sequence_state_minus_" + baseline,
+                baseline_condition=baseline,
+                sequence_state_P_target=_to_percent_value(means["sequence_state"]),
+                baseline_P_target=_to_percent_value(means[baseline]),
+                x_value=_target_position_bin_order(target_bin),
+                y_value=y,
+                seq_len=seq_len,
+                n_trials_sequence_state=n_by_memory.get("sequence_state", ""),
+                n_trials_baseline=n_by_memory.get(baseline, ""),
+            )
+        )
+    return rows
+
+
+def _gini(values: np.ndarray) -> float:
+    arr = np.asarray(values, dtype=float)
+    arr = arr[np.isfinite(arr)]
+    if arr.size == 0:
+        return float("nan")
+    arr = np.sort(np.maximum(arr, 0.0))
+    total = float(arr.sum())
+    if total <= 0:
+        return float("nan")
+    index = np.arange(1, arr.size + 1, dtype=float)
+    return float((2.0 * np.sum(index * arr) / (arr.size * total)) - ((arr.size + 1.0) / arr.size))
+
+
+def _weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    valid = np.isfinite(values) & np.isfinite(weights) & (weights > 0)
+    if not valid.any():
+        return float("nan")
+    return float(np.average(values[valid], weights=weights[valid]))
+
+
+def _readout_class_order(readout_class: str) -> int:
+    return {name: idx for idx, name in enumerate(READOUT_CLASS_ORDER, start=1)}.get(str(readout_class), 99)
+
+
+def _target_position_bin_order(target_bin: str) -> int:
+    return {name: idx for idx, name in enumerate(TARGET_POSITION_BIN_ORDER, start=1)}.get(str(target_bin), 99)
+
+
 def _build_region_support(spec: Mapping[str, Any], repo_root: Path, output_dir: Path, names: Sequence[str]) -> AdapterResult:
-    figure_id, panel_id, root, seeds, warnings, sources = _start(spec, repo_root, names)
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    sources: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     for seed_dir, path in _seed_paths(seeds, names):
         if path is None:
+            sources.extend(_source(seed_dir / "data" / "metrics" / name, repo_root, seed_dir) for name in names)
             continue
+        sources.append(_source(path, repo_root, seed_dir))
+        if path.name == "panel_c_example_landscape_summary.csv":
+            warnings.append(f"S4A degraded morphology fallback used representative panel_c_example_landscape_summary.csv under {_display(seed_dir, repo_root)}.")
         df = pd.read_csv(path)
         for _, row in df.iterrows():
             made_region = False

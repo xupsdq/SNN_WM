@@ -32,8 +32,8 @@ qc_requirements:
   required_unit_groups: [overlap_dominant, probe_only_dominant]
   required_main_conditions:
     - dynamic_intact
-    - attenuate_overlap_high_support
-    - reset_overlap_high_support
+    - attenuate_l1_stsp
+    - reset_l1_stsp
   single_network_warning_only: true
 panels:
   A:
@@ -100,22 +100,22 @@ panels:
     y_axis: Dynamic minus static (baseline-corrected)
   D:
     panel_id: D
-    panel_type: grouped_stacked_transition_composition
-    claim: Causal perturbation of overlap support changes advance/recruit/loss transition composition.
+    panel_type: stacked_transition_composition
+    claim: Layer1 STSP state supports the dynamic transition structure observed in Fig.5B.
     data_adapter: fig5_causal_perturbation_summary_adapter
     renderer: render_fig5_causal_perturbation_summary
     source_priority:
-      - data/metrics/panel_d_perturbation_transition_summary_by_group.csv
+      - data/metrics/panel_d_l1_stsp_perturbation_transition_summary.csv
+      - data/metrics/panel_d_l1_stsp_perturbation_audit.csv
     position_mm: {x: 88.50, y: 62.00, w: 70.50, h: 54.00}
     size_mm: {w: 70.50, h: 54.00}
     primary_metric: transition_fraction
     transition_types: [advance, recruit, loss]
-    unit_group_order: [overlap_dominant, probe_only_dominant]
+    title: Layer1 STSP perturbation
     perturbation_conditions:
       - dynamic_intact
-      - attenuate_overlap_high_support
-      - reset_overlap_high_support
-      - static_frozen
+      - attenuate_l1_stsp
+      - reset_l1_stsp
     x_axis: ""
     y_axis: Transition proportion
 supplement_outputs:

@@ -11,6 +11,75 @@ from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 from src.plotting.paper_fig.panels.fig4_panels import render_fig4_decision_deflection
 
 
+def render_s7_similarity_overlap_2x2(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("plot_metric", "acc_drop"))
+    df = df[df["metric"].astype(str).eq(metric)] if not df.empty and "metric" in df.columns else df
+    if df.empty or not {"similarity_group", "overlap_group"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    summary = _mean_sem(df, ["similarity_group", "overlap_group"])
+    sim_order = ["low_similarity", "high_similarity"]
+    overlap_order = ["low_overlap", "high_overlap"]
+    width = 0.32
+    colors = [get_plot_color("shuffled_pair"), get_plot_color("true_pair")]
+    for idx, overlap in enumerate(overlap_order):
+        vals = []
+        errs = []
+        for sim in sim_order:
+            part = summary[(summary["similarity_group"].astype(str).eq(sim)) & (summary["overlap_group"].astype(str).eq(overlap))]
+            vals.append(float(part["mean"].iloc[0]) if not part.empty else np.nan)
+            errs.append(float(part["sem"].iloc[0]) if not part.empty else 0.0)
+        xs = np.arange(len(sim_order), dtype=float) + (idx - 0.5) * width
+        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx], edgecolor=COLOR_NEUTRAL, linewidth=0.45, capsize=1.8, label=("Low overlap" if idx == 0 else "High overlap"))
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xticks(np.arange(len(sim_order)), ["Low sim", "High sim"])
+    ax.set_xlabel(str(spec.get("x_axis", "Similarity group")))
+    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
+    ax.legend(frameon=False, fontsize=4.6, loc="upper left", handlelength=0.8)
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_similarity_overlap_2x2"
+
+
+def render_s7_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("plot_metric", "mean_acc_drop"))
+    df = df[df["metric"].astype(str).eq(metric)] if not df.empty and "metric" in df.columns else df
+    if df.empty or not {"iso_similarity_bin", "condition"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    work = df.copy()
+    work["iso_similarity_bin_order"] = pd.to_numeric(work.get("iso_similarity_bin_order", pd.Series(np.nan, index=work.index)), errors="coerce")
+    grouped = work.groupby(["iso_similarity_bin_order", "iso_similarity_bin", "condition"], dropna=False)["value"].mean().reset_index()
+    pivot = grouped.pivot_table(index=["iso_similarity_bin_order", "iso_similarity_bin"], columns="condition", values="value").reset_index()
+    if {"High overlap excess", "Low overlap excess"}.issubset(pivot.columns):
+        pivot = pivot.sort_values("iso_similarity_bin_order")
+        for _, row in pivot.iterrows():
+            low = _num(row.get("Low overlap excess"))
+            high = _num(row.get("High overlap excess"))
+            if np.isfinite(low) and np.isfinite(high):
+                ax.plot([0, 1], [low, high], color="0.72", linewidth=0.55, alpha=0.65, zorder=1)
+        low_vals = pd.to_numeric(pivot["Low overlap excess"], errors="coerce").dropna()
+        high_vals = pd.to_numeric(pivot["High overlap excess"], errors="coerce").dropna()
+        means = [float(low_vals.mean()) if len(low_vals) else np.nan, float(high_vals.mean()) if len(high_vals) else np.nan]
+        sems = [float(low_vals.sem()) if len(low_vals) > 1 else 0.0, float(high_vals.sem()) if len(high_vals) > 1 else 0.0]
+        ax.bar([0, 1], means, yerr=sems, color=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.72, capsize=1.8, zorder=2)
+        ax.scatter(np.zeros(len(low_vals)), low_vals, s=8, color=get_plot_color("shuffled_pair"), alpha=0.45, zorder=3)
+        ax.scatter(np.ones(len(high_vals)), high_vals, s=8, color=get_plot_color("true_pair"), alpha=0.45, zorder=3)
+        ax.set_xticks([0, 1], ["Low", "High"])
+    else:
+        order = _ordered_unique(df["condition"], ["Low overlap excess", "High overlap excess"])
+        _dot_bar(ax, df, order, colors=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")])
+        ax.set_xticks(np.arange(len(order)), ["Low", "High"])
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xlabel(str(spec.get("x_axis", "Similarity stratum")))
+    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_overlap_excess"
+
+
 def render_s7_similarity_full_trend(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats, style
     df = _clean(panel_data)
@@ -92,7 +161,35 @@ def render_s7_iso_similarity_matching(ax, panel_data: pd.DataFrame | None, stats
 
 def render_s7_overlap_regression(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats, style
-    _coefficient_plot(ax, panel_data, spec, "s7_overlap_regression")
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = _ordered_unique(df["condition"], ["overlap", "similarity", "input_energy", "sample_energy", "probe_energy"])
+    outcomes = _ordered_unique(df.get("outcome_metric", pd.Series(dtype=str)), ["DPI_L3", "acc_drop"])
+    outcomes = [out for out in outcomes if out]
+    if not outcomes:
+        _coefficient_plot(ax, panel_data, spec, "s7_overlap_regression")
+        return
+    colors = [get_plot_color("sample_probe_overlap"), get_plot_color("true_pair"), get_plot_color("other_residual")]
+    width = min(0.26, 0.72 / max(len(outcomes), 1))
+    x = np.arange(len(order), dtype=float)
+    for idx, outcome in enumerate(outcomes):
+        vals = []
+        errs = []
+        part = df[df["outcome_metric"].astype(str).eq(outcome)]
+        for term in order:
+            vals_for_term = pd.to_numeric(part.loc[part["condition"].astype(str).eq(term), "value"], errors="coerce").dropna()
+            vals.append(float(vals_for_term.mean()) if len(vals_for_term) else np.nan)
+            errs.append(float(vals_for_term.sem()) if len(vals_for_term) > 1 else 0.0)
+        xs = x + (idx - (len(outcomes) - 1) / 2) * width
+        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx % len(colors)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, capsize=1.5, label=str(outcome))
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xticks(x, [_short_metric(v) for v in order], rotation=25, ha="right")
+    ax.set_ylabel(str(spec.get("y_axis", "Coefficient")))
+    ax.legend(frameon=False, fontsize=4.5, loc="best", handlelength=0.8)
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_overlap_regression"
 
 
 def render_s7_random_nonoverlap_perturbation(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -107,6 +204,72 @@ def render_s7_random_nonoverlap_perturbation(ax, panel_data: pd.DataFrame | None
     ax.set_ylabel(str(spec.get("y_axis", "Dynamic-like recovery")))
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_random_nonoverlap_perturbation"
+
+
+def render_s7_alternative_overlap_definitions(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("plot_metric", "overlap_dpi_correlation"))
+    df = df[df["metric"].astype(str).eq(metric)] if not df.empty and "metric" in df.columns else df
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = _ordered_unique(df["condition"], ["dice_overlap", "overlap_fraction_sample", "overlap_fraction_probe", "dilated_overlap", "encoded_spike_overlap"])
+    _dot_bar(ax, df, order, color=get_plot_color("sample_probe_overlap"))
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xticks(np.arange(len(order)), [_short_metric(v) for v in order], rotation=30, ha="right")
+    ax.set_ylabel(str(spec.get("y_axis", "Correlation")))
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_alternative_overlap_definitions"
+
+
+def render_s7_perturbation_specificity_contrast(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("plot_metric", "DPI_L3_contrast"))
+    df = df[df["metric"].astype(str).eq(metric)] if not df.empty and "metric" in df.columns else df
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = _ordered_unique(df["condition"], ["Overlap - non-overlap", "Overlap - random"])
+    _dot_bar(ax, df, order, colors=[get_plot_color("true_pair"), get_plot_color("other_residual")])
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xticks(np.arange(len(order)), ["vs non", "vs random"])
+    ax.set_ylabel(str(spec.get("y_axis", "L3 DPI difference")))
+    audit_cols = ["probe_input_unchanged", "sample_input_complete", "l2_stsp_frozen", "l3_stsp_frozen"]
+    if all(col in df.columns and df[col].astype(bool).all() for col in audit_cols):
+        ax.text(0.98, 0.94, "audit pass", transform=ax.transAxes, ha="right", va="top", fontsize=4.8, color=COLOR_NEUTRAL)
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_perturbation_specificity_contrast"
+
+
+def render_s7_decision_spike_summary(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = _ordered_unique(df["condition"], ["Dynamic", "Static", "Overlap support", "Non-overlap support", "Random matched"])
+    colors = [
+        get_plot_color("dynamic"),
+        get_plot_color("static_frozen"),
+        get_plot_color("true_pair"),
+        get_plot_color("shuffled_pair"),
+        get_plot_color("other_residual"),
+    ][: len(order)]
+    xs = np.arange(len(order), dtype=float)
+    means = []
+    sems = []
+    for condition in order:
+        vals = pd.to_numeric(df.loc[df["condition"].astype(str).eq(condition), "value"], errors="coerce").dropna()
+        means.append(float(vals.mean()) if len(vals) else np.nan)
+        sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
+    ax.bar(xs, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.78, capsize=1.8, zorder=2)
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xticks(np.arange(len(order)), [str(v).replace(" support", "").replace("Non-overlap", "Non") for v in order], rotation=25, ha="right")
+    ax.set_ylabel(str(spec.get("y_axis", "Decision-step L3 DPI")))
+    _tidy(ax)
+    ax.paper_fig_plot_form = "s7_decision_spike_summary_bar_only"
 
 
 def render_s8_time_resolved_l3(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -271,4 +434,3 @@ def _tidy(ax) -> None:
     ax.yaxis.label.set_size(5.4)
     ax.xaxis.labelpad = 0.5
     ax.yaxis.labelpad = 0.7
-

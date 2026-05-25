@@ -23,14 +23,22 @@ MAIN_UNIT_LABELS = {
     "balanced": "Balanced",
 }
 CONDITION_LABELS = {
-    "dynamic_intact": "Dynamic intact",
+    "dynamic_intact": "Dynamic",
     "static_frozen": "Static frozen",
+    "attenuate_l1_stsp": "Attenuate L1 STSP",
+    "reset_l1_stsp": "Reset L1 STSP",
+    "attenuate_all_stsp": "Attenuate STSP",
+    "reset_all_stsp": "Reset STSP",
     "attenuate_overlap_high_support": "Attenuate overlap support",
     "reset_overlap_high_support": "Reset overlap support",
     "sham_perturbation": "Sham perturbation",
 }
 MAIN_CONDITION_LABELS = {
     "dynamic_intact": "Dynamic",
+    "attenuate_l1_stsp": "Attenuate L1 STSP",
+    "reset_l1_stsp": "Reset L1 STSP",
+    "attenuate_all_stsp": "Attenuate STSP",
+    "reset_all_stsp": "Reset STSP",
     "attenuate_overlap_high_support": "Attenuate",
     "reset_overlap_high_support": "Reset",
     "static_frozen": "Static",
@@ -324,81 +332,110 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
     rows: list[dict[str, Any]] = []
     sources: list[Path] = []
     source_records: list[dict[str, Any]] = []
-    plotted_groups = ["overlap_dominant", "probe_only_dominant"]
-    plotted_conditions = [
-        "dynamic_intact",
-        "attenuate_overlap_high_support",
-        "reset_overlap_high_support",
-        "static_frozen",
-    ]
-    source_name = "panel_d_perturbation_transition_summary_by_group.csv"
-    required_cols = {"condition", "unit_group", *MAIN_TRANSITION_COLUMNS.values()}
+    plotted_conditions = ["dynamic_intact", "attenuate_l1_stsp", "reset_l1_stsp"]
+    source_name = "panel_d_l1_stsp_perturbation_transition_summary.csv"
+    audit_name = "panel_d_l1_stsp_perturbation_audit.csv"
+    legacy_global_source_name = "panel_d_global_stsp_perturbation_transition_summary.csv"
+    legacy_region_source_name = "panel_d_perturbation_transition_summary_by_group.csv"
+    required_cols = {"condition", *MAIN_TRANSITION_COLUMNS.values()}
+    legacy_global_used = False
+    legacy_region_used = False
     for seed_dir in seeds:
         path = seed_dir / "data" / "metrics" / source_name
+        audit_path = seed_dir / "data" / "metrics" / audit_name
         source_records.append(_source_entry(path, repo_root))
+        source_records.append(_source_entry(audit_path, repo_root))
         if not path.exists():
-            warnings.append(f"Missing Fig.5D causal transition source: {path}")
-            continue
+            legacy_global_path = seed_dir / "data" / "metrics" / legacy_global_source_name
+            legacy_region_path = seed_dir / "data" / "metrics" / legacy_region_source_name
+            source_records.append(_source_entry(legacy_global_path, repo_root))
+            source_records.append(_source_entry(legacy_region_path, repo_root))
+            if legacy_global_path.exists():
+                warnings.append(
+                    f"Fig.5D Layer1 STSP source missing; using legacy global STSP fallback: {_rel(legacy_global_path, repo_root)}"
+                )
+                legacy_global_used = True
+                path = legacy_global_path
+            elif legacy_region_path.exists():
+                warnings.append(
+                    f"Fig.5D Layer1 STSP source missing; using legacy region perturbation fallback: {_rel(legacy_region_path, repo_root)}"
+                )
+                legacy_region_used = True
+                path = legacy_region_path
+            else:
+                warnings.append(f"Missing Fig.5D Layer1 STSP source: {path}")
+                continue
         df = pd.read_csv(path)
         missing = sorted(required_cols.difference(df.columns))
         if missing:
-            warnings.append(f"{_rel(path, repo_root)} lacks causal transition columns {missing}.")
+            warnings.append(f"{_rel(path, repo_root)} lacks Layer1 STSP transition columns {missing}.")
             continue
-        df = df[
-            df["unit_group"].astype(str).isin(plotted_groups)
-            & df["condition"].astype(str).isin(plotted_conditions)
-        ].copy()
+        if path.name == legacy_global_source_name:
+            df = _legacy_global_summary_as_l1_fallback(df)
+        elif path.name == legacy_region_source_name:
+            df = _legacy_region_summary_as_l1_fallback(df)
+        df = df[df["condition"].astype(str).isin(plotted_conditions)].copy()
         sources.append(path)
+        if audit_path.exists():
+            sources.append(audit_path)
         rows.extend(
-            _transition_composition_longform(
+            _l1_stsp_transition_longform(
                 df,
-                figure_id=figure_id,
-                panel_id=panel_id,
-                seed_dir=seed_dir,
-                source_file=path,
-                repo_root=repo_root,
-                unit_groups=plotted_groups,
-                perturbation_conditions=plotted_conditions,
+                figure_id,
+                panel_id,
+                seed_dir,
+                path,
+                repo_root,
+                legacy_global_used=path.name == legacy_global_source_name,
+                legacy_region_used=path.name == legacy_region_source_name,
             )
         )
     panel_df = pd.DataFrame(rows)
     available_conditions = sorted(set(panel_df.get("perturbation_condition", pd.Series(dtype=str)).dropna().astype(str))) if not panel_df.empty else []
-    available_groups = sorted(set(panel_df.get("unit_group", pd.Series(dtype=str)).dropna().astype(str))) if not panel_df.empty else []
     missing_plotted_conditions = [condition for condition in plotted_conditions if condition not in set(available_conditions)]
     extra_stats = {
-        "primary_plot_type": "grouped_stacked_transition_composition",
+        "main_metric": "transition_composition",
+        "plot_type": "stacked_bar",
+        "primary_plot_type": "stacked_bar",
         "source_file": source_name,
-        "source_level": "transition_summary_by_group" if sources else "missing",
-        "plotted_transition_types": list(TRANSITION_TYPE_LABELS),
-        "plotted_unit_groups": plotted_groups,
-        "plotted_conditions": plotted_conditions,
-        "excluded_conditions": ["sham_perturbation"],
-        "excluded_unit_groups": ["random_matched", "balanced"],
+        "source_level": "l1_stsp_perturbation_transition_summary" if sources and not (legacy_global_used or legacy_region_used) else "legacy_global_perturbation_fallback" if legacy_global_used else "legacy_region_perturbation_fallback" if legacy_region_used else "missing",
+        "conditions": plotted_conditions,
+        "transition_types": ["advance", "recruit", "loss"],
+        "included_unit_groups": _split_unique(panel_df.get("included_unit_groups", pd.Series(dtype=str))) if not panel_df.empty else [],
+        "perturbed_layer": "layer1",
+        "perturbed_variables": ["u_pre", "x_pre"],
+        "legacy_global_perturbation_used": bool(legacy_global_used),
+        "legacy_region_perturbation_used": bool(legacy_region_used),
         "point_overlay_enabled": False,
-        "error_bar_enabled": _has_total_mass_replicates(panel_df, ["unit_group", "perturbation_condition"]) if not panel_df.empty else False,
+        "neutral_reset_restore_policy": False,
+        "boundary_policy": "restore_preprobe_boundary",
+        "error_bar_enabled": _has_total_mass_replicates(panel_df, ["perturbation_condition"]) if not panel_df.empty else False,
         "available_conditions": available_conditions,
         "missing_plotted_conditions": missing_plotted_conditions,
-        "available_unit_groups": available_groups,
-        "total_transition_mass": _total_mass_summary(panel_df, ["unit_group", "perturbation_condition"]) if not panel_df.empty else [],
+        "total_transition_mass": _total_mass_summary(panel_df, ["perturbation_condition"]) if not panel_df.empty else [],
     }
     extra_manifest = {
-        "primary_plot_type": "grouped_stacked_transition_composition",
+        "primary_plot_type": "stacked_bar",
+        "main_metric": "transition_composition",
         "source_file": source_name,
-        "source_level": "transition_summary_by_group" if sources else "missing",
+        "source_level": "l1_stsp_perturbation_transition_summary" if sources and not (legacy_global_used or legacy_region_used) else "legacy_global_perturbation_fallback" if legacy_global_used else "legacy_region_perturbation_fallback" if legacy_region_used else "missing",
         "checked_candidates": [record["path"] for record in source_records],
-        "plotted_transition_types": list(TRANSITION_TYPE_LABELS),
-        "plotted_unit_groups": plotted_groups,
+        "plotted_transition_types": ["advance", "recruit", "loss"],
         "plotted_conditions": plotted_conditions,
-        "excluded_conditions": ["sham_perturbation"],
-        "excluded_unit_groups": ["random_matched", "balanced"],
+        "included_unit_groups": extra_stats["included_unit_groups"],
+        "perturbed_layer": "layer1",
+        "perturbed_variables": ["u_pre", "x_pre"],
+        "legacy_global_perturbation_used": bool(legacy_global_used),
+        "legacy_region_perturbation_used": bool(legacy_region_used),
         "point_overlay_enabled": False,
         "error_bar_enabled": bool(extra_stats["error_bar_enabled"]),
         "available_conditions": available_conditions,
         "missing_plotted_conditions": missing_plotted_conditions,
-        "available_unit_groups": available_groups,
         "intervention_timing": "pre_probe_boundary",
+        "boundary_policy": "restore_preprobe_boundary",
+        "neutral_reset_restore_policy": False,
         "probe_input_changed": False,
-        "perturbed_unit_scope": "overlap_high_support",
+        "perturbed_unit_scope": "all_layer1_stsp_sites",
     }
     return _write_result(
         spec,
@@ -408,7 +445,7 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
         panel_df,
         sources,
         warnings,
-        group_cols=["condition", "unit_group", "perturbation_condition", "transition_type"],
+        group_cols=["condition", "perturbation_condition", "transition_type"],
         extra_stats=extra_stats,
         extra_manifest=extra_manifest,
         source_records=source_records,
@@ -657,6 +694,113 @@ def _transition_composition_longform(
     return rows
 
 
+def _l1_stsp_transition_longform(
+    df: pd.DataFrame,
+    figure_id: str,
+    panel_id: str,
+    seed_dir: Path,
+    source_file: Path,
+    repo_root: Path,
+    *,
+    legacy_global_used: bool,
+    legacy_region_used: bool,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if df.empty:
+        return rows
+    condition_order = {"dynamic_intact": 0, "attenuate_l1_stsp": 1, "reset_l1_stsp": 2}
+    transition_order = {"advance": 0, "recruit": 1, "loss": 2}
+    for _, r in df.iterrows():
+        condition = str(r.get("condition", ""))
+        label = str(r.get("condition_label", "")) or MAIN_CONDITION_LABELS.get(condition, condition)
+        total_mass = sum(_num(r.get(col)) for col in MAIN_TRANSITION_COLUMNS.values())
+        for transition_type, source_col in MAIN_TRANSITION_COLUMNS.items():
+            value = _num(r.get(source_col))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "transition_fraction",
+                    label,
+                    "layer1",
+                    _network_id(seed_dir),
+                    _seed_id(seed_dir, r.get("network_seed", "")),
+                    value,
+                    "proportion",
+                    source_file,
+                    repo_root,
+                    condition_label=label,
+                    condition_order=condition_order.get(condition, 999),
+                    perturbation_condition=condition,
+                    raw_condition=condition,
+                    transition_type=transition_type,
+                    transition_type_order=transition_order.get(transition_type, 999),
+                    transition_label=TRANSITION_TYPE_LABELS.get(transition_type, transition_type),
+                    y_value=value,
+                    source_metric=source_col,
+                    transition_mass=_num(r.get("transition_mass", total_mass)),
+                    total_transition_mass=_num(r.get("transition_mass", total_mass)),
+                    n_units=r.get("n_units", ""),
+                    n_trials=r.get("n_trials", ""),
+                    included_unit_groups=r.get("included_unit_groups", ""),
+                    perturbation_mode=r.get("perturbation_mode", ""),
+                    perturbed_layer=r.get("perturbed_layer", "layer1"),
+                    perturbed_variables=r.get("perturbed_variables", ""),
+                    legacy_global_perturbation_used=bool(legacy_global_used),
+                    legacy_region_perturbation_used=bool(legacy_region_used),
+                    run_mode="",
+                )
+            )
+    return rows
+
+
+def _legacy_global_summary_as_l1_fallback(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    mapping = {
+        "dynamic_intact": "dynamic_intact",
+        "attenuate_all_stsp": "attenuate_l1_stsp",
+        "reset_all_stsp": "reset_l1_stsp",
+    }
+    use = df[df["condition"].astype(str).isin(mapping)].copy()
+    if use.empty:
+        return pd.DataFrame()
+    use["condition"] = use["condition"].astype(str).map(mapping)
+    use["condition_label"] = use["condition"].map(MAIN_CONDITION_LABELS).fillna(use["condition"])
+    use["perturbation_mode"] = use["condition"].map({"dynamic_intact": "none", "attenuate_l1_stsp": "attenuate", "reset_l1_stsp": "reset"}).fillna("")
+    use["perturbed_layer"] = use["condition"].map({"dynamic_intact": "none", "attenuate_l1_stsp": "layer1", "reset_l1_stsp": "layer1"}).fillna("")
+    use["perturbed_variables"] = use["condition"].map({"dynamic_intact": "none", "attenuate_l1_stsp": "u_pre;x_pre", "reset_l1_stsp": "u_pre;x_pre"}).fillna("")
+    return use
+
+
+def _legacy_region_summary_as_l1_fallback(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    mapping = {
+        "dynamic_intact": "dynamic_intact",
+        "attenuate_overlap_high_support": "attenuate_l1_stsp",
+        "reset_overlap_high_support": "reset_l1_stsp",
+    }
+    use = df[df["condition"].astype(str).isin(mapping)].copy()
+    if use.empty:
+        return pd.DataFrame()
+    use["condition"] = use["condition"].astype(str).map(mapping)
+    rows: list[dict[str, Any]] = []
+    for (network_seed, condition), part in use.groupby(["network_seed", "condition"], sort=False):
+        row = {"network_seed": network_seed, "condition": condition, "condition_label": MAIN_CONDITION_LABELS.get(str(condition), str(condition))}
+        for col in list(MAIN_TRANSITION_COLUMNS.values()) + ["P_unchanged"]:
+            row[col] = float(pd.to_numeric(part.get(col, pd.Series(dtype=float)), errors="coerce").mean())
+        row["transition_mass"] = float(sum(_num(row.get(col)) for col in MAIN_TRANSITION_COLUMNS.values()))
+        row["n_units"] = int(pd.to_numeric(part.get("n_units", pd.Series(dtype=float)), errors="coerce").sum())
+        row["n_trials"] = int(part.get("trial_id", pd.Series(dtype=float)).nunique()) if "trial_id" in part.columns else int(len(part))
+        row["included_unit_groups"] = ";".join(sorted(set(part.get("unit_group", pd.Series(dtype=str)).dropna().astype(str))))
+        row["perturbation_mode"] = "legacy_region_fallback"
+        row["perturbed_layer"] = "layer1"
+        row["perturbed_variables"] = "u_pre"
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def _baseline_correct_trace(df: pd.DataFrame, *, value_col: str, group_cols: list[str], time_col: str) -> pd.DataFrame:
     if df.empty or value_col not in df.columns or time_col not in df.columns:
         return df
@@ -859,6 +1003,16 @@ def _condition_delta(df: pd.DataFrame, condition: str, reference: str) -> dict[s
 def _values(df: pd.DataFrame) -> list[float]:
     values = pd.to_numeric(df.get("value", pd.Series(dtype=float)), errors="coerce").dropna()
     return [float(v) for v in values.tolist()]
+
+
+def _split_unique(values: pd.Series) -> list[str]:
+    out: set[str] = set()
+    for value in values.dropna().astype(str):
+        for item in value.replace(",", ";").split(";"):
+            item = item.strip()
+            if item:
+                out.add(item)
+    return sorted(out)
 
 
 def _rel(path: Path | str, root: Path) -> str:

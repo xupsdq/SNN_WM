@@ -1,10 +1,11 @@
 figure_id: fig1
 figure_title_draft: Functional STSP working-memory substrate
+experiment_root_default: results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate
 canvas_mm:
   width: 165
   height: 124
 gutters_mm:
-  horizontal: 6
+  horizontal: 12
   vertical: 7
 reading_order: [A, B, C, D, E]
 run_modes:
@@ -51,8 +52,8 @@ panels:
     data_adapter: none
     renderer: render_fig1_architecture_schematic
     source: manual_assets/fig1a_architecture.svg
-    position_mm: {x: 12, y: 8, w: 147, h: 24}
-    size_mm: {w: 147, h: 24}
+    position_mm: {x: 12, y: 6, w: 147, h: 28}
+    size_mm: {w: 147, h: 28}
     source_mapping:
       manual_asset: manual_assets/fig1a_architecture.svg
       source_status: manual_optional_programmatic_placeholder
@@ -66,8 +67,8 @@ panels:
     data_adapter: fig1_baseline_adapter
     renderer: render_fig1_baseline_recall
     source: data/metrics/panel_b_baseline_metrics_by_network.csv
-    position_mm: {x: 12, y: 39, w: 70.5, h: 30}
-    size_mm: {w: 70.5, h: 30}
+    position_mm: {x: 12, y: 43, w: 67.5, h: 29}
+    size_mm: {w: 67.5, h: 29}
     x_axis: Network
     y_axis: Recall (%)
     reference_lines:
@@ -84,8 +85,8 @@ panels:
     data_adapter: fig1_delay_decode_summary_adapter
     renderer: render_fig1_delay_decode_summary
     source: data/metrics/panel_c_delay_decode_metrics.csv
-    position_mm: {x: 88.5, y: 39, w: 70.5, h: 30}
-    size_mm: {w: 70.5, h: 30}
+    position_mm: {x: 91.5, y: 43, w: 67.5, h: 29}
+    size_mm: {w: 67.5, h: 29}
     x_axis: Layer
     y_axis: Decoding accuracy (%)
     reference_lines:
@@ -106,8 +107,8 @@ panels:
     data_adapter: fig1_condition_metrics_adapter
     renderer: render_fig1_condition_comparison
     source: data/metrics/panel_d_condition_metrics.csv
-    position_mm: {x: 12, y: 76, w: 70.5, h: 40}
-    size_mm: {w: 70.5, h: 40}
+    position_mm: {x: 12, y: 83, w: 67.5, h: 33}
+    size_mm: {w: 67.5, h: 33}
     x_axis: ""
     y_axis: Probe error (%)
     conditions: [dynamic_intact, ux_trial_shuffle, static_frozen]
@@ -128,8 +129,8 @@ panels:
       - data/raw/panel_d_dms_condition_trial_readout.csv
       - data/metrics/panel_d_condition_metrics.csv
       - data/metrics/panel_e_attribution_metrics.csv
-    position_mm: {x: 88.5, y: 76, w: 70.5, h: 40}
-    size_mm: {w: 70.5, h: 40}
+    position_mm: {x: 91.5, y: 83, w: 67.5, h: 33}
+    size_mm: {w: 67.5, h: 33}
     x_axis: ""
     y_axis: Error composition (% of errors)
     conditions: [dynamic_intact, ux_trial_shuffle]

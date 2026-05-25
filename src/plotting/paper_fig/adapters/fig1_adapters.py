@@ -600,7 +600,7 @@ def _ids(spec: Mapping[str, Any]) -> tuple[str, str]:
 
 
 def _seed_dirs(spec: Mapping[str, Any], repo_root: Path) -> list[Path]:
-    raw_root = spec.get("experiment_root") or DEFAULT_EXPERIMENT_ROOT
+    raw_root = spec.get("experiment_root") or spec.get("experiment_root_default") or DEFAULT_EXPERIMENT_ROOT
     root = Path(str(raw_root))
     if not root.is_absolute():
         root = repo_root / root

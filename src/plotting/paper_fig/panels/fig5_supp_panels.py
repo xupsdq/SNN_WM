@@ -73,6 +73,43 @@ def render_s9_transition_composition(ax, panel_data: pd.DataFrame | None, stats:
     _tidy(ax, st)
 
 
+def render_s9_trialwise_transition_advantage(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    metric = str(spec.get("metric", "delta_P_advance_plus_recruit"))
+    plot_df = df[df["metric"].astype(str).eq(metric)].copy()
+    if plot_df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = _ordered_unique(plot_df["condition"], ["vs probe-only", "vs random", "vs balanced"])
+    xs = np.arange(len(order), dtype=float)
+    means, sems = _group_means(plot_df, "condition", order)
+    colors = ["#4C78A8", "#6B6B6B", "#7F6DBA"][: len(order)]
+    ax.bar(xs, means, yerr=sems, capsize=1.4, width=0.58, color=colors, edgecolor="black", linewidth=0.3)
+    ax.axhline(0, color="0.35", linewidth=0.6)
+    ymin = min(0.0, float(np.nanmin(means - sems)) if len(means) else 0.0)
+    ymax = max(0.05, float(np.nanmax(means + sems)) if len(means) else 0.05)
+    ax.set_ylim(ymin - 0.05 * max(0.05, ymax - ymin), ymax + 0.24 * max(0.05, ymax - ymin))
+    for x, label, mean, sem in zip(xs, order, means, sems):
+        vals = pd.to_numeric(plot_df.loc[plot_df["condition"].astype(str).eq(str(label)), "value"], errors="coerce").dropna()
+        if vals.empty:
+            continue
+        frac = float((vals > 0).mean())
+        ax.text(x, mean + sem + 0.06 * max(0.05, ymax - ymin), f"{frac:.0%}>0", ha="center", va="bottom", fontsize=st["tick_labelsize"], color="0.25")
+    ax.set_xticks(xs, [_comparison_short(label) for label in order], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "Delta P(advance + recruit)")))
+    ax.paper_fig_plot_form = "s9_trialwise_transition_advantage_bar_only"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_value_labels = True
+    ax.paper_fig_value_label_count = len(order)
+    ax.paper_fig_value_labels_clear = True
+    _tidy(ax, st)
+
+
 def render_s9_event_trace(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _trace_plot(ax, panel_data, stats, spec, style, "s9_event_trace")
 
@@ -95,11 +132,11 @@ def render_s9_event_chain_null(ax, panel_data: pd.DataFrame | None, stats: Mappi
         means, sems = _group_means(part, "metric", metric_order)
         offset = (i - (len(conditions) - 1) / 2.0) * width
         color = get_plot_color("dynamic") if condition == "Observed" else COLOR_NEUTRAL
-        ax.bar(x + offset, means, yerr=sems, capsize=1.2, width=width * 0.92, color=color, edgecolor="black", linewidth=0.25, alpha=0.75, label=str(condition).replace("Null ", "Null "))
+        ax.bar(x + offset, means, yerr=sems, capsize=1.2, width=width * 0.92, color=color, edgecolor="black", linewidth=0.25, alpha=0.75, label=_event_null_label(condition))
     ax.set_xticks(x, [_short_metric(m) for m in metric_order], rotation=20, ha="right")
     ax.set_ylabel(str(spec.get("y_axis", "Fraction")))
     if len(conditions) > 1:
-        ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="best", handlelength=0.8)
+        ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper left", ncols=2, handlelength=0.8, columnspacing=0.7)
     ax.paper_fig_plot_form = "s9_event_chain_null"
     _tidy(ax, st)
 
@@ -157,6 +194,11 @@ def render_s10_perturbation_ux_audit(ax, panel_data: pd.DataFrame | None, stats:
     _tidy(ax, st)
 
 
+def render_s9_perturbation_ux_audit(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    render_s10_perturbation_ux_audit(ax, panel_data, stats, spec, style)
+    ax.paper_fig_plot_form = "s9_perturbation_ux_audit"
+
+
 def render_s10_perturbation_transition_contrast(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats
     st = _style(style)
@@ -184,6 +226,11 @@ def render_s10_perturbation_transition_contrast(ax, panel_data: pd.DataFrame | N
     _tidy(ax, st)
 
 
+def render_s9_perturbation_transition_contrast(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    render_s10_perturbation_transition_contrast(ax, panel_data, stats, spec, style)
+    ax.paper_fig_plot_form = "s9_perturbation_transition_contrast"
+
+
 def render_s10_same_winner_lost_delayed(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats
     st = _style(style)
@@ -192,20 +239,26 @@ def render_s10_same_winner_lost_delayed(ax, panel_data: pd.DataFrame | None, sta
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     conditions = _ordered_unique(df["condition"], ["Dynamic intact", "Attenuate overlap support", "Reset overlap support"])
-    metrics = [m for m in ("P_same_winner_preserved", "P_same_winner_lost", "P_same_winner_delayed", "P_same_winner_lost_or_delayed") if m in set(df["metric"])]
+    metrics = [m for m in ("P_same_winner_preserved", "P_same_winner_lost", "P_same_winner_delayed") if m in set(df["metric"])]
     x = np.arange(len(conditions), dtype=float)
     bottom = np.zeros(len(conditions), dtype=float)
     for metric in metrics:
         means, _sems = _group_means(df[df["metric"].eq(metric)], "condition", conditions)
         ax.bar(x, means, bottom=bottom, width=0.58, color=TRANSITION_COLORS.get(metric, COLOR_NEUTRAL), edgecolor="black", linewidth=0.25, label=_short_metric(metric))
-        if metric != "P_same_winner_lost_or_delayed":
-            bottom += means
+        bottom += means
     ax.set_xticks(x, [_condition_short(c) for c in conditions], rotation=0)
-    ax.set_ylim(0, max(1.0, float(np.nanmax(bottom)) if len(bottom) else 1.0))
+    ax.set_ylim(0, max(1.0, float(np.nanmax(bottom)) if len(bottom) else 1.0) * 1.04)
     ax.set_ylabel(str(spec.get("y_axis", "Same-winner probability")))
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="best", handlelength=0.8)
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 1.18), ncols=3, handlelength=0.8, columnspacing=0.8)
     ax.paper_fig_plot_form = "s10_same_winner_lost_delayed"
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = 3
     _tidy(ax, st)
+
+
+def render_s9_same_winner_lost_delayed(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    render_s10_same_winner_lost_delayed(ax, panel_data, stats, spec, style)
+    ax.paper_fig_plot_form = "s9_same_winner_lost_delayed"
 
 
 def render_s10_dynamic_like_recovery(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -373,9 +426,33 @@ def _condition_short(condition: str) -> str:
         "Dynamic intact": "Dynamic",
         "Attenuate overlap support": "Atten.",
         "Reset overlap support": "Reset",
+        "Attenuate L1 STSP": "Atten.",
+        "Reset L1 STSP": "Reset",
+        "Attenuate STSP": "Atten.",
+        "Reset STSP": "Reset",
         "Sham perturbation": "Sham",
         "Static frozen": "Static",
     }.get(condition, condition)
+
+
+def _comparison_short(label: Any) -> str:
+    return {
+        "vs probe-only": "vs\nprobe-only",
+        "vs random": "vs\nrandom",
+        "vs balanced": "vs\nbalanced",
+    }.get(str(label), str(label))
+
+
+def _event_null_label(condition: Any) -> str:
+    text = str(condition)
+    return {
+        "Observed": "Observed",
+        "Null event_time_shuffle": "time shuffle",
+        "Null winner_loser_pairing_shuffle": "pair shuffle",
+        "Null neighborhood_shuffle": "radius shuffle",
+        "Null trial_shuffle": "trial shuffle",
+        "Null label_shuffle": "label shuffle",
+    }.get(text, text.replace("Null ", "").replace("_", " "))
 
 
 def _finite_max(values: pd.Series) -> float:

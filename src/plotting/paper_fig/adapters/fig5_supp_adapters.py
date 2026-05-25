@@ -54,7 +54,7 @@ def build_s9_transition_composition_adapter(spec: Mapping[str, Any], repo_root: 
         sources.extend(_source(path, repo_root) for path in candidates)
         path, df = _first_readable(candidates, warnings, repo_root, required=("unit_group",))
         if path is None:
-            warnings.append(f"Missing S9B transition composition source under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S6B transition composition source under {_display(seed_dir, repo_root)}.")
             continue
         for _, r in df.iterrows():
             group = str(r.get("unit_group", ""))
@@ -63,6 +63,100 @@ def build_s9_transition_composition_adapter(spec: Mapping[str, Any], repo_root: 
                     continue
                 rows.append(_row(figure_id, panel_id, metric, UNIT_LABELS.get(group, group), _num(r.get(metric)), "probability", seed_dir, path, repo_root, unit_group=group, n_units=r.get("n_units", ""), n_trials=r.get("n_trials", "")))
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "unit_group"])
+
+
+def build_s9_trialwise_transition_advantage_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _roots(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    comparisons = (
+        ("probe_only_dominant", "vs probe-only"),
+        ("random_matched", "vs random"),
+        ("balanced", "vs balanced"),
+    )
+    for seed_dir in seeds:
+        candidates = [
+            seed_dir / "data" / "metrics" / "panel_b_transition_summary_by_group.csv",
+            seed_dir / "data" / "metrics" / "supp_s9_transition_composition_by_group.csv",
+        ]
+        sources.extend(_source(path, repo_root) for path in candidates)
+        path, df = _first_readable(candidates, warnings, repo_root, required=("unit_group", "P_advance_plus_recruit"))
+        if path is None:
+            warnings.append(f"Missing S6B trialwise transition summary source under {_display(seed_dir, repo_root)}.")
+            continue
+        if {"trial_id", "P_advance_plus_recruit"}.issubset(df.columns):
+            index_cols = [col for col in ("network_seed", "trial_id") if col in df.columns]
+            if not index_cols:
+                index_cols = ["trial_id"]
+            wide = df.pivot_table(index=index_cols, columns="unit_group", values="P_advance_plus_recruit", aggfunc="mean")
+            if "overlap_dominant" not in wide.columns:
+                warnings.append(f"{_display(path, repo_root)} lacks overlap_dominant rows for S6B trialwise advantage.")
+                continue
+            wide = wide.reset_index()
+            for control_group, label in comparisons:
+                if control_group not in wide.columns:
+                    warnings.append(f"{_display(path, repo_root)} lacks {control_group} rows for S6B trialwise advantage.")
+                    continue
+                values = pd.to_numeric(wide["overlap_dominant"], errors="coerce") - pd.to_numeric(wide[control_group], errors="coerce")
+                valid = values.dropna()
+                frac_positive = float((valid > 0).mean()) if len(valid) else float("nan")
+                for i, value in values.items():
+                    if pd.isna(value):
+                        continue
+                    r = wide.loc[i]
+                    rows.append(
+                        _row(
+                            figure_id,
+                            panel_id,
+                            "delta_P_advance_plus_recruit",
+                            label,
+                            float(value),
+                            "delta_probability",
+                            seed_dir,
+                            path,
+                            repo_root,
+                            control_group=control_group,
+                            control_group_label=UNIT_LABELS.get(control_group, control_group),
+                            comparison_label=label,
+                            source_level="trialwise",
+                            trial_id=r.get("trial_id", ""),
+                            network_seed=r.get("network_seed", _seed_id(seed_dir)),
+                            fraction_positive=frac_positive,
+                            n_trials=len(valid),
+                        )
+                    )
+        else:
+            warnings.append(f"{_display(path, repo_root)} lacks trial_id; S6B uses aggregate fallback.")
+            grouped = df.groupby("unit_group", dropna=False)["P_advance_plus_recruit"].mean()
+            if "overlap_dominant" not in grouped.index:
+                warnings.append(f"{_display(path, repo_root)} lacks overlap_dominant rows for S6B aggregate fallback.")
+                continue
+            for control_group, label in comparisons:
+                if control_group not in grouped.index:
+                    warnings.append(f"{_display(path, repo_root)} lacks {control_group} rows for S6B aggregate fallback.")
+                    continue
+                value = float(grouped.loc["overlap_dominant"] - grouped.loc[control_group])
+                rows.append(
+                    _row(
+                        figure_id,
+                        panel_id,
+                        "delta_P_advance_plus_recruit",
+                        label,
+                        value,
+                        "delta_probability",
+                        seed_dir,
+                        path,
+                        repo_root,
+                        control_group=control_group,
+                        control_group_label=UNIT_LABELS.get(control_group, control_group),
+                        comparison_label=label,
+                        source_level="aggregate_fallback",
+                        fraction_positive=float(value > 0),
+                        n_trials="",
+                    )
+                )
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition", "control_group"])
 
 
 def build_s9_event_trace_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -78,7 +172,7 @@ def build_s9_event_trace_adapter(spec: Mapping[str, Any], repo_root: Path, outpu
         sources.extend(_source(path, repo_root) for path in candidates)
         path, df = _first_readable(candidates, warnings, repo_root, required=("time_ms", "trace_type"))
         if path is None:
-            warnings.append(f"Missing S9C event trace source under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S6C event trace source under {_display(seed_dir, repo_root)}.")
             continue
         value_col = _first_col(df, ("mean_value", "value"))
         if value_col is None:
@@ -121,7 +215,7 @@ def build_s9_event_chain_null_adapter(spec: Mapping[str, Any], repo_root: Path, 
                 for _, r in df.iterrows():
                     rows.append(_row(figure_id, panel_id, metric, "Observed", _num(r.get(metric)), "fraction", seed_dir, fraction, repo_root, n_events=r.get("n_events", "")))
         if not fraction.exists() and not nulls.exists() and not summary.exists():
-            warnings.append(f"Missing S9D event-chain/null sources under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S6D event-chain/null sources under {_display(seed_dir, repo_root)}.")
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
 
 
@@ -155,7 +249,7 @@ def build_s9_neighborhood_event_audit_adapter(spec: Mapping[str, Any], repo_root
                 reason = "included" if included else str(r.get("exclusion_reason", "excluded"))
                 rows.append(_row(figure_id, panel_id, "event_selection_count", reason, _num(r.get("count")), "events", seed_dir, audit_path, repo_root, source_level="event_selection_audit"))
         if radius_path is None and audit_path is None:
-            warnings.append(f"Missing S9E neighborhood/audit sources under {_display(seed_dir, repo_root)}.")
+            warnings.append(f"Missing S6E neighborhood/audit sources under {_display(seed_dir, repo_root)}.")
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
 
 
@@ -166,6 +260,7 @@ def build_s10_perturbation_ux_audit_adapter(spec: Mapping[str, Any], repo_root: 
     sources: list[dict[str, Any]] = []
     for seed_dir in seeds:
         candidates = [
+            seed_dir / "data" / "metrics" / "panel_d_l1_stsp_perturbation_audit.csv",
             seed_dir / "data" / "metrics" / "supp_s10_perturbation_ux_audit.csv",
             seed_dir / "data" / "metrics" / "supp_perturbation_ux_audit.csv",
         ]
@@ -176,11 +271,22 @@ def build_s10_perturbation_ux_audit_adapter(spec: Mapping[str, Any], repo_root: 
             continue
         for _, r in df.iterrows():
             raw = str(r.get("condition", ""))
-            for metric in ("u_delta_mean", "x_delta_mean", "g_delta_mean"):
-                if metric not in df.columns:
+            metric_candidates = (
+                ("u_delta_mean", "u_delta_mean"),
+                ("x_delta_mean", "x_delta_mean"),
+                ("g_delta_mean", "g_delta_mean"),
+                ("l1_u_delta_mean", "u_delta_mean"),
+                ("l1_x_delta_mean", "x_delta_mean"),
+            )
+            for source_col, metric in metric_candidates:
+                if source_col not in df.columns:
                     continue
-                rows.append(_row(figure_id, panel_id, metric, CONDITION_LABELS.get(raw, raw), _num(r.get(metric)), "delta", seed_dir, path, repo_root, raw_condition=raw, perturbation_condition=raw, unit_id=r.get("unit_id", ""), trial_id=r.get("trial_id", "")))
+                rows.append(_row(figure_id, panel_id, metric, CONDITION_LABELS.get(raw, raw), _num(r.get(source_col)), "delta", seed_dir, path, repo_root, raw_condition=raw, perturbation_condition=raw, unit_id=r.get("unit_id", ""), trial_id=r.get("trial_id", ""), perturbed_layer=r.get("perturbed_layer", "")))
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
+
+
+def build_s9_perturbation_ux_audit_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_s10_perturbation_ux_audit_adapter(spec, repo_root, output_dir)
 
 
 def build_s10_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -215,6 +321,10 @@ def build_s10_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], 
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition", "unit_group"])
 
 
+def build_s9_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_s10_perturbation_transition_contrast_adapter(spec, repo_root, output_dir)
+
+
 def build_s10_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _roots(spec, repo_root)
@@ -241,6 +351,10 @@ def build_s10_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_roo
                     continue
                 rows.append(_row(figure_id, panel_id, metric, CONDITION_LABELS.get(raw, raw), _num(r.get(metric)), "probability", seed_dir, path, repo_root, unit_group=group, unit_group_label=UNIT_LABELS.get(group, group), raw_condition=raw, perturbation_condition=raw, n_dynamic_winners=r.get("n_dynamic_winners", ""), n_units=r.get("n_units", "")))
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
+
+
+def build_s9_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return build_s10_same_winner_lost_delayed_adapter(spec, repo_root, output_dir)
 
 
 def build_s10_dynamic_like_recovery_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -431,7 +545,14 @@ def _finish(
         "checked_candidates": [src["path"] for src in sources],
         "warnings": list(warnings),
     }
-    if str(panel_id).startswith("S10"):
+    perturbation_panel_types = {
+        "perturbation_ux_audit",
+        "perturbation_transition_contrast",
+        "same_winner_lost_delayed",
+        "dynamic_like_recovery",
+        "sham_matching_controls",
+    }
+    if str(panel_id).startswith("S10") or str(spec.get("panel_type", "")) in perturbation_panel_types:
         manifest.update({"intervention_timing": "pre_probe_boundary", "probe_input_changed": False, "perturbed_unit_scope": "overlap_high_support"})
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(warnings))
 

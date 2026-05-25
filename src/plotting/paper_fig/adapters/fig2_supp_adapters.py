@@ -27,6 +27,7 @@ from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_
 
 LAYER_ORDER = ("layer1", "layer2", "layer3")
 MODEL_ORDER = ("A_only", "B_only", "mean_AB", "sum_AB", "unconstrained_AB", "convex_AB")
+EXPECTED_COMPLETION_DELAY_MS = (100, 200, 300, 400, 800, 1200)
 
 
 def build_s3_wpri_across_layers_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -105,12 +106,15 @@ def build_s3_linear_model_comparison_adapter(spec: Mapping[str, Any], repo_root:
             )
     if not sources:
         return missing_adapter_result(spec, repo_root, output_dir, "Missing S3C linear model comparison source.")
-    panel_df = _sort_by_order(pd.DataFrame(rows), "condition", model_order)
+    raw_panel_df = _sort_by_order(pd.DataFrame(rows), "condition", model_order)
+    panel_df = _seed_level_summary(raw_panel_df, ["condition", "model_name"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "linear_model_comparison", _run_mode(seeds), ["model_name"])
     stats["model_order"] = model_order
     stats["models"] = _unique(panel_df, "model_name")
+    _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["model_order"] = model_order
+    _add_output_manifest_fields(manifest, panel_df)
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -180,6 +184,7 @@ def build_s4_ping_sweep_adapter(spec: Mapping[str, Any], repo_root: Path, output
     stats["x_values"] = _unique_numeric(panel_df, "x_value")
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["sweep_parameter"] = sweep_parameter
+    _add_output_manifest_fields(manifest, panel_df)
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -200,7 +205,7 @@ def build_s4_completion_delay_adapter(spec: Mapping[str, Any], repo_root: Path, 
             value_col = _first_col(df, ["completion_gain_SAB_minus_relevant_single", "completion_gain_SAB_minus_SB", "completion_gain_SAB_minus_SA"])
             delay_col = _first_col(df, ["delay2_ms", "completion_delay_ms", "post_pair_delay_ms"])
             if value_col is None or delay_col is None:
-                warnings.append(f"S4C contrast source missing gain/delay columns: {_display_path(contrast_path, repo_root)}")
+                warnings.append(f"{panel_id} contrast source missing gain/delay columns: {_display_path(contrast_path, repo_root)}")
                 continue
             for _, row in df.iterrows():
                 delay = pd.to_numeric(pd.Series([row.get(delay_col)]), errors="coerce").iloc[0]
@@ -235,8 +240,19 @@ def build_s4_completion_delay_adapter(spec: Mapping[str, Any], repo_root: Path, 
         return missing_adapter_result(spec, repo_root, output_dir, "Missing completion delay sweep sources.")
     panel_df = _sort_line(pd.DataFrame(rows), "x_value", ["S_AB_minus_relevant_single", "target_A", "target_B"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "completion_gain", _run_mode(seeds), ["condition", "x_value"])
+    expected_delay_ms = [int(v) for v in spec.get("expected_delay_ms", EXPECTED_COMPLETION_DELAY_MS)]
+    missing_delay_ms = _missing_numeric_values(panel_df, "delay2_ms", expected_delay_ms)
     stats["x_values"] = _unique_numeric(panel_df, "x_value")
+    stats["expected_delay_ms"] = expected_delay_ms
+    stats["missing_expected_delay_ms"] = missing_delay_ms
+    stats["metric"] = "completion_gain"
+    stats["condition"] = "S_AB_minus_relevant_single"
+    if missing_delay_ms and not panel_df.get("metric", pd.Series(dtype=str)).astype(str).eq("missing_source").any():
+        warnings.append(f"{panel_id} missing expected completion delay values: {missing_delay_ms}")
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
+    manifest["expected_delay_ms"] = expected_delay_ms
+    manifest["missing_expected_delay_ms"] = missing_delay_ms
+    _add_output_manifest_fields(manifest, panel_df)
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -269,7 +285,7 @@ def _build_layerwise_metric(
         if value_col is None:
             warnings.append(f"{panel_id} source missing {list(value_candidates)}: {_display_path(path, repo_root)}")
             continue
-        if fallback_warning and value_col != value_candidates[0]:
+        if fallback_warning and value_col != value_candidates[0] and fallback_warning not in warnings:
             warnings.append(fallback_warning)
         layer_col = _first_col(df, ["layer", "primary_layer"])
         work = df.copy()
@@ -299,11 +315,14 @@ def _build_layerwise_metric(
             )
     if not sources:
         return missing_adapter_result(spec, repo_root, output_dir, f"Missing {panel_id} layerwise source.")
-    panel_df = _sort_by_order(pd.DataFrame(rows), "layer", LAYER_ORDER)
+    raw_panel_df = _sort_by_order(pd.DataFrame(rows), "layer", LAYER_ORDER)
+    panel_df = _seed_level_summary(raw_panel_df, ["layer", "condition"])
     stats = _stats_payload(figure_id, panel_id, panel_df, metric_name, _run_mode(seeds), ["layer"])
     stats["layers"] = _unique(panel_df, "layer")
+    _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["layers"] = stats["layers"]
+    _add_output_manifest_fields(manifest, panel_df)
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -321,7 +340,7 @@ def _completion_rows_from_metrics(
     required = {"state_condition", "target_recovery_rate"}
     delay_col = _first_col(df, ["delay2_ms", "completion_delay_ms", "post_pair_delay_ms"])
     if delay_col is None or not required.issubset(df.columns):
-        warnings.append(f"S4C metrics fallback missing state/recovery/delay columns: {_display_path(path, repo_root)}")
+        warnings.append(f"{panel_id} metrics fallback missing state/recovery/delay columns: {_display_path(path, repo_root)}")
         return rows
     work = df.copy()
     seed_col = _first_col(work, ["network_seed", "seed_id", "network_id"])
@@ -335,7 +354,9 @@ def _completion_rows_from_metrics(
         if not isinstance(keys, tuple):
             keys = (keys,)
         seed_value = keys[0]
-        delay = keys[1]
+        delay = pd.to_numeric(pd.Series([keys[1]]), errors="coerce").iloc[0]
+        if pd.isna(delay):
+            continue
         keep_prob = keys[2] if len(keys) > 2 else ""
         lookup = {
             str(row["state_condition"]): _to_percent(row.get("target_recovery_rate", 0.0))
@@ -356,8 +377,8 @@ def _completion_rows_from_metrics(
                 unit="percent",
                 seed_id=seed_value,
                 source_file=_display_path(path, repo_root),
-                x_value=delay,
-                delay2_ms=delay,
+                x_value=float(delay),
+                delay2_ms=float(delay),
                 keep_prob=keep_prob,
                 relevant_single_condition=relevant,
                 source_level="metrics_fallback",
@@ -367,8 +388,52 @@ def _completion_rows_from_metrics(
     return rows
 
 
+def _add_output_manifest_fields(manifest: dict[str, Any], panel_df: pd.DataFrame) -> None:
+    manifest["source_files_used"] = [str(source.get("path", "")) for source in manifest.get("sources", []) if source.get("exists", True)]
+    manifest["rows_written_to_panel_data"] = int(len(panel_df))
+    manifest["rows_written"] = int(len(panel_df))
+    manifest["n_networks_observed"] = int(manifest.get("n_networks") or 0)
+
+
+def _missing_numeric_values(panel_df: pd.DataFrame, column: str, expected: Sequence[int]) -> list[int]:
+    if panel_df.empty or column not in panel_df.columns:
+        return list(expected)
+    observed = {
+        int(round(float(value)))
+        for value in pd.to_numeric(panel_df[column], errors="coerce").dropna().tolist()
+    }
+    return [int(value) for value in expected if int(value) not in observed]
+
+
 def _ids(spec: Mapping[str, Any]) -> tuple[str, str]:
     return str(spec.get("figure_id", "fig2_supp")), str(spec.get("panel_id", "")).upper()
+
+
+def _add_seed_aggregation_stats(stats: dict[str, Any], raw_df: pd.DataFrame, panel_df: pd.DataFrame) -> None:
+    stats["seed_level_aggregation"] = True
+    stats["rows_before_seed_aggregation"] = int(len(raw_df))
+    stats["rows_after_seed_aggregation"] = int(len(panel_df))
+    stats["replicate_unit"] = "network_seed"
+
+
+def _seed_level_summary(df: pd.DataFrame, group_cols: Sequence[str]) -> pd.DataFrame:
+    if df.empty or "seed_id" not in df.columns or "value" not in df.columns:
+        return df
+    keys = ["seed_id", *[col for col in group_cols if col in df.columns]]
+    out_rows: list[dict[str, Any]] = []
+    for _, part in df.groupby(keys, dropna=False, sort=False):
+        values = pd.to_numeric(part["value"], errors="coerce").dropna()
+        if values.empty:
+            continue
+        row = part.iloc[0].to_dict()
+        row["value"] = float(values.mean())
+        row["seed_level_n"] = int(values.count())
+        row["seed_level_sem"] = float(values.sem()) if values.count() > 1 else 0.0
+        row["replicate_unit"] = "network_seed"
+        if "pair_id" in row:
+            row["pair_id"] = "seed_mean"
+        out_rows.append(row)
+    return pd.DataFrame(out_rows).reset_index(drop=True)
 
 
 def _first_existing(seed_dir: Path, spec: Mapping[str, Any], default_names: Sequence[str]) -> Path | None:

@@ -39,28 +39,7 @@ def render_fig1_architecture_schematic(ax, panel_data: pd.DataFrame | None, stat
         ax.paper_fig_plot_form = "manual_schematic_asset_slot"
         return
 
-    ax.paper_fig_plot_form = "programmatic_architecture_schematic"
-    labels = ["Image", "Spike\nencoder", "STSP\nlayers", "Earliest\nreadout"]
-    xs = np.linspace(0.10, 0.88, len(labels))
-    for i, (x, label) in enumerate(zip(xs, labels)):
-        ax.add_patch(
-            plt_rect(
-                ax,
-                (x - 0.075, 0.43),
-                0.15,
-                0.24,
-                facecolor="#F7F7F7",
-                edgecolor="0.2",
-                linewidth=0.7,
-            )
-        )
-        ax.text(x, 0.55, label, ha="center", va="center", fontsize=7.0, transform=ax.transAxes)
-        if i < len(xs) - 1:
-            ax.annotate("", xy=(xs[i + 1] - 0.09, 0.55), xytext=(x + 0.09, 0.55), xycoords=ax.transAxes, arrowprops={"arrowstyle": "->", "linewidth": 0.8, "color": "0.2"})
-    for x, layer, color in zip([0.53, 0.60, 0.67], ["u/x L1", "u/x L2", "u/x L3"], [LAYER_COLORS["layer1"], LAYER_COLORS["layer2"], LAYER_COLORS["layer3"]]):
-        ax.plot([x, x], [0.43, 0.25], color=color, linewidth=0.8, transform=ax.transAxes)
-        ax.scatter([x], [0.23], s=12, color=color, transform=ax.transAxes)
-        ax.text(x, 0.13, layer, ha="center", va="center", fontsize=5.8, transform=ax.transAxes)
+    ax.paper_fig_plot_form = "blank_manual_slot"
 
 
 def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -70,17 +49,27 @@ def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapp
     if df.empty:
         _placeholder(ax, spec, "Baseline data unavailable")
         return
-    ax.paper_fig_plot_form = "baseline_recall"
+    ax.paper_fig_plot_form = "baseline_recall_network_points"
     values = df["value"].to_numpy(dtype=float)
     x = np.arange(len(values), dtype=float)
-    ax.bar(x, values, width=0.55, color="#4C78A8", edgecolor="black", linewidth=0.45, alpha=0.85)
-    ax.scatter(x, values, s=st["marker_size"], facecolor="white", edgecolor="0.25", linewidth=0.45, zorder=3)
-    _mean_sem(ax, x, values)
+    mean = float(np.nanmean(values))
+    sem = float(np.nanstd(values, ddof=1) / np.sqrt(values.size)) if values.size > 1 else 0.0
+    if values.size > 1:
+        ax.axhspan(mean - sem, mean + sem, color="#9ECAE1", alpha=0.32, linewidth=0, zorder=0)
+        ax.paper_fig_has_shaded_band = True
+        ax.paper_fig_shaded_band = [mean - sem, mean + sem]
+    ax.plot(x, values, color="#4C78A8", linewidth=0.85, marker="o", markersize=2.7, zorder=3)
+    ax.axhline(mean, color="#2F6EA3", linewidth=0.75, zorder=2)
     _reference_lines(ax, spec)
-    ax.set_xticks(x, [str(v) for v in df["seed_id"].astype(str).tolist()])
+    tick_idx = _network_tick_indices(len(values))
+    tick_labels = [str(v) for v in df["seed_id"].astype(str).tolist()]
+    ax.set_xticks(x[tick_idx], [tick_labels[i] for i in tick_idx])
+    ax.set_xlim(-0.5, max(0.5, len(values) - 0.5))
     ax.set_xlabel(str(spec.get("x_axis", "Network")))
     ax.set_ylabel(str(spec.get("y_axis", "Recall (%)")))
     ax.set_ylim(0, max(100, float(np.nanmax(values) + 8)))
+    ax.paper_fig_line_emphasis = "one_network_one_point_connected"
+    ax.paper_fig_has_mean_marker = False
     _tidy(ax, st)
 
 
@@ -127,7 +116,7 @@ def render_fig1_delay_decode_summary(ax, panel_data: pd.DataFrame | None, stats:
     means, sems = _group_means(df, "layer", order)
     colors = [LAYER_COLORS.get(layer, "0.6") for layer in order]
     ax.bar(x, means, yerr=sems, capsize=st["capsize"], width=st["bar_width"], color=colors, edgecolor="black", linewidth=0.45, alpha=0.86)
-    _scatter_points(ax, df, "layer", order, x)
+    _annotate_bar_values(ax, x, means, sems, suffix="%")
     _reference_lines(ax, spec)
     labels = [(spec.get("display_labels") or {}).get(layer, layer) for layer in order]
     ax.set_xticks(x, labels)
@@ -150,7 +139,7 @@ def render_fig1_condition_comparison(ax, panel_data: pd.DataFrame | None, stats:
     means, sems = _group_means(df, "condition", order)
     colors = [CONDITION_COLORS.get(c, "0.7") for c in order]
     ax.bar(x, means, yerr=sems, capsize=st["capsize"], width=st["bar_width"], color=colors, edgecolor="black", linewidth=0.45, alpha=0.86)
-    _scatter_points(ax, df, "condition", order, x)
+    _annotate_bar_values(ax, x, means, sems, suffix="%")
     labels = [(spec.get("display_labels") or {}).get(c, c) for c in order]
     ax.set_xticks(x, labels, rotation=0)
     ax.set_xlabel(str(spec.get("x_axis", "")))
@@ -207,6 +196,8 @@ def render_fig1_error_composition(ax, panel_data: pd.DataFrame | None, stats: Ma
     x = np.arange(len(conditions), dtype=float)
     bottom = np.zeros(len(conditions), dtype=float)
     colors = {"Original": get_plot_color("original_sample_trace", default="#4C78A8"), "Donor": get_plot_color("donor_trace", default="#F58518"), "Other": get_plot_color("other_residual", default="#BDBDBD")}
+    segment_centers: dict[tuple[str, str], float] = {}
+    segment_values: dict[tuple[str, str], float] = {}
     for category in categories:
         values = []
         for condition in conditions:
@@ -214,15 +205,47 @@ def render_fig1_error_composition(ax, panel_data: pd.DataFrame | None, stats: Ma
             values.append(float(part["value"].iloc[0]) if not part.empty else 0.0)
         values_array = np.asarray(values, dtype=float)
         ax.bar(x, values_array, bottom=bottom, width=st["bar_width"], color=colors.get(category, "0.7"), edgecolor="black", linewidth=0.35, label=category)
+        for idx, condition in enumerate(conditions):
+            segment_centers[(condition, category)] = float(bottom[idx] + values_array[idx] / 2.0)
+            segment_values[(condition, category)] = float(values_array[idx])
         bottom += values_array
+    for condition_index, condition in enumerate(conditions):
+        for category in ("Original", "Donor"):
+            value = segment_values.get((condition, category), 0.0)
+            if value <= 0:
+                continue
+            y = segment_centers[(condition, category)]
+            color = "white" if category in {"Original", "Donor"} else "0.15"
+            ax.text(
+                x[condition_index],
+                y,
+                f"{value:.1f}%",
+                ha="center",
+                va="center",
+                fontsize=st["annotation_fontsize"],
+                color=color,
+                fontweight="bold",
+                clip_on=True,
+            )
     labels = [(spec.get("display_labels") or {}).get(c, c) for c in conditions]
     ax.set_xticks(x, labels)
     ax.set_xlabel(str(spec.get("x_axis", "")))
     ax.set_ylabel(str(spec.get("y_axis", "Error composition (% of errors)")))
     ax.set_ylim(0, 100)
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 1.02), ncol=min(3, len(categories)), handlelength=0.9, columnspacing=0.8)
+    ax.legend(
+        frameon=False,
+        fontsize=st["legend_fontsize"],
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.04),
+        ncol=min(3, len(categories)),
+        handlelength=0.9,
+        handletextpad=0.35,
+        columnspacing=0.75,
+        borderaxespad=0.0,
+    )
     ax.paper_fig_legend_above_plot = True
     ax.paper_fig_legend_ncols = min(3, len(categories))
+    ax.paper_fig_direct_labels = ["Original", "Donor"]
     _tidy(ax, st)
 
 
@@ -274,6 +297,28 @@ def _mean_sem(ax, x: np.ndarray, values: np.ndarray) -> None:
     mean = float(np.nanmean(values))
     sem = float(np.nanstd(values, ddof=1) / np.sqrt(values.size)) if values.size > 1 else 0.0
     ax.errorbar([float(np.mean(x))], [mean], yerr=[sem], fmt="D", color="black", markersize=3.0, linewidth=0.7, capsize=2.0, zorder=4)
+
+
+def _annotate_bar_values(ax, x: np.ndarray, means: np.ndarray, sems: np.ndarray, *, suffix: str = "") -> None:
+    if len(means) == 0:
+        return
+    ymin, ymax = ax.get_ylim()
+    span = ymax - ymin if ymax > ymin else 1.0
+    for xi, mean, sem in zip(x, means, sems):
+        y = min(float(mean + sem) + span * 0.035, ymax - span * 0.035)
+        ax.text(float(xi), y, f"{float(mean):.1f}{suffix}", ha="center", va="bottom", fontsize=5.1, color="0.15")
+
+
+def _network_tick_indices(n_values: int) -> list[int]:
+    if n_values <= 0:
+        return []
+    if n_values <= 12:
+        return list(range(n_values))
+    step = 5 if n_values > 16 else 2
+    idx = list(range(0, n_values, step))
+    if idx[-1] != n_values - 1:
+        idx.append(n_values - 1)
+    return idx
 
 
 def _group_means(df: pd.DataFrame, group_col: str, order: list[str]) -> tuple[np.ndarray, np.ndarray]:

@@ -237,12 +237,13 @@ def build_s2_dms_delay_contrast_adapter(spec: Mapping[str, Any], repo_root: Path
     rows: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     warnings = _run_mode_warnings(seeds)
+    fallback_used = False
     for seed_dir in seeds:
         contrast_path = seed_dir / "data" / "metrics" / "supp_dms_delay_sweep_contrast.csv"
         metrics_path = seed_dir / "data" / "metrics" / "supp_dms_delay_sweep_metrics.csv"
         if contrast_path.exists():
             df = pd.read_csv(contrast_path)
-            sources.append(_source_entry(contrast_path, repo_root))
+            sources.append(_source_entry_with_raw_rows(contrast_path, repo_root, len(df), role="primary_contrast"))
             for _, row in df.iterrows():
                 value = row.get("stsp_interference", row.get("contrast", row.get("static_minus_dynamic", 0.0)))
                 rows.append(
@@ -262,7 +263,8 @@ def build_s2_dms_delay_contrast_adapter(spec: Mapping[str, Any], repo_root: Path
             continue
         if metrics_path.exists():
             df = pd.read_csv(metrics_path)
-            sources.append(_source_entry(metrics_path, repo_root))
+            fallback_used = True
+            sources.append(_source_entry_with_raw_rows(metrics_path, repo_root, len(df), role="fallback_metrics"))
             pivot = df.pivot_table(index=["network_seed", "delay_ms"], columns="condition", values="acc_probe", aggfunc="mean").reset_index()
             for _, row in pivot.iterrows():
                 if "static_frozen" not in row or "dynamic_intact" not in row:
@@ -284,11 +286,18 @@ def build_s2_dms_delay_contrast_adapter(spec: Mapping[str, Any], repo_root: Path
         else:
             warnings.append(f"Missing DMS delay contrast sources under {_display_path(seed_dir, repo_root)}")
     if not rows:
-        return missing_adapter_result(spec, repo_root, output_dir, "Missing DMS delay contrast sources for Fig.1 supplement S2D.")
+        return missing_adapter_result(spec, repo_root, output_dir, f"Missing DMS delay contrast sources for Fig.1 supplement {panel_id}.")
     panel_df = pd.DataFrame(rows).sort_values(["delay_ms", "seed_id"], kind="stable").reset_index(drop=True)
     stats = _stats_payload(figure_id, panel_id, panel_df, metric="static_minus_dynamic_accuracy", run_mode=_run_mode(seeds), group_cols=["delay_ms"])
+    stats["rows_written_to_panel_data"] = int(len(panel_df))
+    stats["fallback_from_metrics_to_contrast"] = bool(fallback_used)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok")
+    manifest["n_networks_observed"] = manifest.get("n_networks", len(seeds))
     manifest["delay_ms_values"] = _unique_numeric(panel_df, "delay_ms")
+    manifest["rows_written_to_panel_data"] = int(len(panel_df))
+    manifest["fallback_from_metrics_to_contrast"] = bool(fallback_used)
+    manifest["primary_source"] = "data/metrics/supp_dms_delay_sweep_contrast.csv"
+    manifest["fallback_source"] = "data/metrics/supp_dms_delay_sweep_metrics.csv"
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -324,7 +333,7 @@ def build_s2_substrate_specificity_adapter(spec: Mapping[str, Any], repo_root: P
             warnings.append(f"Missing substrate specificity sources under {_display_path(seed_dir, repo_root)}")
             continue
         df = pd.read_csv(path)
-        sources.append(_source_entry(path, repo_root))
+        sources.append(_source_entry_with_raw_rows(path, repo_root, len(df), role="substrate_specificity"))
         if "condition" not in df.columns or "donor_attribution_rate" not in df.columns:
             warnings.append(f"Substrate source lacks condition/donor_attribution_rate columns: {_display_path(path, repo_root)}")
             continue
@@ -364,14 +373,18 @@ def build_s2_substrate_specificity_adapter(spec: Mapping[str, Any], repo_root: P
                     )
                 )
     if not rows:
-        return missing_adapter_result(spec, repo_root, output_dir, "Missing substrate specificity sources for Fig.1 supplement S2E.")
+        return missing_adapter_result(spec, repo_root, output_dir, f"Missing substrate specificity sources for Fig.1 supplement {panel_id}.")
     panel_df = _sort_conditions(pd.DataFrame(rows), conditions)
     stats = _stats_payload(figure_id, panel_id, panel_df, metric="donor_gain_vs_dynamic", run_mode=_run_mode(seeds), group_cols=["condition"])
     stats["conditions"] = _unique(panel_df, "condition")
     stats["supplement_files"] = supplement_files
+    stats["rows_written_to_panel_data"] = int(len(panel_df))
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok")
+    manifest["n_networks_observed"] = manifest.get("n_networks", len(seeds))
     manifest["conditions"] = stats["conditions"]
     manifest["supplement_files"] = supplement_files
+    manifest["rows_written_to_panel_data"] = int(len(panel_df))
+    manifest["fallback_from_metrics_to_contrast"] = False
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 
@@ -461,6 +474,13 @@ def _first_existing(base: Path, names: Sequence[str]) -> Path | None:
         if path.exists():
             return path
     return None
+
+
+def _source_entry_with_raw_rows(path: Path, repo_root: Path, raw_rows: int, *, role: str) -> dict[str, Any]:
+    entry = _source_entry(path, repo_root)
+    entry["raw_rows_read"] = int(raw_rows)
+    entry["role"] = role
+    return entry
 
 
 def _sort_layer_phase(df: pd.DataFrame) -> pd.DataFrame:

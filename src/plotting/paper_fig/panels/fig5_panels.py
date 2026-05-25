@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from src.plotting.common.colors import get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
@@ -18,8 +19,13 @@ STYLE = {
     "bar_width": 0.62,
 }
 CONDITION_COLORS = {
+    "Dynamic": get_plot_color("dynamic"),
     "Dynamic intact": get_plot_color("dynamic"),
     "Static frozen": get_plot_color("static_frozen"),
+    "Attenuate L1 STSP": "#E45756",
+    "Reset L1 STSP": "#4C78A8",
+    "Attenuate STSP": "#E45756",
+    "Reset STSP": "#4C78A8",
     "Attenuate overlap support": "#E45756",
     "Reset overlap support": "#4C78A8",
     "Sham perturbation": "#A0A0A0",
@@ -136,11 +142,16 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
     default_ylabel = "Dynamic minus static (baseline-corrected)" if bool((stats or {}).get("baseline_corrected")) else "Dynamic minus static"
     ax.set_ylabel(str(spec.get("y_axis", default_ylabel)))
     ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper left", bbox_to_anchor=(0.01, 0.99), ncols=1, handlelength=1.0, columnspacing=0.7)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4, prune="both"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:g}"))
     ax.paper_fig_legend_above_plot = False
     ax.paper_fig_legend_ncols = 1
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
     _tidy(ax, st)
+    ax.tick_params(axis="y", pad=-1.8)
+    for label in ax.get_yticklabels():
+        label.set_fontsize(max(4.0, st["tick_labelsize"] - 1.1))
 
 
 def render_fig5_support_perturbation(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -180,36 +191,18 @@ def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None,
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    ax.paper_fig_plot_form = "fig5_causal_grouped_transition_composition"
-    groups = [g for g in ("Overlap", "Probe-only") if g in set(df.get("unit_group_label", pd.Series(dtype=str)).astype(str))]
-    conditions = [c for c in ("Dynamic", "Attenuate", "Reset", "Static") if c in set(df["condition"].astype(str))]
-    x_positions: list[float] = []
-    tick_labels: list[str] = []
-    xpos = 0.0
-    for group in groups:
-        for condition in conditions:
-            x_positions.append(xpos)
-            tick_labels.append(_condition_tiny(condition))
-            xpos += 1.0
-        if group != groups[-1]:
-            xpos += 0.72
-    bar_width = 0.58
-    _draw_stacked_transition_bars(ax, df, ["unit_group_label", "condition"], [(g, c) for g in groups for c in conditions], x_positions, st=st, width=bar_width, hatch_by_condition=True)
-    ax.set_xticks(x_positions, tick_labels, rotation=0)
-    if groups:
-        centers = []
-        start = 0.0
-        for group in groups:
-            centers.append(start + (len(conditions) - 1) / 2.0)
-            start += len(conditions) + 0.72
-        for center, group in zip(centers, groups):
-            ax.text(center, 1.055, group, ha="center", va="bottom", fontsize=st["tick_labelsize"], transform=ax.get_xaxis_transform())
+    ax.paper_fig_plot_form = "fig5_l1_stsp_transition_composition"
+    conditions = [c for c in ("Dynamic", "Attenuate L1 STSP", "Reset L1 STSP") if c in set(df["condition"].astype(str))]
+    x_positions = np.arange(len(conditions), dtype=float)
+    _draw_stacked_transition_bars(ax, df, "condition", conditions, x_positions, st=st, width=0.62, hatch_by_condition=False)
+    ax.set_xticks(x_positions, [_wrap(c) for c in conditions], rotation=0)
     ymax = max(0.08, min(1.05, _finite_max(df.get("total_transition_mass", df["value"])) * 1.16))
     ax.set_ylim(0, ymax)
     ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
     ax.set_xlabel(str(spec.get("x_axis", "")))
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 0.99), ncols=3, handlelength=0.9, columnspacing=0.65)
-    ax.paper_fig_legend_above_plot = False
+    ax.set_title(str(spec.get("title", "Layer1 STSP perturbation")), fontsize=st["axis_labelsize"], pad=2.0)
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="lower center", bbox_to_anchor=(0.5, 1.015), ncols=3, handlelength=0.9, columnspacing=0.65)
+    ax.paper_fig_legend_above_plot = True
     ax.paper_fig_legend_ncols = 3
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
