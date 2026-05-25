@@ -50,9 +50,70 @@ GPU_METRIC_FLAGS_BY_FIG = {
     "fig1": ("--enable-gpu-metrics",),
 }
 BENCHMARK_PROFILE_NONE = "none"
+BENCHMARK_PROFILE_TUNING = "tuning"
 BENCHMARK_PROFILE_MEDIUM = "medium"
 BENCHMARK_PROFILE_ARGS_BY_FIG: dict[str, dict[str, tuple[str, ...]]] = {
     BENCHMARK_PROFILE_NONE: {},
+    BENCHMARK_PROFILE_TUNING: {
+        "fig1": (
+            "--baseline-eval-per-class",
+            "10",
+            "--delay-decode-train-per-class",
+            "8",
+            "--delay-decode-test-per-class",
+            "8",
+            "--dms-num-trials",
+            "8",
+            "--shuffle-num-boot",
+            "40",
+        ),
+        "fig2": (
+            "--num-pairs",
+            "10",
+            "--weak-probe-repeats",
+            "2",
+            "--n-shuffle",
+            "5",
+            "--completion-delay-repeats",
+            "1",
+        ),
+        "fig3": (
+            "--num-sequences",
+            "6",
+            "--weak-probe-repeats",
+            "2",
+            "--region-ping-repeats",
+            "1",
+            "--n-null",
+            "5",
+        ),
+        "fig4": (
+            "--max-pairs",
+            "12",
+            "--random-mask-candidates",
+            "4",
+            "--n-null",
+            "5",
+            "--n-match-permutations",
+            "40",
+        ),
+        "fig5": (
+            "--max-trials",
+            "12",
+            "--n-null",
+            "5",
+        ),
+        "fig6": (
+            "--num-sequences",
+            "4",
+            "--num-probe-candidates-per-sequence",
+            "2",
+            "--n-null",
+            "5",
+            "--n-matched-groups",
+            "5",
+        ),
+    },
     BENCHMARK_PROFILE_MEDIUM: {
         "fig1": (
             "--baseline-eval-per-class",

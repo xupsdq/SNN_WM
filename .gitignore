@@ -125,3 +125,12 @@ summary.json
 # =========================
 论文1/
 sandbox_document.xml
+
+# =========================
+# 10) Local agent / scratch workspaces
+# =========================
+.claude/
+docs/
+fig/
+tools/
+scripts/
