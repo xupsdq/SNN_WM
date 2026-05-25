@@ -29,7 +29,7 @@ class Fig5Config:
     probe_ms: int = 100
     batch_size: int = 8
     max_trials: int = 500
-    foreground_threshold: float = 0.0
+    foreground_threshold: float = 0.1
     min_overlap_area: int = 4
     min_probe_only_area: int = 4
     medium_q_low: float = 0.35

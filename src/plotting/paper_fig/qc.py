@@ -1291,17 +1291,18 @@ def _check_fig3_standalone_contract(
         passes.append("Fig.3 canvas is 165 x 158 mm")
     else:
         failures.append(f"Fig.3 canvas must be 165 x 158 mm, found {canvas}")
-    expected_order = ["B", "C", "D", "E", "F"]
+    expected_order = ["B", "C", "D", "E"]
     if list(spec.get("reading_order") or []) == expected_order and set(panels.keys()) == set(expected_order):
-        passes.append("Fig.3 has schematic A removed and uses B-F reading order")
+        passes.append("Fig.3 has schematic A and region-ping F removed and uses B-E reading order")
         passes.append("fig3_has_schematic_A = false")
+        passes.append("fig3_region_ping_main_panel = false")
         passes.append("no_empty_A_panel = true")
     else:
-        failures.append(f"Fig.3 must contain panels/reading_order B-F with no A panel, found panels={sorted(panels.keys())}, reading_order={spec.get('reading_order')}")
+        failures.append(f"Fig.3 must contain panels/reading_order B-E with no A/F panel, found panels={sorted(panels.keys())}, reading_order={spec.get('reading_order')}")
     _check_fig3_new_geometry(panels, passes, failures)
 
     panel_data: dict[str, pd.DataFrame] = {}
-    for panel_id in ("B", "C", "D", "E", "F"):
+    for panel_id in ("B", "C", "D", "E"):
         if panel_id not in panels:
             failures.append(f"Fig.3{panel_id}: panel missing from spec")
             continue
@@ -1422,60 +1423,10 @@ def _check_fig3_standalone_contract(
         else:
             warnings.append("Fig.3E source manifest does not list panel_e/panel_f weak-probe source names")
 
-    f_df = panel_data.get("F")
-    if f_df is not None:
-        metrics = set(f_df.get("metric", pd.Series(dtype=str)).astype(str))
-        regions = {str(v).replace("_aligned", "").replace("_matched", "") for v in f_df.get("region_condition", pd.Series(dtype=str)).dropna().astype(str)}
-        if "readout_mass" in metrics and "memory_gain" not in metrics:
-            passes.append("Fig.3F main panel data uses region-ping readout_mass")
-        else:
-            failures.append(f"Fig.3F must use region-ping readout_mass, not memory_gain/accuracy; found metrics {sorted(metrics)}")
-        if {"peak", "random", "valley"}.issubset(regions):
-            passes.append("Fig.3F includes peak/valley/random region conditions")
-        else:
-            failures.append(f"Fig.3F missing region conditions {sorted({'peak', 'random', 'valley'} - regions)}")
-        f_sources = _panel_sources(output_dir, figure_id, "F")
-        if "panel_f_region_ping_" in f_sources:
-            passes.append("Fig.3F uses panel_f_region_ping_* sources")
-        else:
-            failures.append("Fig.3F must use panel_f_region_ping_* sources")
-        if "panel_f_peak_cue_memory_gain.csv" in f_sources:
-            failures.append("Fig.3F must not use panel_f_peak_cue_memory_gain.csv as the main figure source")
-        f_stats = read_json(panel_output_paths(output_dir, figure_id, "F")["stats"])
-        if str(f_stats.get("main_source", "")) == "region_ping":
-            passes.append("Fig.3F stats mark main_source=region_ping")
-        else:
-            warnings.append("Fig.3F stats do not mark main_source=region_ping")
-        if str(f_stats.get("main_plot_type", "")) == "stacked_readout_mass":
-            passes.append('Fig.3F main_plot_type = "stacked_readout_mass"')
-        else:
-            failures.append(f"Fig.3F main_plot_type must be stacked_readout_mass, found {f_stats.get('main_plot_type')}")
-        categories = [str(v) for v in f_stats.get("readout_categories", [])]
-        if categories == ["recent", "old", "silent"]:
-            passes.append("Fig.3F categories = ['recent', 'old', 'silent']")
-        else:
-            failures.append(f"Fig.3F readout_categories must be ['recent', 'old', 'silent'], found {categories}")
-        if bool(f_stats.get("uses_serial_position_10_class")):
-            failures.append("Fig.3F must not use ten serial positions as main categories")
-        else:
-            passes.append("Fig.3F uses_serial_position_10_class = false")
-        if bool(f_stats.get("uses_latest_recent_earlier_other_silent")):
-            failures.append("Fig.3F must not use Latest/Recent/Earlier/Other/Silent five-class stack")
-        else:
-            passes.append("Fig.3F uses_latest_recent_earlier_other_silent = false")
-        if bool(f_stats.get("y_axis_absolute_probability")) and bool(f_stats.get("stacked_bars_not_normalized")):
-            passes.append("Fig.3F uses absolute readout probability and non-normalized stacked bars")
-        else:
-            failures.append("Fig.3F must use absolute readout probability and non-normalized stacked bars")
-        f_categories = set(f_df.get("readout_category", pd.Series(dtype=str)).dropna().astype(str))
-        if f_categories == {"recent", "old", "silent"}:
-            passes.append("Fig.3F panel_data exposes only recent/old/silent readout categories")
-        else:
-            failures.append(f"Fig.3F panel_data must expose only recent/old/silent categories, found {sorted(f_categories)}")
-        if any(key in f_stats for key in ("JS_peak_valley", "TV_peak_valley", "P_peak_label_differs_from_valley")):
-            passes.append("Fig.3F stats include peak-valley distribution contrast")
-        else:
-            warnings.append("Fig.3F stats missing peak-valley distribution contrast")
+    if "F" in panels:
+        failures.append("Fig.3F region-ping panel must be removed from the main figure spec")
+    else:
+        passes.append("Fig.3F region-ping panel is absent from the main figure spec")
 
     visible_terms: list[str] = []
     for df in panel_data.values():
@@ -1583,13 +1534,16 @@ def _check_fig3_new_geometry(panels: Mapping[str, Any], passes: list[str], failu
         "B": {"x": 12.00, "y": 8.00, "w": 52.00, "h": 42.00},
         "C": {"x": 75.00, "y": 8.00, "w": 84.00, "h": 96.00},
         "D": {"x": 12.00, "y": 62.00, "w": 52.00, "h": 42.00},
-        "E": {"x": 12.00, "y": 116.00, "w": 84.00, "h": 34.00},
-        "F": {"x": 103.00, "y": 116.00, "w": 56.00, "h": 34.00},
+        "E": {"x": 12.00, "y": 116.00, "w": 147.00, "h": 34.00},
     }
     if "A" in panels:
         failures.append("Fig.3A schematic panel must be removed from the main figure")
     else:
         passes.append("Fig.3A schematic panel is removed")
+    if "F" in panels:
+        failures.append("Fig.3F region-ping panel must be removed from the main figure")
+    else:
+        passes.append("Fig.3F region-ping panel is removed")
     for panel_id, target in expected.items():
         pos = (panels.get(panel_id) or {}).get("position_mm") or {}
         if _fig3_mm_box_close(pos, target, tol=0.08):
@@ -1616,10 +1570,11 @@ def _check_fig3_new_geometry(panels: Mapping[str, Any], passes: list[str], failu
         passes.append("C_spans_BD_height = true")
     else:
         failures.append("Fig.3C must span the combined Fig.3B/D height")
-    if _near(float(pos["E"].get("y", 0)), float(pos["F"].get("y", -1)), tol=0.08) and float(pos["E"].get("w", 0)) > float(pos["F"].get("w", 0)):
-        passes.append("E_left_of_F = true")
+    e_right = float(pos["E"].get("x", 0)) + float(pos["E"].get("w", 0))
+    if _near(e_right, 159.0, tol=0.08):
+        passes.append("Fig.3E spans the bottom functional-access row after region-ping removal")
     else:
-        failures.append("Fig.3E/F must align in the bottom row with E wider than F")
+        failures.append("Fig.3E must span the bottom functional-access row after Fig.3F removal")
 
 
 def _panel_sources(output_dir: Path, figure_id: str, panel_id: str) -> str:

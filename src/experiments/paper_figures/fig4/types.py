@@ -31,7 +31,7 @@ class Fig4Config:
     max_pairs: int = 500
     num_similarity_bins: int = 5
     num_overlap_bins: int = 3
-    foreground_threshold: float = 0.0
+    foreground_threshold: float = 0.1
     dilation_radius: int = 1
     random_mask_candidates: int = 32
     n_null: int = 100

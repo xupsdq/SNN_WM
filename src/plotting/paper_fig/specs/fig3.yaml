@@ -4,7 +4,7 @@ experiment_root_default: results/paper_experiments/fig3_multiitem_peak_landscape
 canvas_mm:
   width: 165
   height: 158
-reading_order: [B, C, D, E, F]
+reading_order: [B, C, D, E]
 run_modes:
   - single_network_draft
   - multi_network_final
@@ -14,7 +14,7 @@ argument_bands:
     panels: [B, C]
   - band_id: functional_accessibility
     label: Functional accessibility
-    panels: [D, E, F]
+    panels: [D, E]
 expected_outputs:
   full_figure: [pdf, svg, png]
   resolved_spec: fig3_resolved_spec.yaml
@@ -32,7 +32,6 @@ qc_requirements:
   required_state_conditions: [S0, S_final]
   required_cue_conditions: [peak, random, valley]
   required_memory_conditions: [cue_only, single_item_memory, sequence_state]
-  required_region_conditions: [peak, valley, random]
   single_network_warning: true
 panels:
   B:
@@ -103,34 +102,12 @@ panels:
       - data/metrics/panel_e_weak_probe_auc_metrics.csv
       - data/raw/panel_e_weak_probe_trial_readout.csv
       - data/metrics/panel_f_weak_probe_metrics.csv
-    size_mm: {width: 84.00, height: 34.00}
-    position_mm: {x: 12.00, y: 116.00, w: 84.00, h: 34.00}
-    axes_mm: {x: 20.00, y: 126.00, w: 72.00, h: 20.00}
+    size_mm: {width: 147.00, height: 34.00}
+    position_mm: {x: 12.00, y: 116.00, w: 147.00, h: 34.00}
+    axes_mm: {x: 20.00, y: 126.00, w: 132.00, h: 20.00}
     letter_mm: {x: 6.00, y: 114.00}
     metric: P_target
     x_axis: Keep probability
     y_axis: Target recovery (%)
     conditions: [cue_only, single_item_memory, sequence_state]
     title: Weak-probe recovery
-  F:
-    panel_id: F
-    claim: Directly pinging peak, valley, and random STSP regions produces distinct recent, old, and silent readout masses.
-    panel_type: region_ping_readout
-    data_adapter: fig3_region_ping_readout_adapter
-    renderer: render_fig3_region_ping_readout
-    source_priority:
-      - data/metrics/panel_f_region_ping_position_distribution.csv
-      - data/metrics/panel_f_region_ping_summary.csv
-      - data/metrics/panel_f_region_ping_contrast.csv
-      - data/raw/panel_f_region_ping_trial_readout.csv
-      - data/metrics/panel_f_region_ping_current_matching.csv
-    size_mm: {width: 56.00, height: 34.00}
-    position_mm: {x: 103.00, y: 116.00, w: 56.00, h: 34.00}
-    axes_mm: {x: 111.00, y: 126.00, w: 43.00, h: 20.00}
-    letter_mm: {x: 97.00, y: 114.00}
-    metric: readout_mass
-    x_axis: Region
-    y_axis: Evoked readout probability
-    region_condition_order: [peak, valley, random]
-    readout_category_order: [old, recent, silent]
-    title: Region-gated ping readout

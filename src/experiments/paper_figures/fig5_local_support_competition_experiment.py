@@ -880,7 +880,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--probe-ms", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-trials", type=int, default=500)
-    parser.add_argument("--foreground-threshold", type=float, default=0.0)
+    parser.add_argument("--foreground-threshold", type=float, default=0.1)
     parser.add_argument("--min-overlap-area", type=int, default=4)
     parser.add_argument("--min-probe-only-area", type=int, default=4)
     parser.add_argument("--medium-q-low", type=float, default=0.35)
