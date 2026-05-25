@@ -1,0 +1,120 @@
+figure_id: fig6_supp
+figure_title_draft: "Supplementary Fig. S7: Controls and extensions for overlap-gated STSP recruitment"
+experiment_root: results/paper_experiments/fig6_peak_amplified_reentry
+canvas_mm:
+  width: 165
+  height: 116
+reading_order: [S7A, S7B, S7C, S7D, S7E, S7F, S7G, S7H]
+group_labels: []
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig6_supp_resolved_spec.yaml
+  source_manifest: fig6_supp_source_manifest.json
+  qc_report: fig6_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  single_network_warning: true
+  optional_placeholder_panels: [S7G, S7H]
+panels:
+  S7A:
+    panel_id: S7A
+    legacy_panel_id: old_S11A
+    panel_type: score_input_ping_audit
+    claim: STSP gain scores and ping inputs are well-defined controls for Fig.6B-F.
+    data_adapter: s11_score_input_ping_audit_adapter
+    renderer: render_s11_score_input_ping_audit
+    source_priority: [data/metrics/fig6_gain_ratio_audit.csv, data/metrics/fig6_entry_score_audit.csv, data/metrics/panel_b_region_ping_readout_bias.csv]
+    position_mm: {x: 8.00, y: 16.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: Audit item
+    y_axis: Value
+  S7B:
+    panel_id: S7B
+    legacy_panel_id: old_S11B
+    panel_type: global_ping_count_endpoint
+    claim: Global-ping score dependence persists in spike-count endpoints despite probability saturation.
+    data_adapter: s11_global_ping_count_endpoint_adapter
+    renderer: render_s11_global_ping_count_endpoint
+    source_priority: [data/metrics/panel_c_global_ping_score_spike_prediction.csv, data/metrics/supp_s11b_global_ping_count_endpoint.csv]
+    position_mm: {x: 48.00, y: 16.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: STSP score quantile
+    y_axis: Early spike count
+  S7C:
+    panel_id: S7C
+    legacy_panel_id: old_S11C
+    panel_type: real_probe_window_robustness
+    claim: Real-probe STSP score deflection is positive across early recruitment windows.
+    data_adapter: s11_real_probe_window_robustness_adapter
+    renderer: render_s11_real_probe_window_robustness
+    source_priority: [data/metrics/panel_d_real_probe_score_spike_deflection.csv, data/metrics/supp_s11c_real_probe_window_robustness.csv]
+    position_mm: {x: 88.00, y: 16.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: Early window
+    y_axis: Q5 - Q1 deflection
+  S7D:
+    panel_id: S7D
+    legacy_panel_id: old_S11D
+    panel_type: overlap_interaction_window_robustness
+    claim: Overlap-gated high-STSP interaction remains positive across early recruitment windows.
+    data_adapter: s11_overlap_interaction_window_robustness_adapter
+    renderer: render_s11_overlap_interaction_window_robustness
+    source_priority: [data/metrics/panel_e_overlap_gated_stsp_interaction.csv, data/metrics/supp_s11d_overlap_interaction_window_robustness.csv]
+    position_mm: {x: 128.00, y: 16.00, w: 29.00, h: 35.00}
+    size_mm: {w: 29.00, h: 35.00}
+    x_axis: Early window
+    y_axis: Interaction
+  S7E:
+    panel_id: S7E
+    legacy_panel_id: old_S11E
+    panel_type: overlap_site_availability
+    claim: The Fig.6E 2x2 groups are audited for site availability and sparse-cell limits.
+    data_adapter: s11_overlap_site_availability_adapter
+    renderer: render_s11_overlap_site_availability
+    source_priority: [data/metrics/panel_e_overlap_gated_stsp_recruitment.csv, data/metrics/supp_s11e_overlap_site_availability.csv]
+    position_mm: {x: 8.00, y: 66.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: Probe overlap
+    y_axis: STSP group
+  S7F:
+    panel_id: S7F
+    legacy_panel_id: old_S11F
+    panel_type: paired_ablation_difference
+    claim: High-STSP-overlap removal exceeds matched removal in paired probe-level comparisons.
+    data_adapter: s11_high_stsp_ablation_paired_difference_adapter
+    renderer: render_s11_high_stsp_ablation_paired_difference
+    source_priority: [data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv, data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv, data/metrics/supp_s11f_high_stsp_ablation_paired_difference.csv]
+    position_mm: {x: 48.00, y: 66.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: Paired contrast
+    y_axis: Loss difference
+  S7G:
+    panel_id: S7G
+    legacy_panel_id: old_S11G
+    panel_type: score_shuffle_null
+    claim: Optional score-shuffle null tests whether C/D/E exceed spatially shuffled STSP scores.
+    data_adapter: s11_score_shuffle_null_adapter
+    renderer: render_s11_score_shuffle_null
+    source_priority: [data/metrics/supp_s11g_score_shuffle_null.csv]
+    optional: true
+    position_mm: {x: 88.00, y: 66.00, w: 31.50, h: 35.00}
+    size_mm: {w: 31.50, h: 35.00}
+    x_axis: Endpoint
+    y_axis: Observed - null
+  S7H:
+    panel_id: S7H
+    legacy_panel_id: old_S11H
+    panel_type: threshold_sensitivity
+    claim: Optional threshold-sensitivity tests whether E is robust across STSP and overlap thresholds.
+    data_adapter: s11_threshold_sensitivity_adapter
+    renderer: render_s11_threshold_sensitivity
+    source_priority: [data/metrics/supp_s11h_threshold_sensitivity.csv]
+    optional: true
+    position_mm: {x: 128.00, y: 66.00, w: 29.00, h: 35.00}
+    size_mm: {w: 29.00, h: 35.00}
+    x_axis: Overlap threshold
+    y_axis: STSP quantile

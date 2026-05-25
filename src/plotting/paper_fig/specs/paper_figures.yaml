@@ -1,0 +1,58 @@
+schema_version: 1
+description: Paper-specific figure registry for manuscript Fig.1-Fig.6.
+source_materials:
+  - fig/fig_panel_experiment_mapping.xlsx
+  - fig/初稿_整体结构重构_Methods细节重构.pdf
+figures:
+  fig1:
+    spec: fig1.yaml
+    title: Network and STSP-state functional foundation
+    status: implemented_skeleton
+  fig1_supp:
+    spec: fig1_supp.yaml
+    title: Supplementary Fig. S1 architecture and baseline controls
+    status: implemented_skeleton
+  fig1_supp_s2:
+    spec: fig1_supp_s2.yaml
+    title: Supplementary Fig. S2 delay-dependent and substrate-specific STSP controls
+    status: implemented_skeleton
+  fig2:
+    spec: fig2.yaml
+    title: Pair-specific fused STSP state
+    status: implemented_skeleton
+  fig2_supp:
+    spec: fig2_supp.yaml
+    title: Supplementary Fig. S3 morphological and functional Fig.2 controls
+    status: implemented_skeleton
+  fig3:
+    spec: fig3.yaml
+    title: Multi-item peak-structured STSP landscape and functional access
+    status: implemented_skeleton
+  fig3_supp:
+    spec: fig3_supp.yaml
+    title: Supplementary Fig. S4 multi-item landscape morphology and functional controls
+    status: implemented_skeleton
+  fig4:
+    spec: fig4.yaml
+    title: Overlap-gated synaptic re-entry
+    status: implemented_skeleton
+  fig4_supp:
+    spec: fig4_supp.yaml
+    title: Supplementary Fig. S5 overlap controls and downstream decision-dynamics controls
+    status: implemented_skeleton
+  fig5:
+    spec: fig5.yaml
+    title: Early recruitment and local competition from overlap-aligned support
+    status: implemented_skeleton
+  fig5_supp:
+    spec: fig5_supp.yaml
+    title: Supplementary Fig. S6 local transition controls and support-perturbation causal controls
+    status: implemented_skeleton
+  fig6:
+    spec: fig6.yaml
+    title: Overlap-gated STSP fields bias Layer 1 recruitment
+    status: implemented_skeleton
+  fig6_supp:
+    spec: fig6_supp.yaml
+    title: Supplementary Fig. S7 overlap-gated STSP recruitment controls
+    status: implemented_skeleton

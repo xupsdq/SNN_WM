@@ -11,6 +11,7 @@ from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state
 BoundaryState = Dict[str, Dict[str, torch.Tensor]]
 InterventionFn = Callable[[SDNN_Network, Dict[str, object]], Dict[str, object]]
 RecordStateSpec = Union[Mapping[str, Sequence[str]], Sequence[str]]
+FUNCTIONAL_RESTORE_MODES = ("full_boundary", "stsp_only")
 
 
 def build_layer_input_shapes(
@@ -154,6 +155,98 @@ def reset_all_state_restore_selected_stsp_in_place(
         "restored_stsp_layers": tuple(restored_layers),
         "restored_stsp_layer_count": int(len(restored_layers)),
     }
+
+
+def _restore_boundary_state_in_place(
+    net: SDNN_Network,
+    boundary: Mapping[str, Mapping[str, torch.Tensor]],
+) -> Dict[str, object]:
+    restored_layers: list[str] = []
+    restored_variables: list[str] = []
+    with torch.no_grad():
+        for layer_key, state in boundary.items():
+            if layer_key not in LAYER_KEYS:
+                raise ValueError(f"Unsupported layer key in boundary: {layer_key}")
+            layer = getattr(net, layer_key)
+            layer_restored = False
+            for src_key, attr in (("v_mem", "v_mem"), ("g_e", "g_e"), ("res", "res")):
+                if src_key not in state:
+                    continue
+                target = getattr(layer, attr)
+                target.copy_(state[src_key].to(device=target.device, dtype=target.dtype))
+                restored_variables.append(f"{layer_key}.{src_key}")
+                layer_restored = True
+            if "inh_trace" in state:
+                target = layer.lateral_inh.inh_trace
+                target.copy_(state["inh_trace"].to(device=target.device, dtype=target.dtype))
+                restored_variables.append(f"{layer_key}.inh_trace")
+                layer_restored = True
+            if "u" in state and getattr(layer, "u_pre", None) is not None:
+                layer.u_pre.copy_(state["u"].to(device=layer.u_pre.device, dtype=layer.u_pre.dtype))
+                restored_variables.append(f"{layer_key}.u")
+                layer_restored = True
+            if "x" in state and getattr(layer, "x_pre", None) is not None:
+                layer.x_pre.copy_(state["x"].to(device=layer.x_pre.device, dtype=layer.x_pre.dtype))
+                restored_variables.append(f"{layer_key}.x")
+                layer_restored = True
+            if layer_restored:
+                restored_layers.append(str(layer_key))
+    return {
+        "restored_boundary_layers": tuple(restored_layers),
+        "restored_boundary_layer_count": int(len(restored_layers)),
+        "restored_boundary_variables": tuple(restored_variables),
+    }
+
+
+def boundary_state_to_restore_ux_by_layer(
+    boundary: Mapping[str, Mapping[str, torch.Tensor]],
+    device: torch.device,
+) -> Dict[str, tuple[torch.Tensor, torch.Tensor]]:
+    out: Dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+    for layer_key, state in boundary.items():
+        if "u" in state and "x" in state:
+            out[layer_key] = (state["u"].to(device), state["x"].to(device))
+    return out
+
+
+def restore_functional_probe_state_in_place(
+    net: SDNN_Network,
+    layer_input_shapes: Mapping[str, tuple[int, ...]],
+    boundary: Mapping[str, Mapping[str, torch.Tensor]],
+    *,
+    mode: str = "full_boundary",
+    device: torch.device | None = None,
+) -> Dict[str, object]:
+    restore_mode = str(mode)
+    if restore_mode not in FUNCTIONAL_RESTORE_MODES:
+        raise ValueError(f"Unsupported functional restore mode {restore_mode!r}; expected one of {FUNCTIONAL_RESTORE_MODES}.")
+    if "layer1" not in layer_input_shapes:
+        raise ValueError("layer_input_shapes must include layer1 for functional restore.")
+    layer1_shape = tuple(int(v) for v in layer_input_shapes["layer1"])
+    if len(layer1_shape) != 4:
+        raise ValueError(f"layer1 input shape must be NCHW, got {layer1_shape}.")
+
+    if restore_mode == "full_boundary":
+        prepare_network_state(net, layer1_shape[0], layer1_shape[1], layer1_shape[2], layer1_shape[3])
+        info = _restore_boundary_state_in_place(net, boundary)
+        info["probe_state_reset"] = "full_boundary_restored"
+    else:
+        if device is None:
+            device = next(net.parameters()).device
+        restore_ux = boundary_state_to_restore_ux_by_layer(boundary, device)
+        info = reset_all_state_restore_selected_stsp_in_place(net, layer_input_shapes, restore_ux)
+        info["probe_state_reset"] = "all_layers_reset_selected_stsp_restored"
+
+    with torch.no_grad():
+        if hasattr(net.layer3, "reset_decision_state"):
+            net.layer3.reset_decision_state()
+
+    out = dict(info)
+    out["functional_restore_mode"] = restore_mode
+    out["restore_ok"] = int(
+        out.get("restored_boundary_layer_count", out.get("restored_stsp_layer_count", 0)) > 0
+    )
+    return out
 
 
 def _record_state(

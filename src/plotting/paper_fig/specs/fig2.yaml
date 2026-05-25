@@ -1,0 +1,150 @@
+figure_id: fig2
+figure_title_draft: Pair-specific fused STSP state
+experiment_root_default: results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state
+run_modes: [single_network_draft, multi_network_final]
+canvas_mm:
+  width: 165
+  height: 148
+gutters_mm:
+  horizontal: 10
+  vertical: 7
+reading_order: [A, B, C, D, E, F]
+argument_bands:
+  - band_id: protocol_definition
+    label: Protocol definition
+    panels: [A]
+  - band_id: morphological_fusion
+    label: Morphological fusion
+    panels: [B, C, D]
+  - band_id: functional_accessibility
+    label: Functional accessibility
+    panels: [E, F]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig2_resolved_spec.yaml
+  source_manifest: fig2_source_manifest.json
+  qc_report: fig2_qc_report.md
+supplementary_outputs:
+  - supp_layerwise_morphology_metrics.csv
+  - supp_linear_mixture_model_comparison.csv
+  - supp_ping_sweep_metrics.csv
+  - supp_completion_delay_sweep_metrics.csv
+  - supp_completion_delay_sweep_contrast.csv
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  canvas_mm: {width: 165, height: 148}
+  require_position_mm: true
+  require_size_mm: true
+  required_state_conditions: [S0, S_A, S_B, S_AB]
+  required_primary_layers: [layer3]
+  required_state_variables: [g]
+  required_fig2b_conditions: [S_A, S_B]
+  forbidden_fig2b_visual_metrics: [fusion_dual_score]
+  required_fig2d_metrics: [WPRI, beyond_linear_pair_index]
+  fig2d_residual_fallback: residual_pair_specificity
+  required_readout_categories: [A, B, Other, Silent]
+  required_keep_probs: [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+panels:
+  A:
+    panel_id: A
+    claim: Sequential two-item input defines terminal STSP state S_AB and matched references S0, S_A, S_B.
+    panel_type: manual_or_programmatic_schematic
+    renderer: render_fig2_episode_schematic
+    data_adapter: none
+    size_mm: {width: 147.00, height: 28.00}
+    position_mm: {x: 12.00, y: 6.00, w: 147.00, h: 28.00}
+    x_axis: none
+    y_axis: none
+    reference_lines: []
+    source_mapping:
+      source_status: manual_optional_blank_placeholder
+    content:
+      sequence: [Item A, delay, Item B, delay, S_AB]
+      references: [S0, S_A, S_B, S_AB]
+      assays: [morphology, functional access]
+  B:
+    panel_id: B
+    claim: Terminal S_AB retains similarity to both constituent item states rather than collapsing to the latest item.
+    panel_type: constituent_similarity
+    renderer: render_fig2_dual_retention_constituents
+    data_adapter: fig2_dual_retention_constituent_adapter
+    size_mm: {width: 42.33, height: 44.00}
+    position_mm: {x: 12.00, y: 36.00, w: 42.33, h: 44.00}
+    metric: constituent_similarity
+    source: data/metrics/panel_b_dual_retention_metrics.csv
+    conditions: [S_A, S_B]
+    x_axis: Constituent reference
+    y_axis: Similarity to S_AB
+    reference_lines: []
+  C:
+    panel_id: C
+    claim: S_AB is specific to the actually experienced pair rather than arbitrary pair combinations.
+    panel_type: pair_specificity_boxplot
+    renderer: render_fig2_pair_specificity
+    data_adapter: fig2_pair_specificity_adapter
+    size_mm: {width: 42.33, height: 44.00}
+    position_mm: {x: 64.33, y: 36.00, w: 42.33, h: 44.00}
+    metric: pair_specificity_score
+    source: data/metrics/panel_c_pair_specificity_metrics.csv
+    conditions: [True pair, Shuffled pair]
+    x_axis: Pair condition
+    y_axis: Pair specificity
+    reference_lines: []
+  D:
+    panel_id: D
+    claim: S_AB shows whole-pair organization and beyond-linear residual pair-specific structure.
+    panel_type: morphology_closure
+    renderer: render_fig2_morphology_closure
+    data_adapter: fig2_morphology_closure_adapter
+    size_mm: {width: 42.33, height: 44.00}
+    position_mm: {x: 116.67, y: 36.00, w: 42.33, h: 44.00}
+    metric: morphology_closure
+    source_priority:
+      - data/metrics/panel_d_pair_level_organization_metrics.csv
+      - data/metrics/panel_d_linear_residual_pair_specificity_metrics.csv
+      - data/metrics/panel_d_linear_mixture_fit_metrics.csv
+    visual_metrics: [WPRI, beyond_linear_pair_index]
+    fallback_metric: residual_pair_specificity
+    x_axis: Metric
+    y_axis: Score
+    reference_lines:
+      - value: 0
+        label: 0
+  E:
+    panel_id: E
+    claim: A neutral ping of restored boundary states reveals the readout composition of the fused pair state.
+    panel_type: neutral_ping_readout_composition
+    renderer: render_fig2_neutral_ping_composition
+    data_adapter: fig2_neutral_ping_composition_adapter
+    size_mm: {width: 42.33, height: 44.00}
+    position_mm: {x: 12.00, y: 90.00, w: 42.33, h: 44.00}
+    metric: neutral_ping_readout_composition
+    source_priority:
+      - data/raw/panel_e_neutral_ping_trial_readout.csv
+      - data/metrics/panel_e_neutral_ping_metrics.csv
+    conditions: [S0, S_A, S_B, S_AB]
+    categories: [Other, A, B, Silent]
+    display_labels: {S0: S0, S_A: S_A, S_B: S_B, S_AB: S_AB}
+    x_axis: Restored state
+    y_axis: Ping readout (%)
+    reference_lines: []
+  F:
+    panel_id: F
+    claim: Fused pair state supports partial-cue recovery for both target A and target B.
+    panel_type: partial_cue_target_recovery_combined
+    renderer: render_fig2_partial_cue_targets_combined
+    data_adapter: fig2_partial_cue_target_adapter
+    size_mm: {width: 94.67, height: 44.00}
+    position_mm: {x: 64.33, y: 90.00, w: 94.67, h: 44.00}
+    metric: partial_cue_target_recovery
+    source_priority:
+      - data/metrics/panel_f_partial_cue_metrics.csv
+      - data/raw/panel_f_partial_cue_trial_readout.csv
+    target_items: [A, B]
+    conditions: [S0, S_A, S_B, S_AB]
+    show_legend: true
+    x_axis: Keep probability
+    y_axis: Target recovery (%)
+    reference_lines: []

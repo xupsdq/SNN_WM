@@ -67,12 +67,12 @@ def _metric_triptych(df: pd.DataFrame, metrics: list[tuple[str, str]], *, title:
     return fig
 
 
-def _ping_decomposed_main(df: pd.DataFrame) -> plt.Figure:
+def draw_ping_decomposed_main_on_ax(ax: plt.Axes, df: pd.DataFrame, *, title: str | None = "Neutral ping readout across memory states") -> None:
+    """Draw the neutral-ping decomposed readout bars on an existing axes."""
     states = ["baseline", "S_B", "S_AB"]
     value_cols = [("P_A", "A"), ("P_B", "B"), ("P_other", "other"), ("P_silent", "silent")]
     sub = df[df["state_condition"].isin(states)].copy()
     stats = {col: _seed_first_mean_sem(sub, ["state_condition"], col) for col, _ in value_cols}
-    fig, ax = plt.subplots(figsize=(6.2, 3.7))
     x = np.arange(len(states), dtype=float)
     bottom = np.zeros(len(states), dtype=float)
     colors = [get_plot_color("true_pair"), get_plot_color("anchor"), get_plot_color("shuffled_pair"), get_plot_color("background_shade")]
@@ -87,18 +87,24 @@ def _ping_decomposed_main(df: pd.DataFrame) -> plt.Figure:
     ax.set_xticklabels([_state_label(s) for s in states], rotation=20, ha="right")
     ax.set_ylabel("Readout proportion")
     ax.set_ylim(0.0, max(1.0, float(np.nanmax(bottom)) + 0.05))
-    ax.set_title("Neutral ping readout across memory states")
+    if title:
+        ax.set_title(title)
     ax.legend(frameon=False, fontsize=8, loc="upper right")
     _finish_axis(ax)
+
+
+def _ping_decomposed_main(df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6.2, 3.7))
+    draw_ping_decomposed_main_on_ax(ax, df)
     fig.tight_layout()
     return fig
 
 
-def _weak_probe_completion_curve(df: pd.DataFrame) -> plt.Figure:
+def draw_weak_probe_completion_curve_on_ax(ax: plt.Axes, df: pd.DataFrame, *, title: str | None = "Fused pair states support partial-cue completion") -> None:
+    """Draw the weak-probe completion curve on an existing axes."""
     states = ["baseline", "S_B", "S_AB"]
     sub = df[df["state_condition"].isin(states)].copy()
     summary = _seed_first_mean_sem(sub, ["state_condition", "keep_prob"], "P_A")
-    fig, ax = plt.subplots(figsize=(6.3, 3.8))
     colors = {
         "baseline": get_plot_color("background_shade"),
         "S_B": get_plot_color("anchor"),
@@ -117,9 +123,15 @@ def _weak_probe_completion_curve(df: pd.DataFrame) -> plt.Figure:
     ax.set_xlabel("Spike keep probability")
     ax.set_ylabel("P(pred = A)")
     ax.set_ylim(-0.02, 1.02)
-    ax.set_title("Fused pair states support partial-cue completion")
+    if title:
+        ax.set_title(title)
     ax.legend(frameon=False, fontsize=8, loc="best")
     _finish_axis(ax)
+
+
+def _weak_probe_completion_curve(df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6.3, 3.8))
+    draw_weak_probe_completion_curve_on_ax(ax, df)
     fig.tight_layout()
     return fig
 

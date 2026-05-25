@@ -1,0 +1,125 @@
+figure_id: fig3_supp
+figure_title_draft: "Supplementary Fig. S4: Controls for multi-item STSP morphology and functional reactivation"
+experiment_root_default: results/paper_experiments/fig3_multiitem_peak_landscape
+canvas_mm:
+  width: 165
+  height: 116
+reading_order: [S4A, S4B, S4C, S4D, S4E, S4F]
+run_modes:
+  - single_network_draft
+  - multi_network_final
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  resolved_spec: fig3_supp_resolved_spec.yaml
+  source_manifest: fig3_supp_source_manifest.json
+  qc_report: fig3_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  canvas_mm: {width: 165, height: 116}
+  require_position_mm: true
+  require_size_mm: true
+  single_network_warning: true
+group_labels:
+  - label: Supplementary Fig. S4 - Morphology and functional reactivation controls
+    x_mm: 12
+    y_mm: 7
+    fontsize: 7.4
+panels:
+  S4A:
+    panel_id: S4A
+    legacy_panel_id: old_S5A
+    claim: Peak regions show higher final support than random-matched or valley regions.
+    panel_type: grouped_dot_bar
+    data_adapter: s5_peak_valley_contrast_adapter
+    renderer: render_s5_peak_valley_contrast
+    source_priority:
+      - data/metrics/supp_peak_valley_contrast.csv
+      - data/metrics/panel_d_peak_valley_contrast.csv
+      - data/metrics/panel_c_example_landscape_summary.csv
+    position_mm: {x: 12.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 7.00, y: 16.00}
+    x_axis: Region
+    y_axis: Support
+  S4B:
+    panel_id: S4B
+    legacy_panel_id: old_S5B
+    claim: Final support landscape is spatially concentrated rather than flat.
+    panel_type: grouped_metric_summary
+    data_adapter: s5_landscape_nonflatness_adapter
+    renderer: render_s5_landscape_nonflatness
+    source_priority:
+      - data/metrics/supp_landscape_nonflatness.csv
+      - data/metrics/panel_d_landscape_nonflatness.csv
+      - data/raw/panel_c_example_landscape.npz
+    position_mm: {x: 62.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 57.00, y: 16.00}
+    x_axis: Metric
+    y_axis: Value
+    metrics: [top_q_mass_fraction, support_gini, support_cv]
+  S4C:
+    panel_id: S4C
+    legacy_panel_id: old_S5C
+    claim: Observed peak-valley structure exceeds null expectations across sequences/networks.
+    panel_type: observed_null_summary
+    data_adapter: s5_peak_valley_null_adapter
+    renderer: render_s5_peak_valley_null
+    source_priority:
+      - data/metrics/supp_peak_valley_prevalence.csv
+      - data/metrics/supp_network_peak_valley_summary.csv
+      - data/metrics/panel_d_peak_valley_prevalence.csv
+      - data/metrics/panel_d_network_peak_valley_summary.csv
+      - data/metrics/panel_c_example_landscape_summary.csv
+    position_mm: {x: 112.00, y: 22.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 107.00, y: 16.00}
+    x_axis: Contrast
+    y_axis: Structured fraction or observed-null contrast
+  S4D:
+    panel_id: S4D
+    legacy_panel_id: old_S5D
+    claim: Sequence-state anchors show progressive but not purely latest-item dynamics.
+    panel_type: sequence_stage_curve
+    data_adapter: s5_anchor_dynamics_adapter
+    renderer: render_s5_anchor_dynamics
+    source_priority:
+      - data/metrics/supp_anchor_dynamics_metrics.csv
+      - data/metrics/supp_recency_only_controls.csv
+      - data/metrics/panel_b_progressive_update_metrics.csv
+    position_mm: {x: 12.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 7.00, y: 69.00}
+    x_axis: Sequence stage
+    y_axis: Anchor COM / residual metric
+  S4E:
+    panel_id: S4E
+    legacy_panel_id: old_S5E
+    claim: Neutral ping recovers latest-biased readout while retaining recent and earlier residual mass.
+    panel_type: ping_recency_decomposition
+    data_adapter: s5_ping_recency_decomposition_adapter
+    renderer: render_s5_ping_recency_decomposition
+    source_priority:
+      - data/metrics/panel_d_ping_position_distribution.csv
+      - data/metrics/panel_d_ping_summary.csv
+      - data/metrics/supp_ping_recency_diagnostics.csv
+    position_mm: {x: 62.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 57.00, y: 69.00}
+    x_axis: Readout class
+    y_axis: Readout mass
+  S4F:
+    panel_id: S4F
+    legacy_panel_id: old_S5F
+    claim: Weak-cue recovery gain remains available across target recency bins.
+    panel_type: weak_probe_recency_gain
+    data_adapter: s5_weak_probe_recency_gain_adapter
+    renderer: render_s5_weak_probe_recency_gain
+    source_priority:
+      - data/metrics/panel_e_weak_probe_position_stratified_metrics.csv
+    position_mm: {x: 112.00, y: 75.00, w: 43.00, h: 30.00}
+    size_mm: {width: 43.00, height: 30.00}
+    letter_mm: {x: 107.00, y: 69.00}
+    x_axis: Target position bin
+    y_axis: Recovery gain (pp)

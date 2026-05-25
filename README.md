@@ -2,6 +2,24 @@
 
 该仓库当前处于“实验工程逐步规范化”阶段。主线实验已经通过 `src/experiments/runners/` 和 `src/plotting/experiments/` 提供统一入口，新运行结果按 `results/<experiment_name>/...` 组织，同时保留对旧 CLI 和旧结果布局的兼容。
 
+当前整理目标是：在不改变实验运行逻辑的前提下，清理 `src/` 中实验代码的职责边界，提取可共享函数，并让 Fig.1-Fig.6 论文图实验复用公共能力而不是形成独立实现体系。整理完成不以“数值逐项完全一致”为标准，而以实验条件、采样规则、seed 语义、rollout 逻辑、统计口径、输出契约和 main figure contract 不变为底线。
+
+## 推荐运行环境
+
+在本机优先使用 `torch_env`：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' --version
+```
+
+后续示例均可把 `python` 替换为：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe'
+```
+
+如果默认 `python` 缺少 PyTorch，不应修改项目代码，应改用上述解释器。
+
 ## 目录结构
 
 ```text
@@ -9,20 +27,44 @@ configs/                    最小可用 YAML 配置
 results/                    主线实验结果目录
 src/config/                 路径、默认值、运行时配置、YAML loader
 src/experiments/            实验实现与公共工具
+src/experiments/common/     实验通用能力：数据、模型、结果布局、run_info、seed、统计、DMS helpers
+src/experiments/*/shared/   领域共享能力：distractor、ping_memory、diagnostic 等
 src/experiments/runners/    主线实验计算入口
+src/experiments/paper_figures/  论文图专用实验 bundle 生产入口
 src/plotting/               绘图实现
+src/plotting/common/        绘图通用能力：style、figure export、CSV validation、panel helpers
 src/plotting/experiments/   主线实验绘图入口
-tests/                      规范化测试
+src/plotting/paper_fig/     论文图 spec/adapters/panels/layouts/QC
+scripts/                    结果布局、入口一致性等维护脚本
 archive/                    历史整理材料
 useful_fig_results/         历史图产物缓存，不是主线结果规范
 ```
+
+## 实验代码边界
+
+整理后的依赖方向应保持清楚：
+
+- `src/core/`, `src/data/`, `src/config/` 是基础层，不依赖具体实验。
+- 主线实验可以依赖 `src/experiments/common/`、领域 `shared/`、`src/core/`、`src/data/`、`src/config/`。
+- 实验脚本之间不应直接互相 import；如果一个实验需要另一个实验中的函数，该函数应提升到 `common/` 或领域 `shared/`。
+- `src/experiments/runners/` 应保持薄入口，不承载实验逻辑。
+- `src/plotting/experiments/` 和 `src/plotting/paper_fig/` 是 plot-only 层，只读取已有 bundle，不重跑实验。
+- `src/experiments/paper_figures/` 是论文图专用上层包，负责 Fig.1-Fig.6 的实验编排和 figure contract，但应尽量复用 `src/experiments/common/`、领域 `shared/` 和 `src/plotting/common/`。
+
+公共函数放置约定：
+
+- 全项目通用的路径、JSON safe、时间戳、manifest、基础数值工具，放到通用 shared 或现有合适模块。
+- 实验通用的 dataset/model loading、seed、result layout、run_info、DMS rollout、state snapshot、mask/projection、统计摘要，放到 `src/experiments/common/`。
+- 只服务一组实验的领域逻辑，放到 `src/experiments/<domain>/shared/`。
+- 绘图通用逻辑，放到 `src/plotting/common/`。
+- 只服务 Fig.1-Fig.6 的编排逻辑，放到 `src/experiments/paper_figures/common/`；如果普通实验也能复用，应提升到更公共层。
 
 ## 主线实验与 plotting 的关系
 
 - 计算入口：`python -m src.experiments.runners.<experiment_id>`
 - 绘图入口：`python -m src.plotting.experiments.<experiment_id>_plot`
 - plotting 只读取已有结果目录，不重算实验。
-- 当前主线 runner / plotting 覆盖 10 个实验。
+- 当前主线 catalog 注册 13 个实验；入口漂移可用 `python scripts/audit_entrypoints.py` 审计。
 - 第二阶段已把以下实验做成“原生规范化”样板：
   - `similarity_bias_experiment`
   - `engram_decode`
@@ -32,20 +74,26 @@ useful_fig_results/         历史图产物缓存，不是主线结果规范
 
 直接运行：
 
-```bash
-python -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
 ```
 
 使用配置文件：
 
-```bash
-python -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
+```
+
+smoke 运行：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --smoke
 ```
 
 单独重绘：
 
-```bash
-python -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
 ```
 
 ## 结果目录规范
@@ -78,22 +126,129 @@ results/<experiment_name>/
 CLI > YAML > 代码默认值
 ```
 
-当前公共 runner / plotting 入口均支持可选 `--config`。仓库目前内置的实验 YAML 样例有：
-
-- `configs/experiment/similarity_bias_experiment.yaml`
-- `configs/experiment/engram_decode.yaml`
+当前公共 runner / plotting 入口均支持可选 `--config`。`configs/experiment/*.yaml` 覆盖当前 catalog 注册的主线实验。
 
 ## 校验结果目录
 
-```bash
-python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment
 ```
 
 严格模式：
 
-```bash
-python scripts/validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
 ```
+
+## 校验入口一致性
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py
+```
+
+严格模式可用于提交前或 CI 检查：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py --strict
+```
+
+该脚本会核对 `src/experiments/catalog.py`、`src/experiments/runners/`、
+`src/plotting/experiments/` 和 `configs/experiment/` 是否一致。
+
+## 校验生成物边界
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_generated_artifacts.py --strict
+```
+
+该脚本会检查 active source 中是否残留默认输出目录，并列出 `results/`、`archive/`、`fig/` 等边界外的生成物候选。
+
+## 校验 cleanup 债务
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_cleanup_debt.py --strict
+```
+
+该脚本会检查 paper-figure 相关源码中的重复函数定义，并列出仍需拆分的超大模块。
+
+## 校验实验结构边界
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_experiment_structure.py --strict
+```
+
+该脚本会检查：
+
+- active 实验是否直接 import 另一个根实验模块。
+- `src/experiments/paper_figures/` 是否直接 import 根实验模块，而不是使用 `common/shared`。
+- `src/experiments/`、`src/plotting/` 的源码分布和超大模块清单。
+- Python 文件是否能被 AST 解析。
+
+## 论文图输出
+
+论文图构建入口：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.paper_fig.build --fig fig1
+```
+
+默认生成物写入：
+
+```text
+results/paper_figures/outputs/<figure_id>/
+```
+
+`src/plotting/paper_fig/` 只保留源码、spec、manual assets 和文档，不作为默认生成物目录。
+
+## 论文图实验入口
+
+论文图实验按 figure 提供新的包级入口，同时保留现有大脚本作为兼容实现。
+
+运行单个整图实验：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.fig6.run --output-root results/paper_experiments --seeds 1000 --scope both
+```
+
+运行单个 sub-experiment：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.fig6.subexperiments.peak_perturbation --output-dir results/paper_experiments/fig6_peak_amplified_reentry/seed_1000 --model-path results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_1000/net_final.pth
+```
+
+批量运行选定 figures：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs fig1,fig6 --output-root results/paper_experiments --seeds 1000 --scope both
+```
+
+只重建 manuscript figure，不重跑实验：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.paper_fig.build --fig fig6 --experiment-root results/paper_experiments/fig6_peak_amplified_reentry
+```
+
+## Fig.1-Fig.6 main-only 验收
+
+默认整理验收只要求 Fig.1-Fig.6 的 main figure 实验和绘制，不跑 supplement。先跑 smoke，再跑单 seed 完整 main-only：
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs all --scope main --seeds 1000 --smoke --check-only-build
+```
+
+```powershell
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs all --scope main --seeds 1000
+```
+
+若需要覆盖全部网络，可显式使用 `--all-seeds`，但这不是默认整理验收范围。
+
+Fig.1-Fig.6 可做计算效率优化，但只能减少重复加载、重复编码、重复 rollout、重复聚合、无关 debug/supplement-only 工作等计算组织问题。不能通过改变采样、条件集合、seed 语义、统计口径、时间窗口、干预定义或输出契约来提速。
+
+## 完成判定
+
+- `PASS`：入口 audit、结构 audit、生成物边界 audit 通过；普通 touched 实验完成 `torch_env` smoke、layout validation、plot replay；Fig.1-Fig.6 完成逻辑不变的合理效率优化；Fig.1-Fig.6 main-only smoke 通过；Fig.1-Fig.6 单 seed main-only 完整运行和绘制完成。
+- `PARTIAL`：结构整理和文档基本完成，但某些 Fig 的 main-only 完整运行、绘制或优化未完全通过；必须列出 figure、命令、日志路径、失败原因和后续动作。
+- `BLOCKED`：缺 checkpoint、缺数据、环境失败、CUDA 问题或 main contract 不完整导致无法完成验收；必须给出具体阻塞点和可执行解决路径。
 
 ## 当前兼容层
 

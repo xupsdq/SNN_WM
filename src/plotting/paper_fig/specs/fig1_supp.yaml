@@ -1,0 +1,82 @@
+figure_id: fig1_supp
+figure_title_draft: "Supplementary Fig. S1: Architecture and baseline controls"
+experiment_root_default: results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate
+canvas_mm:
+  width: 165
+  height: 86
+gutters_mm:
+  horizontal: 6
+  vertical: 6
+reading_order: [S1A, S1B, S1C, S1D]
+run_modes:
+  single_network_draft:
+    min_networks: 1
+    manuscript_status: draft_only
+  multi_network_final:
+    min_networks: 2
+    manuscript_status: final_statistics_ready
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig1_supp_resolved_spec.yaml
+  source_manifest: fig1_supp_source_manifest.json
+  qc_report: fig1_supp_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  single_network_warning: true
+  required_decode_layers: [layer1, layer2, layer3]
+group_labels:
+  - label: Supplementary Fig. S1 - Architecture and baseline classification controls
+    x_mm: 12
+    y_mm: 6
+panels:
+  S1A:
+    panel_id: S1A
+    claim: Input pipeline converts static images into temporally structured spike trains while preserving spatial structure.
+    panel_type: manual_schematic
+    data_adapter: none
+    renderer: render_supp_temporal_encoding_schematic
+    source: manual_assets/fig1_s1a_temporal_encoding.svg
+    position_mm: {x: 12, y: 14, w: 70.5, h: 28}
+    panel_label_mm: {x: 8.5, y: 10}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: none
+    y_axis: none
+  S1B:
+    panel_id: S1B
+    claim: The network exposes trial-specific STSP u/x states at each layer.
+    panel_type: manual_schematic
+    data_adapter: none
+    renderer: render_supp_stsp_update_schematic
+    source: manual_assets/fig1_s1b_stsp_update.svg
+    position_mm: {x: 88.5, y: 14, w: 70.5, h: 28}
+    panel_label_mm: {x: 85, y: 10}
+    size_mm: {w: 70.5, h: 28}
+    x_axis: none
+    y_axis: none
+  S1C:
+    panel_id: S1C
+    claim: Baseline performance is not driven by a small subset of digit classes.
+    panel_type: grouped_dot_bar
+    data_adapter: s1_class_recall_adapter
+    renderer: render_class_recall_by_digit
+    source: data/metrics/supp_class_recall_by_digit.csv
+    position_mm: {x: 12, y: 48, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
+    x_axis: Digit class
+    y_axis: Recall (%)
+    reference_lines:
+      - value: 10
+        label: 10% chance
+  S1D:
+    panel_id: S1D
+    claim: Trained readout produces structured class-specific decisions.
+    panel_type: heatmap
+    data_adapter: s1_confusion_matrix_adapter
+    renderer: render_confusion_matrix
+    source: data/metrics/supp_confusion_matrix_long.csv
+    position_mm: {x: 88.5, y: 48, w: 70.5, h: 30}
+    size_mm: {w: 70.5, h: 30}
+    x_axis: Predicted class
+    y_axis: True class

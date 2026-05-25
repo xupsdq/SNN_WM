@@ -22,8 +22,8 @@ OVERLAP_CONDITIONS = (
 )
 
 
-def _plot_dpi_l3_trace(trace_payload):
-    fig, ax = plt.subplots(figsize=(6.8, 4.8))
+def draw_dpi_l3_trace_on_ax(ax: plt.Axes, trace_payload, *, title: str | None = None) -> None:
+    """Draw the overlap-vs-nonoverlap DPI trace on an existing axes."""
     ax.axvspan(0, 20, color=get_plot_color("sample_window"), alpha=0.45, linewidth=0)
     ax.axvline(20, color=get_plot_color("other_residual"), linewidth=1.2, linestyle="--")
     all_y_values = []
@@ -64,6 +64,8 @@ def _plot_dpi_l3_trace(trace_payload):
     ax.axhline(0.0, color=get_plot_color("other_residual"), linewidth=1.0, linestyle=":")
     ax.set_xlabel("Time (ms)")
     ax.set_ylabel("dynamic like fraction")
+    if title:
+        ax.set_title(title)
     ax.grid(alpha=GRID_ALPHA_SOFT)
     ax.legend(frameon=False)
     ax.text(
@@ -76,6 +78,11 @@ def _plot_dpi_l3_trace(trace_payload):
         fontsize=10,
         color="black",
     )
+
+
+def _plot_dpi_l3_trace(trace_payload):
+    fig, ax = plt.subplots(figsize=(6.8, 4.8))
+    draw_dpi_l3_trace_on_ax(ax, trace_payload)
     fig.tight_layout()
     return fig
 

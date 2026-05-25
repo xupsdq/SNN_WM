@@ -1,0 +1,136 @@
+figure_id: fig3
+figure_title_draft: Multi-item peak-structured STSP landscape and functional access
+experiment_root_default: results/paper_experiments/fig3_multiitem_peak_landscape
+canvas_mm:
+  width: 165
+  height: 158
+reading_order: [B, C, D, E, F]
+run_modes:
+  - single_network_draft
+  - multi_network_final
+argument_bands:
+  - band_id: morphology_establishment
+    label: Morphology establishment
+    panels: [B, C]
+  - band_id: functional_accessibility
+    label: Functional accessibility
+    panels: [D, E, F]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  resolved_spec: fig3_resolved_spec.yaml
+  source_manifest: fig3_source_manifest.json
+  qc_report: fig3_qc_report.md
+  panel_data: panel_data/*.csv
+  stats: stats/*.json
+  source_manifests: source_manifests/*.json
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  canvas_mm: {width: 165, height: 158}
+  require_position_mm: true
+  require_size_mm: true
+  required_state_conditions: [S0, S_final]
+  required_cue_conditions: [peak, random, valley]
+  required_memory_conditions: [cue_only, single_item_memory, sequence_state]
+  required_region_conditions: [peak, valley, random]
+  single_network_warning: true
+panels:
+  B:
+    panel_id: B
+    claim: STSP state is progressively updated across sequence stages.
+    panel_type: progressive_update
+    data_adapter: fig3_progressive_update_adapter
+    renderer: render_fig3_progressive_update
+    source: data/metrics/panel_b_progressive_update_metrics.csv
+    size_mm: {width: 52.00, height: 42.00}
+    position_mm: {x: 12.00, y: 8.00, w: 52.00, h: 42.00}
+    axes_mm: {x: 20.00, y: 18.00, w: 40.00, h: 25.00}
+    letter_mm: {x: 6.00, y: 6.00}
+    metric: stepwise_update_ratio
+    x_axis: Sequence stage
+    y_axis: Update ratio
+    title: Progressive update
+  C:
+    panel_id: C
+    claim: Representative final STSP state exhibits a structured 3D peak-valley landscape.
+    panel_type: 3d_surface
+    projection: "3d"
+    data_adapter: fig3_example_landscape_adapter
+    renderer: render_fig3_3d_landscape
+    source_priority:
+      - data/raw/panel_c_example_landscape.npz
+      - data/metrics/panel_c_example_landscape_summary.csv
+      - data/raw/panel_c_example_landscape_metadata.json
+    size_mm: {width: 84.00, height: 96.00}
+    position_mm: {x: 75.00, y: 8.00, w: 84.00, h: 96.00}
+    axes_mm: {x: 68.00, y: 30.00, w: 54.00, h: 54.00}
+    colorbar_mm: {x: 145.00, y: 40.00, w: 2.00, h: 34.00}
+    letter_mm: {x: 69.00, y: 6.00}
+    metric: delta_gain_map
+    x_axis: Spatial x / column
+    y_axis: Spatial y / row
+    z_axis: Δ STSP support
+    title: Peak-structured STSP landscape
+  D:
+    panel_id: D
+    claim: Neutral ping reveals a serial-position readout profile from the final sequence state.
+    panel_type: neutral_ping_serial_profile
+    data_adapter: fig3_neutral_ping_serial_adapter
+    renderer: render_fig3_neutral_ping_serial_profile
+    source_priority:
+      - data/metrics/panel_d_ping_position_distribution.csv
+      - data/metrics/panel_d_ping_summary.csv
+      - data/raw/panel_d_neutral_ping_trial_readout.csv
+      - data/metrics/panel_e_ping_position_distribution.csv
+    size_mm: {width: 52.00, height: 42.00}
+    position_mm: {x: 12.00, y: 62.00, w: 52.00, h: 42.00}
+    axes_mm: {x: 20.00, y: 72.00, w: 40.00, h: 25.00}
+    letter_mm: {x: 6.00, y: 60.00}
+    metric: readout_mass
+    x_axis: Serial position
+    y_axis: Readout mass
+    conditions: [S_final, S0]
+    title: Neutral ping serial readout
+  E:
+    panel_id: E
+    claim: Sequence state improves weak-probe recovery beyond cue-only and a slot-matched single-item memory boundary.
+    panel_type: weak_probe_completion
+    data_adapter: fig3_weak_probe_completion_adapter
+    renderer: render_fig3_weak_probe_completion
+    source_priority:
+      - data/metrics/panel_e_weak_probe_metrics.csv
+      - data/metrics/panel_e_weak_probe_memory_gain.csv
+      - data/metrics/panel_e_weak_probe_auc_metrics.csv
+      - data/raw/panel_e_weak_probe_trial_readout.csv
+      - data/metrics/panel_f_weak_probe_metrics.csv
+    size_mm: {width: 84.00, height: 34.00}
+    position_mm: {x: 12.00, y: 116.00, w: 84.00, h: 34.00}
+    axes_mm: {x: 20.00, y: 126.00, w: 72.00, h: 20.00}
+    letter_mm: {x: 6.00, y: 114.00}
+    metric: P_target
+    x_axis: Keep probability
+    y_axis: Target recovery (%)
+    conditions: [cue_only, single_item_memory, sequence_state]
+    title: Weak-probe recovery
+  F:
+    panel_id: F
+    claim: Directly pinging peak, valley, and random STSP regions produces distinct recent, old, and silent readout masses.
+    panel_type: region_ping_readout
+    data_adapter: fig3_region_ping_readout_adapter
+    renderer: render_fig3_region_ping_readout
+    source_priority:
+      - data/metrics/panel_f_region_ping_position_distribution.csv
+      - data/metrics/panel_f_region_ping_summary.csv
+      - data/metrics/panel_f_region_ping_contrast.csv
+      - data/raw/panel_f_region_ping_trial_readout.csv
+      - data/metrics/panel_f_region_ping_current_matching.csv
+    size_mm: {width: 56.00, height: 34.00}
+    position_mm: {x: 103.00, y: 116.00, w: 56.00, h: 34.00}
+    axes_mm: {x: 111.00, y: 126.00, w: 43.00, h: 20.00}
+    letter_mm: {x: 97.00, y: 114.00}
+    metric: readout_mass
+    x_axis: Region
+    y_axis: Evoked readout probability
+    region_condition_order: [peak, valley, random]
+    readout_category_order: [old, recent, silent]
+    title: Region-gated ping readout

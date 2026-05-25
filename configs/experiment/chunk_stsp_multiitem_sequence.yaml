@@ -1,0 +1,21 @@
+experiment_name: chunk_stsp_multiitem_sequence
+output_dir: results/chunk_stsp_multiitem_sequence
+seed: 42
+
+data:
+  dataset_name: mnist
+  dataset_root: MNIST
+
+model:
+  name: sdnn_deep_final
+  path: results/sdnn_deep_final/net_final.pth
+
+runtime:
+  device: auto
+
+plotting:
+  output_dir: results/chunk_stsp_multiitem_sequence/figures
+  dpi: 300
+  formats: [png, pdf, svg]
+  style_name: paper_default
+

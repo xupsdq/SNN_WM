@@ -59,7 +59,8 @@ def _sem(values: np.ndarray) -> float:
     return float(np.std(arr, ddof=1) / np.sqrt(arr.size))
 
 
-def _plot_panel_a(payload: dict[str, np.ndarray]) -> plt.Figure:
+def draw_panel_a_support_map_on_ax(ax: plt.Axes, payload: dict[str, np.ndarray]) -> None:
+    """Draw the overlap/preprobe support map on an existing axes."""
     _require_arrays(payload, ("sample_mask", "probe_mask", "ux_map_pre_dynamic"), PANEL_A_NPZ)
     sample_mask = np.asarray(payload["sample_mask"], dtype=bool)
     probe_mask = np.asarray(payload["probe_mask"], dtype=bool)
@@ -73,7 +74,6 @@ def _plot_panel_a(payload: dict[str, np.ndarray]) -> plt.Figure:
     support_delta = np.clip(support_delta, 0.0, None)
     masked_support = np.ma.masked_where((~np.isfinite(support_delta)) | (support_delta <= 1e-12), support_delta)
 
-    fig, ax = plt.subplots(figsize=(4.0, 4.2))
     ax.set_facecolor("black")
     ax.imshow(np.zeros_like(support_delta), cmap="gray", vmin=0.0, vmax=1.0, interpolation="nearest")
     cmap = get_plot_cmap("stsp_support").copy()
@@ -100,6 +100,11 @@ def _plot_panel_a(payload: dict[str, np.ndarray]) -> plt.Figure:
     ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_visible(False)
+
+
+def _plot_panel_a(payload: dict[str, np.ndarray]) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.0, 4.2))
+    draw_panel_a_support_map_on_ax(ax, payload)
     fig.tight_layout()
     return fig
 
@@ -132,7 +137,8 @@ def _transition_counts(df: pd.DataFrame, group: str) -> dict[str, float]:
     return counts
 
 
-def _plot_panel_b(df: pd.DataFrame) -> plt.Figure:
+def draw_panel_b_early_probe_transitions_on_ax(ax: plt.Axes, df: pd.DataFrame, *, title: str | None = None) -> None:
+    """Draw the early-probe transition stacked bars on an existing axes."""
     for column in ("unit_group", "n_units", "n_advance", "n_recruit", "n_loss"):
         if column not in df.columns:
             raise ValueError(f"l1_firing_transition_summary.csv missing required column: {column}")
@@ -142,7 +148,6 @@ def _plot_panel_b(df: pd.DataFrame) -> plt.Figure:
         ("recruited", "recruited", get_plot_color("probe_only_region")),
         ("lost", "lost", get_plot_color("non_overlap_control")),
     ]
-    fig, ax = plt.subplots(figsize=(6.2, 3.1))
     y_positions = np.array([1.0, 0.0])
     bar_height = 0.34
     visible_totals: list[float] = []
@@ -162,6 +167,8 @@ def _plot_panel_b(df: pd.DataFrame) -> plt.Figure:
     x_max = min(100.0, max(visible_totals, default=0.0) + 8.0)
     ax.set_xlim(0.0, max(20.0, x_max))
     ax.set_xlabel("Transition fraction (%)")
+    if title:
+        ax.set_title(title)
     ax.legend(
         handles=[
             Line2D([0], [0], color=color, linewidth=5.0, label=label)
@@ -175,11 +182,50 @@ def _plot_panel_b(df: pd.DataFrame) -> plt.Figure:
     ax.grid(axis="x", alpha=GRID_ALPHA_SOFT)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+
+
+def draw_overlap_vs_probe_only_support_on_ax(ax: plt.Axes, df: pd.DataFrame, *, title: str | None = None) -> None:
+    """Draw overlap-aligned versus probe-only support as a paired experiment-style bar plot."""
+    required = ("support_region", "pre_probe_stsp_support")
+    missing = [column for column in required if column not in df.columns]
+    if missing:
+        raise ValueError(f"support comparison missing required columns: {', '.join(missing)}")
+    groups = [("Overlap-aligned", get_plot_color("sample_probe_overlap")), ("Probe-only", get_plot_color("probe_only_region"))]
+    x = np.arange(len(groups), dtype=float)
+    means = []
+    errors = []
+    for group, _ in groups:
+        values = pd.to_numeric(df.loc[df["support_region"].astype(str) == group, "pre_probe_stsp_support"], errors="coerce").dropna().to_numpy(dtype=float)
+        means.append(float(values.mean()) if values.size else 0.0)
+        errors.append(_sem(values) if values.size else 0.0)
+    ax.bar(x, means, yerr=errors, color=[color for _, color in groups], edgecolor=COLOR_NEUTRAL, linewidth=0.7, alpha=0.82, capsize=3)
+    if "seed" in df.columns:
+        for _, part in df.groupby("seed", dropna=False):
+            pts = []
+            for group, _ in groups:
+                vals = pd.to_numeric(part.loc[part["support_region"].astype(str) == group, "pre_probe_stsp_support"], errors="coerce").dropna()
+                pts.append(float(vals.mean()) if not vals.empty else np.nan)
+            if np.isfinite(pts).all():
+                ax.plot(x, pts, color=COLOR_NEUTRAL, alpha=0.22, linewidth=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([label for label, _ in groups], rotation=18, ha="right")
+    ax.set_ylabel("Pre-probe STSP support")
+    if title:
+        ax.set_title(title)
+    ax.grid(axis="y", alpha=GRID_ALPHA_SOFT)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+
+def _plot_panel_b(df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6.2, 3.1))
+    draw_panel_b_early_probe_transitions_on_ax(ax, df)
     fig.tight_layout()
     return fig
 
 
-def _plot_panel_c(payload: dict[str, np.ndarray]) -> plt.Figure:
+def draw_panel_c_winner_loser_event_chain_on_axes(axes: tuple[plt.Axes, plt.Axes] | list[plt.Axes], payload: dict[str, np.ndarray]) -> None:
+    """Draw the two-axis winner/loser event-chain traces."""
     _require_arrays(payload, ("relative_time", "winner_delta_v_aligned", "loser_delta_v_aligned", "loser_inh_before_aligned"), PANEL_C_NPZ)
     rel = np.asarray(payload["relative_time"], dtype=np.float64)
     winner_mean, winner_err = _nanmean_sem(np.asarray(payload["winner_delta_v_aligned"], dtype=np.float64))
@@ -188,7 +234,6 @@ def _plot_panel_c(payload: dict[str, np.ndarray]) -> plt.Figure:
     winner_color = get_plot_color("dynamic")
     loser_color = get_plot_color("non_overlap_control")
 
-    fig, axes = plt.subplots(2, 1, figsize=(7.0, 4.6), sharex=True, gridspec_kw={"hspace": 0.08})
     ax_top, ax_bottom = axes
     winner_line, = ax_top.plot(rel, 1000.0 * winner_mean, color=winner_color, linewidth=2.0, label="winner")
     ax_top.fill_between(rel, 1000.0 * (winner_mean - winner_err), 1000.0 * (winner_mean + winner_err), color=winner_color, alpha=0.18, linewidth=0)
@@ -211,11 +256,17 @@ def _plot_panel_c(payload: dict[str, np.ndarray]) -> plt.Figure:
     if rel.size:
         for ax in axes:
             ax.margins(x=0.04)
+
+
+def _plot_panel_c(payload: dict[str, np.ndarray]) -> plt.Figure:
+    fig, axes = plt.subplots(2, 1, figsize=(7.0, 4.6), sharex=True, gridspec_kw={"hspace": 0.08})
+    draw_panel_c_winner_loser_event_chain_on_axes(axes, payload)
     fig.subplots_adjust(left=0.14, right=0.95, bottom=0.13, top=0.96, hspace=0.10)
     return fig
 
 
-def _plot_panel_d(df: pd.DataFrame) -> plt.Figure:
+def draw_panel_d_local_chain_occurrence_on_ax(ax: plt.Axes, df: pd.DataFrame, *, title: str | None = None) -> None:
+    """Draw local causal-chain occurrence fractions on an existing axes."""
     metrics = [
         ("winner_pre_spike_boost", "winner\nboost"),
         ("loser_post_winner_suppressed", "loser\nsuppression"),
@@ -224,7 +275,6 @@ def _plot_panel_d(df: pd.DataFrame) -> plt.Figure:
     for column, _ in metrics:
         if column not in df.columns:
             raise ValueError(f"{PANEL_D_CSV} missing required column: {column}")
-    fig, ax = plt.subplots(figsize=(5.8, 3.1))
     y = np.arange(len(metrics), dtype=np.float64)[::-1]
     color = get_plot_color("dynamic")
     for ypos, (column, label) in zip(y, metrics):
@@ -243,9 +293,16 @@ def _plot_panel_d(df: pd.DataFrame) -> plt.Figure:
             tick.set_fontweight("bold")
     ax.set_xlim(0.0, 100.0)
     ax.set_xlabel("Fraction of local events (%)")
+    if title:
+        ax.set_title(title)
     ax.grid(axis="x", alpha=GRID_ALPHA_SOFT)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+
+
+def _plot_panel_d(df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(5.8, 3.1))
+    draw_panel_d_local_chain_occurrence_on_ax(ax, df)
     fig.tight_layout()
     return fig
 

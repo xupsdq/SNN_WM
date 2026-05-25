@@ -7,9 +7,8 @@ from src.plotting.experiments._common import main_for, read_bundle_csv
 from src.plotting.experiments._plot_builders import color_for
 
 
-def plot_bundle(input_dir):
-    metrics = read_bundle_csv(input_dir, "engram_decode_metrics.csv", ["layer", "delay_ms", "acc"])
-    fig, ax = plt.subplots(figsize=(10.0, 6.0))
+def draw_accuracy_vs_delay_on_ax(ax: plt.Axes, metrics, *, title: str | None = "Accuracy vs Delay") -> None:
+    """Draw the engram decoding delay curve on an existing axes."""
     for layer_name, part in metrics.groupby("layer", sort=True):
         part = part.sort_values("delay_ms")
         x = part["delay_ms"].to_numpy(dtype=float)
@@ -26,10 +25,17 @@ def plot_bundle(input_dir):
     ax.axhline(0.10, color=get_plot_color("other_residual"), linestyle="--", linewidth=1.2, label="Chance (10%)")
     ax.set_xlabel("Delay (ms)")
     ax.set_ylabel("Decoding Accuracy")
-    ax.set_title("Accuracy vs Delay")
+    if title:
+        ax.set_title(title)
     ax.set_ylim(0.0, 1.0)
     ax.grid(alpha=0.25)
     ax.legend(frameon=False)
+
+
+def plot_bundle(input_dir):
+    metrics = read_bundle_csv(input_dir, "engram_decode_metrics.csv", ["layer", "delay_ms", "acc"])
+    fig, ax = plt.subplots(figsize=(10.0, 6.0))
+    draw_accuracy_vs_delay_on_ax(ax, metrics)
     fig.tight_layout()
     return {"accuracy_vs_delay": fig}
 

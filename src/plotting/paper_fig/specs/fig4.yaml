@@ -1,0 +1,144 @@
+figure_id: fig4
+figure_title_draft: Overlap-gated re-entry from prior STSP history into later probe processing
+experiment_root: results/paper_experiments/fig4_overlap_reentry
+canvas_mm:
+  width: 165
+  height: 148
+reading_order: [A, B, C, D, E, F]
+argument_bands:
+  - band_id: reentry_assay
+    label: Re-entry assay
+    panels: [A]
+  - band_id: mechanism_entry
+    label: Mechanism entry
+    panels: [B, C, D]
+  - band_id: downstream_dynamics
+    label: Downstream dynamics
+    panels: [E, F]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  resolved_spec: fig4_resolved_spec.yaml
+  source_manifest: fig4_source_manifest.json
+  qc_report: fig4_qc_report.md
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  required_main_conditions:
+    - full_dynamic
+    - full_static
+    - sample_keep_overlap_only_dynamic
+    - sample_keep_nonoverlap_only_dynamic
+    - sample_random_matched_dynamic
+panels:
+  A:
+    panel_id: A
+    panel_type: programmatic_or_manual_schematic
+    claim: Sample-induced STSP support can re-enter later probe processing through sample-probe overlap.
+    data_adapter: none
+    renderer: render_fig4_reentry_schematic
+    metric: none
+    position_mm: {x: 12.00, y: 8.00, w: 147.00, h: 24.00}
+    size_mm: {w: 147.00, h: 24.00}
+    x_axis: none
+    y_axis: none
+  B:
+    panel_id: B
+    panel_type: similarity_entry
+    claim: Prior-history effect increases with sample-probe similarity, identifying a shared-structure regime.
+    data_adapter: fig4_similarity_entry_adapter
+    renderer: render_fig4_similarity_entry
+    metric: accuracy_drop
+    source_priority:
+      - data/metrics/panel_b_similarity_bin_summary.csv
+      - data/metrics/panel_b_similarity_entry_metrics.csv
+    position_mm: {x: 12.00, y: 39.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Sample-probe similarity bin
+    y_axis: Accuracy drop (static - dynamic)
+  C:
+    panel_id: C
+    panel_type: overlap_localization
+    claim: High sample-probe overlap localizes stronger prior-history effect under matched comparison.
+    data_adapter: fig4_overlap_localization_adapter
+    renderer: render_fig4_overlap_localization
+    metric: accuracy_drop
+    source_priority:
+      - data/metrics/panel_c_overlap_matched_comparison.csv
+      - data/metrics/panel_c_overlap_localization_metrics.csv
+      - data/metrics/supp_overlap_similarity_regression.csv
+    conditions: [Low overlap, High overlap]
+    position_mm: {x: 62.67, y: 39.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Overlap group
+    y_axis: Accuracy drop
+  D:
+    panel_id: D
+    panel_type: overlap_preserving_causal_perturbation
+    claim: Sample-side overlap support preserves the probe accuracy drop more strongly than non-overlap or random-matched support.
+    data_adapter: fig4_overlap_perturbation_main_adapter
+    renderer: render_fig4_overlap_perturbation
+    metric: accuracy_drop_vs_static
+    source_priority:
+      - data/metrics/panel_d_overlap_perturbation_metrics.csv
+      - data/metrics/panel_d_overlap_perturbation_summary.csv
+      - data/trial_specs/panel_d_perturbation_masks.csv
+      - data/metrics/supp_overlap_preserving_perturbation_metrics.csv
+      - data/metrics/supp_overlap_preserving_perturbation_summary.csv
+    conditions:
+      - full_dynamic
+      - full_static
+      - sample_keep_overlap_only_dynamic
+      - sample_keep_nonoverlap_only_dynamic
+      - sample_random_matched_dynamic
+    display_labels:
+      full_dynamic: Dynamic
+      full_static: Static baseline
+      sample_keep_overlap_only_dynamic: Overlap support
+      sample_keep_nonoverlap_only_dynamic: Non-overlap support
+      sample_random_matched_dynamic: Random matched
+    position_mm: {x: 113.33, y: 39.00, w: 45.67, h: 34.00}
+    size_mm: {w: 45.67, h: 34.00}
+    x_axis: Perturbation condition
+    y_axis: Accuracy drop vs static
+  E:
+    panel_id: E
+    panel_type: time_resolved_l3_displacement
+    claim: Overlap-aligned support changes probe-period L3 dynamics over time.
+    data_adapter: fig4_decision_spike_displacement_adapter
+    renderer: render_fig4_decision_spike_displacement
+    metric: DPI_L3_t
+    source_priority:
+      - data/metrics/panel_e_time_resolved_l3_displacement.csv
+      - data/metrics/panel_e_decision_spike_displacement.csv
+    conditions:
+      - sample_keep_overlap_only_dynamic
+      - sample_keep_nonoverlap_only_dynamic
+    max_time_ms: 60
+    position_mm: {x: 12.00, y: 81.00, w: 70.50, h: 59.00}
+    size_mm: {w: 70.50, h: 59.00}
+    x_axis: Probe time (ms)
+    y_axis: L3 dynamic-pattern index
+    reference_lines:
+      - value: 0
+        label: 0
+  F:
+    panel_id: F
+    panel_type: l3_accumulator_process_trajectory
+    claim: L3 accumulator manipulations produce bidirectional before-to-after shifts along firing-pattern and decision-projection axes.
+    data_adapter: fig4_l3_accumulator_process_adapter
+    renderer: render_fig4_l3_accumulator_process
+    metric: accumulator_process_shift
+    source_priority:
+      - data/metrics/panel_f_l3_accumulator_region_replay_metrics.csv
+      - data/metrics/panel_f_l3_accumulator_summary.csv
+      - data/raw/panel_f_l3_accumulator_pair_vectors.npz
+      - pair_results.csv
+      - pair_vectors.npz
+      - data/metrics/panel_f_decision_deflection_metrics.csv
+    groups: [plus, minus]
+    position_mm: {x: 88.50, y: 81.00, w: 70.50, h: 59.00}
+    size_mm: {w: 70.50, h: 59.00}
+    x_axis: More dynamic-like firing pattern
+    y_axis: More dynamic-like decision

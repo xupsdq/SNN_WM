@@ -59,7 +59,8 @@ def _seq_len_subset(df, *, source: str, layer: str | None = None):
     return sub
 
 
-def _plot_item_similarity_heatmap(item) -> plt.Figure:
+def draw_item_similarity_heatmap_on_ax(ax: plt.Axes, item, *, add_colorbar: bool = True, title: str | None = None) -> None:
+    """Draw the item-similarity heatmap on an existing axes."""
     _require_columns(item, ("stage_k", "item_index", "layer", "similarity_weight_nonnegative"), "item_similarity_metrics.csv")
     sub = _seq_len_subset(item, source="item_similarity_metrics.csv", layer=TARGET_LAYER)
     target_seq_len = int(sub["seq_len"].iloc[0])
@@ -72,28 +73,33 @@ def _plot_item_similarity_heatmap(item) -> plt.Figure:
     )
     vmax = float(np.nanmax(matrix)) if np.isfinite(matrix).any() else 1.0
 
-    fig, ax = plt.subplots(figsize=(4.8, 4.2))
     im = ax.imshow(matrix, cmap=get_plot_cmap("item_contribution"), vmin=0.0, vmax=max(vmax, 1e-6), aspect="auto")
-    ax.set_title(f"{TARGET_LAYER} seq_len={target_seq_len}")
+    ax.set_title(title if title is not None else f"{TARGET_LAYER} seq_len={target_seq_len}")
     ax.set_xlabel("item position")
     ax.set_ylabel("stage k")
     ax.set_xticks(np.arange(target_seq_len))
     ax.set_xticklabels(np.arange(1, target_seq_len + 1))
     ax.set_yticks(np.arange(target_seq_len))
     ax.set_yticklabels(np.arange(1, target_seq_len + 1))
-    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(length=0)
+    if add_colorbar:
+        cbar = ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(length=0)
+
+
+def _plot_item_similarity_heatmap(item) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.8, 4.2))
+    draw_item_similarity_heatmap_on_ax(ax, item)
     fig.tight_layout()
     return fig
 
 
-def _plot_anchor_position_vs_stage(summary) -> plt.Figure:
+def draw_anchor_position_vs_stage_on_ax(ax: plt.Axes, summary, *, title: str | None = "Anchor Drift vs Stage") -> None:
+    """Draw anchor position versus stage on an existing axes."""
     _require_columns(summary, ("stage_k", "layer", "com_sim"), "similarity_summary_metrics.csv")
     sub = _seq_len_subset(summary, source="similarity_summary_metrics.csv", layer=TARGET_LAYER)
     target_seq_len = int(sub["seq_len"].iloc[0])
     grouped = sub.groupby("stage_k", as_index=False)["com_sim"].mean().sort_values("stage_k")
 
-    fig, ax = plt.subplots(figsize=(5.6, 4.0))
     ax.plot(
         grouped["stage_k"].to_numpy(dtype=np.float64),
         grouped["com_sim"].to_numpy(dtype=np.float64),
@@ -104,21 +110,27 @@ def _plot_anchor_position_vs_stage(summary) -> plt.Figure:
     )
     ax.set_xlabel("stage k")
     ax.set_ylabel("anchor position")
-    ax.set_title("Anchor Drift vs Stage")
+    if title:
+        ax.set_title(title)
     ax.legend(frameon=False)
     _finish_axis(ax)
+
+
+def _plot_anchor_position_vs_stage(summary) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(5.6, 4.0))
+    draw_anchor_position_vs_stage_on_ax(ax, summary)
     fig.tight_layout()
     return fig
 
 
-def _plot_ping_retrieval_profile(ping) -> plt.Figure:
+def draw_ping_retrieval_profile_on_ax(ax: plt.Axes, ping, *, title: str | None = "Ping Retrieval Profile") -> None:
+    """Draw the ping retrieval profile on an existing axes."""
     _require_columns(ping, ("seq_len", "stage_k", "item_index", "ping_weight"), "ping_retrieval_metrics.csv")
     final_ping = ping[ping["stage_k"].astype(int) == ping["seq_len"].astype(int)].copy()
     if final_ping.empty:
         raise ValueError("ping_retrieval_metrics.csv has no final-stage rows.")
     grouped = final_ping.groupby(["seq_len", "item_index"], as_index=False)["ping_weight"].mean().sort_values(["seq_len", "item_index"])
 
-    fig, ax = plt.subplots(figsize=(6.2, 4.4))
     seq_colors = ("whole_pair_representation", "donor_trace", "sample_probe_overlap", "probe_only_region", "non_overlap_control")
     for idx, (seq_len, sub) in enumerate(grouped.groupby("seq_len", sort=True)):
         ax.plot(
@@ -131,18 +143,24 @@ def _plot_ping_retrieval_profile(ping) -> plt.Figure:
         )
     ax.set_xlabel("item position")
     ax.set_ylabel("retrieval probability")
-    ax.set_title("Ping Retrieval Profile")
+    if title:
+        ax.set_title(title)
     ax.legend(frameon=False)
     _finish_axis(ax)
+
+
+def _plot_ping_retrieval_profile(ping) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6.2, 4.4))
+    draw_ping_retrieval_profile_on_ax(ax, ping)
     fig.tight_layout()
     return fig
 
 
-def _plot_stepwise_update_ratio(update) -> plt.Figure:
+def draw_stepwise_update_ratio_on_ax(ax: plt.Axes, update, *, title: str | None = "Stepwise Update Ratio") -> None:
+    """Draw the stepwise update ratio on an existing axes."""
     _require_columns(update, ("layer", "stage_k", "stepwise_update_ratio"), "stepwise_update_metrics.csv")
     grouped = update.groupby(["layer", "stage_k"], as_index=False)["stepwise_update_ratio"].mean().sort_values(["layer", "stage_k"])
 
-    fig, ax = plt.subplots(figsize=(6.2, 4.4))
     for layer_key, sub in grouped.groupby("layer", sort=True):
         color_key = LAYER_COLORS.get(str(layer_key), "other_residual")
         ax.plot(
@@ -155,9 +173,15 @@ def _plot_stepwise_update_ratio(update) -> plt.Figure:
         )
     ax.set_xlabel("stage k")
     ax.set_ylabel("STSP update fraction")
-    ax.set_title("Stepwise Update Ratio")
+    if title:
+        ax.set_title(title)
     ax.legend(frameon=False)
     _finish_axis(ax)
+
+
+def _plot_stepwise_update_ratio(update) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6.2, 4.4))
+    draw_stepwise_update_ratio_on_ax(ax, update)
     fig.tight_layout()
     return fig
 

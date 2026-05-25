@@ -41,7 +41,8 @@ def _format_ms(value: float) -> str:
     return f"{value:.0f} ms"
 
 
-def _plot_episode_timeline(payload: dict[str, np.ndarray]) -> plt.Figure:
+def draw_episode_timeline_on_ax(ax: plt.Axes, payload: dict[str, np.ndarray]) -> None:
+    """Draw the two-item episode timeline on an existing axes."""
     item1 = _image(payload, "item1_image")
     item2 = _image(payload, "item2_image")
     durations = [
@@ -59,7 +60,6 @@ def _plot_episode_timeline(payload: dict[str, np.ndarray]) -> plt.Figure:
         get_plot_color("background_shade"),
     ]
 
-    fig, ax = plt.subplots(figsize=(9.2, 2.8))
     ax.set_axis_off()
     frame_y = 0.28
     frame_h = 0.48
@@ -102,6 +102,11 @@ def _plot_episode_timeline(payload: dict[str, np.ndarray]) -> plt.Figure:
         linespacing=0.95,
         color=get_plot_color("anchor"),
     )
+
+
+def _plot_episode_timeline(payload: dict[str, np.ndarray]) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(9.2, 2.8))
+    draw_episode_timeline_on_ax(ax, payload)
     fig.tight_layout()
     return fig
 
@@ -114,7 +119,8 @@ def _finish_reference_axis(ax: plt.Axes) -> None:
     ax.tick_params(labelsize=8, color=COLOR_NEUTRAL)
 
 
-def _plot_layer_violin(df, *, value: str, ylabel: str) -> plt.Figure:
+def draw_layer_violin_on_ax(ax: plt.Axes, df, *, value: str, ylabel: str) -> None:
+    """Draw the layerwise violin/scatter summary on an existing axes."""
     if "layer" not in df.columns:
         raise ValueError("Required column missing: layer")
     if value not in df.columns:
@@ -125,7 +131,6 @@ def _plot_layer_violin(df, *, value: str, ylabel: str) -> plt.Figure:
         raise ValueError(f"{value} has no finite values to plot")
 
     color = get_plot_color("fused_state", context="fig4_fusion")
-    fig, ax = plt.subplots(figsize=(4.2, 3.1))
     positions = np.arange(1, len(grouped) + 1, dtype=float)
     violins = ax.violinplot([arr for _, arr in grouped], positions=positions, widths=0.82, showextrema=False)
     for body in violins["bodies"]:
@@ -143,11 +148,17 @@ def _plot_layer_violin(df, *, value: str, ylabel: str) -> plt.Figure:
     ax.set_xticklabels([label for label, _ in grouped])
     ax.set_ylabel(ylabel)
     _finish_reference_axis(ax)
+
+
+def _plot_layer_violin(df, *, value: str, ylabel: str) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.2, 3.1))
+    draw_layer_violin_on_ax(ax, df, value=value, ylabel=ylabel)
     fig.tight_layout()
     return fig
 
 
-def _plot_wpri_distribution(df):
+def draw_wpri_distribution_on_ax(ax: plt.Axes, df) -> None:
+    """Draw the WPRI histogram on an existing axes."""
     value_col = "WPRI" if "WPRI" in df.columns else "whole_part_ratio_index"
     if value_col not in df.columns:
         raise ValueError("whole_over_part_metrics.csv missing required WPRI column")
@@ -156,7 +167,6 @@ def _plot_wpri_distribution(df):
     if values.size == 0:
         raise ValueError("WPRI has no finite values to plot")
 
-    fig, ax = plt.subplots(figsize=(4.2, 3.1))
     ax.hist(values, bins=22, density=True, color=get_plot_color("fused_state", context="fig4_fusion"), edgecolor=COLOR_NEUTRAL, linewidth=0.8, alpha=0.72)
     ax.axvline(0.0, color=COLOR_NEUTRAL, linestyle=":", linewidth=1.1)
     ax.set_xlabel("WPRI")
@@ -165,11 +175,17 @@ def _plot_wpri_distribution(df):
     xmax = float(np.nanmax(values)) + 0.01
     ax.set_xlim(xmin, xmax)
     _finish_reference_axis(ax)
+
+
+def _plot_wpri_distribution(df):
+    fig, ax = plt.subplots(figsize=(4.2, 3.1))
+    draw_wpri_distribution_on_ax(ax, df)
     fig.tight_layout()
     return fig
 
 
-def _plot_true_vs_shuffled_pair_score(df) -> plt.Figure:
+def draw_true_vs_shuffled_pair_score_on_ax(ax: plt.Axes, df) -> None:
+    """Draw the true-vs-shuffled pair score boxplot on an existing axes."""
     required = ("true_pair_score", "shuffled_pair_score")
     for column in required:
         if column not in df.columns:
@@ -179,7 +195,6 @@ def _plot_true_vs_shuffled_pair_score(df) -> plt.Figure:
     if any(arr.size == 0 for arr in values):
         raise ValueError("Pair specificity score columns have no finite values to plot")
 
-    fig, ax = plt.subplots(figsize=(4.4, 3.1))
     box = ax.boxplot(
         values,
         patch_artist=True,
@@ -197,6 +212,11 @@ def _plot_true_vs_shuffled_pair_score(df) -> plt.Figure:
         patch.set_alpha(0.72)
     ax.set_ylabel("Pair score")
     _finish_reference_axis(ax)
+
+
+def _plot_true_vs_shuffled_pair_score(df) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(4.4, 3.1))
+    draw_true_vs_shuffled_pair_score_on_ax(ax, df)
     fig.tight_layout()
     return fig
 
