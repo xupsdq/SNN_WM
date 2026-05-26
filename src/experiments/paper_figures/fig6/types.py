@@ -39,7 +39,7 @@ class Fig6Config:
     n_null: int = 100
     n_matched_groups: int = 100
     foreground_threshold: float = 0.1
-    functional_restore_mode: str = "full_boundary"
+    functional_restore_mode: str = "stsp_only"
     save_full_traces: bool = False
     save_l3_trace: bool = True
     save_spike_cache: bool = False

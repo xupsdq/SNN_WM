@@ -1129,7 +1129,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--weak-cue-repeats", type=int, default=20)
     parser.add_argument("--weak-cue-mask-mode", default="rank_within_target_foreground", choices=["rank_within_target_foreground"])
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
-    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only"], default="full_boundary")
+    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only", "stsp_only_legacy_current_ux"], default="stsp_only")
     parser.add_argument("--partial-cue-keep-fraction", type=float, default=0.10)
     parser.add_argument("--partial-cue-keep-fraction-sweep", default="0.05,0.1,0.2,0.3")
     parser.add_argument("--partial-cue-repeats", type=int, default=20)

@@ -599,6 +599,7 @@ def _write_result(
     if not panel_df.empty:
         panel_df = panel_df.copy()
         panel_df["run_mode"] = run_mode
+        panel_df["n_networks"] = int(n_networks)
     if run_mode == "single_network_draft":
         warnings.append("Single-network result. Use for pipeline validation only, not final manuscript statistics.")
     if panel_df.empty:

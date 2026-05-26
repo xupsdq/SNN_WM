@@ -1082,7 +1082,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--weak-probe-noise", type=float, default=0.0)
     parser.add_argument("--weak-probe-metric-mode", default="fig4_compat", choices=["fig4_compat", "legacy"])
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
-    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only"], default="full_boundary")
+    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only"], default="stsp_only")
     parser.add_argument("--num-pairs", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--n-shuffle", type=int, default=50)

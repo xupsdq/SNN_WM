@@ -11,7 +11,7 @@ from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values
 from src.plotting.paper_fig.utils import read_json
 
 
-DEFAULT_EXPERIMENT_ROOT = "results/paper_experiments/fig6_peak_amplified_reentry"
+DEFAULT_EXPERIMENT_ROOT = "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/fig6_peak_amplified_reentry"
 DRAFT_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
 FIG6_SCORE_NAME = "entry_gated_stsp_gain_score"
 FIG6_SCORE_DEFINITION = "mean g_final/g_baseline over entry-active presynaptic sites in each Layer 1 receptive field"
@@ -396,6 +396,7 @@ def build_fig6_real_probe_score_spike_deflection_adapter(spec: Mapping[str, Any]
     rows: list[dict[str, Any]] = []
     source_paths: list[Path] = []
     checked_paths: list[Path] = []
+    raw_rows_read = 0
     metric_units = {
         "delta_spike_probability": "probability difference",
         "mean_delta_spike_count": "spike count difference",
@@ -409,6 +410,31 @@ def build_fig6_real_probe_score_spike_deflection_adapter(spec: Mapping[str, Any]
         if df is None:
             continue
         source_paths.append(path)
+        raw_rows_read += int(len(df))
+        df = df.copy()
+        if "network_seed" not in df.columns:
+            df["network_seed"] = _seed_id(seed_dir)
+        if "score_quantile_bin" not in df.columns:
+            df["score_quantile_bin"] = ""
+        if "early_window_ms" not in df.columns:
+            df["early_window_ms"] = math.nan
+        numeric_cols = [
+            col
+            for col in [
+                *metric_units.keys(),
+                "mean_score",
+                "n_sites",
+                "dynamic_spike_probability",
+                "baseline_spike_probability",
+                "valid_site_count",
+                "probe_active_area",
+                "prior_updated_overlap_area",
+            ]
+            if col in df.columns
+        ]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.groupby(["network_seed", "score_quantile_bin", "early_window_ms"], dropna=False, as_index=False)[numeric_cols].mean()
         for row_idx, r in df.iterrows():
             x_value = _score_quantile_x(r.get("score_quantile_bin", row_idx), row_idx)
             for metric, unit in metric_units.items():
@@ -442,12 +468,17 @@ def build_fig6_real_probe_score_spike_deflection_adapter(spec: Mapping[str, Any]
                         prior_updated_overlap_area=_num(r.get("prior_updated_overlap_area")),
                         score_name=FIG6_SCORE_NAME,
                         primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                        source_aggregation="network_score_quantile_window_mean",
                     )
                 )
     stats_extra = _fig6_score_stats("delta_spike_probability_by_score_quantile", "real_probe_score_predicts_l1_spike_deflection")
     stats_extra["baseline"] = "S0 or detected baseline"
+    stats_extra["adapter_performed_network_level_averaging"] = True
+    stats_extra["raw_source_rows_read_before_seed_grouping"] = raw_rows_read
     manifest_extra = _fig6_score_manifest("real_probe_score_predicts_l1_spike_deflection")
     manifest_extra["baseline"] = "S0 or detected baseline"
+    manifest_extra["source_file_contract"] = "data/metrics/panel_d_real_probe_score_spike_deflection.csv"
+    manifest_extra["source_aggregation"] = "network_score_quantile_window_mean"
     return _finish(
         spec,
         output_dir,
@@ -554,6 +585,15 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
     checked_paths: list[Path] = []
     quantiles: list[float] = []
     thresholds: list[float] = []
+    raw_recruitment_rows = 0
+    raw_interaction_rows = 0
+    metric_units = {
+        "delta_spike_probability": "probability difference",
+        "dynamic_spike_probability": "probability",
+        "baseline_spike_probability": "probability",
+        "mean_delta_spike_count": "spike count difference",
+        "recruit_probability": "probability",
+    }
     for seed_dir in seeds:
         recruitment_path = seed_dir / "data" / "metrics" / "panel_e_overlap_gated_stsp_recruitment.csv"
         interaction_path = seed_dir / "data" / "metrics" / "panel_e_overlap_gated_stsp_interaction.csv"
@@ -562,22 +602,45 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
         interaction_df = _read_required_fig6_csv(interaction_path, warnings, "Fig.6E overlap-gated STSP interaction")
         if recruitment_df is not None:
             source_paths.append(recruitment_path)
+            raw_recruitment_rows += int(len(recruitment_df))
+            recruitment_df = recruitment_df.copy()
+            if "network_seed" not in recruitment_df.columns:
+                recruitment_df["network_seed"] = _seed_id(seed_dir)
+            if "early_window_ms" not in recruitment_df.columns:
+                recruitment_df["early_window_ms"] = math.nan
+            recruitment_df["stsp_group_norm"] = recruitment_df.get("stsp_group", pd.Series([""] * len(recruitment_df))).map(_stsp_group_label)
+            recruitment_df["overlap_group_norm"] = recruitment_df.get("overlap_group", pd.Series([""] * len(recruitment_df))).map(_overlap_group_label)
+            invalid_groups = recruitment_df["stsp_group_norm"].astype(str).eq("") | recruitment_df["overlap_group_norm"].astype(str).eq("")
+            if bool(invalid_groups.any()):
+                warnings.append(f"{seed_dir.name}: Fig.6E recruitment excluded {int(invalid_groups.sum())} rows without STSP/overlap groups.")
+                recruitment_df = recruitment_df.loc[~invalid_groups].copy()
+            numeric_cols = [
+                col
+                for col in [
+                    *metric_units.keys(),
+                    "n_sites",
+                    "mean_local_stsp_score",
+                    "mean_probe_overlap",
+                    "stsp_group_quantile",
+                    "overlap_threshold",
+                ]
+                if col in recruitment_df.columns
+            ]
+            for col in numeric_cols:
+                recruitment_df[col] = pd.to_numeric(recruitment_df[col], errors="coerce")
+            if not recruitment_df.empty:
+                recruitment_df = recruitment_df.groupby(
+                    ["network_seed", "stsp_group_norm", "overlap_group_norm", "early_window_ms"],
+                    dropna=False,
+                    as_index=False,
+                )[numeric_cols].mean()
             for _, r in recruitment_df.iterrows():
-                stsp_group = _stsp_group_label(r.get("stsp_group"))
-                overlap_group = _overlap_group_label(r.get("overlap_group"))
-                if not stsp_group or not overlap_group:
-                    warnings.append(f"{seed_dir.name}: Fig.6E recruitment row lacks stsp_group or overlap_group.")
-                    continue
+                stsp_group = str(r.get("stsp_group_norm", ""))
+                overlap_group = str(r.get("overlap_group_norm", ""))
                 quantiles.append(_num(r.get("stsp_group_quantile")))
                 thresholds.append(_num(r.get("overlap_threshold")))
                 condition = f"{stsp_group.title()} STSP + {'Overlap' if overlap_group == 'overlap' else 'No overlap'}"
-                for metric, unit in (
-                    ("delta_spike_probability", "probability difference"),
-                    ("dynamic_spike_probability", "probability"),
-                    ("baseline_spike_probability", "probability"),
-                    ("mean_delta_spike_count", "spike count difference"),
-                    ("recruit_probability", "probability"),
-                ):
+                for metric, unit in metric_units.items():
                     if metric not in recruitment_df.columns:
                         continue
                     rows.append(
@@ -612,11 +675,40 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
                             overlap_threshold=_num(r.get("overlap_threshold")),
                             score_name=FIG6_SCORE_NAME,
                             primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                            source_aggregation="network_stsp_overlap_window_mean",
                         )
                     )
         if interaction_df is None:
             continue
         source_paths.append(interaction_path)
+        raw_interaction_rows += int(len(interaction_df))
+        interaction_df = interaction_df.copy()
+        if "network_seed" not in interaction_df.columns:
+            interaction_df["network_seed"] = _seed_id(seed_dir)
+        if "early_window_ms" not in interaction_df.columns:
+            interaction_df["early_window_ms"] = math.nan
+        interaction_numeric_cols = [
+            col
+            for col in [
+                "interaction_delta",
+                "stsp_group_quantile",
+                "overlap_threshold",
+                "stsp_effect_with_overlap",
+                "stsp_effect_without_overlap",
+                "high_overlap_delta",
+                "low_overlap_delta",
+                "high_nooverlap_delta",
+                "low_nooverlap_delta",
+                "n_sites_high_overlap",
+                "n_sites_low_overlap",
+                "n_sites_high_nooverlap",
+                "n_sites_low_nooverlap",
+            ]
+            if col in interaction_df.columns
+        ]
+        for col in interaction_numeric_cols:
+            interaction_df[col] = pd.to_numeric(interaction_df[col], errors="coerce")
+        interaction_df = interaction_df.groupby(["network_seed", "early_window_ms"], dropna=False, as_index=False)[interaction_numeric_cols].mean()
         for _, r in interaction_df.iterrows():
             quantiles.append(_num(r.get("stsp_group_quantile")))
             thresholds.append(_num(r.get("overlap_threshold")))
@@ -651,6 +743,7 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
                     n_sites_low_nooverlap=_num(r.get("n_sites_low_nooverlap")),
                     score_name=FIG6_SCORE_NAME,
                     primary_endpoint=FIG6_PRIMARY_ENDPOINT,
+                    source_aggregation="network_interaction_window_mean",
                 )
             )
     stats_extra = _fig6_score_stats("overlap_gated_delta_spike_probability", "probe_overlap_gates_high_stsp_expression")
@@ -659,6 +752,9 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
             "interaction_metric": "interaction_delta",
             "stsp_group_quantile": _first_finite(quantiles),
             "overlap_threshold": _first_finite(thresholds),
+            "adapter_performed_network_level_averaging": True,
+            "raw_recruitment_rows_read_before_seed_grouping": raw_recruitment_rows,
+            "raw_interaction_rows_read_before_seed_grouping": raw_interaction_rows,
         }
     )
     manifest_extra = _fig6_score_manifest("probe_overlap_gates_high_stsp_expression")
@@ -671,6 +767,10 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
                 "data/metrics/panel_e_overlap_gated_stsp_recruitment.csv",
                 "data/metrics/panel_e_overlap_gated_stsp_interaction.csv",
             ],
+            "source_aggregation": {
+                "recruitment": "network_stsp_overlap_window_mean",
+                "interaction": "network_interaction_window_mean",
+            },
         }
     )
     return _finish(

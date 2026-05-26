@@ -229,7 +229,10 @@ def render_fig3_weak_probe_completion(ax, panel_data: pd.DataFrame | None, stats
     ax.set_xlabel("Weak-probe keep probability")
     ax.set_ylabel("Target recovery (%)")
     xmax = float(pd.to_numeric(use["keep_prob"], errors="coerce").max())
-    ax.set_xlim(0, max(0.35, xmax * 1.08))
+    keep_ticks = sorted(pd.to_numeric(use["keep_prob"], errors="coerce").dropna().unique().tolist())
+    if 1 <= len(keep_ticks) <= 8:
+        ax.set_xticks(keep_ticks)
+    ax.set_xlim(0, max(0.35, xmax * 1.14))
     ymax = max(100.0, float(pd.to_numeric(use["value"], errors="coerce").max()) * 1.08)
     ax.set_ylim(0, ymax)
     ax.legend(frameon=False, fontsize=4.9, loc="lower right", handlelength=1.0, borderaxespad=0.2)

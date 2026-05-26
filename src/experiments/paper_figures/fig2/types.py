@@ -44,7 +44,7 @@ class Fig2Config:
     weak_probe_noise: float = 0.0
     weak_probe_metric_mode: str = "fig4_compat"
     foreground_threshold: float = 0.1
-    functional_restore_mode: str = "full_boundary"
+    functional_restore_mode: str = "stsp_only"
     num_pairs: int = 200
     batch_size: int = 16
     n_shuffle: int = 50
