@@ -52,6 +52,7 @@ class Fig4Config:
     match_energy_caliper: float = 0.15
     match_require_probe_label: bool = False
     match_require_class_pair: bool = False
+    require_distinct_pair_labels: bool = True
     min_matches_per_network: int = 20
     n_match_permutations: int = 2000
     save_debug_figures: bool = False

@@ -54,7 +54,7 @@ class Fig3Config:
     weak_cue_repeats: int = 5
     weak_cue_mask_mode: str = "rank_within_target_foreground"
     foreground_threshold: float = 0.1
-    functional_restore_mode: str = "full_boundary"
+    functional_restore_mode: str = "stsp_only"
     partial_cue_keep_fraction: float = 0.10
     partial_cue_keep_fraction_sweep: tuple[float, ...] = (0.05, 0.1, 0.2, 0.3)
     partial_cue_repeats: int = 20

@@ -11,7 +11,7 @@ from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state
 BoundaryState = Dict[str, Dict[str, torch.Tensor]]
 InterventionFn = Callable[[SDNN_Network, Dict[str, object]], Dict[str, object]]
 RecordStateSpec = Union[Mapping[str, Sequence[str]], Sequence[str]]
-FUNCTIONAL_RESTORE_MODES = ("full_boundary", "stsp_only")
+FUNCTIONAL_RESTORE_MODES = ("full_boundary", "stsp_only", "stsp_only_legacy_current_ux")
 
 
 def build_layer_input_shapes(
@@ -214,7 +214,7 @@ def restore_functional_probe_state_in_place(
     layer_input_shapes: Mapping[str, tuple[int, ...]],
     boundary: Mapping[str, Mapping[str, torch.Tensor]],
     *,
-    mode: str = "full_boundary",
+    mode: str = "stsp_only",
     device: torch.device | None = None,
 ) -> Dict[str, object]:
     restore_mode = str(mode)
@@ -230,6 +230,9 @@ def restore_functional_probe_state_in_place(
         prepare_network_state(net, layer1_shape[0], layer1_shape[1], layer1_shape[2], layer1_shape[3])
         info = _restore_boundary_state_in_place(net, boundary)
         info["probe_state_reset"] = "full_boundary_restored"
+    elif restore_mode == "stsp_only_legacy_current_ux":
+        info = reset_non_ux_state_preserve_current_ux_in_place(net, layer_input_shapes)
+        info["probe_state_reset"] = "all_layers_reset_current_stsp_preserved"
     else:
         if device is None:
             device = next(net.parameters()).device
@@ -245,6 +248,7 @@ def restore_functional_probe_state_in_place(
     out["functional_restore_mode"] = restore_mode
     out["restore_ok"] = int(
         out.get("restored_boundary_layer_count", out.get("restored_stsp_layer_count", 0)) > 0
+        or int(out.get("ux_restore_ok", 0)) == 1
     )
     return out
 

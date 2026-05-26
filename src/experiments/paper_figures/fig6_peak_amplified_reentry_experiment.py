@@ -814,7 +814,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--n-null", type=int, default=100)
     parser.add_argument("--n-matched-groups", type=int, default=100)
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
-    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only"], default="full_boundary")
+    parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only", "stsp_only_legacy_current_ux"], default="stsp_only")
     parser.add_argument("--recent-overlap-windows", default="2,3,4,5")
     parser.add_argument("--score-eps", type=float, default=1e-6)
     parser.add_argument("--score-early-windows-ms", default="5,10,15,20")

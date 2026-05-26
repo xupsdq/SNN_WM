@@ -1078,6 +1078,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
         match_energy_caliper=float(args.match_energy_caliper),
         match_require_probe_label=bool(args.match_require_probe_label),
         match_require_class_pair=bool(args.match_require_class_pair),
+        require_distinct_pair_labels=bool(args.require_distinct_pair_labels),
         min_matches_per_network=int(args.min_matches_per_network),
         n_match_permutations=100 if smoke else int(args.n_match_permutations),
         save_debug_figures=bool(args.save_debug_figures),
@@ -1146,6 +1147,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--match-energy-caliper", type=float, default=0.15)
     parser.add_argument("--match-require-probe-label", action="store_true")
     parser.add_argument("--match-require-class-pair", action="store_true")
+    parser.add_argument("--require-distinct-pair-labels", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--min-matches-per-network", type=int, default=20)
     parser.add_argument("--n-match-permutations", type=int, default=2000)
     parser.add_argument("--save-full-trace", action="store_true")

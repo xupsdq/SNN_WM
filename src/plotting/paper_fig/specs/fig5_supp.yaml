@@ -1,6 +1,6 @@
 figure_id: fig5_supp
 figure_title_draft: "Supplementary Fig. S6: Controls for local support competition and causal STSP perturbation"
-experiment_root: results/paper_experiments/fig5_local_support_competition
+experiment_root: results/paper_figure_multi_seed/fig5_local_support_competition/fig5_local_support_competition
 canvas_mm:
   width: 165
   height: 124

@@ -19,7 +19,10 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
 
     pool_rows: list[dict[str, Any]] = []
     target_candidates = max(int(cfg.max_pairs) * 12, int(cfg.max_pairs) + 64)
-    label_cycle = [(a, b) for a in range(NUM_CLASSES) for b in range(NUM_CLASSES)]
+    if bool(cfg.require_distinct_pair_labels):
+        label_cycle = [(a, b) for a in range(NUM_CLASSES) for b in range(NUM_CLASSES) if a != b]
+    else:
+        label_cycle = [(a, b) for a in range(NUM_CLASSES) for b in range(NUM_CLASSES)]
     rng.shuffle(label_cycle)
     candidate_id = 0
     candidate_iter = _progress(iter(int, 1), total=target_candidates, desc="fig4 pair candidates", enabled=cfg.show_progress)
