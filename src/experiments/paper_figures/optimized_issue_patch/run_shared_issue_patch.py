@@ -349,6 +349,23 @@ def _seed_dir(base_root: Path, fig_id: str, seed: int) -> Path:
     return _experiment_root(base_root, fig_id) / _seed_name(seed)
 
 
+def _source_seed_dir_candidates(source_root: Path, fig_id: str, seed: int) -> list[tuple[str, Path]]:
+    exp_id = EXPERIMENT_IDS[fig_id]
+    seed_name = _seed_name(seed)
+    return [
+        ("nested", source_root / exp_id / exp_id / seed_name),
+        ("flat", source_root / exp_id / seed_name),
+    ]
+
+
+def _resolve_source_seed_dir(source_root: Path, fig_id: str, seed: int) -> tuple[Path, str, list[tuple[str, Path]]]:
+    candidates = _source_seed_dir_candidates(source_root, fig_id, seed)
+    for layout, path in candidates:
+        if path.is_dir():
+            return path, layout, candidates
+    return candidates[0][1], "missing", candidates
+
+
 def _variant_base(output_root: Path, variant: str) -> Path:
     if variant == "final":
         return output_root
@@ -511,15 +528,16 @@ def _run_reference_serial(
 
 
 def _clone_seed_bundle(source_root: Path, output_root: Path, fig_id: str, seed: int, *, dry_run: bool) -> dict[str, Any]:
-    src = _seed_dir(source_root, fig_id, seed)
+    src, source_layout, candidates = _resolve_source_seed_dir(source_root, fig_id, seed)
     dst = _seed_dir(output_root, fig_id, seed)
     if not src.is_dir():
-        raise FileNotFoundError(f"Missing source seed bundle: {src}")
+        checked = "; ".join(f"{layout}={path}" for layout, path in candidates)
+        raise FileNotFoundError(f"Missing source seed bundle for {fig_id} {_seed_name(seed)}. Checked: {checked}")
     if dry_run:
-        return {"fig_id": fig_id, "seed": int(seed), "source": str(src), "destination": str(dst), "status": "dry_run"}
+        return {"fig_id": fig_id, "seed": int(seed), "source": str(src), "source_layout": source_layout, "destination": str(dst), "status": "dry_run"}
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dst, dirs_exist_ok=True)
-    return {"fig_id": fig_id, "seed": int(seed), "source": str(src), "destination": str(dst), "status": "copied"}
+    return {"fig_id": fig_id, "seed": int(seed), "source": str(src), "source_layout": source_layout, "destination": str(dst), "status": "copied"}
 
 
 def _load_shared_resources(
@@ -1470,7 +1488,7 @@ def _write_reports(
         ],
     )
     _write_csv(report_dir / "overlay_manifest.csv", overlay_records, ["fig_id", "seed", "mode", "rel", "status", "source", "destination", "old_rows_kept", "new_acc_drop_rows", "merged_rows", "reason"])
-    _write_csv(report_dir / "clone_manifest.csv", clone_records, ["fig_id", "seed", "source", "destination", "status"])
+    _write_csv(report_dir / "clone_manifest.csv", clone_records, ["fig_id", "seed", "source", "source_layout", "destination", "status"])
     _write_csv(report_dir / "validation_manifest.csv", validation_rows, ["fig_id", "seed", "seed_dir", "status", "returncode", "command", "stdout_tail", "stderr_tail"])
     _write_csv(report_dir / "audit_manifest.csv", audit_rows, ["fig_id", "seed_dir", "path", "status", "same_label_rows", "n_rows", "numeric_nonzero_count", "reason"])
     _write_csv(report_dir / "build_manifest.csv", build_rows, ["fig_id", "plot_fig_id", "experiment_root", "status", "returncode", "command", "stdout_tail", "stderr_tail"])
