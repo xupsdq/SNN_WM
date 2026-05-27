@@ -385,6 +385,16 @@ def _profile_args(fig_id: str, profile: str) -> tuple[str, ...]:
     return tuple(by_fig.get(fig_id, ()))
 
 
+def _batch_size_for_fig(args: argparse.Namespace, fig_id: str) -> int | None:
+    fig_value = getattr(args, f"{fig_id}_batch_size", None)
+    if fig_value is not None:
+        return int(fig_value)
+    common_value = getattr(args, "experiment_batch_size", None)
+    if common_value is not None:
+        return int(common_value)
+    return None
+
+
 def _base_argv(
     *,
     fig_id: str,
@@ -408,6 +418,9 @@ def _base_argv(
         str(args.split),
         *_profile_args(fig_id, str(args.benchmark_profile)),
     ]
+    batch_size = _batch_size_for_fig(args, fig_id)
+    if batch_size is not None:
+        argv.extend(["--batch-size", str(batch_size)])
     if bool(args.smoke):
         argv.append("--smoke")
     if bool(args.no_progress):
@@ -418,6 +431,8 @@ def _base_argv(
         argv.extend(["--functional-restore-mode", "stsp_only"])
     elif fig_id == "fig4":
         argv.extend(FIG4_FLAGS)
+        if getattr(args, "fig4_l3_region_batch_size", None) is not None:
+            argv.extend(["--l3-region-batch-size", str(int(args.fig4_l3_region_batch_size))])
     elif fig_id == "fig6":
         argv.extend(FIG6_FLAGS)
         argv.extend(["--sequence-lengths", str(args.shared_sequence_lengths)])
@@ -1525,6 +1540,11 @@ def _write_reports(
         "check_equivalence": bool(args.check_equivalence),
         "check_build": bool(args.check_build),
         "shared_sequence_lengths": str(args.shared_sequence_lengths),
+        "experiment_batch_size": getattr(args, "experiment_batch_size", None),
+        "fig3_batch_size": getattr(args, "fig3_batch_size", None),
+        "fig4_batch_size": getattr(args, "fig4_batch_size", None),
+        "fig6_batch_size": getattr(args, "fig6_batch_size", None),
+        "fig4_l3_region_batch_size": getattr(args, "fig4_l3_region_batch_size", None),
         "benchmark_profile": str(args.benchmark_profile),
         "equivalence_tolerance": {"atol": float(args.equivalence_atol), "rtol": float(args.equivalence_rtol)},
         "equivalence_status": _equivalence_status(equivalence_rows) if equivalence_rows else "not_run",
@@ -1724,6 +1744,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--overlay-on-equivalence-failure", action="store_true")
     parser.add_argument("--equivalence-atol", type=float, default=1e-5)
     parser.add_argument("--equivalence-rtol", type=float, default=1e-5)
+    parser.add_argument("--experiment-batch-size", type=int, default=None, help="Forward --batch-size to Fig.3/Fig.4/Fig.6 unless a figure-specific override is set.")
+    parser.add_argument("--fig3-batch-size", type=int, default=None, help="Forward --batch-size to Fig.3 only.")
+    parser.add_argument("--fig4-batch-size", type=int, default=None, help="Forward --batch-size to Fig.4 only.")
+    parser.add_argument("--fig6-batch-size", type=int, default=None, help="Forward --batch-size to Fig.6 only.")
+    parser.add_argument("--fig4-l3-region-batch-size", type=int, default=None, help="Forward --l3-region-batch-size to Fig.4.")
     parser.add_argument("--fig6-safe-gpu-batching", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--check-build", action="store_true")
     parser.add_argument("--build-preview", action="store_true", help="Build figures instead of check-only when --check-build is set.")

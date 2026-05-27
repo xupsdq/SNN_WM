@@ -10,16 +10,16 @@ primary_endpoint: Layer 1 spatial spike enrichment / recruitment
 argument_bands:
   - band_id: causal_control
     label: High-STSP-overlap control
-    panels: [A]
+    panels: [E]
   - band_id: entry_gated_readout
     label: Entry-gated STSP readout bias
-    panels: [B]
+    panels: [A]
   - band_id: l1_recruitment_prediction
     label: Layer 1 recruitment prediction
-    panels: [C, D]
+    panels: [B, C]
   - band_id: overlap_gated_expression
     label: Probe-overlap gated STSP expression
-    panels: [E, F]
+    panels: [D, F]
 forbidden_language:
   - score predicts final label
   - deterministic final-label prediction
@@ -76,66 +76,51 @@ qc_requirements:
 panels:
   A:
     panel_id: A
-    panel_type: ablation_bar
-    claim: Removing high-STSP-overlap input sites causes a larger Layer 1 recruitment loss than matched removal.
-    renderer: render_fig6_high_stsp_overlap_ablation
-    data_adapter: fig6_high_stsp_overlap_ablation_adapter
-    source_priority:
-      - data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv
-      - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
-    position_mm: {x: 8.00, y: 8.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
-    metric: loss_delta_spike_probability
-    x_axis: Removed input sites
-    y_axis: Loss in L1 recruitment
-    conditions: [high_stsp_overlap, matched_removal]
-  B:
-    panel_id: B
     panel_type: grouped_or_stacked_bar
     claim: Different entries into the multi-item STSP field expose different serial-content biases.
     renderer: render_fig6_region_ping_readout_bias
     data_adapter: fig6_region_ping_readout_bias_adapter
     source_priority:
       - data/metrics/panel_b_region_ping_readout_bias.csv
-    position_mm: {x: 60.00, y: 8.00, w: 45.00, h: 38.00}
+    position_mm: {x: 8.00, y: 8.00, w: 45.00, h: 38.00}
     size_mm: {w: 45.00, h: 38.00}
     metric: old_middle_recent_readout_mass
     x_axis: Ping entry
     y_axis: Readout mass
     conditions: [Peak ping, Valley ping, Random ping]
     main_metric: serial_readout_mass
-  C:
-    panel_id: C
+  B:
+    panel_id: B
     panel_type: score_quantile_line
     claim: Under global unbiased ping, local STSP gain score predicts Layer 1 spike recruitment.
     renderer: render_fig6_global_ping_score_spike_prediction
     data_adapter: fig6_global_ping_score_spike_prediction_adapter
     source_priority:
       - data/metrics/panel_c_global_ping_score_spike_prediction.csv
-    position_mm: {x: 112.00, y: 8.00, w: 45.00, h: 38.00}
+    position_mm: {x: 60.00, y: 8.00, w: 45.00, h: 38.00}
     size_mm: {w: 45.00, h: 38.00}
     metric: spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Early L1 spike probability
     primary_early_window_ms: 10
     score_name: entry_gated_stsp_gain_score
-  D:
-    panel_id: D
+  C:
+    panel_id: C
     panel_type: score_quantile_line
     claim: Under real probe input, entry-gated STSP score predicts Layer 1 spike deflection relative to baseline.
     renderer: render_fig6_real_probe_score_spike_deflection
     data_adapter: fig6_real_probe_score_spike_deflection_adapter
     source_priority:
       - data/metrics/panel_d_real_probe_score_spike_deflection.csv
-    position_mm: {x: 8.00, y: 58.00, w: 45.00, h: 38.00}
+    position_mm: {x: 112.00, y: 8.00, w: 45.00, h: 38.00}
     size_mm: {w: 45.00, h: 38.00}
     metric: delta_spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Dynamic minus baseline L1 firing
     primary_early_window_ms: 10
     score_name: entry_gated_stsp_gain_score
-  E:
-    panel_id: E
+  D:
+    panel_id: D
     panel_type: two_by_two_interaction
     claim: Probe overlap gates the expression of high-STSP regions.
     renderer: render_fig6_overlap_gated_stsp_recruitment
@@ -143,13 +128,28 @@ panels:
     source_priority:
       - data/metrics/panel_e_overlap_gated_stsp_recruitment.csv
       - data/metrics/panel_e_overlap_gated_stsp_interaction.csv
-    position_mm: {x: 60.00, y: 58.00, w: 45.00, h: 38.00}
+    position_mm: {x: 8.00, y: 58.00, w: 45.00, h: 38.00}
     size_mm: {w: 45.00, h: 38.00}
     metric: overlap_gated_delta_spike_probability
     x_axis: Probe overlap
     y_axis: Dynamic minus baseline L1 firing
     primary_early_window_ms: 10
     score_name: entry_gated_stsp_gain_score
+  E:
+    panel_id: E
+    panel_type: ablation_bar
+    claim: Removing high-STSP-overlap input sites causes a larger Layer 1 recruitment loss than matched removal.
+    renderer: render_fig6_high_stsp_overlap_ablation
+    data_adapter: fig6_high_stsp_overlap_ablation_adapter
+    source_priority:
+      - data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv
+      - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
+    position_mm: {x: 60.00, y: 58.00, w: 45.00, h: 38.00}
+    size_mm: {w: 45.00, h: 38.00}
+    metric: loss_delta_spike_probability
+    x_axis: Removed input sites
+    y_axis: Loss in L1 recruitment
+    conditions: [high_stsp_overlap, matched_removal]
   F:
     panel_id: F
     panel_type: mechanism_schematic

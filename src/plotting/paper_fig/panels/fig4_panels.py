@@ -90,6 +90,12 @@ def render_fig4_overlap_localization(ax, panel_data: pd.DataFrame | None, stats:
     ax.paper_fig_paired_lines = False
 
 
+def render_fig4_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    from src.plotting.paper_fig.panels.fig4_supp_panels import render_s7_overlap_excess
+
+    render_s7_overlap_excess(ax, panel_data, stats, spec, style)
+
+
 def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats, style
     df = _clean(panel_data)

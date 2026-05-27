@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+from src.experiments.common.input_masks import entry_mask_from_image, foreground_mask, overlap_mask
 
 # Keep module-level names identical while Fig.4 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -283,13 +284,42 @@ def _class_evidence_trace(net: Any, l3_v: torch.Tensor) -> np.ndarray:
     return grouped.mean(axis=3).astype(np.float32)
 
 def _foreground_mask(image: torch.Tensor, threshold: float) -> np.ndarray:
-    arr = image.detach().cpu().to(torch.float32).abs().amax(dim=0).numpy()
-    return np.asarray(arr > float(threshold), dtype=bool)
+    return foreground_mask(image, float(threshold))
 
-def _build_masks(sample_image: torch.Tensor, probe_image: torch.Tensor, rng: np.random.Generator, cfg: Fig4Config) -> dict[str, np.ndarray]:
-    sample_fg = _foreground_mask(sample_image, cfg.foreground_threshold)
-    probe_fg = _foreground_mask(probe_image, cfg.foreground_threshold)
-    overlap = sample_fg & probe_fg
+def _build_masks(
+    sample_image: torch.Tensor,
+    probe_image: torch.Tensor,
+    rng: np.random.Generator,
+    cfg: Fig4Config,
+    *,
+    encoder: Any | None = None,
+    device: Any | None = None,
+    sample_image_id: int | None = None,
+    probe_image_id: int | None = None,
+    cache: dict[tuple[Any, ...], np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
+    mode = str(getattr(cfg, "overlap_mask_mode", "encoded_spike"))
+    sample_fg = entry_mask_from_image(
+        sample_image,
+        mode=mode,
+        encoder=encoder,
+        steps=int(cfg.sample_steps),
+        device=device,
+        foreground_threshold=float(cfg.foreground_threshold),
+        cache=cache,
+        image_id=sample_image_id,
+    )
+    probe_fg = entry_mask_from_image(
+        probe_image,
+        mode=mode,
+        encoder=encoder,
+        steps=int(cfg.probe_steps),
+        device=device,
+        foreground_threshold=float(cfg.foreground_threshold),
+        cache=cache,
+        image_id=probe_image_id,
+    )
+    overlap = overlap_mask(sample_fg, probe_fg)
     sample_nonoverlap = sample_fg & ~probe_fg
     probe_only = probe_fg & ~sample_fg
     random_matched = _random_matched_mask(sample_image, sample_fg, overlap, rng, int(cfg.random_mask_candidates))

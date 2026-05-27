@@ -34,7 +34,7 @@ def _write_config_files(ctx: ExperimentContext) -> None:
             "multi_update_threshold": cfg.multi_update_threshold,
             "mechanism_summary": {
                 "score": "rho_stsp_gain_ratio",
-                "entry_gate": "global ping, region-gated ping mask, or real-probe active foreground",
+                "entry_gate": "global ping, region-gated ping mask, or real-probe DoG encoded-spike active sites",
                 "primary_claim": MAIN_CLAIM,
             },
             "entry_gated_stsp_score_definition": {
@@ -156,6 +156,14 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         "mechanism_boundary": MECHANISM_BOUNDARY,
         "score_name": "rho_stsp_gain_ratio",
         "score_definition": "rho(q) = G_final(q) / (G_baseline(q) + eps); H_p averages rho over RF(p); S_p(E) averages rho over RF(p) intersect E",
+        "real_probe_entry_mode": str(ctx.cfg.real_probe_entry_mode),
+        "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
+        "mask_definition": {
+            "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
+            "foreground_threshold": float(ctx.cfg.foreground_threshold),
+            "sample_steps": int(ctx.cfg.sample_steps),
+            "probe_steps": int(ctx.cfg.probe_steps),
+        },
         "score_excludes": ["connection_weights", "inhibition", "voltage", "threshold", "WTA", "final_label"],
         "primary_endpoint": "Layer 1 spatial spike recruitment / spike deflection",
         "interpretation_boundary": "The score predicts spike recruitment and dynamic-baseline deflection in overlap-gated high-STSP regions, not deterministic one-to-one firing or final-label prediction.",
@@ -215,6 +223,7 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
             "basin_top_q": float(ctx.cfg.basin_top_q),
             "gain_ratio_clip_quantiles": list(ctx.cfg.gain_ratio_clip_quantiles),
             "real_probe_entry_mode": str(ctx.cfg.real_probe_entry_mode),
+            "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
             "score_use_log_gain": bool(ctx.cfg.score_use_log_gain),
             "stsp_group_quantile": float(ctx.cfg.stsp_group_quantile),
             "overlap_threshold": float(ctx.cfg.overlap_threshold),

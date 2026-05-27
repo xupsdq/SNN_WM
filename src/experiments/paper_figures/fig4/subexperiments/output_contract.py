@@ -14,6 +14,10 @@ def _write_config_files(ctx: ExperimentContext) -> None:
     _write_json(
         {
             "fig4_design_version": FIG4_DESIGN_VERSION,
+            "overlap_mask_mode": str(cfg.overlap_mask_mode),
+            "overlap_entry_mask": "DoG encoded-spike spatial support"
+            if str(cfg.overlap_mask_mode) == "encoded_spike"
+            else "legacy thresholded image foreground",
             "main_panels": FIG4_MAIN_PANELS,
             "legacy_methods": FIG4_LEGACY_METHODS,
             "supplement_plan": FIG4_SUPPLEMENT_PLAN,
@@ -77,9 +81,11 @@ def _write_config_files(ctx: ExperimentContext) -> None:
     _write_json(
         {
             "foreground_threshold": float(cfg.foreground_threshold),
+            "overlap_mask_mode": str(cfg.overlap_mask_mode),
+            "entry_mask": "DoG encoded-spike spatial support" if str(cfg.overlap_mask_mode) == "encoded_spike" else "legacy thresholded image foreground",
             "dilation_radius": int(cfg.dilation_radius),
-            "overlap": "sample foreground AND probe foreground",
-            "dice_overlap": "2*area(overlap)/(area(sample foreground)+area(probe foreground))",
+            "overlap": "sample entry mask AND probe entry mask",
+            "dice_overlap": "2*area(overlap)/(area(sample entry mask)+area(probe entry mask))",
             "pair_label_constraint": "sample_label != probe_label" if bool(cfg.require_distinct_pair_labels) else "same-label sample/probe pairs allowed",
         },
         ctx.config_dir / "overlap_definition_spec.json",
@@ -161,6 +167,7 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         "network_seed": int(ctx.cfg.network_seed),
         "run_mode": "single_network",
         "fig4_design_version": FIG4_DESIGN_VERSION,
+        "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode),
         "legacy_similarity_bias_method": bool(ctx.cfg.use_legacy_similarity_bias_method),
         "legacy_overlap_perturbation_method": bool(ctx.cfg.use_legacy_overlap_perturbation_method),
         "legacy_l3_accumulator_method": bool(ctx.cfg.use_legacy_l3_accumulator_method),
@@ -195,7 +202,7 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         "fig4d_main_conditions": list(D_L1_STSP_CONDITIONS),
         "similarity_bins": int(ctx.cfg.num_similarity_bins),
         "overlap_bins": int(ctx.cfg.num_overlap_bins),
-        "mask_definition": {"foreground_threshold": float(ctx.cfg.foreground_threshold), "dilation_radius": int(ctx.cfg.dilation_radius)},
+        "mask_definition": {"foreground_threshold": float(ctx.cfg.foreground_threshold), "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode), "dilation_radius": int(ctx.cfg.dilation_radius)},
         "supplement_alias_missing_reasons": ctx.availability.get("supplement_alias_missing_reasons", {}),
         "warnings": ctx.warnings,
         "main_claim_supported_fields_available": all(path.exists() for path in required_main),

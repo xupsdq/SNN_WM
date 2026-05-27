@@ -206,6 +206,12 @@ def build_fig4_overlap_localization_adapter(spec: Mapping[str, Any], repo_root: 
     return _write(spec, output_dir, figure_id, panel_id, panel_df, stats, manifest)
 
 
+def build_fig4_overlap_excess_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    from src.plotting.paper_fig.adapters.fig4_supp_adapters import build_s7_overlap_excess_adapter
+
+    return build_s7_overlap_excess_adapter(spec, repo_root, output_dir)
+
+
 def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _resolve_experiment_root(spec, repo_root)

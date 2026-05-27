@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _item_entry_mask
 
 # Keep module-level names identical while Fig.6 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -142,7 +143,7 @@ def run_sequence_bank(ctx: ExperimentContext, sequence_trials: pd.DataFrame) -> 
         seq_len = int(group["seq_len"].iloc[0])
         image_ids = [int(v) for v in group["item_image_id"].tolist()]
         labels = [int(v) for v in group["item_label"].tolist()]
-        masks = np.stack([_foreground_mask(ctx.dataset, image_id, ctx.cfg.foreground_threshold) for image_id in image_ids], axis=0)
+        masks = np.stack([_item_entry_mask(ctx, image_id, ctx.cfg.sample_steps, cache=encode_cache) for image_id in image_ids], axis=0)
         exposure = masks.reshape(seq_len, -1).astype(np.float32)
         update_exposure_by_item[row_idx, :seq_len, :] = exposure
         item_activation_history[row_idx, :seq_len, :] = exposure
@@ -162,6 +163,7 @@ def run_sequence_bank(ctx: ExperimentContext, sequence_trials: pd.DataFrame) -> 
                 "image_ids": image_ids,
                 "labels": labels,
                 "masks": masks,
+                "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
             }
         )
         if not enable_sequence_batch:

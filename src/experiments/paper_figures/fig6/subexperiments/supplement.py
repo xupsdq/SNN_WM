@@ -24,7 +24,7 @@ def compute_legacy_supplement_outputs(ctx: ExperimentContext, bank: PeakAmplifie
     source_df = pd.read_csv(ctx.metrics_dir / "panel_a_peak_source_attribution.csv")
     overlap_df = pd.read_csv(ctx.metrics_dir / "panel_c_peak_input_overlap_similarity.csv")
     compute_supp_update_recency_support_model(ctx, unit_df)
-    _save_csv(ctx, unit_df[["network_seed", "sequence_id", "unit_id", "update_count"]].assign(exposure_threshold=ctx.cfg.foreground_threshold, notes="Unit update count from thresholded item foreground exposure."), ctx.metrics_dir / "supp_update_count_definition.csv")
+    _save_csv(ctx, unit_df[["network_seed", "sequence_id", "unit_id", "update_count"]].assign(entry_mask_mode=ctx.cfg.real_probe_entry_mode, exposure_threshold=ctx.cfg.foreground_threshold, notes="Unit update count from item entry-mask exposure."), ctx.metrics_dir / "supp_update_count_definition.csv")
     _save_csv(ctx, unit_df[["network_seed", "sequence_id", "unit_id", "last_update_position", "time_since_last_update"]].assign(recent_window=int(ctx.cfg.recent_window), notes="Recency is measured backward from the final sequence position."), ctx.metrics_dir / "supp_recency_definition.csv")
     _save_csv(ctx, _leave_one_out_timing_controls(ctx, source_df), ctx.metrics_dir / "supp_leave_one_out_timing_controls.csv")
     _save_csv(ctx, _peak_source_old_vs_recent(ctx, source_df), ctx.metrics_dir / "supp_peak_source_attribution_old_vs_recent.csv")

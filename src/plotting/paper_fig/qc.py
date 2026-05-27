@@ -3233,14 +3233,6 @@ def _check_fig6_stsp_recruitment_contract(
     else:
         passes.append("Fig.6 has no missing_source panel")
 
-    a_df = panel_frames.get("A", pd.DataFrame())
-    a_metrics = set(a_df.get("metric", pd.Series(dtype=str)).astype(str))
-    a_conditions = set(a_df.get("condition", pd.Series(dtype=str)).astype(str))
-    if "loss_delta_spike_probability" in a_metrics and {"high_stsp_overlap", "matched_removal"}.issubset(a_conditions):
-        passes.append("Fig.6A contains high-STSP-overlap and matched-removal ablation loss")
-    else:
-        failures.append("Fig.6A must contain loss_delta_spike_probability for high_stsp_overlap and matched_removal")
-
     stats_source_text = " ".join(stats_text_parts + source_text_parts)
     excludes = {"connection_weights", "inhibition", "voltage", "threshold", "wta", "final_label"}
     missing_excludes = sorted(token for token in excludes if token not in stats_source_text)
@@ -3253,51 +3245,59 @@ def _check_fig6_stsp_recruitment_contract(
     else:
         failures.append("Fig.6 stats/source manifests must record the Layer 1 spatial spike enrichment / recruitment endpoint")
 
-    b_df = panel_frames.get("B", pd.DataFrame())
-    b_metrics = set(b_df.get("metric", pd.Series(dtype=str)).astype(str))
-    b_conditions = set(b_df.get("condition", pd.Series(dtype=str)).astype(str))
-    if {"old_mass", "middle_mass", "recent_mass", "silent_rate"}.issubset(b_metrics) and {"Peak ping", "Valley ping", "Random ping"}.issubset(b_conditions):
-        passes.append("Fig.6B contains peak/valley/random serial readout mass metrics")
+    a_df = panel_frames.get("A", pd.DataFrame())
+    a_metrics = set(a_df.get("metric", pd.Series(dtype=str)).astype(str))
+    a_conditions = set(a_df.get("condition", pd.Series(dtype=str)).astype(str))
+    if {"old_mass", "middle_mass", "recent_mass", "silent_rate"}.issubset(a_metrics) and {"Peak ping", "Valley ping", "Random ping"}.issubset(a_conditions):
+        passes.append("Fig.6A contains peak/valley/random serial readout mass metrics")
     else:
-        failures.append("Fig.6B must contain old/middle/recent/silent mass for Peak/Valley/Random ping")
+        failures.append("Fig.6A must contain old/middle/recent/silent mass for Peak/Valley/Random ping")
 
-    if "other_mass" in b_metrics:
-        passes.append("Fig.6B includes optional other_mass readout mass")
+    if "other_mass" in a_metrics:
+        passes.append("Fig.6A includes optional other_mass readout mass")
     else:
-        warnings.append("Fig.6B optional other_mass is absent; renderer should omit that stack segment")
+        warnings.append("Fig.6A optional other_mass is absent; renderer should omit that stack segment")
+
+    b_df = panel_frames.get("B", pd.DataFrame())
+    b_sources = source_text_parts[sorted(panels).index("B")] if "B" in sorted(panels) else ""
+    if not b_df.empty and "spike_probability" in set(b_df.get("metric", pd.Series(dtype=str)).astype(str)) and "x_value" in b_df.columns and "Global ping" in set(b_df.get("condition", pd.Series(dtype=str)).astype(str)):
+        passes.append("Fig.6B plots global-ping spike probability by STSP score quantile")
+    else:
+        failures.append("Fig.6B must plot Global ping spike_probability by score quantile")
+    if "panel_c_global_ping_score_spike_prediction.csv" in b_sources and "panel_c_ping_score_spike_prediction.csv" not in b_sources:
+        passes.append("Fig.6B source is the global-ping score-spike prediction file")
+    else:
+        failures.append("Fig.6B source must be panel_c_global_ping_score_spike_prediction.csv and not the old panel_c_ping_score_spike_prediction.csv")
 
     c_df = panel_frames.get("C", pd.DataFrame())
-    c_sources = source_text_parts[sorted(panels).index("C")] if "C" in sorted(panels) else ""
-    if not c_df.empty and "spike_probability" in set(c_df.get("metric", pd.Series(dtype=str)).astype(str)) and "x_value" in c_df.columns and "Global ping" in set(c_df.get("condition", pd.Series(dtype=str)).astype(str)):
-        passes.append("Fig.6C plots global-ping spike probability by STSP score quantile")
+    if not c_df.empty and "delta_spike_probability" in set(c_df.get("metric", pd.Series(dtype=str)).astype(str)) and "x_value" in c_df.columns:
+        passes.append("Fig.6C plots real-probe spike deflection by STSP score quantile")
     else:
-        failures.append("Fig.6C must plot Global ping spike_probability by score quantile")
-    if "panel_c_global_ping_score_spike_prediction.csv" in c_sources and "panel_c_ping_score_spike_prediction.csv" not in c_sources:
-        passes.append("Fig.6C source is the global-ping score-spike prediction file")
-    else:
-        failures.append("Fig.6C source must be panel_c_global_ping_score_spike_prediction.csv and not the old panel_c_ping_score_spike_prediction.csv")
+        failures.append("Fig.6C must plot delta_spike_probability by score quantile")
 
     d_df = panel_frames.get("D", pd.DataFrame())
-    if not d_df.empty and "delta_spike_probability" in set(d_df.get("metric", pd.Series(dtype=str)).astype(str)) and "x_value" in d_df.columns:
-        passes.append("Fig.6D plots real-probe spike deflection by STSP score quantile")
+    d_metrics = set(d_df.get("metric", pd.Series(dtype=str)).astype(str))
+    d_sources = source_text_parts[sorted(panels).index("D")] if "D" in sorted(panels) else ""
+    if "delta_spike_probability" in d_metrics and {"high", "low"}.issubset(set(d_df.get("stsp_group", pd.Series(dtype=str)).astype(str))) and {"overlap", "no_overlap"}.issubset(set(d_df.get("overlap_group", pd.Series(dtype=str)).astype(str))):
+        passes.append("Fig.6D reports the high/low STSP x overlap/no-overlap recruitment 2x2")
     else:
-        failures.append("Fig.6D must plot delta_spike_probability by score quantile")
+        failures.append("Fig.6D must report delta_spike_probability for high/low STSP x overlap/no-overlap groups")
+    if "interaction_delta" in d_metrics:
+        passes.append("Fig.6D includes overlap-gated STSP interaction_delta rows")
+    else:
+        failures.append("Fig.6D must include interaction_delta rows")
+    if "panel_e_overlap_gated_stsp_recruitment.csv" in d_sources and "panel_e_overlap_gated_stsp_interaction.csv" in d_sources:
+        passes.append("Fig.6D source manifest includes recruitment and interaction files")
+    else:
+        failures.append("Fig.6D source manifest must include recruitment and interaction files")
 
     e_df = panel_frames.get("E", pd.DataFrame())
     e_metrics = set(e_df.get("metric", pd.Series(dtype=str)).astype(str))
-    e_sources = source_text_parts[sorted(panels).index("E")] if "E" in sorted(panels) else ""
-    if "delta_spike_probability" in e_metrics and {"high", "low"}.issubset(set(e_df.get("stsp_group", pd.Series(dtype=str)).astype(str))) and {"overlap", "no_overlap"}.issubset(set(e_df.get("overlap_group", pd.Series(dtype=str)).astype(str))):
-        passes.append("Fig.6E reports the high/low STSP x overlap/no-overlap recruitment 2x2")
+    e_conditions = set(e_df.get("condition", pd.Series(dtype=str)).astype(str))
+    if "loss_delta_spike_probability" in e_metrics and {"high_stsp_overlap", "matched_removal"}.issubset(e_conditions):
+        passes.append("Fig.6E contains high-STSP-overlap and matched-removal ablation loss")
     else:
-        failures.append("Fig.6E must report delta_spike_probability for high/low STSP x overlap/no-overlap groups")
-    if "interaction_delta" in e_metrics:
-        passes.append("Fig.6E includes overlap-gated STSP interaction_delta rows")
-    else:
-        failures.append("Fig.6E must include interaction_delta rows")
-    if "panel_e_overlap_gated_stsp_recruitment.csv" in e_sources and "panel_e_overlap_gated_stsp_interaction.csv" in e_sources:
-        passes.append("Fig.6E source manifest includes recruitment and interaction files")
-    else:
-        failures.append("Fig.6E source manifest must include recruitment and interaction files")
+        failures.append("Fig.6E must contain loss_delta_spike_probability for high_stsp_overlap and matched_removal")
 
     f_df = panel_frames.get("F", pd.DataFrame())
     if not f_df.empty and f_df.get("final_label_claim", pd.Series(dtype=object)).astype(str).str.lower().isin({"false", "0"}).any():
@@ -3355,11 +3355,11 @@ def _check_fig6_stsp_recruitment_contract(
 
     if render_metadata:
         expected_forms = {
-            "A": "high_stsp_overlap_ablation_bar",
-            "B": "region_gated_ping_readout_bias",
-            "C": "global_ping_score_quantile_spike_probability",
-            "D": "real_probe_score_quantile_spike_deflection",
-            "E": "overlap_gated_stsp_recruitment_2x2",
+            "A": "region_gated_ping_readout_bias",
+            "B": "global_ping_score_quantile_spike_probability",
+            "C": "real_probe_score_quantile_spike_deflection",
+            "D": "overlap_gated_stsp_recruitment_2x2",
+            "E": "high_stsp_overlap_ablation_bar",
             "F": "overlap_gated_stsp_recruitment_synthesis",
         }
         for panel_id, expected in expected_forms.items():
@@ -3368,18 +3368,18 @@ def _check_fig6_stsp_recruitment_contract(
                 passes.append(f"Fig.6{panel_id} renderer reports {expected}")
             else:
                 failures.append(f"Fig.6{panel_id} renderer plot_form must be {expected}, found {observed!r}")
-        if (render_metadata.get("C") or {}).get("x_label") == "STSP score quantile" and "L1 spike probability" in str((render_metadata.get("C") or {}).get("y_label", "")):
-            passes.append("Fig.6C axes are score quantile versus Layer 1 spike probability")
+        if (render_metadata.get("B") or {}).get("x_label") == "STSP score quantile" and "L1 spike probability" in str((render_metadata.get("B") or {}).get("y_label", "")):
+            passes.append("Fig.6B axes are score quantile versus Layer 1 spike probability")
         else:
-            failures.append("Fig.6C axes must be STSP score quantile versus Early L1 spike probability")
-        if (render_metadata.get("D") or {}).get("x_label") == "STSP score quantile" and "baseline L1 firing" in str((render_metadata.get("D") or {}).get("y_label", "")):
-            passes.append("Fig.6D axes are score quantile versus Layer 1 spike deflection")
+            failures.append("Fig.6B axes must be STSP score quantile versus Early L1 spike probability")
+        if (render_metadata.get("C") or {}).get("x_label") == "STSP score quantile" and "baseline L1 firing" in str((render_metadata.get("C") or {}).get("y_label", "")):
+            passes.append("Fig.6C axes are score quantile versus Layer 1 spike deflection")
         else:
-            failures.append("Fig.6D axes must be STSP score quantile versus dynamic-baseline L1 firing")
-        if "Probe overlap" in str((render_metadata.get("E") or {}).get("x_label", "")) and "baseline L1 firing" in str((render_metadata.get("E") or {}).get("y_label", "")):
-            passes.append("Fig.6E axes are probe overlap versus dynamic-baseline Layer 1 firing")
+            failures.append("Fig.6C axes must be STSP score quantile versus dynamic-baseline L1 firing")
+        if "Probe overlap" in str((render_metadata.get("D") or {}).get("x_label", "")) and "baseline L1 firing" in str((render_metadata.get("D") or {}).get("y_label", "")):
+            passes.append("Fig.6D axes are probe overlap versus dynamic-baseline Layer 1 firing")
         else:
-            failures.append("Fig.6E axes must be probe overlap versus dynamic-baseline L1 firing")
+            failures.append("Fig.6D axes must be probe overlap versus dynamic-baseline L1 firing")
         if (render_metadata.get("F") or {}).get("final_label_claim") is False:
             passes.append("Fig.6F renderer marks final_label_claim=False")
         else:
@@ -3461,7 +3461,7 @@ def _check_fig6_route_gain_contract(
     c_df = _read_panel_data(output_dir, "fig6", "C")
     c_families = set(c_df.get("window_family", pd.Series(dtype=str)).astype(str)) if not c_df.empty else set()
     if not c_df.empty and "peak_coverage" in set(c_df.get("metric", pd.Series(dtype=str)).astype(str)) and {"old", "all", "recent"}.issubset(c_families):
-        passes.append("Fig.6C compares peak coverage for old/all/recent foreground-overlap windows")
+        passes.append("Fig.6C compares peak coverage for old/all/recent encoded-entry overlap windows")
     else:
         failures.append("Fig.6C must use peak_coverage and include old/all/recent windows")
 
@@ -3852,6 +3852,10 @@ def _check_fig4_standalone_contract(
         passes.append("Fig.4D uses overlap perturbation main adapter")
     else:
         failures.append(f"Fig.4D must use fig4_overlap_perturbation_main_adapter, found {(panels.get('D') or {}).get('data_adapter')}")
+    if (panels.get("C") or {}).get("data_adapter") == "fig4_overlap_excess_adapter":
+        passes.append("Fig.4C uses overlap-excess main adapter")
+    else:
+        failures.append(f"Fig.4C must use fig4_overlap_excess_adapter, found {(panels.get('C') or {}).get('data_adapter')}")
     if (panels.get("F") or {}).get("data_adapter") == "fig4_l3_accumulator_process_adapter":
         passes.append("Fig.4F uses L3 accumulator process adapter")
     else:
@@ -3902,25 +3906,34 @@ def _check_fig4_standalone_contract(
     c_stats = stats_by_panel.get("C", {})
     if c_df is not None:
         metrics = set(c_df.get("metric", pd.Series(dtype=str)).astype(str))
-        forbidden = {"paired_delta_drop_event", "delta_drop_rate", "drop_rate_high_overlap", "drop_rate_low_overlap"}
+        forbidden = {"paired_delta_drop_event", "delta_drop_rate", "drop_rate_high_overlap", "drop_rate_low_overlap", "acc_drop", "DPI_L3"}
         if forbidden.isdisjoint(metrics):
-            passes.append("Fig.4C does not contain complete iso-similarity matching metrics")
+            passes.append("Fig.4C does not use the old overlap-localization or iso-similarity matching metrics")
         else:
-            failures.append(f"Fig.4C must not contain complete iso-similarity matching metrics, found {sorted(forbidden.intersection(metrics))}")
+            failures.append(f"Fig.4C must not contain old overlap-localization or iso-similarity metrics, found {sorted(forbidden.intersection(metrics))}")
         conditions = set(c_df.get("condition", pd.Series(dtype=str)).astype(str))
-        if {"High overlap", "Low overlap"}.issubset(conditions):
-            passes.append("Fig.4C includes high/low overlap localization rows")
+        if {"High overlap excess", "Low overlap excess"}.issubset(conditions):
+            passes.append("Fig.4C includes high/low overlap-excess rows")
         else:
-            failures.append(f"Fig.4C missing high/low overlap rows, found {sorted(conditions)}")
-        if c_stats.get("main_metric") == "accuracy_drop":
-            passes.append("Fig.4C main metric is accuracy_drop")
+            failures.append(f"Fig.4C missing high/low overlap-excess rows, found {sorted(conditions)}")
+        if c_stats.get("metric") == "mean_acc_drop":
+            passes.append("Fig.4C main metric is mean_acc_drop")
         else:
-            failures.append(f"Fig.4C main_metric must be accuracy_drop, found {c_stats.get('main_metric')}")
-        sources = set(c_df.get("metric_source", pd.Series(dtype=str)).astype(str))
-        if sources == {"acc_drop"} or (bool(c_stats.get("fallback_used")) and c_stats.get("fallback_metric")):
-            passes.append("Fig.4C plotted values use acc_drop or declare a fallback metric")
+            failures.append(f"Fig.4C metric must be mean_acc_drop, found {c_stats.get('metric')}")
+        source_files = set(c_df.get("source_file", pd.Series(dtype=str)).astype(str))
+        if any(path.endswith("supp_overlap_excess_accuracy_metrics.csv") for path in source_files):
+            passes.append("Fig.4C plotted values come from supp_overlap_excess_accuracy_metrics.csv")
         else:
-            failures.append(f"Fig.4C plotted values must come from acc_drop unless fallback is marked, found sources={sorted(sources)} fallback={c_stats.get('fallback_used')}")
+            failures.append(f"Fig.4C must read supp_overlap_excess_accuracy_metrics.csv, found sources={sorted(source_files)}")
+        plot_df = c_df[c_df.get("metric", pd.Series(dtype=str)).astype(str).eq("mean_acc_drop")]
+        if not plot_df.empty:
+            means = plot_df.groupby("condition", dropna=False)["value"].mean()
+            low = means.get("Low overlap excess", pd.NA)
+            high = means.get("High overlap excess", pd.NA)
+            if pd.notna(low) and pd.notna(high) and float(high) > float(low):
+                passes.append("Fig.4C high overlap-excess mean_acc_drop exceeds low overlap-excess")
+            else:
+                failures.append(f"Fig.4C overlap-excess direction check failed: low={low}, high={high}")
 
     d_df = panel_data.get("D")
     d_sources = sources_by_panel.get("D", {})

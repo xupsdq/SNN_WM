@@ -803,7 +803,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--ping-ms", type=int, default=30)
     parser.add_argument("--ping-amp", type=float, default=1.0)
     parser.add_argument("--global-ping-ms", type=int, default=30)
-    parser.add_argument("--global-ping-amp", type=float, default=1.0)
+    parser.add_argument("--global-ping-amp", type=float, default=0.5)
     parser.add_argument("--probe-ms", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-sequences", type=int, default=100)
@@ -825,7 +825,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--stsp-group-quantile", type=float, default=0.20)
     parser.add_argument("--overlap-threshold", type=float, default=0.05)
     parser.add_argument("--gain-ratio-clip-quantiles", default="0.01,0.99")
-    parser.add_argument("--real-probe-entry-mode", default="foreground", choices=["foreground", "encoded_spike"])
+    parser.add_argument("--real-probe-entry-mode", default="encoded_spike", choices=["encoded_spike", "foreground"])
     parser.add_argument("--score-use-log-gain", action="store_true")
     parser.add_argument("--leave-one-out-mode", default="blank_same_timing", choices=["blank_same_timing"])
     parser.add_argument("--real-rollout-required-for-main", dest="real_rollout_required_for_main", action="store_true", default=True)
@@ -940,7 +940,7 @@ PANEL_E_BASIN_COLUMNS = ["network_seed", "sequence_id", "entry_type", "entry_con
 FIG6_GAIN_RATIO_AUDIT_COLUMNS = ["network_seed", "sequence_id", "raw_ratio_min", "raw_ratio_max", "raw_ratio_q01", "raw_ratio_q99", "clipped_ratio_min", "clipped_ratio_max", "nonfinite_raw_count", "baseline_floor_count", "clip_quantile_low", "clip_quantile_high", "score_use_log_gain"]
 FIG6_ENTRY_SCORE_AUDIT_COLUMNS = ["network_seed", "sequence_id", "entry_type", "entry_condition", "valid_site_count", "score_shape", "entry_area", "rf_empty_excluded_count", "score_finite_count", "layer1_spike_shape", "spike_score_shape_aligned", "channel_policy"]
 SEQUENCE_TRIAL_COLUMNS = ["network_seed", "sequence_id", "seq_len", "stage_k", "item_image_id", "item_label", "ordered_item_ids", "ordered_item_labels", "sequence_seed", "mean_pairwise_image_similarity", "max_pairwise_image_similarity", "min_pairwise_image_similarity"]
-PROBE_TRIAL_COLUMNS = ["network_seed", "sequence_id", "probe_id", "probe_image_id", "probe_label", "probe_source", "raw_overlap", "peak_weighted_overlap", "peak_overlap_fraction", "nonpeak_overlap_fraction", "visual_similarity", "input_energy", "class_pair", "candidate_seed", "peak_support_sum", "nonpeak_support_sum"]
+PROBE_TRIAL_COLUMNS = ["network_seed", "sequence_id", "probe_id", "probe_image_id", "probe_label", "probe_source", "entry_mask_mode", "raw_overlap", "peak_weighted_overlap", "peak_overlap_fraction", "nonpeak_overlap_fraction", "visual_similarity", "input_energy", "class_pair", "candidate_seed", "peak_support_sum", "nonpeak_support_sum"]
 MATCHED_GROUP_COLUMNS = ["network_seed", "matched_group_id", "high_peak_candidate_id", "low_peak_candidate_id", "raw_overlap_difference", "visual_similarity_difference", "input_energy_difference", "peak_weighted_overlap_difference", "class_pair_matched", "notes"]
 STATE_BANK_MANIFEST_COLUMNS = ["network_seed", "sequence_id", "seq_len", "state_condition", "stage_k", "layer", "state_variable", "shape", "storage_file", "storage_key", "captured_after", "sample_ms", "delay_ms"]
 PANEL_A_UNIT_COLUMNS = ["network_seed", "sequence_id", "seq_len", "layer", "state_variable", "unit_id", "update_count", "last_update_position", "time_since_last_update", "recency_group", "multiplicity_group", "update_history_group", "is_peak", "final_support", "baseline_support", "delta_support"]
@@ -956,7 +956,7 @@ PANEL_B_UPDATE_HISTORY_COLUMNS = ["network_seed", "sequence_id", "seq_len", "uni
 PANEL_B_UPDATE_HISTORY_SUMMARY_COLUMNS = ["network_seed", "group", "mean_update_count", "P_update_ge_2", "P_update_ge_3", "mean_time_since_last_update", "P_recent_w2", "P_recent_w3", "P_recent_w4", "P_recent_w5", "P_multi_recent_w2", "P_multi_recent_w3", "P_multi_recent_w4", "P_multi_recent_w5", "n_units"]
 PANEL_C_ORIGIN_COLUMNS = ["network_seed", "sequence_id", "seq_len", "overlap_window", "window_start_position", "window_end_position", "n_items_in_window", "overlap_type", "n_overlap_pixels", "n_peak_pixels", "dice_peak_overlap", "jaccard_peak_overlap", "peak_coverage", "overlap_precision", "cosine_delta_support_overlap_count", "spearman_delta_support_overlap_count", "fallback_used"]
 PANEL_C_ORIGIN_SUMMARY_COLUMNS = ["network_seed", "overlap_window", "mean_dice", "sem_dice", "mean_peak_coverage", "mean_cosine", "n_sequences"]
-PANEL_D_TRIAL_DEFINITION_COLUMNS = ["network_seed", "sequence_id", "probe_id", "probe_image_id", "probe_label", "probe_source", "raw_overlap", "peak_weighted_overlap", "peak_overlap_fraction", "nonpeak_overlap_fraction", "visual_similarity", "input_energy", "peak_support_sum", "nonpeak_support_sum", "class_pair", "candidate_seed"]
+PANEL_D_TRIAL_DEFINITION_COLUMNS = ["network_seed", "sequence_id", "probe_id", "probe_image_id", "probe_label", "probe_source", "entry_mask_mode", "raw_overlap", "peak_weighted_overlap", "peak_overlap_fraction", "nonpeak_overlap_fraction", "visual_similarity", "input_energy", "peak_support_sum", "nonpeak_support_sum", "class_pair", "candidate_seed"]
 PANEL_D_REAL_METRIC_COLUMNS = ["network_seed", "sequence_id", "probe_id", "matched_group_id", "raw_overlap", "peak_weighted_overlap", "peak_overlap_group", "visual_similarity", "input_energy", "prediction_Sfinal", "prediction_S0", "correct_Sfinal", "correct_S0", "first_fire_time_Sfinal", "first_fire_time_S0", "first_fire_time_delta", "l3_trace_delta_norm", "reentry_strength_real", "dynamic_like_recovery_real", "decision_deflection_score_real", "proxy_mode"]
 PANEL_E_REAL_METRIC_COLUMNS = ["network_seed", "sequence_id", "probe_id", "matched_group_id", "raw_overlap", "peak_weighted_overlap", "peak_overlap_group", "visual_similarity", "input_energy", "early_recruitment_gain_real", "P_advance_real", "P_recruit_real", "spike_advance_real", "response_pattern_displacement_real", "decision_deflection_score_real", "partial_cue_completion_gain_real", "proxy_mode"]
 PERTURBATION_COLUMNS = ["network_seed", "sequence_id", "probe_id", "condition", "n_perturbed_units", "raw_overlap", "peak_weighted_overlap", "reentry_strength", "DPI_L3", "early_recruitment_gain", "decision_deflection_score", "completion_gain"]
