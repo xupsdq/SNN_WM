@@ -466,6 +466,7 @@ def build_experiment_command(
     fig1_delay_decode_backend: str | None,
     fig2_functional_readout_batch_size: int | None,
     fig4_l3_region_batch_size: int | None,
+    fig6_global_ping_amp: float | None,
     enable_gpu_batching: bool,
     enable_gpu_metrics: bool,
 ) -> list[str]:
@@ -502,6 +503,8 @@ def build_experiment_command(
         command.extend(["--functional-readout-batch-size", str(int(fig2_functional_readout_batch_size))])
     if spec.fig_id == "fig4" and fig4_l3_region_batch_size is not None:
         command.extend(["--l3-region-batch-size", str(int(fig4_l3_region_batch_size))])
+    if spec.fig_id == "fig6" and fig6_global_ping_amp is not None:
+        command.extend(["--global-ping-amp", str(float(fig6_global_ping_amp))])
     if enable_gpu_batching:
         command.extend(GPU_BATCH_FLAGS_BY_FIG.get(spec.fig_id, ()))
     if enable_gpu_metrics:
@@ -640,6 +643,7 @@ def run_one_experiment(
     fig1_delay_decode_backend: str | None,
     fig2_functional_readout_batch_size: int | None,
     fig4_l3_region_batch_size: int | None,
+    fig6_global_ping_amp: float | None,
     enable_gpu_batching: bool,
     enable_gpu_metrics: bool,
     progress_mode: str,
@@ -666,6 +670,7 @@ def run_one_experiment(
         fig1_delay_decode_backend=fig1_delay_decode_backend,
         fig2_functional_readout_batch_size=fig2_functional_readout_batch_size,
         fig4_l3_region_batch_size=fig4_l3_region_batch_size,
+        fig6_global_ping_amp=fig6_global_ping_amp,
         enable_gpu_batching=enable_gpu_batching,
         enable_gpu_metrics=enable_gpu_metrics,
     )
@@ -956,6 +961,7 @@ def _write_reports(
         "fig1_delay_decode_backend": None if args.fig1_delay_decode_backend is None else str(args.fig1_delay_decode_backend),
         "fig2_functional_readout_batch_size": None if args.fig2_functional_readout_batch_size is None else int(args.fig2_functional_readout_batch_size),
         "fig4_l3_region_batch_size": None if args.fig4_l3_region_batch_size is None else int(args.fig4_l3_region_batch_size),
+        "fig6_global_ping_amp": None if args.fig6_global_ping_amp is None else float(args.fig6_global_ping_amp),
         "enable_gpu_batching": bool(args.enable_gpu_batching),
         "enable_gpu_metrics": bool(args.enable_gpu_metrics),
         "continue_on_error": bool(args.continue_on_error),
@@ -1001,6 +1007,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Forward Fig.1 delay decoder backend selection.",
     )
     parser.add_argument("--fig4-l3-region-batch-size", type=int, default=None, help="Forward --l3-region-batch-size to Fig.4 when selected.")
+    parser.add_argument("--fig6-global-ping-amp", type=float, default=None, help="Forward --global-ping-amp to Fig.6 when selected.")
     parser.add_argument("--fig2-functional-readout-batch-size", type=int, default=None, help="Forward --functional-readout-batch-size to Fig.2 when selected.")
     parser.add_argument("--enable-gpu-batching", action="store_true", help="Forward figure-specific GPU batching flags where supported.")
     parser.add_argument("--enable-gpu-metrics", action="store_true", help="Forward GPU metric helpers where supported.")
@@ -1084,6 +1091,7 @@ def main(argv: list[str] | None = None) -> int:
         f"[Setup] jobs={effective_jobs}"
         f"{' (seed_jobs=' + str(args.seed_jobs) + ')' if args.seed_jobs is not None else ''}"
         f"{' experiment_batch_size=' + str(args.experiment_batch_size) if args.experiment_batch_size is not None else ''}"
+        f"{' fig6_global_ping_amp=' + str(args.fig6_global_ping_amp) if args.fig6_global_ping_amp is not None else ''}"
         f"{' enable_gpu_batching' if args.enable_gpu_batching else ''}"
         f"{' enable_gpu_metrics' if args.enable_gpu_metrics else ''}"
     )
@@ -1121,6 +1129,7 @@ def main(argv: list[str] | None = None) -> int:
             fig1_delay_decode_backend=args.fig1_delay_decode_backend,
             fig2_functional_readout_batch_size=args.fig2_functional_readout_batch_size,
             fig4_l3_region_batch_size=args.fig4_l3_region_batch_size,
+            fig6_global_ping_amp=args.fig6_global_ping_amp,
             enable_gpu_batching=bool(args.enable_gpu_batching),
             enable_gpu_metrics=bool(args.enable_gpu_metrics),
             progress_mode=effective_progress_mode,
