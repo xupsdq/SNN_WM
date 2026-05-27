@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.common.input_masks import entry_mask_from_image
 from src.experiments.common.gain_maps import compute_gain_ratio_map as _common_compute_gain_ratio_map
 from src.experiments.common.monitored_dms import restore_functional_probe_state_in_place
 
@@ -124,7 +125,7 @@ def _split_boundary_state(
     return out
 
 def _leave_one_out_support_map(ctx: ExperimentContext, image_ids: Sequence[int], removed_idx: int, *, encode_cache: dict[tuple[Any, ...], Any] | None = None) -> np.ndarray:
-    masks = np.stack([_foreground_mask(ctx.dataset, image_id, ctx.cfg.foreground_threshold) for image_id in image_ids], axis=0)
+    masks = np.stack([_item_entry_mask(ctx, image_id, ctx.cfg.sample_steps, cache=encode_cache) for image_id in image_ids], axis=0)
     keep = masks.copy()
     if 0 <= int(removed_idx) < len(keep):
         keep[int(removed_idx)] = False
@@ -916,14 +917,29 @@ def _mean_latency_ms(latency_map: np.ndarray, valid_mask: np.ndarray, dt: float)
         return np.nan
     return float(np.nanmean(lat[valid]) * float(dt) / ms)
 
+def _item_entry_mask(ctx: ExperimentContext, image_id: int, steps: int, *, cache: dict[tuple[Any, ...], Any] | None) -> np.ndarray:
+    return entry_mask_from_image(
+        ctx.dataset[int(image_id)][0],
+        mode=str(ctx.cfg.real_probe_entry_mode),
+        encoder=ctx.encoder,
+        steps=int(steps),
+        device=ctx.device,
+        foreground_threshold=float(ctx.cfg.foreground_threshold),
+        cache=cache,
+        image_id=int(image_id),
+    )
+
 def _probe_entry_mask(ctx: ExperimentContext, probe_image_id: int, *, mode: str, cache: dict[tuple[Any, ...], Any] | None) -> np.ndarray:
-    if str(mode) == "foreground":
-        return _foreground_mask(ctx.dataset, int(probe_image_id), float(ctx.cfg.foreground_threshold)).astype(bool)
-    if str(mode) == "encoded_spike":
-        spikes = _encode_sequence_cached(ctx, [int(probe_image_id)], ctx.cfg.probe_steps, cache)
-        arr = spikes.detach().to(torch.float32).cpu().numpy()
-        return np.asarray(arr.sum(axis=(0, 1, 2)) > 0, dtype=bool)
-    raise ValueError(f"Unsupported real_probe_entry_mode={mode!r}; expected foreground or encoded_spike")
+    return entry_mask_from_image(
+        ctx.dataset[int(probe_image_id)][0],
+        mode=str(mode),
+        encoder=ctx.encoder,
+        steps=int(ctx.cfg.probe_steps),
+        device=ctx.device,
+        foreground_threshold=float(ctx.cfg.foreground_threshold),
+        cache=cache,
+        image_id=int(probe_image_id),
+    )
 
 def _high_rho_site_mask(rho_map: np.ndarray, q: float) -> np.ndarray:
     rho = np.asarray(rho_map, dtype=float)
@@ -1106,4 +1122,4 @@ def _image_array(dataset: Any, image_id: int) -> np.ndarray:
         arr = np.asarray(image, dtype=np.float32).squeeze()
     return np.asarray(arr, dtype=np.float32)
 
-__all__ = ('_sequence_support_maps', '_sequence_support_maps_batch', '_leave_one_out_support_map', '_leave_one_out_support_maps_batch', '_run_real_probe_from_condition', '_run_real_probe_conditions_batch', '_restore_boundary_state', '_step_network_once_with_l3', '_support_from_net', '_support_from_net_batch', '_step_network_once', 'compute_gain_ratio_map', 'compute_entry_gated_stsp_score_map', 'compute_probe_overlap_map', 'collapse_layer1_spikes_spatial', 'compute_score_quantile_metrics', 'compute_spike_deflection_metrics', '_overlap_gated_group_metrics', '_overlap_gated_single_group_row', '_overlap_gated_interaction_row', 'compute_basin_enrichment', 'shuffle_score_control', '_step_network_once_capture_layer1', '_run_masked_ping_layer1_capture', '_run_real_probe_layer1_capture', '_run_real_probe_layer1_capture_batch', '_prepare_entry_rollout_state', '_layer1_input_shape', '_entry_mask_to_input_tensor', '_make_score_region_ping_masks', '_sequence_labels_from_meta', '_serial_position_for_label', '_serial_age_bin', '_score_quantile_indices', '_fired_site_score_percentiles', '_fired_site_score_percentile_mean', '_shuffle_fired_percentile_baseline', '_high_score_basin_hit_rate', '_shuffled_basin_hit_rate', '_mean_latency_ms', '_probe_entry_mask', '_high_rho_site_mask', '_matched_probe_removal_mask', '_remove_probe_sites_from_spikes', '_removed_probe_energy', '_ablation_condition_metrics', '_ensure_probe_trials', '_overlay_payload', '_gain_ratio_audit_row', '_entry_score_audit_row', '_record_gain_ratio_audit', '_record_entry_score_audit', '_flush_score_audits', '_images_for_ids', '_encode_sequence_cached', '_to_tensor', '_image_array')
+__all__ = ('_sequence_support_maps', '_sequence_support_maps_batch', '_leave_one_out_support_map', '_leave_one_out_support_maps_batch', '_run_real_probe_from_condition', '_run_real_probe_conditions_batch', '_restore_boundary_state', '_step_network_once_with_l3', '_support_from_net', '_support_from_net_batch', '_step_network_once', 'compute_gain_ratio_map', 'compute_entry_gated_stsp_score_map', 'compute_probe_overlap_map', 'collapse_layer1_spikes_spatial', 'compute_score_quantile_metrics', 'compute_spike_deflection_metrics', '_overlap_gated_group_metrics', '_overlap_gated_single_group_row', '_overlap_gated_interaction_row', 'compute_basin_enrichment', 'shuffle_score_control', '_step_network_once_capture_layer1', '_run_masked_ping_layer1_capture', '_run_real_probe_layer1_capture', '_run_real_probe_layer1_capture_batch', '_prepare_entry_rollout_state', '_layer1_input_shape', '_entry_mask_to_input_tensor', '_make_score_region_ping_masks', '_sequence_labels_from_meta', '_serial_position_for_label', '_serial_age_bin', '_score_quantile_indices', '_fired_site_score_percentiles', '_fired_site_score_percentile_mean', '_shuffle_fired_percentile_baseline', '_high_score_basin_hit_rate', '_shuffled_basin_hit_rate', '_mean_latency_ms', '_item_entry_mask', '_probe_entry_mask', '_high_rho_site_mask', '_matched_probe_removal_mask', '_remove_probe_sites_from_spikes', '_removed_probe_energy', '_ablation_condition_metrics', '_ensure_probe_trials', '_overlay_payload', '_gain_ratio_audit_row', '_entry_score_audit_row', '_record_gain_ratio_audit', '_record_entry_score_audit', '_flush_score_audits', '_images_for_ids', '_encode_sequence_cached', '_to_tensor', '_image_array')

@@ -75,11 +75,11 @@ class Fig6Config:
     basin_radius: int = 2
     basin_top_q: float = 0.20
     gain_ratio_clip_quantiles: tuple[float, float] = (0.01, 0.99)
-    real_probe_entry_mode: str = "foreground"
+    real_probe_entry_mode: str = "encoded_spike"
     score_use_log_gain: bool = False
     stsp_group_quantile: float = 0.20
     overlap_threshold: float = 0.05
-    global_ping_amp: float = 1.0
+    global_ping_amp: float = 0.5
     global_ping_ms: int = 30
     recent_overlap_windows: tuple[int, ...] = (2, 3, 4, 5)
     leave_one_out_mode: str = "blank_same_timing"

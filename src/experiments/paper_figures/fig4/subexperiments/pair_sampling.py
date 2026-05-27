@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
 
 # Keep module-level names identical while Fig.4 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -18,6 +19,7 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
     flat_unit = flat / norm
 
     pool_rows: list[dict[str, Any]] = []
+    entry_cache: dict[tuple[Any, ...], np.ndarray] = {}
     target_candidates = max(int(cfg.max_pairs) * 12, int(cfg.max_pairs) + 64)
     if bool(cfg.require_distinct_pair_labels):
         label_cycle = [(a, b) for a in range(NUM_CLASSES) for b in range(NUM_CLASSES) if a != b]
@@ -38,9 +40,27 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
                 continue
             probe_idx = int(rng.choice(choices))
         sim = float(np.dot(flat_unit[sample_idx], flat_unit[probe_idx]))
-        sm = _foreground_mask(images[sample_idx], cfg.foreground_threshold)
-        pm = _foreground_mask(images[probe_idx], cfg.foreground_threshold)
-        overlap = sm & pm
+        sm = entry_mask_from_image(
+            images[sample_idx],
+            mode=str(cfg.overlap_mask_mode),
+            encoder=ctx.encoder,
+            steps=int(cfg.sample_steps),
+            device=ctx.device,
+            foreground_threshold=float(cfg.foreground_threshold),
+            cache=entry_cache,
+            image_id=sample_idx,
+        )
+        pm = entry_mask_from_image(
+            images[probe_idx],
+            mode=str(cfg.overlap_mask_mode),
+            encoder=ctx.encoder,
+            steps=int(cfg.probe_steps),
+            device=ctx.device,
+            foreground_threshold=float(cfg.foreground_threshold),
+            cache=entry_cache,
+            image_id=probe_idx,
+        )
+        overlap = overlap_mask(sm, pm)
         union = sm | pm
         sample_energy = _mask_energy(images[sample_idx], sm)
         probe_energy = _mask_energy(images[probe_idx], pm)
@@ -55,6 +75,7 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
                 "probe_label": int(probe_label),
                 "pixel_similarity": sim,
                 "dice_overlap": _dice(sm, pm),
+                "overlap_mask_mode": str(cfg.overlap_mask_mode),
                 "input_energy_sample": sample_energy,
                 "input_energy_probe": probe_energy,
                 "eligible": bool(eligible),
@@ -82,7 +103,17 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
         pair_id = int(row["pair_id"])
         sample_image = images[int(row["sample_image_id"])]
         probe_image = images[int(row["probe_image_id"])]
-        masks = _build_masks(sample_image, probe_image, rng, cfg)
+        masks = _build_masks(
+            sample_image,
+            probe_image,
+            rng,
+            cfg,
+            encoder=ctx.encoder,
+            device=ctx.device,
+            sample_image_id=int(row["sample_image_id"]),
+            probe_image_id=int(row["probe_image_id"]),
+            cache=entry_cache,
+        )
         mask_bank[pair_id] = masks
         sample_fg = masks["sample_foreground_mask"]
         probe_fg = masks["probe_foreground_mask"]
@@ -100,9 +131,12 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
                 "similarity_bin": str(row["similarity_bin"]),
                 "sample_foreground_area": int(sample_fg.sum()),
                 "probe_foreground_area": int(probe_fg.sum()),
+                "sample_entry_area": int(sample_fg.sum()),
+                "probe_entry_area": int(probe_fg.sum()),
                 "overlap_area": int(overlap.sum()),
                 "union_area": int(union.sum()),
                 "dice_overlap": _dice(sample_fg, probe_fg),
+                "overlap_mask_mode": str(cfg.overlap_mask_mode),
                 "overlap_fraction_sample": _safe_div(float(overlap.sum()), float(sample_fg.sum())),
                 "overlap_fraction_probe": _safe_div(float(overlap.sum()), float(probe_fg.sum())),
                 "input_energy_sample": _mask_energy(sample_image, sample_fg),
@@ -130,6 +164,7 @@ def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFram
                     "network_seed": int(cfg.network_seed),
                     "pair_id": pair_id,
                     "mask_name": mask_name,
+                    "overlap_mask_mode": str(cfg.overlap_mask_mode),
                     "mask_type": "sample_side" if mask_name != "probe_only_mask" else "probe_metadata",
                     "pixel_count": int(mask.sum()),
                     "input_energy": _mask_energy(sample_image if mask_name != "probe_only_mask" else probe_image, mask),

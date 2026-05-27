@@ -29,6 +29,7 @@ class Fig5Config:
     probe_ms: int = 100
     batch_size: int = 8
     max_trials: int = 500
+    overlap_mask_mode: str = "encoded_spike"
     foreground_threshold: float = 0.1
     min_overlap_area: int = 4
     min_probe_only_area: int = 4
@@ -84,6 +85,8 @@ class TrialSpec:
     sample_label: int
     probe_label: int
     overlap_area: int
+    sample_entry_area: int
+    probe_entry_area: int
     probe_only_area: int
     overlap_quantile: float
     selected_trial_group: str
@@ -91,6 +94,7 @@ class TrialSpec:
     input_energy_probe: float
     pixel_similarity: float
     dice_overlap: float
+    overlap_mask_mode: str
     class_pair: str
     trial_seed: int
 

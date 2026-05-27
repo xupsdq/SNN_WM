@@ -1057,6 +1057,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
         max_pairs=16 if smoke else int(args.max_pairs),
         num_similarity_bins=int(args.num_similarity_bins),
         num_overlap_bins=int(args.num_overlap_bins),
+        overlap_mask_mode=str(args.overlap_mask_mode),
         foreground_threshold=float(args.foreground_threshold),
         dilation_radius=int(args.dilation_radius),
         random_mask_candidates=min(int(args.random_mask_candidates), 8) if smoke else int(args.random_mask_candidates),
@@ -1137,6 +1138,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--max-pairs", type=int, default=500)
     parser.add_argument("--num-similarity-bins", type=int, default=5)
     parser.add_argument("--num-overlap-bins", type=int, default=3)
+    parser.add_argument("--overlap-mask-mode", default="encoded_spike", choices=["encoded_spike", "foreground"])
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
     parser.add_argument("--dilation-radius", type=int, default=1)
     parser.add_argument("--random-mask-candidates", type=int, default=32)

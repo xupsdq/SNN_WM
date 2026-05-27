@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
 
 # Keep module-level names identical while Fig.6 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -100,7 +101,7 @@ def compute_route_peak_perturbation_outputs(ctx: ExperimentContext, bank: PeakAm
         boundary = bank.boundaries.get(int(r.sequence_id))
         if not boundary:
             raise RuntimeError(f"Fig.6 D/E route-peak perturbation missing S_final boundary for sequence={int(r.sequence_id)}.")
-        probe_mask = _foreground_mask(ctx.dataset, int(r.probe_image_id), ctx.cfg.foreground_threshold).reshape(-1)
+        probe_mask = _probe_entry_mask(ctx, int(r.probe_image_id), mode=str(ctx.cfg.real_probe_entry_mode), cache=encode_cache).reshape(-1)
         peak = bank.peak_mask[seq_idx].reshape(-1).astype(bool)
         prior = bank.prior_updated_mask[seq_idx].reshape(-1).astype(bool)
         route = probe_mask.astype(bool) & prior
@@ -121,7 +122,7 @@ def compute_route_peak_perturbation_outputs(ctx: ExperimentContext, bank: PeakAm
                         "probe_id": int(r.probe_id),
                         "perturbation_unit_set": name,
                         "unit_id": int(unit_id),
-                        "notes": "route_peak = probe foreground intersect prior-updated foreground intersect final peak mask",
+                        "notes": f"route_peak = probe {ctx.cfg.real_probe_entry_mode} entry mask intersect prior-updated entry mask intersect final peak mask",
                     }
                 )
         try:

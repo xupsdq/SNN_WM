@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from src.experiments.common.input_masks import foreground_mask
 from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
 
 # Keep module-level names identical while Fig.6 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -8,7 +10,7 @@ for _name, _value in vars(_legacy).items():
         globals()[_name] = _value
 
 def _foreground_mask(dataset: Any, image_id: int, threshold: float) -> np.ndarray:
-    return _image_array(dataset, image_id) > float(threshold)
+    return foreground_mask(_image_array(dataset, image_id), float(threshold))
 
 def _pairwise_image_sims(dataset: Any, image_ids: Sequence[int]) -> list[float]:
     out = []
@@ -285,8 +287,7 @@ def _save_panel_d_example(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank
         return
     target = probe_trials.sort_values("peak_weighted_overlap", ascending=False).iloc[0]
     seq_idx = _sequence_index(bank, int(target["sequence_id"]))
-    probe = _image_array(ctx.dataset, int(target["probe_image_id"]))
-    probe_mask = probe > float(ctx.cfg.foreground_threshold)
+    probe_mask = _probe_entry_mask(ctx, int(target["probe_image_id"]), mode=str(ctx.cfg.real_probe_entry_mode), cache={})
     prior = bank.prior_updated_mask[seq_idx].reshape(28, 28)
     peak = bank.peak_mask[seq_idx].reshape(28, 28)
     nonpeak = bank.nonpeak_mask[seq_idx].reshape(28, 28)
@@ -311,8 +312,7 @@ def _save_panel_c_example(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank
         return
     target = probe_trials.sort_values("peak_weighted_overlap", ascending=False).iloc[0]
     seq_idx = int(bank.sequence_meta.index[bank.sequence_meta["sequence_id"].eq(int(target["sequence_id"]))][0])
-    probe = _image_array(ctx.dataset, int(target["probe_image_id"]))
-    probe_mask = probe > float(ctx.cfg.foreground_threshold)
+    probe_mask = _probe_entry_mask(ctx, int(target["probe_image_id"]), mode=str(ctx.cfg.real_probe_entry_mode), cache={})
     prior = bank.prior_updated_mask[seq_idx].reshape(28, 28)
     peak = bank.peak_mask[seq_idx].reshape(28, 28)
     nonpeak = bank.nonpeak_mask[seq_idx].reshape(28, 28)

@@ -467,6 +467,8 @@ TRIAL_COLUMNS = [
     "probe_label",
     "sample_foreground_area",
     "probe_foreground_area",
+    "sample_entry_area",
+    "probe_entry_area",
     "overlap_area",
     "probe_only_area",
     "overlap_quantile",
@@ -475,6 +477,7 @@ TRIAL_COLUMNS = [
     "input_energy_probe",
     "pixel_similarity",
     "dice_overlap",
+    "overlap_mask_mode",
     "class_pair",
     "trial_seed",
 ]
@@ -687,6 +690,7 @@ def _write_config_files(ctx: ExperimentContext) -> None:
                 "S10": FIG5_S10_OUTPUTS,
             },
             "backward_compatible_outputs": FIG5_BACKWARD_COMPATIBLE_OUTPUTS,
+            "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode),
         },
         ctx.config_dir / "figure_requirements.json",
     )
@@ -708,6 +712,8 @@ def _write_config_files(ctx: ExperimentContext) -> None:
                 "sham_perturbation": "matched procedural control without intended support reduction",
             },
             "static_frozen": "Probe uses model stsp_mode=static_frozen as the transition reference when a checkpoint is available.",
+            "entry_mask_definition": "DoG encoded-spike spatial support" if str(ctx.cfg.overlap_mask_mode) == "encoded_spike" else "legacy thresholded image foreground",
+            "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode),
             "allow_proxy": False,
         },
         ctx.config_dir / "condition_spec.json",
@@ -799,6 +805,13 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
         "old_flatten_nonoverlap_random_removed_from_main": True,
         "conditions": list(MAIN_CONDITIONS),
         "unit_groups": list(UNIT_GROUPS),
+        "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode),
+        "mask_definition": {
+            "overlap_mask_mode": str(ctx.cfg.overlap_mask_mode),
+            "foreground_threshold": float(ctx.cfg.foreground_threshold),
+            "sample_steps": int(ctx.cfg.sample_steps),
+            "probe_steps": int(ctx.cfg.probe_steps),
+        },
         "main_fig5d_conditions": list(MAIN_CONDITIONS),
         "reference_condition": "static_frozen",
         "perturbation_conditions": list(MAIN_CONDITIONS + SUPP_CONDITIONS),
@@ -880,6 +893,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--probe-ms", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-trials", type=int, default=500)
+    parser.add_argument("--overlap-mask-mode", default="encoded_spike", choices=["encoded_spike", "foreground"])
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
     parser.add_argument("--min-overlap-area", type=int, default=4)
     parser.add_argument("--min-probe-only-area", type=int, default=4)
@@ -915,6 +929,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig5Config:
         probe_ms=int(args.probe_ms),
         batch_size=min(int(args.batch_size), 2) if smoke else int(args.batch_size),
         max_trials=8 if smoke else int(args.max_trials),
+        overlap_mask_mode=str(args.overlap_mask_mode),
         foreground_threshold=float(args.foreground_threshold),
         min_overlap_area=int(args.min_overlap_area),
         min_probe_only_area=int(args.min_probe_only_area),

@@ -1,11 +1,45 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
 
 # Keep module-level names identical while Fig.5 is split into smaller files.
 for _name, _value in vars(_legacy).items():
     if _name not in globals() and _name != "__builtins__":
         globals()[_name] = _value
+
+def _entry_mask_cache(ctx: ExperimentContext) -> dict[tuple[Any, ...], np.ndarray]:
+    cache = getattr(ctx, "_entry_mask_cache", None)
+    if cache is None:
+        cache = {}
+        setattr(ctx, "_entry_mask_cache", cache)
+    return cache
+
+def _entry_masks_for_trial(ctx: ExperimentContext, sample_image_id: int, probe_image_id: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    cache = _entry_mask_cache(ctx)
+    sample_mask = entry_mask_from_image(
+        ctx.dataset[int(sample_image_id)][0],
+        mode=str(ctx.cfg.overlap_mask_mode),
+        encoder=ctx.encoder,
+        steps=int(ctx.cfg.sample_steps),
+        device=ctx.device,
+        foreground_threshold=float(ctx.cfg.foreground_threshold),
+        cache=cache,
+        image_id=int(sample_image_id),
+    )
+    probe_mask = entry_mask_from_image(
+        ctx.dataset[int(probe_image_id)][0],
+        mode=str(ctx.cfg.overlap_mask_mode),
+        encoder=ctx.encoder,
+        steps=int(ctx.cfg.probe_steps),
+        device=ctx.device,
+        foreground_threshold=float(ctx.cfg.foreground_threshold),
+        cache=cache,
+        image_id=int(probe_image_id),
+    )
+    overlap = overlap_mask(sample_mask, probe_mask)
+    probe_only = probe_mask & (~sample_mask)
+    return sample_mask, probe_mask, overlap, probe_only
 
 def _copy_csv_alias(ctx: ExperimentContext, src: Path, dst: Path, *, empty_columns: Sequence[str], reason: str) -> None:
     copy_csv_alias(ctx, src, dst, empty_columns=empty_columns, reason=reason, message_label="Fig.5 supplement alias")
@@ -392,12 +426,11 @@ def _run_probe_branches_batch(
 
 def _unit_group_rows(ctx: ExperimentContext, trial: Any, support: np.ndarray) -> pd.DataFrame:
     trial_map = _trial_mapping(trial)
-    sample = _image_array(ctx.dataset, int(trial_map["sample_image_id"]))
-    probe = _image_array(ctx.dataset, int(trial_map["probe_image_id"]))
-    sample_mask = sample > ctx.cfg.foreground_threshold
-    probe_mask = probe > ctx.cfg.foreground_threshold
-    overlap = sample_mask & probe_mask
-    probe_only = probe_mask & (~sample_mask)
+    sample_mask, probe_mask, overlap, probe_only = _entry_masks_for_trial(
+        ctx,
+        int(trial_map["sample_image_id"]),
+        int(trial_map["probe_image_id"]),
+    )
     h, w = support.shape
     overlap = _resize_mask(overlap, h, w)
     probe_only = _resize_mask(probe_only, h, w)
@@ -991,18 +1024,19 @@ def _save_probe_trace_manifest(ctx: ExperimentContext, branch_traces: Mapping[in
 def _save_panel_a_example(ctx: ExperimentContext, trials: pd.DataFrame, support_maps: Mapping[int, np.ndarray], unit_groups: pd.DataFrame) -> None:
     first = trials.iloc[0]
     trial_id = int(first["trial_id"])
-    sample = _image_array(ctx.dataset, int(first["sample_image_id"]))
-    probe = _image_array(ctx.dataset, int(first["probe_image_id"]))
-    sample_mask = sample > ctx.cfg.foreground_threshold
-    probe_mask = probe > ctx.cfg.foreground_threshold
-    overlap = sample_mask & probe_mask
-    probe_only = probe_mask & (~sample_mask)
+    sample_mask, probe_mask, overlap, probe_only = _entry_masks_for_trial(
+        ctx,
+        int(first["sample_image_id"]),
+        int(first["probe_image_id"]),
+    )
     groups = unit_groups[unit_groups["trial_id"].eq(trial_id)]
     np.savez_compressed(
         ctx.raw_dir / "panel_a_example_support_map.npz",
         support_map=support_maps[trial_id].astype(np.float32),
         sample_foreground_mask=sample_mask.astype(np.uint8),
         probe_foreground_mask=probe_mask.astype(np.uint8),
+        sample_entry_mask=sample_mask.astype(np.uint8),
+        probe_entry_mask=probe_mask.astype(np.uint8),
         overlap_mask_projected=overlap.astype(np.uint8),
         probe_only_mask_projected=probe_only.astype(np.uint8),
         overlap_dominant_units=groups[groups["unit_group"].eq("overlap_dominant")]["unit_id"].to_numpy(dtype=np.int64),
@@ -1014,14 +1048,17 @@ def _save_panel_a_example(ctx: ExperimentContext, trials: pd.DataFrame, support_
 def _save_trial_mask_npz(ctx: ExperimentContext, trials: pd.DataFrame) -> None:
     payload: dict[str, np.ndarray] = {}
     for row in trials.itertuples(index=False):
-        sample = _image_array(ctx.dataset, int(row.sample_image_id))
-        probe = _image_array(ctx.dataset, int(row.probe_image_id))
-        sample_mask = sample > ctx.cfg.foreground_threshold
-        probe_mask = probe > ctx.cfg.foreground_threshold
+        sample_mask, probe_mask, overlap, probe_only = _entry_masks_for_trial(
+            ctx,
+            int(row.sample_image_id),
+            int(row.probe_image_id),
+        )
         payload[f"trial_{int(row.trial_id)}_sample_foreground_mask"] = sample_mask.astype(np.uint8)
         payload[f"trial_{int(row.trial_id)}_probe_foreground_mask"] = probe_mask.astype(np.uint8)
-        payload[f"trial_{int(row.trial_id)}_overlap_mask"] = (sample_mask & probe_mask).astype(np.uint8)
-        payload[f"trial_{int(row.trial_id)}_probe_only_mask"] = (probe_mask & (~sample_mask)).astype(np.uint8)
+        payload[f"trial_{int(row.trial_id)}_sample_entry_mask"] = sample_mask.astype(np.uint8)
+        payload[f"trial_{int(row.trial_id)}_probe_entry_mask"] = probe_mask.astype(np.uint8)
+        payload[f"trial_{int(row.trial_id)}_overlap_mask"] = overlap.astype(np.uint8)
+        payload[f"trial_{int(row.trial_id)}_probe_only_mask"] = probe_only.astype(np.uint8)
         payload[f"trial_{int(row.trial_id)}_sample_nonoverlap_mask"] = (sample_mask & (~probe_mask)).astype(np.uint8)
     np.savez_compressed(ctx.raw_dir / "trial_masks.npz", **payload)
     ctx.output_files["trial_masks"] = _rel(ctx.raw_dir / "trial_masks.npz", ctx.seed_dir)

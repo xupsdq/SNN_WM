@@ -37,10 +37,10 @@ def compute_score_basin_sparsification(ctx: ExperimentContext, bank: PeakAmplifi
         trace = _run_real_probe_layer1_capture(ctx, int(r.probe_image_id), bank.boundaries.get(int(r.sequence_id)), probe_spikes=probe_spikes)
         spike_count, fired, _latency = collapse_layer1_spikes_spatial(trace, None, primary_steps)
         if not overlay_payload:
-            overlay_payload.update(_overlay_payload("real_probe", int(r.sequence_id), "foreground", score_map, fired, entry_mask, rho))
+            overlay_payload.update(_overlay_payload("real_probe", int(r.sequence_id), str(ctx.cfg.real_probe_entry_mode), score_map, fired, entry_mask, rho))
         for radius in radii:
             row = compute_basin_enrichment(score_map, valid_mask, fired, radius=int(radius), top_q=float(ctx.cfg.basin_top_q))
-            row.update({"network_seed": int(ctx.cfg.network_seed), "sequence_id": int(r.sequence_id), "entry_type": "real_probe", "entry_condition": "foreground", "basin_radius": int(radius), "top_score_quantile": float(ctx.cfg.basin_top_q)})
+            row.update({"network_seed": int(ctx.cfg.network_seed), "sequence_id": int(r.sequence_id), "entry_type": "real_probe", "entry_condition": str(ctx.cfg.real_probe_entry_mode), "basin_radius": int(radius), "top_score_quantile": float(ctx.cfg.basin_top_q)})
             rows.append(row)
     out = pd.DataFrame(rows, columns=PANEL_E_BASIN_COLUMNS)
     _save_csv(ctx, out, ctx.metrics_dir / "panel_e_score_basin_sparsification.csv")

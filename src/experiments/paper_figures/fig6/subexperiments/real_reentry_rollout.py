@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
 
 # Keep module-level names identical while Fig.6 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -19,6 +20,7 @@ def build_later_probe_peak_overlap_trials(ctx: ExperimentContext, bank: PeakAmpl
                 "probe_image_id": int(r.probe_image_id),
                 "probe_label": int(r.probe_label),
                 "probe_source": str(r.probe_source),
+                "entry_mask_mode": str(getattr(r, "entry_mask_mode", ctx.cfg.real_probe_entry_mode)),
                 "raw_overlap": float(r.raw_overlap),
                 "peak_weighted_overlap": float(r.peak_weighted_overlap),
                 "peak_overlap_fraction": float(r.peak_overlap_fraction),
@@ -41,6 +43,7 @@ def build_probe_candidate_trials(ctx: ExperimentContext, bank: PeakAmplifiedReen
     rng = np.random.default_rng(int(ctx.cfg.network_seed) + 6006)
     image_ids_by_label = {label: np.asarray(ids, dtype=np.int64) for label, ids in ctx.class_index.items()}
     rows: list[dict[str, Any]] = []
+    entry_cache: dict[tuple[Any, ...], Any] = {}
     for seq_index, meta in _progress(enumerate(bank.sequence_meta.itertuples(index=False)), total=len(bank.sequence_meta), desc="fig6 probe candidates", enabled=ctx.cfg.show_progress):
         seq_id = int(meta.sequence_id)
         sequence_labels = [int(v) for v in str(meta.ordered_item_labels).split(";") if str(v) != ""]
@@ -58,7 +61,7 @@ def build_probe_candidate_trials(ctx: ExperimentContext, bank: PeakAmplifiedReen
                 source = "candidate_pool"
             probe_image_id = int(rng.choice(image_ids_by_label[label]))
             probe = _image_array(ctx.dataset, probe_image_id)
-            probe_mask = probe > float(ctx.cfg.foreground_threshold)
+            probe_mask = _probe_entry_mask(ctx, probe_image_id, mode=str(ctx.cfg.real_probe_entry_mode), cache=entry_cache)
             route_mask = probe_mask & prior_updated
             peak_overlap_mask = route_mask & peak
             nonpeak_overlap_mask = route_mask & nonpeak
@@ -81,6 +84,7 @@ def build_probe_candidate_trials(ctx: ExperimentContext, bank: PeakAmplifiedReen
                     "nonpeak_overlap_fraction": _safe_div(float(nonpeak_overlap_mask.sum()), float(max(1, route_mask.sum()))),
                     "visual_similarity": float(sim),
                     "input_energy": float(probe.sum()),
+                    "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
                     "class_pair": f"{sequence_labels[-1] if sequence_labels else -1}->{label}",
                     "candidate_seed": int(rng.integers(0, 2**31 - 1)),
                     "peak_support_sum": peak_support_sum,

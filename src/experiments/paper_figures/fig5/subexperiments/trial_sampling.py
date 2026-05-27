@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask as build_overlap_mask
 
 # Keep module-level names identical while Fig.5 is split into smaller files.
 for _name, _value in vars(_legacy).items():
@@ -10,6 +11,7 @@ for _name, _value in vars(_legacy).items():
 def build_local_competition_trials(ctx: ExperimentContext) -> pd.DataFrame:
     cfg = ctx.cfg
     rng = np.random.default_rng(int(cfg.network_seed))
+    entry_cache: dict[tuple[Any, ...], np.ndarray] = {}
     candidates: list[dict[str, Any]] = []
     rejected_overlap = 0
     rejected_probe_only = 0
@@ -32,9 +34,27 @@ def build_local_competition_trials(ctx: ExperimentContext) -> pd.DataFrame:
             continue
         sample_img = _image_array(ctx.dataset, sample_id)
         probe_img = _image_array(ctx.dataset, probe_id)
-        sample_mask = sample_img > float(cfg.foreground_threshold)
-        probe_mask = probe_img > float(cfg.foreground_threshold)
-        overlap_mask = sample_mask & probe_mask
+        sample_mask = entry_mask_from_image(
+            ctx.dataset[sample_id][0],
+            mode=str(cfg.overlap_mask_mode),
+            encoder=ctx.encoder,
+            steps=int(cfg.sample_steps),
+            device=ctx.device,
+            foreground_threshold=float(cfg.foreground_threshold),
+            cache=entry_cache,
+            image_id=sample_id,
+        )
+        probe_mask = entry_mask_from_image(
+            ctx.dataset[probe_id][0],
+            mode=str(cfg.overlap_mask_mode),
+            encoder=ctx.encoder,
+            steps=int(cfg.probe_steps),
+            device=ctx.device,
+            foreground_threshold=float(cfg.foreground_threshold),
+            cache=entry_cache,
+            image_id=probe_id,
+        )
+        overlap_mask = build_overlap_mask(sample_mask, probe_mask)
         probe_only_mask = probe_mask & (~sample_mask)
         overlap_area = int(overlap_mask.sum())
         probe_only_area = int(probe_only_mask.sum())
@@ -57,6 +77,8 @@ def build_local_competition_trials(ctx: ExperimentContext) -> pd.DataFrame:
                 "probe_label": probe_label,
                 "sample_foreground_area": int(sample_mask.sum()),
                 "probe_foreground_area": int(probe_mask.sum()),
+                "sample_entry_area": int(sample_mask.sum()),
+                "probe_entry_area": int(probe_mask.sum()),
                 "overlap_area": overlap_area,
                 "probe_only_area": probe_only_area,
                 "overlap_quantile": float("nan"),
@@ -65,6 +87,7 @@ def build_local_competition_trials(ctx: ExperimentContext) -> pd.DataFrame:
                 "input_energy_probe": float(probe_img.sum()),
                 "pixel_similarity": float(sim),
                 "dice_overlap": float(dice),
+                "overlap_mask_mode": str(cfg.overlap_mask_mode),
                 "class_pair": f"{sample_label}->{probe_label}",
                 "trial_seed": int(rng.integers(0, 2**31 - 1)),
             }

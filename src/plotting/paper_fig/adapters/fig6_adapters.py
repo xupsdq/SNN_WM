@@ -906,7 +906,7 @@ def build_fig6_peak_input_overlap_origin_adapter(spec: Mapping[str, Any], repo_r
 
 
 def build_fig6_peak_overlap_alignment_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Main Fig.6C: final peaks aligned to old/all/recent foreground-overlap maps."""
+    """Main Fig.6C: final peaks aligned to old/all/recent encoded-entry overlap maps."""
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _seed_dirs(spec, repo_root)
     rows: list[dict[str, Any]] = []

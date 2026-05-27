@@ -26,7 +26,7 @@ def compute_real_probe_score_spike_deflection(ctx: ExperimentContext, bank: Peak
         probe_spikes = _encode_sequence_cached(ctx, [int(r.probe_image_id)], ctx.cfg.probe_steps, encode_cache)
         dynamic_trace = _run_real_probe_layer1_capture(ctx, int(r.probe_image_id), bank.boundaries.get(int(r.sequence_id)), probe_spikes=probe_spikes)
         baseline_trace = _run_real_probe_layer1_capture(ctx, int(r.probe_image_id), None, probe_spikes=probe_spikes)
-        _record_entry_score_audit(ctx, _entry_score_audit_row(ctx, int(r.sequence_id), "real_probe", "foreground", score_map, valid_mask, entry_mask, dynamic_trace))
+        _record_entry_score_audit(ctx, _entry_score_audit_row(ctx, int(r.sequence_id), "real_probe", str(ctx.cfg.real_probe_entry_mode), score_map, valid_mask, entry_mask, dynamic_trace))
         prior = bank.prior_updated_mask[seq_idx].reshape(28, 28).astype(bool)
         for window_ms, window_steps in zip(ctx.cfg.score_early_windows_ms, ctx.cfg.score_early_window_steps):
             dynamic_count, dynamic_fired, dynamic_latency = collapse_layer1_spikes_spatial(dynamic_trace, None, int(window_steps))
