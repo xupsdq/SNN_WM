@@ -46,6 +46,7 @@ panels:
   B:
     panel_id: B
     panel_type: similarity_entry
+    producer_task: similarity_entry
     claim: Prior-history effect increases with sample-probe similarity, identifying a shared-structure regime.
     data_adapter: fig4_similarity_entry_adapter
     renderer: render_fig4_similarity_entry
@@ -60,6 +61,7 @@ panels:
   C:
     panel_id: C
     panel_type: overlap_excess_iso_similarity
+    producer_task: [overlap_accuracy_identification, overlap_localization]
     claim: Within similarity strata, high overlap-excess pairs show larger accuracy-drop than low overlap-excess pairs.
     data_adapter: fig4_overlap_excess_adapter
     renderer: render_fig4_overlap_excess
@@ -76,6 +78,7 @@ panels:
   D:
     panel_id: D
     panel_type: overlap_preserving_causal_perturbation
+    producer_task: overlap_perturbation
     claim: Sample-side overlap support preserves the probe accuracy drop more strongly than non-overlap or random-matched support.
     data_adapter: fig4_overlap_perturbation_main_adapter
     renderer: render_fig4_overlap_perturbation
@@ -105,6 +108,7 @@ panels:
   E:
     panel_id: E
     panel_type: time_resolved_l3_displacement
+    producer_task: decision_spike_displacement
     claim: Overlap-aligned support changes probe-period L3 dynamics over time.
     data_adapter: fig4_decision_spike_displacement_adapter
     renderer: render_fig4_decision_spike_displacement
@@ -126,6 +130,7 @@ panels:
   F:
     panel_id: F
     panel_type: l3_accumulator_process_trajectory
+    producer_task: decision_deflection
     claim: L3 accumulator manipulations produce bidirectional before-to-after shifts along firing-pattern and decision-projection axes.
     data_adapter: fig4_l3_accumulator_process_adapter
     renderer: render_fig4_l3_accumulator_process

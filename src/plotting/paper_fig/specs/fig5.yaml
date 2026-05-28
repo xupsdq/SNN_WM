@@ -38,6 +38,7 @@ qc_requirements:
 panels:
   A:
     panel_id: A
+    producer_task: preprobe_support
     panel_type: bar
     claim: Overlap-dominant units carry elevated STSP support before the probe arrives.
     data_adapter: fig5_preprobe_support_adapter
@@ -56,6 +57,7 @@ panels:
     y_axis: Pre-probe STSP support
   B:
     panel_id: B
+    producer_task: early_firing
     panel_type: stacked_transition_composition
     claim: Overlap units show enriched advance/recruit transitions in the early dynamic-to-static comparison.
     data_adapter: fig5_early_firing_headline_adapter
@@ -75,6 +77,7 @@ panels:
     y_axis: Transition proportion
   C:
     panel_id: C
+    producer_task: local_events
     panel_type: event_aligned_trace
     claim: Early winner recruitment is coupled to loser voltage suppression and local inhibition.
     data_adapter: fig5_winner_loser_adapter
@@ -100,6 +103,7 @@ panels:
     y_axis: Dynamic minus static (baseline-corrected)
   D:
     panel_id: D
+    producer_task: support_perturbation
     panel_type: stacked_transition_composition
     claim: Layer1 STSP state supports the dynamic transition structure observed in Fig.5B.
     data_adapter: fig5_causal_perturbation_summary_adapter

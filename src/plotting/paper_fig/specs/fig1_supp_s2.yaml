@@ -36,6 +36,7 @@ panels:
     panel_id: S2A
     claim: Population spiking is reduced during delay, supporting activity-silent memory.
     panel_type: grouped_line_or_bar
+    producer_task: firing_rate_control
     data_adapter: s2_phase_firing_adapter
     renderer: render_phase_firing_rates
     source: data/metrics/supp_phase_firing_rates.csv
@@ -49,6 +50,7 @@ panels:
     panel_id: S2B
     claim: Sample identity remains decodable from STSP variables across delay periods.
     panel_type: line_timecourse
+    producer_task: delay_decoder
     data_adapter: s2_delay_decode_curve_adapter
     renderer: render_delay_decode_timecourse
     source_priority:
@@ -72,6 +74,7 @@ panels:
     legacy_panel_id: old_S2D
     claim: Delay-dependent functional STSP effect is summarized as static-minus-dynamic interference.
     panel_type: line_timecourse_or_bar
+    producer_task: dms_delay_sweep_readout
     data_adapter: s2_dms_delay_contrast_adapter
     renderer: render_stsp_interference_delay
     source_priority:
@@ -88,6 +91,7 @@ panels:
     legacy_panel_id: old_S2E
     claim: u/x variables carry the dominant donor-specific component among tested state variables.
     panel_type: ordered_condition_comparison
+    producer_task: dms_shuffle_readout
     data_adapter: s2_substrate_specificity_adapter
     renderer: render_substrate_shuffle_specificity
     source_priority:

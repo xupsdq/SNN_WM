@@ -422,42 +422,59 @@ def _aggregate_source_manifest(
     figure_id = str(spec.get("figure_id"))
     sources: list[dict[str, Any]] = []
     for panel_id, panel in panels.items():
+        producer_task = panel.get("producer_task")
         if panel_id in adapter_results:
             manifest = adapter_results[panel_id].source_manifest
-            sources.append({"panel_id": panel_id, "status": manifest.get("status", "unknown"), "manifest": manifest})
+            entry = {"panel_id": panel_id, "status": manifest.get("status", "unknown"), "manifest": manifest}
+            if producer_task:
+                entry["producer_task"] = producer_task
+            sources.append(entry)
             continue
         if panel.get("panel_type") in _schematic_panel_types():
             raw_asset = panel.get("source") or (panel.get("source_mapping") or {}).get("manual_asset")
             if raw_asset:
                 asset_path = paper_fig_root() / str(raw_asset)
-                sources.append(
-                    {
-                        "panel_id": panel_id,
-                        "status": "ok" if asset_path.exists() else "missing_source",
-                        "source_type": "manual_asset",
-                        "path": str(raw_asset),
-                        "exists": asset_path.exists(),
-                    }
-                )
-            else:
-                sources.append(
-                    {
-                        "panel_id": panel_id,
-                        "status": "ok",
-                        "source_type": "programmatic_schematic",
-                        "path": None,
-                        "exists": True,
-                    }
-                )
-        else:
-            sources.append(
-                {
+                entry = {
                     "panel_id": panel_id,
-                    "status": "no_adapter",
-                    "source_mapping": panel.get("source_mapping") or {},
+                    "status": "ok" if asset_path.exists() else "missing_source",
+                    "source_type": "manual_asset",
+                    "path": str(raw_asset),
+                    "exists": asset_path.exists(),
                 }
-            )
-    return {"figure_id": figure_id, "active_panels": list(panels.keys()), "sources": sources}
+                if producer_task:
+                    entry["producer_task"] = producer_task
+                sources.append(entry)
+            else:
+                entry = {
+                    "panel_id": panel_id,
+                    "status": "ok",
+                    "source_type": "programmatic_schematic",
+                    "path": None,
+                    "exists": True,
+                }
+                if producer_task:
+                    entry["producer_task"] = producer_task
+                sources.append(entry)
+        else:
+            entry = {
+                "panel_id": panel_id,
+                "status": "no_adapter",
+                "source_mapping": panel.get("source_mapping") or {},
+            }
+            if producer_task:
+                entry["producer_task"] = producer_task
+            sources.append(entry)
+    panel_task_dependencies = {
+        panel_id: panel.get("producer_task")
+        for panel_id, panel in panels.items()
+        if panel.get("producer_task")
+    }
+    return {
+        "figure_id": figure_id,
+        "active_panels": list(panels.keys()),
+        "panel_task_dependencies": panel_task_dependencies,
+        "sources": sources,
+    }
 
 
 def _clean_inactive_panel_outputs(output_dir: Path, figure_id: str, panels: Mapping[str, Mapping[str, Any]]) -> None:

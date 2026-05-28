@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig1_functional_stsp_substrate_experiment as _legacy
+from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
 
-# During the first split, keep helper/global resolution identical to the legacy module.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+inherit_legacy_globals(globals())
 
 def run_baseline_eval(ctx: ExperimentContext, trials: pd.DataFrame) -> None:
     rows: list[dict[str, Any]] = []

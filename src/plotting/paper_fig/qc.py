@@ -168,13 +168,14 @@ def _check_fig1_specifics(
         passes.append("Fig.1 canvas is 165 x 124 mm")
     else:
         failures.append(f"Fig.1 canvas must be 165 x 124 mm, found {canvas}")
-    c_panel = panels.get("C") or {}
-    if c_panel.get("renderer") == "render_fig1_delay_decode_summary":
-        passes.append("Fig.1C uses compact layer-wise summary renderer")
-    else:
-        failures.append(f"Fig.1C must use render_fig1_delay_decode_summary, found {c_panel.get('renderer')}")
-    if c_panel.get("renderer") == "render_fig1_delay_decode":
-        failures.append("Fig.1C must not use the delay timecourse renderer in the main figure")
+    c_panel = panels.get("C")
+    if c_panel is not None:
+        if c_panel.get("renderer") == "render_fig1_delay_decode_summary":
+            passes.append("Fig.1C uses compact layer-wise summary renderer")
+        else:
+            failures.append(f"Fig.1C must use render_fig1_delay_decode_summary, found {c_panel.get('renderer')}")
+        if c_panel.get("renderer") == "render_fig1_delay_decode":
+            failures.append("Fig.1C must not use the delay timecourse renderer in the main figure")
     for panel_id in ("B", "C"):
         panel = panels.get(panel_id)
         if not panel:
@@ -435,8 +436,12 @@ def _check_fig1_supp_specifics(
         passes.append(f"{label} canvas is 165 x {expected_height:.0f} mm")
     else:
         failures.append(f"{label} canvas must be 165 x {expected_height:.0f} mm, found {canvas}")
+    active_expected = [panel_id for panel_id in expected if panel_id in panels]
+    selected_subset = list(panels.keys()) == active_expected and active_expected != expected
     if list(panels.keys()) == expected:
         passes.append(f"{label} active panel set is {expected[0]}-{expected[-1]}")
+    elif selected_subset:
+        passes.append(f"{label} selected active panels are {active_expected}")
     else:
         failures.append(f"{label} active panels must be {expected}, found {list(panels.keys())}")
     if list(spec.get("reading_order") or []) == expected:
@@ -472,16 +477,18 @@ def _check_fig1_supp_specifics(
     else:
         passes.append(f"{label} active panels omit the old dynamic-vs-static accuracy claim")
     if figure_id == "fig1_supp_s2":
-        s2c_panel = panels.get("S2C") or {}
-        if s2c_panel.get("data_adapter") == "s2_dms_delay_contrast_adapter" and s2c_panel.get("renderer") == "render_stsp_interference_delay":
-            passes.append("Fig.1 supplement S2C uses delay contrast adapter and interference renderer")
-        else:
-            failures.append("Fig.1 supplement S2C must use s2_dms_delay_contrast_adapter and render_stsp_interference_delay")
-        s2d_panel = panels.get("S2D") or {}
-        if s2d_panel.get("data_adapter") == "s2_substrate_specificity_adapter" and s2d_panel.get("renderer") == "render_substrate_shuffle_specificity":
-            passes.append("Fig.1 supplement S2D uses substrate specificity adapter and renderer")
-        else:
-            failures.append("Fig.1 supplement S2D must use s2_substrate_specificity_adapter and render_substrate_shuffle_specificity")
+        if "S2C" in panels:
+            s2c_panel = panels.get("S2C") or {}
+            if s2c_panel.get("data_adapter") == "s2_dms_delay_contrast_adapter" and s2c_panel.get("renderer") == "render_stsp_interference_delay":
+                passes.append("Fig.1 supplement S2C uses delay contrast adapter and interference renderer")
+            else:
+                failures.append("Fig.1 supplement S2C must use s2_dms_delay_contrast_adapter and render_stsp_interference_delay")
+        if "S2D" in panels:
+            s2d_panel = panels.get("S2D") or {}
+            if s2d_panel.get("data_adapter") == "s2_substrate_specificity_adapter" and s2d_panel.get("renderer") == "render_substrate_shuffle_specificity":
+                passes.append("Fig.1 supplement S2D uses substrate specificity adapter and renderer")
+            else:
+                failures.append("Fig.1 supplement S2D must use s2_substrate_specificity_adapter and render_substrate_shuffle_specificity")
     for panel_id in ("S1A", "S1B"):
         panel = panels.get(panel_id) or {}
         raw_asset = panel.get("source") or (panel.get("source_mapping") or {}).get("manual_asset")
@@ -518,14 +525,14 @@ def _check_fig1_supp_specifics(
             passes.append(f"Fig.1 supplement {panel_id}: n_networks={n_networks}")
     if figure_id == "fig1_supp_s2":
         s2b_path = panel_output_paths(output_dir, figure_id, "S2B")["panel_data"]
-        if s2b_path.exists():
+        if "S2B" in panels and s2b_path.exists():
             s2b = pd.read_csv(s2b_path)
             if "delay_ms" in s2b.columns and pd.to_numeric(s2b["delay_ms"], errors="coerce").dropna().nunique() > 1:
                 passes.append("Fig.1 supplement S2B keeps full delay decoding timecourse")
             elif not s2b.get("metric", pd.Series(dtype=str)).astype(str).eq("missing_source").any():
                 warnings.append("Fig.1 supplement S2B does not show multiple delay_ms values")
         s2c_path = panel_output_paths(output_dir, figure_id, "S2C")["panel_data"]
-        if s2c_path.exists():
+        if "S2C" in panels and s2c_path.exists():
             s2c = pd.read_csv(s2c_path)
             if s2c.get("metric", pd.Series(dtype=str)).astype(str).eq("missing_source").any():
                 warnings.append("Fig.1 supplement S2C delay contrast source unavailable; placeholder written")
@@ -536,7 +543,7 @@ def _check_fig1_supp_specifics(
                 else:
                     failures.append("Fig.1 supplement S2C panel_data must contain metric=static_minus_dynamic_accuracy, condition=static_minus_dynamic, delay_ms, value, unit=percent")
         s2d_path = panel_output_paths(output_dir, figure_id, "S2D")["panel_data"]
-        if s2d_path.exists():
+        if "S2D" in panels and s2d_path.exists():
             s2d = pd.read_csv(s2d_path)
             if s2d.get("metric", pd.Series(dtype=str)).astype(str).eq("missing_source").any():
                 warnings.append("Fig.1 supplement S2D substrate specificity source unavailable; placeholder written")
@@ -552,10 +559,11 @@ def _check_fig1_supp_specifics(
     if manifest_path.exists():
         manifest = read_json(manifest_path)
         active_panels = list(manifest.get("active_panels") or [])
-        if active_panels == expected:
-            passes.append(f"{label} source manifest records active_panels {expected[0]}-{expected[-1]}")
+        expected_active_panels = list(panels.keys())
+        if active_panels == expected_active_panels:
+            passes.append(f"{label} source manifest records active_panels {active_panels}")
         else:
-            failures.append(f"{label} source manifest active_panels must be {expected}, found {active_panels}")
+            failures.append(f"{label} source manifest active_panels must be {expected_active_panels}, found {active_panels}")
         source_panels = [str(item.get("panel_id", "")) for item in manifest.get("sources", [])]
         forbidden = {"S2A", "S2B", "S2C", "S2D"} if figure_id == "fig1_supp" else {"S1A", "S1B", "S1C", "S1D", "S2E"}
         leaked = sorted(forbidden.intersection(source_panels))

@@ -22,6 +22,7 @@ qc_requirements:
 panels:
   S7A:
     panel_id: S7A
+    producer_task: [field_ping_readout, global_ping_score_spike_prediction, real_probe_score_spike_deflection, overlap_gated_stsp_recruitment, supplement]
     legacy_panel_id: old_S11A
     panel_type: score_input_ping_audit
     claim: STSP gain scores and ping inputs are well-defined controls for Fig.6B-F.
@@ -34,6 +35,7 @@ panels:
     y_axis: Value
   S7B:
     panel_id: S7B
+    producer_task: [global_ping_score_spike_prediction, supplement]
     legacy_panel_id: old_S11B
     panel_type: global_ping_count_endpoint
     claim: Global-ping score dependence persists in spike-count endpoints despite probability saturation.
@@ -46,6 +48,7 @@ panels:
     y_axis: Early spike count
   S7C:
     panel_id: S7C
+    producer_task: [real_probe_score_spike_deflection, supplement]
     legacy_panel_id: old_S11C
     panel_type: real_probe_window_robustness
     claim: Real-probe STSP score deflection is positive across early recruitment windows.
@@ -58,6 +61,7 @@ panels:
     y_axis: Q5 - Q1 deflection
   S7D:
     panel_id: S7D
+    producer_task: [overlap_gated_stsp_recruitment, supplement]
     legacy_panel_id: old_S11D
     panel_type: overlap_interaction_window_robustness
     claim: Overlap-gated high-STSP interaction remains positive across early recruitment windows.
@@ -70,6 +74,7 @@ panels:
     y_axis: Interaction
   S7E:
     panel_id: S7E
+    producer_task: [overlap_gated_stsp_recruitment, supplement]
     legacy_panel_id: old_S11E
     panel_type: overlap_site_availability
     claim: The Fig.6E 2x2 groups are audited for site availability and sparse-cell limits.
@@ -82,6 +87,7 @@ panels:
     y_axis: STSP group
   S7F:
     panel_id: S7F
+    producer_task: [high_stsp_overlap_ablation, supplement]
     legacy_panel_id: old_S11F
     panel_type: paired_ablation_difference
     claim: High-STSP-overlap removal exceeds matched removal in paired probe-level comparisons.
@@ -94,6 +100,7 @@ panels:
     y_axis: Loss difference
   S7G:
     panel_id: S7G
+    producer_task: score_shuffle_null
     legacy_panel_id: old_S11G
     panel_type: score_shuffle_null
     claim: Optional score-shuffle null tests whether C/D/E exceed spatially shuffled STSP scores.
@@ -107,6 +114,7 @@ panels:
     y_axis: Observed - null
   S7H:
     panel_id: S7H
+    producer_task: overlap_threshold_sensitivity
     legacy_panel_id: old_S11H
     panel_type: threshold_sensitivity
     claim: Optional threshold-sensitivity tests whether E is robust across STSP and overlap thresholds.

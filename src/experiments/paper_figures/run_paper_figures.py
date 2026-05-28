@@ -20,12 +20,13 @@ from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
 from src.experiments.paper_figures.common.progress import PROGRESS_EVENT_PREFIX
 from src.experiments.paper_figures.common.registry import FIGURE_PACKAGE_IDS, load_figure_registry
 from src.experiments.paper_figures.common.resources import PARALLEL_AXES, ResourcePlan, resolve_resource_plan
-from src.experiments.runners._common import _resolve_runtime_python
+from src.pipelines.common import candidate_has_required_modules, discover_python_candidates, python_has_required_modules
 
 
 DEFAULT_MODEL_PATH_GLOB = "results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_*/net_final.pth"
 DEFAULT_OUTPUT_ROOT = "results/paper_experiments"
 DEFAULT_DATASET_ROOT = str(DEFAULT_PROJECT_DEFAULTS.paths.dataset_root)
+REQUIRED_RUNTIME_MODULES = ("torch", "numpy", "pandas", "matplotlib", "scipy", "sklearn", "tqdm")
 NETWORK_SEED_RE = re.compile(r"seed[_-]?(\d+)", re.IGNORECASE)
 SCOPES = {"main", "supplement", "both"}
 PROGRESS_MODES = {"auto", "detailed", "compact", "off"}
@@ -293,6 +294,25 @@ def _resolve_repo_path(value: str | Path) -> Path:
     if path.is_absolute():
         return path.resolve()
     return (DEFAULT_PROJECT_DEFAULTS.paths.repo_root / path).resolve()
+
+
+def _resolve_runtime_python() -> Path:
+    current_python = Path(sys.executable).resolve()
+    if python_has_required_modules(REQUIRED_RUNTIME_MODULES):
+        return current_python
+    candidates = discover_python_candidates(current_python)
+    preferred = sorted(
+        candidates,
+        key=lambda path: (
+            0 if path.parent.name.lower() == "torch_env" else 1,
+            0 if "torch" in str(path).lower() else 1,
+            str(path).lower(),
+        ),
+    )
+    for candidate in preferred:
+        if candidate_has_required_modules(candidate, REQUIRED_RUNTIME_MODULES):
+            return candidate
+    raise RuntimeError("No compatible Python interpreter with required runtime modules was found.")
 
 
 def _extract_network_seed(model_path: Path, fallback: int) -> int:
@@ -979,10 +999,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--figs", type=str, default="all", help="'all' or comma-separated figure ids like fig1,fig3 or 1,3.")
     parser.add_argument("--scope", choices=sorted(SCOPES), default="both")
     parser.add_argument("--seeds", type=str, default="1000", help="Comma-separated seeds and ranges, e.g. 1000,1001,1005-1007.")
+    parser.add_argument("--network-seed", dest="seeds", type=str, help="Single-seed alias for --seeds.")
     parser.add_argument("--all-seeds", action="store_true")
     parser.add_argument("--model-path-glob", type=str, default=DEFAULT_MODEL_PATH_GLOB)
     parser.add_argument("--dataset-root", type=str, default=DEFAULT_DATASET_ROOT)
     parser.add_argument("--output-root", type=str, default=DEFAULT_OUTPUT_ROOT)
+    parser.add_argument("--output-dir", dest="output_root", type=str, help="Alias for --output-root.")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default=DEFAULT_PROJECT_DEFAULTS.runtime.device)
     parser.add_argument("--split", choices=["train", "test"], default="test")
     parser.add_argument("--smoke", action="store_true")
@@ -1015,6 +1037,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force", dest="resume", action="store_false")
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--no-build-paper-figures", action="store_true")
+    parser.add_argument("--skip-figures", dest="no_build_paper_figures", action="store_true", help="Alias for --no-build-paper-figures.")
     parser.add_argument("--check-only-build", action="store_true")
     parser.add_argument("--save-debug-figures", action="store_true")
     parser.add_argument("--progress-mode", choices=sorted(PROGRESS_MODES), default="auto")

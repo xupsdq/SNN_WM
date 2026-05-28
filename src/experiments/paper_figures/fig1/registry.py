@@ -15,4 +15,16 @@ MAIN_SUBEXPERIMENTS = (
     "dms_shuffle",
     "firing_rate_control",
 )
-SUPPLEMENT_SUBEXPERIMENTS = MAIN_SUBEXPERIMENTS
+SUPPLEMENT_SUBEXPERIMENTS = (
+    "baseline",
+    "delay_decode",
+    "dms_delay_sweep",
+    "dms_shuffle",
+    "firing_rate_control",
+)
+BOTH_SCOPE_SUBEXPERIMENTS = SUPPLEMENT_SUBEXPERIMENTS
+BOTH_SCOPE_FLAGS = tuple(
+    flag
+    for subexperiment in BOTH_SCOPE_SUBEXPERIMENTS
+    for flag in SUBEXPERIMENT_FLAGS[subexperiment]
+)
