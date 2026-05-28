@@ -33,6 +33,7 @@ panels:
     panel_id: S3A
     claim: Whole-pair representation index is detectable across layers.
     panel_type: layerwise_morphology
+    producer_task: morphology
     data_adapter: s3_wpri_across_layers_adapter
     renderer: render_s3_wpri_across_layers
     source_priority:
@@ -49,6 +50,7 @@ panels:
     panel_id: S3B
     claim: Beyond-linear residual pair-specificity is detectable across layers.
     panel_type: layerwise_morphology
+    producer_task: morphology
     data_adapter: s3_residual_across_layers_adapter
     renderer: render_s3_residual_across_layers
     source_priority:
@@ -65,6 +67,7 @@ panels:
     panel_id: S3C
     claim: Pair state is not fully explained by simple constituent-only or additive linear mixture models.
     panel_type: linear_model_comparison
+    producer_task: linear_mixture
     data_adapter: s3_linear_model_comparison_adapter
     renderer: render_s3_linear_model_comparison
     source_priority:
@@ -81,6 +84,7 @@ panels:
     legacy_panel_id: old_S4A
     claim: Neutral-ping access to the fused state is preserved across a tested range of ping amplitudes.
     panel_type: ping_sweep
+    producer_task: ping_sweep
     data_adapter: s4_ping_sweep_adapter
     renderer: render_s4_ping_amplitude_sweep
     source: data/metrics/supp_ping_sweep_metrics.csv
@@ -96,6 +100,7 @@ panels:
     legacy_panel_id: old_S4B
     claim: Pair-state completion gain is strongest at short post-pair delays and decays across the retention interval, defining the functional completion window.
     panel_type: completion_delay_gain
+    producer_task: completion_delay_sweep
     data_adapter: s4_completion_delay_adapter
     renderer: render_s4_completion_delay_gain
     source_priority:

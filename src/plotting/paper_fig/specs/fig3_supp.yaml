@@ -31,6 +31,7 @@ panels:
     legacy_panel_id: old_S5A
     claim: Peak regions show higher final support than random-matched or valley regions.
     panel_type: grouped_dot_bar
+    producer_task: peak_valley_landscape
     data_adapter: s5_peak_valley_contrast_adapter
     renderer: render_s5_peak_valley_contrast
     source_priority:
@@ -47,6 +48,7 @@ panels:
     legacy_panel_id: old_S5B
     claim: Final support landscape is spatially concentrated rather than flat.
     panel_type: grouped_metric_summary
+    producer_task: peak_valley_landscape
     data_adapter: s5_landscape_nonflatness_adapter
     renderer: render_s5_landscape_nonflatness
     source_priority:
@@ -64,6 +66,7 @@ panels:
     legacy_panel_id: old_S5C
     claim: Observed peak-valley structure exceeds null expectations across sequences/networks.
     panel_type: observed_null_summary
+    producer_task: peak_valley_landscape
     data_adapter: s5_peak_valley_null_adapter
     renderer: render_s5_peak_valley_null
     source_priority:
@@ -82,6 +85,7 @@ panels:
     legacy_panel_id: old_S5D
     claim: Sequence-state anchors show progressive but not purely latest-item dynamics.
     panel_type: sequence_stage_curve
+    producer_task: [supplement, progressive_update]
     data_adapter: s5_anchor_dynamics_adapter
     renderer: render_s5_anchor_dynamics
     source_priority:
@@ -98,6 +102,7 @@ panels:
     legacy_panel_id: old_S5E
     claim: Neutral ping recovers latest-biased readout while retaining recent and earlier residual mass.
     panel_type: ping_recency_decomposition
+    producer_task: neutral_ping
     data_adapter: s5_ping_recency_decomposition_adapter
     renderer: render_s5_ping_recency_decomposition
     source_priority:
@@ -114,6 +119,7 @@ panels:
     legacy_panel_id: old_S5F
     claim: Weak-cue recovery gain remains available across target recency bins.
     panel_type: weak_probe_recency_gain
+    producer_task: weak_probe
     data_adapter: s5_weak_probe_recency_gain_adapter
     renderer: render_s5_weak_probe_recency_gain
     source_priority:

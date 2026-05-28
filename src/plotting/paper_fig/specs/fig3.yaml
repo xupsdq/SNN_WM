@@ -38,6 +38,7 @@ panels:
     panel_id: B
     claim: STSP state is progressively updated across sequence stages.
     panel_type: progressive_update
+    producer_task: progressive_update
     data_adapter: fig3_progressive_update_adapter
     renderer: render_fig3_progressive_update
     source: data/metrics/panel_b_progressive_update_metrics.csv
@@ -53,6 +54,7 @@ panels:
     panel_id: C
     claim: Representative final STSP state exhibits a structured 3D peak-valley landscape.
     panel_type: 3d_surface
+    producer_task: [state_bank, peak_valley_landscape]
     projection: "3d"
     data_adapter: fig3_example_landscape_adapter
     renderer: render_fig3_3d_landscape
@@ -74,6 +76,7 @@ panels:
     panel_id: D
     claim: Neutral ping reveals a serial-position readout profile from the final sequence state.
     panel_type: neutral_ping_serial_profile
+    producer_task: neutral_ping
     data_adapter: fig3_neutral_ping_serial_adapter
     renderer: render_fig3_neutral_ping_serial_profile
     source_priority:
@@ -94,6 +97,7 @@ panels:
     panel_id: E
     claim: Sequence state improves weak-probe recovery beyond cue-only and a slot-matched single-item memory boundary.
     panel_type: weak_probe_completion
+    producer_task: weak_probe
     data_adapter: fig3_weak_probe_completion_adapter
     renderer: render_fig3_weak_probe_completion
     source_priority:

@@ -25,6 +25,7 @@ qc_requirements:
 panels:
   S6A:
     panel_id: S6A
+    producer_task: early_firing
     legacy_panel_id: old_S9A
     panel_type: early_window_robustness
     claim: Early transition effects are robust to early-window definition.
@@ -38,6 +39,7 @@ panels:
     y_axis: Advance + recruit probability
   S6B:
     panel_id: S6B
+    producer_task: early_firing
     legacy_panel_id: old_S9B
     panel_type: trialwise_transition_advantage
     claim: Overlap-dominant units show a trial-consistent advance/recruit advantage over matched control groups.
@@ -54,6 +56,7 @@ panels:
     y_axis: Delta P(advance + recruit)
   S6C:
     panel_id: S6C
+    producer_task: [local_events, supplement]
     legacy_panel_id: old_S9C
     panel_type: event_chain_null
     claim: Observed local event-chain fractions exceed null baselines.
@@ -70,6 +73,7 @@ panels:
     y_axis: Fraction
   S6D:
     panel_id: S6D
+    producer_task: support_perturbation
     legacy_panel_id: old_S9D
     panel_type: perturbation_ux_audit
     claim: Attenuate/reset perturbations modify intended STSP variables at the pre-probe boundary.
@@ -85,6 +89,7 @@ panels:
     y_axis: Mean variable delta
   S6E:
     panel_id: S6E
+    producer_task: support_perturbation
     legacy_panel_id: old_S9E
     panel_type: perturbation_transition_contrast
     claim: Attenuate/reset perturbations reduce advance/recruit transitions relative to dynamic state.
@@ -100,6 +105,7 @@ panels:
     y_axis: Delta advance + recruit
   S6F:
     panel_id: S6F
+    producer_task: support_perturbation
     legacy_panel_id: old_S9F
     panel_type: same_winner_lost_delayed
     claim: STSP perturbation causes same-winner units to be lost or delayed.

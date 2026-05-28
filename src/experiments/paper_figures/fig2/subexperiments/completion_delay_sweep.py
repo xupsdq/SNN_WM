@@ -8,6 +8,10 @@ for _name, _value in vars(_legacy).items():
         globals()[_name] = _value
 
 def run_completion_delay_sweep_from_pair_trials(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> None:
+    boundary_bank = getattr(ctx, "completion_delay_boundary_bank", None)
+    mask_specs = getattr(ctx, "completion_delay_mask_specs", None)
+    if boundary_bank is not None and mask_specs is not None:
+        return _run_completion_delay_sweep_from_artifacts(ctx, pair_trials, boundary_bank, pd.DataFrame(mask_specs).copy())
     if _use_batched_completion_delay(ctx):
         return _run_completion_delay_sweep_batched(ctx, pair_trials)
     return _run_completion_delay_sweep_serial(ctx, pair_trials)
@@ -107,6 +111,66 @@ def _run_completion_delay_sweep_serial(ctx: ExperimentContext, pair_trials: pd.D
     _save_csv(ctx, metrics, ctx.metrics_dir / "supp_completion_delay_sweep_metrics.csv")
     _save_csv(ctx, contrast, ctx.metrics_dir / "supp_completion_delay_sweep_contrast.csv")
     ctx.completed_modules["completion_delay_sweep"] = True
+
+
+def _run_completion_delay_sweep_from_artifacts(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    boundary_bank: Any,
+    mask_specs: pd.DataFrame,
+) -> None:
+    raw_rows: list[dict[str, Any]] = []
+    conditions = ("S0", "S_B", "S_AB")
+    pair_lookup = {int(rec["pair_id"]): rec for _, rec in pair_trials.reset_index(drop=True).iterrows()}
+    full_probe_cache: dict[int, torch.Tensor] = {}
+    sort_cols = [col for col in ("mask_id", "delay2_ms", "pair_id", "repeat_id") if col in mask_specs.columns]
+    if sort_cols:
+        mask_specs = mask_specs.sort_values(sort_cols).reset_index(drop=True)
+    for row in _progress(mask_specs.to_dict("records"), total=len(mask_specs), desc="fig2 completion delay masks", enabled=ctx.cfg.show_progress):
+        pair_id = int(row["pair_id"])
+        if pair_id not in pair_lookup:
+            raise RuntimeError(f"completion_delay mask spec references unknown pair_id={pair_id}")
+        rec = pair_lookup[pair_id]
+        delay2_ms = int(row["delay2_ms"])
+        image_id = int(rec["A_image_id"])
+        if image_id not in full_probe_cache:
+            target_image = ctx.dataset[image_id][0].detach().to(ctx.device, dtype=torch.float32).unsqueeze(0)
+            full_probe_cache[image_id] = encode_images(ctx.encoder, target_image, ctx.cfg.weak_probe_steps).to(ctx.device)
+        mask_seed = int(row["mask_seed"])
+        weak_spikes, computed_info = _make_completion_weak_spikes(
+            ctx,
+            full_probe_cache[image_id],
+            image_id,
+            float(row["keep_prob"]),
+            mask_seed,
+            len(conditions),
+        )
+        mask_info = _mask_info_from_spec(row, computed_info)
+        if hasattr(boundary_bank, "boundary_states_for_delay"):
+            boundary_states = boundary_bank.boundary_states_for_delay(delay2_ms)
+        else:
+            boundary_states = boundary_bank.boundary_states_by_delay[delay2_ms]
+        boundary = concat_condition_boundaries(boundary_states, conditions, [pair_id], ctx.device)
+        readout = run_probe_readout_from_boundary(
+            ctx,
+            boundary,
+            weak_spikes,
+            probe_scale=float(ctx.cfg.weak_probe_scale),
+            probe_noise=float(ctx.cfg.weak_probe_noise),
+            seed=mask_seed + 31,
+            record_trace=False,
+        )
+        job = {
+            "pair_id": pair_id,
+            "a_label": int(row.get("A_label", rec["A_label"])),
+            "b_label": int(row.get("B_label", rec["B_label"])),
+            "repeat_id": int(row["repeat_id"]),
+            "mask_seed": mask_seed,
+            "mask_info": mask_info,
+        }
+        for condition_index, condition in enumerate(conditions):
+            raw_rows.append(_completion_delay_raw_row(ctx, job, condition, delay2_ms, condition_index, readout))
+    _write_completion_delay_outputs(ctx, raw_rows)
 
 
 def _run_completion_delay_sweep_batched(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> None:
@@ -276,3 +340,18 @@ def _concat_boundary_sequence(boundaries: Sequence[Mapping[str, Mapping[str, tor
         for key in boundaries[0][layer_key]:
             out[layer_key][key] = torch.cat([boundary[layer_key][key] for boundary in boundaries], dim=0).contiguous()
     return out
+
+
+def _mask_info_from_spec(row: Mapping[str, Any], computed_info: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(computed_info)
+    for key, value in row.items():
+        if not _is_missing(value):
+            out[str(key)] = value
+    return out
+
+
+def _is_missing(value: Any) -> bool:
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False

@@ -2,19 +2,24 @@ from __future__ import annotations
 
 import time
 
-from src.experiments.paper_figures import fig1_functional_stsp_substrate_experiment as _legacy
+from src.experiments.paper_figures.fig1.artifacts import load_delay_feature_bank, save_delay_feature_bank
+from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
 
-# During the first split, keep helper/global resolution identical to the legacy module.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+inherit_legacy_globals(globals())
 
 def run_delay_stsp_decode(ctx: ExperimentContext, train_trials: pd.DataFrame, test_trials: pd.DataFrame) -> None:
-    backend = _decoder_backend(ctx)
-    if backend == "sklearn_linear_svc" and LinearSVC is None:
-        raise RuntimeError("scikit-learn is required for delay STSP decoding with backend=sklearn_linear_svc.")
-    if backend == "torch_linear_probe" and getattr(ctx.device, "type", "") != "cuda":
-        ctx.warnings.append(f"Fig.1 torch_linear_probe decoder running on device={ctx.device}; CUDA acceleration is not active.")
+    feature_store = build_delay_feature_bank(ctx, train_trials, test_trials)
+    run_delay_decoder_from_bank(ctx, feature_store)
+
+
+def build_delay_feature_bank(
+    ctx: ExperimentContext,
+    train_trials: pd.DataFrame,
+    test_trials: pd.DataFrame,
+    *,
+    artifact_dir: Path | None = None,
+    cache_key: Mapping[str, Any] | None = None,
+) -> dict[tuple[str, int, str], tuple[np.ndarray, np.ndarray, np.ndarray]]:
     all_trials = pd.concat(
         [
             train_trials.drop(columns=["set"], errors="ignore").assign(set="train"),
@@ -36,7 +41,30 @@ def run_delay_stsp_decode(ctx: ExperimentContext, train_trials: pd.DataFrame, te
         with torch.no_grad():
             _run_sample_then_snapshot_delays(ctx.net, spikes, ctx.cfg.sample_steps, ctx.device, ctx.cfg.delay_points_ms, ctx.cfg.dt, max_delay, batch, feature_store_lists)
     feature_store = _finalize_feature_store(feature_store_lists)
+    if artifact_dir is not None:
+        if cache_key is None:
+            raise ValueError("cache_key is required when writing a delay feature bank.")
+        save_delay_feature_bank(artifact_dir, feature_store, cache_key=cache_key)
+    return feature_store
 
+
+def load_delay_feature_bank_for_decode(
+    artifact_dir: Path,
+    *,
+    expected_key: Mapping[str, Any] | None = None,
+) -> dict[tuple[str, int, str], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    return load_delay_feature_bank(artifact_dir, expected_key=expected_key).features
+
+
+def run_delay_decoder_from_bank(
+    ctx: ExperimentContext,
+    feature_store: Mapping[tuple[str, int, str], tuple[np.ndarray, np.ndarray, np.ndarray]],
+) -> None:
+    backend = _decoder_backend(ctx)
+    if backend == "sklearn_linear_svc" and LinearSVC is None:
+        raise RuntimeError("scikit-learn is required for delay STSP decoding with backend=sklearn_linear_svc.")
+    if backend == "torch_linear_probe" and getattr(ctx.device, "type", "") != "cuda":
+        ctx.warnings.append(f"Fig.1 torch_linear_probe decoder running on device={ctx.device}; CUDA acceleration is not active.")
     pred_rows: list[dict[str, Any]] = []
     manifest_rows: list[dict[str, Any]] = []
     metric_rows: list[dict[str, Any]] = []

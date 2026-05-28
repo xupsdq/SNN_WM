@@ -76,6 +76,7 @@ qc_requirements:
 panels:
   A:
     panel_id: A
+    producer_task: field_ping_readout
     panel_type: grouped_or_stacked_bar
     claim: Different entries into the multi-item STSP field expose different serial-content biases.
     renderer: render_fig6_region_ping_readout_bias
@@ -91,6 +92,7 @@ panels:
     main_metric: serial_readout_mass
   B:
     panel_id: B
+    producer_task: global_ping_score_spike_prediction
     panel_type: score_quantile_line
     claim: Under global unbiased ping, local STSP gain score predicts Layer 1 spike recruitment.
     renderer: render_fig6_global_ping_score_spike_prediction
@@ -106,6 +108,7 @@ panels:
     score_name: entry_gated_stsp_gain_score
   C:
     panel_id: C
+    producer_task: real_probe_score_spike_deflection
     panel_type: score_quantile_line
     claim: Under real probe input, entry-gated STSP score predicts Layer 1 spike deflection relative to baseline.
     renderer: render_fig6_real_probe_score_spike_deflection
@@ -121,6 +124,7 @@ panels:
     score_name: entry_gated_stsp_gain_score
   D:
     panel_id: D
+    producer_task: overlap_gated_stsp_recruitment
     panel_type: two_by_two_interaction
     claim: Probe overlap gates the expression of high-STSP regions.
     renderer: render_fig6_overlap_gated_stsp_recruitment
@@ -137,6 +141,7 @@ panels:
     score_name: entry_gated_stsp_gain_score
   E:
     panel_id: E
+    producer_task: high_stsp_overlap_ablation
     panel_type: ablation_bar
     claim: Removing high-STSP-overlap input sites causes a larger Layer 1 recruitment loss than matched removal.
     renderer: render_fig6_high_stsp_overlap_ablation
@@ -152,6 +157,7 @@ panels:
     conditions: [high_stsp_overlap, matched_removal]
   F:
     panel_id: F
+    producer_task: mechanism_metadata
     panel_type: mechanism_schematic
     claim: Multi-item STSP fields bias Layer 1 recruitment only where later input enters the high-gain field.
     renderer: render_fig6_stsp_overlap_gated_recruitment_synthesis

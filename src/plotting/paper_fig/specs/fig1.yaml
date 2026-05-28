@@ -64,6 +64,7 @@ panels:
     panel_id: B
     claim: The trained STSP-SNN achieves reliable class-level readout.
     panel_type: baseline_performance
+    producer_task: baseline
     data_adapter: fig1_baseline_adapter
     renderer: render_fig1_baseline_recall
     source: data/metrics/panel_b_baseline_metrics_by_network.csv
@@ -82,6 +83,7 @@ panels:
     panel_id: C
     claim: Delay-period STSP u/x state retains sample identity across STSP-enabled layers.
     panel_type: layerwise_delay_decode_summary
+    producer_task: delay_decoder
     data_adapter: fig1_delay_decode_summary_adapter
     renderer: render_fig1_delay_decode_summary
     source: data/metrics/panel_c_delay_decode_metrics.csv
@@ -104,6 +106,7 @@ panels:
     panel_id: D
     claim: Dynamic STSP state affects later probe readout relative to static-frozen and u/x shuffle controls.
     panel_type: condition_comparison
+    producer_task: dms_shuffle_readout
     data_adapter: fig1_condition_metrics_adapter
     renderer: render_fig1_condition_comparison
     source: data/metrics/panel_d_condition_metrics.csv
@@ -123,6 +126,7 @@ panels:
     panel_id: E
     claim: Replacing retained u/x state changes the composition of probe errors, shifting errors toward donor-memory attribution.
     panel_type: error_composition
+    producer_task: dms_shuffle_readout
     data_adapter: fig1_error_composition_adapter
     renderer: render_fig1_error_composition
     source_priority:

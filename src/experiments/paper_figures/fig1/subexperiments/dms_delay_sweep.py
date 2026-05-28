@@ -1,28 +1,30 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig1_functional_stsp_substrate_experiment as _legacy
+from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
 
-# During the first split, keep helper/global resolution identical to the legacy module.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+inherit_legacy_globals(globals())
 
-def run_dms_functional_delay_sweep(ctx: ExperimentContext, dms_trials: pd.DataFrame) -> None:
+def run_dms_functional_delay_sweep(ctx: ExperimentContext, dms_trials: pd.DataFrame, boundary_bank: Any | None = None) -> None:
     """Produce delay-sweep metrics and contrast used by the Fig.1 supplement."""
     trial_rows: list[dict[str, Any]] = []
     encode_cache: dict[tuple[Any, ...], torch.Tensor] = {}
     delay_points = tuple(int(v) for v in ctx.cfg.dms_delay_sweep_ms)
     batches = _iter_batches(dms_trials, ctx.cfg.dms_batch_size)
     total_batches = math.ceil(len(dms_trials) / max(1, int(ctx.cfg.dms_batch_size)))
-    for batch in _progress(batches, total=total_batches, desc="fig1 dms delay sweep batches", enabled=ctx.cfg.show_progress):
-        sample_spikes = _encode_cached(ctx, batch["sample_image_id"].to_numpy(), ctx.cfg.dms_sample_steps, cache=encode_cache)
+    for batch_id, batch in enumerate(_progress(batches, total=total_batches, desc="fig1 dms delay sweep batches", enabled=ctx.cfg.show_progress)):
         probe_spikes = _encode_cached(ctx, batch["probe_image_id"].to_numpy(), ctx.cfg.probe_steps, cache=encode_cache)
-        snapshots_by_delay, layer_input_shapes = _run_sample_multi_delay_boundary_capture(
-            ctx,
-            sample_spikes,
-            batch,
-            delay_points,
-        )
+        if boundary_bank is None:
+            sample_spikes = _encode_cached(ctx, batch["sample_image_id"].to_numpy(), ctx.cfg.dms_sample_steps, cache=encode_cache)
+            snapshots_by_delay, layer_input_shapes = _run_sample_multi_delay_boundary_capture(
+                ctx,
+                sample_spikes,
+                batch,
+                delay_points,
+            )
+        else:
+            snapshots_by_delay = {int(delay_ms): boundary_bank.load_boundary(batch_id, int(delay_ms)) for delay_ms in delay_points}
+            layer_input_shapes = boundary_bank.layer_input_shapes_for_batch(batch_id)
+            _reset_all_layer_states_from_shapes(ctx.net, layer_input_shapes)
         identity = np.arange(len(batch), dtype=np.int64)
         for delay_ms in delay_points:
             delay_ms = int(delay_ms)

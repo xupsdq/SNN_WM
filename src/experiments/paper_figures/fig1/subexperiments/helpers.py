@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig1_functional_stsp_substrate_experiment as _legacy
+from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
 
-# Keep module-level names identical while Fig.1 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+inherit_legacy_globals(globals())
 
 def _run_sample_then_snapshot_delays(net, spikes: torch.Tensor, sample_steps: int, device: torch.device, delay_points_ms: Sequence[int], dt: float, max_delay_ms: int, batch: pd.DataFrame, store: dict) -> None:
     batch_size, _, channels, height, width = spikes.shape
@@ -61,12 +58,14 @@ def _finalize_feature_store(store: dict[tuple[str, int, str], dict[str, list[np.
         )
     return out
 
-def _run_sample_multi_delay_boundary_capture(
+def _run_sample_multi_delay_boundary_capture_with_phase(
     ctx: ExperimentContext,
     sample_spikes: torch.Tensor,
     batch: pd.DataFrame,
     delay_points_ms: Sequence[int],
-) -> tuple[dict[int, dict[str, dict[str, torch.Tensor]]], dict[str, tuple[int, ...]]]:
+    *,
+    phase_delay_ms: int | None = None,
+) -> tuple[dict[int, dict[str, dict[str, torch.Tensor]]], list[dict[str, Any]], dict[str, tuple[int, ...]]]:
     # The delay contrast source captures full post-delay boundary state for functional probe readout,
     # not only the u/x features used by the STSP decoder.
     net = ctx.net
@@ -75,24 +74,44 @@ def _run_sample_multi_delay_boundary_capture(
     layer_input_shapes = build_layer_input_shapes(net, batch_size, channels, height, width)
     zero_input = torch.zeros((batch_size, channels, height, width), device=ctx.device)
     current_time = 0
+    phase_counts = _init_phase_counts(batch) if phase_delay_ms is not None else None
 
-    def step(input_t: torch.Tensor) -> None:
+    def record(layer_key: str, phase: str, spikes_t: torch.Tensor) -> None:
+        if phase_counts is None:
+            return
+        counts = spikes_t.detach().to(torch.float32).flatten(start_dim=1).sum(dim=1).cpu().numpy()
+        for idx, count in enumerate(counts):
+            phase_counts[(int(batch.iloc[idx]["trial_id"]), layer_key, phase)] += float(count)
+
+    def step(input_t: torch.Tensor, phase: str | None = None) -> None:
         nonlocal current_time
         s1, _ = net.layer1.forward_step(input_t, current_time, training=False, monitor=False, stsp_mode="dynamic")
+        if phase is not None:
+            record("layer1", phase, s1)
         s1p = net.pool1(s1.float())
         s2, _ = net.layer2.forward_step(s1p, current_time, training=False, monitor=False, stsp_mode="dynamic")
+        if phase is not None:
+            record("layer2", phase, s2)
         s2p = net.pool2(s2.float())
-        net.layer3.forward_step(s2p, current_time, training=False, monitor=False, stsp_mode="dynamic")
+        s3, _ = net.layer3.forward_step(s2p, current_time, training=False, monitor=False, stsp_mode="dynamic")
+        if phase is not None:
+            record("layer3", phase, s3)
         current_time += 1
 
     for t in range(ctx.cfg.dms_sample_steps):
-        step(sample_spikes[:, t, ...])
+        step(sample_spikes[:, t, ...], "stimulus" if phase_counts is not None else None)
 
     delay_to_steps = {int(delay): _ms_to_steps(delay, ctx.cfg.dt) for delay in delay_points_ms}
     max_delay_steps = max(delay_to_steps.values()) if delay_to_steps else 0
+    phase_delay_steps = _ms_to_steps(int(phase_delay_ms), ctx.cfg.dt) if phase_delay_ms is not None else 0
+    half_delay = max(1, phase_delay_steps // 2) if phase_delay_ms is not None else 0
     snapshots_by_delay: dict[int, dict[str, dict[str, torch.Tensor]]] = {}
     for delay_step in range(1, max_delay_steps + 1):
-        step(zero_input)
+        phase = None
+        if phase_counts is not None and delay_step <= phase_delay_steps:
+            delay_idx = delay_step - 1
+            phase = "early_delay" if delay_idx < half_delay else "late_delay"
+        step(zero_input, phase)
         for delay_ms, target_step in delay_to_steps.items():
             if delay_step == target_step:
                 snapshots_by_delay[int(delay_ms)] = snapshot_boundary_state(net)
@@ -101,56 +120,52 @@ def _run_sample_multi_delay_boundary_capture(
     if missing:
         first_trial = int(batch.iloc[0]["trial_id"]) if len(batch) else -1
         raise RuntimeError(f"Missing DMS delay sweep boundary snapshots for delay_ms={missing}, batch_first_trial={first_trial}.")
+    rows: list[dict[str, Any]] = []
+    if phase_counts is not None:
+        windows = {
+            "stimulus": ctx.cfg.dms_sample_steps,
+            "early_delay": half_delay,
+            "late_delay": phase_delay_steps - half_delay,
+            "probe": ctx.cfg.probe_steps,
+        }
+        for (trial_id, layer, phase_name), count in phase_counts.items():
+            window = max(1, windows[phase_name])
+            rows.append(
+                {
+                    "network_seed": int(ctx.cfg.network_seed),
+                    "trial_id": int(trial_id),
+                    "layer": layer,
+                    "phase": phase_name,
+                    "time_window_ms": int(round(window * ctx.cfg.dt / ms)),
+                    "spike_count": float(count),
+                    "spike_rate_hz": float(count / (window * ctx.cfg.dt)),
+                }
+            )
+    return snapshots_by_delay, rows, layer_input_shapes
+
+def _run_sample_multi_delay_boundary_capture(
+    ctx: ExperimentContext,
+    sample_spikes: torch.Tensor,
+    batch: pd.DataFrame,
+    delay_points_ms: Sequence[int],
+) -> tuple[dict[int, dict[str, dict[str, torch.Tensor]]], dict[str, tuple[int, ...]]]:
+    snapshots_by_delay, _rows, layer_input_shapes = _run_sample_multi_delay_boundary_capture_with_phase(
+        ctx,
+        sample_spikes,
+        batch,
+        delay_points_ms,
+    )
     return snapshots_by_delay, layer_input_shapes
 
 def _run_sample_delay_capture(ctx: ExperimentContext, sample_spikes: torch.Tensor, batch: pd.DataFrame) -> tuple[dict[str, dict[str, torch.Tensor]], list[dict[str, Any]], dict[str, tuple[int, ...]]]:
-    net = ctx.net
-    batch_size, _, channels, height, width = sample_spikes.shape
-    prepare_network_state(net, batch_size, channels, height, width)
-    layer_input_shapes = build_layer_input_shapes(net, batch_size, channels, height, width)
-    zero_input = torch.zeros((batch_size, channels, height, width), device=ctx.device)
-    current_time = 0
-    phase_counts = _init_phase_counts(batch)
-
-    def record(layer_key: str, phase: str, spikes_t: torch.Tensor) -> None:
-        counts = spikes_t.detach().to(torch.float32).flatten(start_dim=1).sum(dim=1).cpu().numpy()
-        for idx, count in enumerate(counts):
-            phase_counts[(int(batch.iloc[idx]["trial_id"]), layer_key, phase)] += float(count)
-
-    def step(input_t: torch.Tensor, phase: str) -> None:
-        nonlocal current_time
-        s1, _ = net.layer1.forward_step(input_t, current_time, training=False, monitor=False, stsp_mode="dynamic")
-        record("layer1", phase, s1)
-        s1p = net.pool1(s1.float())
-        s2, _ = net.layer2.forward_step(s1p, current_time, training=False, monitor=False, stsp_mode="dynamic")
-        record("layer2", phase, s2)
-        s2p = net.pool2(s2.float())
-        s3, _ = net.layer3.forward_step(s2p, current_time, training=False, monitor=False, stsp_mode="dynamic")
-        record("layer3", phase, s3)
-        current_time += 1
-
-    for t in range(ctx.cfg.dms_sample_steps):
-        step(sample_spikes[:, t, ...], "stimulus")
-    half_delay = max(1, ctx.cfg.dms_delay_steps // 2)
-    for t in range(ctx.cfg.dms_delay_steps):
-        step(zero_input, "early_delay" if t < half_delay else "late_delay")
-    boundary = snapshot_boundary_state(net)
-    rows = []
-    windows = {"stimulus": ctx.cfg.dms_sample_steps, "early_delay": half_delay, "late_delay": ctx.cfg.dms_delay_steps - half_delay, "probe": ctx.cfg.probe_steps}
-    for (trial_id, layer, phase), count in phase_counts.items():
-        window = max(1, windows[phase])
-        rows.append(
-            {
-                "network_seed": int(ctx.cfg.network_seed),
-                "trial_id": int(trial_id),
-                "layer": layer,
-                "phase": phase,
-                "time_window_ms": int(round(window * ctx.cfg.dt / ms)),
-                "spike_count": float(count),
-                "spike_rate_hz": float(count / (window * ctx.cfg.dt)),
-            }
-        )
-    return boundary, rows, layer_input_shapes
+    snapshots_by_delay, rows, layer_input_shapes = _run_sample_multi_delay_boundary_capture_with_phase(
+        ctx,
+        sample_spikes,
+        batch,
+        [int(ctx.cfg.dms_delay_ms)],
+        phase_delay_ms=int(ctx.cfg.dms_delay_ms),
+    )
+    return snapshots_by_delay[int(ctx.cfg.dms_delay_ms)], rows, layer_input_shapes
 
 def _run_probe_from_boundary(
     ctx: ExperimentContext,
@@ -1021,4 +1036,4 @@ def _intervention_manifest_row(network_seed: int, condition: str, intervention: 
 def _write_empty_phase_rates(ctx: ExperimentContext) -> None:
     _save_csv(ctx, pd.DataFrame(columns=["network_seed", "trial_id", "layer", "phase", "time_window_ms", "spike_count", "spike_rate_hz"]), ctx.metrics_dir / "supp_phase_firing_rates.csv")
 
-__all__ = ('_run_sample_then_snapshot_delays', '_append_feature_store', '_finalize_feature_store', '_run_sample_multi_delay_boundary_capture', '_run_sample_delay_capture', '_run_probe_from_boundary', '_run_probe_conditions_from_boundary', '_restore_boundary_state', '_make_shuffled_substrate_state_from_boundary', '_restore_substrate_only', '_reset_all_layer_states_from_shapes', '_apply_legacy_layer3_probe_phase_reset', '_prepare_condition_for_probe', '_intervention_for_probe_prep', '_condition_metrics', '_delay_sweep_condition_metrics', '_delay_sweep_contrast', '_sort_trial_readout', '_sort_dms_delay_sweep_trial_readout', '_validate_dms_delay_sweep_pairing', '_validate_fig1_shuffle_pairing', '_bad_trial_ids', '_compat_trial_readout', '_write_compatibility_metrics', '_donor_constraint_audit', '_attribution_metrics', '_balanced_image_trials', '_balanced_disjoint_delay_trials', '_build_dms_trials', '_derangement', '_build_constrained_trial_shuffle_plan', '_build_constrained_permutation_np', '_sample_indices', '_images_for_ids', '_encode_cached', '_iter_batches', '_donor_indices_for_batch', '_init_phase_counts', '_intervention_manifest_row', '_write_empty_phase_rates')
+__all__ = ('_run_sample_then_snapshot_delays', '_append_feature_store', '_finalize_feature_store', '_run_sample_multi_delay_boundary_capture_with_phase', '_run_sample_multi_delay_boundary_capture', '_run_sample_delay_capture', '_run_probe_from_boundary', '_run_probe_conditions_from_boundary', '_restore_boundary_state', '_make_shuffled_substrate_state_from_boundary', '_restore_substrate_only', '_reset_all_layer_states_from_shapes', '_apply_legacy_layer3_probe_phase_reset', '_prepare_condition_for_probe', '_intervention_for_probe_prep', '_condition_metrics', '_delay_sweep_condition_metrics', '_delay_sweep_contrast', '_sort_trial_readout', '_sort_dms_delay_sweep_trial_readout', '_validate_dms_delay_sweep_pairing', '_validate_fig1_shuffle_pairing', '_bad_trial_ids', '_compat_trial_readout', '_write_compatibility_metrics', '_donor_constraint_audit', '_attribution_metrics', '_balanced_image_trials', '_balanced_disjoint_delay_trials', '_build_dms_trials', '_derangement', '_build_constrained_trial_shuffle_plan', '_build_constrained_permutation_np', '_sample_indices', '_images_for_ids', '_encode_cached', '_iter_batches', '_donor_indices_for_batch', '_init_phase_counts', '_intervention_manifest_row', '_write_empty_phase_rates')

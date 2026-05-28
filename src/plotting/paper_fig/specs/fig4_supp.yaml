@@ -26,6 +26,7 @@ panels:
     panel_id: S5A
     legacy_panel_id: old_S7A
     panel_type: similarity_overlap_2x2
+    producer_task: overlap_localization
     claim: Similarity defines the re-entry regime, while overlap separates high- and low-effect cases within that regime.
     data_adapter: s7_similarity_overlap_2x2_adapter
     renderer: render_s7_similarity_overlap_2x2
@@ -40,6 +41,7 @@ panels:
     panel_id: S5B
     legacy_panel_id: old_S7B
     panel_type: overlap_excess_iso_similarity
+    producer_task: [overlap_accuracy_identification, overlap_localization]
     claim: Overlap-excess bins show larger accuracy loss after similarity stratification.
     data_adapter: s7_overlap_excess_adapter
     renderer: render_s7_overlap_excess
@@ -54,6 +56,7 @@ panels:
     panel_id: S5C
     legacy_panel_id: old_S7C
     panel_type: overlap_regression_controls
+    producer_task: overlap_localization
     claim: Overlap remains the dominant positive predictor after controlling for similarity and input energy.
     data_adapter: s7_overlap_regression_adapter
     renderer: render_s7_overlap_regression
@@ -68,6 +71,7 @@ panels:
     panel_id: S5D
     legacy_panel_id: old_S7D
     panel_type: perturbation_specificity_contrast
+    producer_task: overlap_perturbation
     claim: Preserving overlap support yields larger L3 recovery than non-overlap or random matched support under the same perturbation audit.
     data_adapter: s7_perturbation_specificity_contrast_adapter
     renderer: render_s7_perturbation_specificity_contrast
@@ -82,6 +86,7 @@ panels:
     panel_id: S5E
     legacy_panel_id: old_S7E
     panel_type: decision_spike_summary
+    producer_task: decision_spike_displacement
     claim: Overlap-specific support propagates into decision-step L3/readout dynamics.
     data_adapter: s7_decision_spike_summary_adapter
     renderer: render_s7_decision_spike_summary
