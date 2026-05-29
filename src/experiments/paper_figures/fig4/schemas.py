@@ -64,6 +64,7 @@ ROLLOUT_BANK_FILES = {
     "rollout_manifest": "rollout_manifest.csv",
     "condition_metrics": "condition_metrics.csv",
     "perturbation_masks": "perturbation_masks.csv",
+    "l3_replay_capture_manifest": "l3_replay_capture_manifest.csv",
 }
 
 ARRAY_MANIFEST_COLUMNS = (

@@ -57,6 +57,7 @@ from src.experiments.paper_figures.fig4.schemas import (
 )
 from src.experiments.paper_figures.fig4.subexperiments.decision_deflection import (
     compute_decision_deflection_metrics,
+    compute_l3_accumulator_region_replay_metrics_from_bank,
     compute_l3_accumulator_region_replay_metrics,
 )
 from src.experiments.paper_figures.fig4.subexperiments.decision_spike_displacement import compute_probe_l3_trace_dpi_metrics
@@ -258,7 +259,11 @@ def _run_task(
         compute_probe_l3_trace_dpi_metrics(ctx, overlap_bank)
         return
     if task_id == TASK_DECISION_DEFLECTION:
-        compute_l3_accumulator_region_replay_metrics(ctx, pair_trials)
+        if mode == "off":
+            _compute_l3_accumulator_region_replay_fresh(ctx, pair_trials)
+            return
+        overlap_bank = _get_rollouts(ctx, pair_trials, perturbation_masks, mask_bank, pair_hash=pair_hash, mode=mode, artifact_root=artifact_root)
+        compute_l3_accumulator_region_replay_metrics_from_bank(ctx, overlap_bank)
         return
     if task_id == TASK_OVERLAP_PERTURBATION:
         overlap_bank = _get_rollouts(ctx, pair_trials, perturbation_masks, mask_bank, pair_hash=pair_hash, mode=mode, artifact_root=artifact_root)
@@ -277,13 +282,20 @@ def _run_task(
         compute_overlap_localization_metrics(ctx, overlap_bank)
         compute_overlap_accuracy_identification(ctx, similarity_bank)
         compute_probe_l3_trace_dpi_metrics(ctx, overlap_bank)
-        compute_l3_accumulator_region_replay_metrics(ctx, pair_trials)
+        if mode == "off":
+            _compute_l3_accumulator_region_replay_fresh(ctx, pair_trials)
+        else:
+            compute_l3_accumulator_region_replay_metrics_from_bank(ctx, overlap_bank)
         compute_decision_deflection_metrics(ctx, overlap_bank)
         compute_overlap_preserving_perturbation_metrics(ctx, overlap_bank)
         compute_l1_stsp_overlap_perturbation_outputs(ctx, pair_trials, mask_bank)
         compute_supplement_outputs(ctx, overlap_bank)
         return
     raise ValueError(f"Unsupported Fig.4 task: {task_id}")
+
+
+def _compute_l3_accumulator_region_replay_fresh(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> None:
+    compute_l3_accumulator_region_replay_metrics(ctx, pair_trials)
 
 
 def _get_similarity_entry(
@@ -415,9 +427,11 @@ def _write_similarity_entry_to_bundle(ctx: ExperimentContext, bank: SimilarityBi
 def _write_rollouts_to_bundle(ctx: ExperimentContext, bank: OverlapPerturbationCompatibleBank, *, task_dir: Path) -> None:
     legacy._save_csv(ctx, bank.rollout_manifest, ctx.raw_dir / "overlap_perturbation_rollout_manifest.csv")
     legacy._save_csv(ctx, bank.rollout_manifest, ctx.raw_dir / "rollout_manifest.csv")
+    if not bank.l3_replay_capture_manifest.empty:
+        legacy._save_csv(ctx, bank.l3_replay_capture_manifest, ctx.raw_dir / "l3_replay_capture_manifest.csv")
     legacy._save_csv(ctx, bank.perturbation_masks, ctx.metrics_dir / "supp_overlap_mask_application_audit.csv")
     copy_rollout_artifact_npz_to_raw(task_dir, ctx.raw_dir)
-    for stem in ("probe_trace_arrays_l1", "probe_trace_arrays_l2", "probe_trace_arrays_l3", "readout_trajectory_vectors"):
+    for stem in ("probe_trace_arrays_l1", "probe_trace_arrays_l2", "probe_trace_arrays_l3", "readout_trajectory_vectors", "l3_replay_capture_arrays"):
         path = ctx.raw_dir / f"{stem}.npz"
         if path.exists():
             ctx.output_files[stem] = legacy._rel(path, ctx.seed_dir)
@@ -645,6 +659,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
             TASK_ROLLOUTS,
             TASK_OVERLAP_LOCALIZATION,
             TASK_DECISION_SPIKE_DISPLACEMENT,
+            TASK_DECISION_DEFLECTION,
             TASK_OVERLAP_PERTURBATION,
             TASK_SUPPLEMENT,
         },

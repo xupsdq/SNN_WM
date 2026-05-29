@@ -57,6 +57,11 @@ from src.experiments.paper_figures.fig3.subexperiments.supplement import compute
 from src.experiments.paper_figures.fig3.subexperiments.trial_specs import build_sequence_trial_specs
 from src.experiments.paper_figures.fig3.subexperiments.weak_probe import run_sequence_weak_probe_real_rollout_from_state_bank
 from src.experiments.paper_figures.fig3.types import ExperimentContext, Fig3Config, MultiItemSequenceLandscapeBank
+from src.experiments.paper_figures.common.sequence_root.artifacts import (
+    copy_artifact_tree as copy_shared_artifact_tree,
+    load_root_bank_artifact as load_shared_root_bank_artifact,
+)
+from src.experiments.paper_figures.common.specs.artifacts import materialize_spec_view
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
@@ -89,6 +94,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         {
             "reuse_artifacts": mode,
             "artifact_root": str(artifact_root.resolve()),
+            "shared_sequence_root": str(Path(args.shared_sequence_root).resolve()) if args.shared_sequence_root else "",
             "task": str(args.task),
         }
     )
@@ -100,10 +106,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             task_id=str(args.task),
             mode=mode,
             artifact_root=artifact_root,
+            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
         )
         spec_hash = sequence_specs_hash(seq_trials, singleton_trials, partial_trials)
         run_info["sequence_specs_hash"] = spec_hash
-        _run_task(ctx, seq_trials, task_id=str(args.task), mode=mode, artifact_root=artifact_root, specs_hash=spec_hash)
+        _run_task(
+            ctx,
+            seq_trials,
+            task_id=str(args.task),
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=spec_hash,
+            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
+        )
         _finalize_bundle(ctx, artifact_root=artifact_root, mode=mode)
         finalize_run_info(ctx.seed_dir / "meta", run_info, status="success")
         return 0
@@ -118,9 +133,31 @@ def _get_sequence_specs(
     task_id: str,
     mode: str,
     artifact_root: Path,
+    shared_sequence_root: Path | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     task_dir = task_artifact_dir(artifact_root, TASK_SEQUENCE_TRIAL_SPECS)
     expected_key = build_sequence_specs_cache_key(ctx.cfg)
+    if shared_sequence_root is not None:
+        root_bank = load_shared_root_bank_artifact(shared_sequence_root)
+        artifact = save_sequence_specs_artifact(
+            task_dir,
+            sequence_trials=root_bank.specs.sequence_trials,
+            singleton_reference_trials=root_bank.specs.singleton_reference_trials,
+            partial_cue_trials=root_bank.specs.partial_cue_trials,
+            cache_key=expected_key,
+        )
+        if root_bank.specs.spec_artifact is not None:
+            materialize_spec_view(
+                root_bank.specs.spec_artifact,
+                task_dir,
+                view_figure="fig3",
+                view_task=TASK_SEQUENCE_TRIAL_SPECS,
+                view_artifact_digest=artifact.digest,
+                view_cache_key_digest=cache_key_digest(expected_key),
+            )
+        _write_sequence_specs_to_bundle(ctx, artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials)
+        _set_artifact_metadata(ctx, "sequence_trial_specs", "shared_sequence_root", task_dir, artifact.digest, expected_key)
+        return artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials
     if mode == "require":
         artifact = load_sequence_specs_artifact(task_dir, expected_key=expected_key)
         _write_sequence_specs_to_bundle(ctx, artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials)
@@ -180,29 +217,30 @@ def _run_task(
     mode: str,
     artifact_root: Path,
     specs_hash: str,
+    shared_sequence_root: Path | None,
 ) -> None:
     if task_id == TASK_SEQUENCE_TRIAL_SPECS:
         return
     if task_id == TASK_STATE_BANK:
-        _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root)
         return
     if task_id == TASK_PROGRESSIVE_UPDATE:
-        compute_progressive_update_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash))
+        compute_progressive_update_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_PEAK_VALLEY_LANDSCAPE:
-        compute_final_support_landscape(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash))
+        compute_final_support_landscape(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_NEUTRAL_PING:
-        run_neutral_ping_readout_distribution(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash))
+        run_neutral_ping_readout_distribution(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_WEAK_PROBE:
-        run_sequence_weak_probe_real_rollout_from_state_bank(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash))
+        run_sequence_weak_probe_real_rollout_from_state_bank(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_SUPPLEMENT:
-        compute_supplementary_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash))
+        compute_supplementary_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_ALL:
-        bank = _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        bank = _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root)
         compute_progressive_update_metrics(ctx, bank)
         compute_final_support_landscape(ctx, bank)
         run_neutral_ping_readout_distribution(ctx, bank)
@@ -219,9 +257,19 @@ def _get_state_bank(
     mode: str,
     artifact_root: Path,
     specs_hash: str,
+    shared_sequence_root: Path | None = None,
 ) -> MultiItemSequenceLandscapeBank:
     task_dir = task_artifact_dir(artifact_root, TASK_STATE_BANK)
     expected_key = build_state_bank_cache_key(ctx.cfg, specs_hash=specs_hash)
+    if shared_sequence_root is not None:
+        root_bank = load_shared_root_bank_artifact(shared_sequence_root)
+        copy_shared_artifact_tree(root_bank.fig3_state_bank_dir, task_dir)
+        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
+        _write_state_bank_compat_outputs(ctx, task_dir)
+        _set_artifact_metadata(ctx, "state_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
+        ctx.completed_modules["state_bank"] = True
+        ctx.run_log.append(f"{legacy._now()} state_bank source=shared_sequence_root artifact={root_bank.root}")
+        return artifact.bank
     if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         _write_state_bank_compat_outputs(ctx, task_dir)
@@ -483,6 +531,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--task", required=True, choices=TASK_IDS)
     parser.add_argument("--reuse-artifacts", default="auto", choices=REUSE_MODES)
     parser.add_argument("--artifact-root", default=None)
+    parser.add_argument("--shared-sequence-root", default=None, help="Path to a shared Fig.3/Fig.6 sequence-root bank artifact or artifact root.")
     parser.add_argument("--model-path", default=None)
     parser.add_argument("--model-path-glob", default=DEFAULT_MODEL_PATH_GLOB)
     parser.add_argument("--dataset-root", default=DEFAULT_DATASET_ROOT)

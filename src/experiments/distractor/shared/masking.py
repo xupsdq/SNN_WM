@@ -13,6 +13,7 @@ from src.experiments.common.pattern_metrics import (
 )
 from src.experiments.common.ping_common import prepare_network_state
 from src.experiments.common.seed import mix_seed
+from src.experiments.distractor.shared.l3_replay import Layer3ReplaySnapshot, _snapshot_layer3_for_replay
 from src.experiments.distractor.shared.pair_sampling import extract_grouped_voltage_vector
 
 
@@ -32,9 +33,12 @@ class OverlapMaskBundle:
 @dataclass(frozen=True)
 class RolloutReadout:
     grouped_voltage: np.ndarray
+    readout_snapshot: torch.Tensor
     probe_l1_trace: torch.Tensor
     probe_l2_trace: torch.Tensor
     probe_l3_trace: torch.Tensor
+    probe_s2p_trace: torch.Tensor
+    probe_onset_snapshot: Layer3ReplaySnapshot
     prediction_probe: np.ndarray
     first_fire_t_probe: np.ndarray
     readout_step: int
@@ -236,6 +240,7 @@ def run_overlap_perturbed_dms(
     zero_input = torch.zeros((batch_size, channels, height, width), dtype=sample_spikes.dtype, device=sample_spikes.device)
     current_time = 0
     readout_snapshot = None
+    probe_onset_snapshot = None
     probe_l1_frames: list[torch.Tensor] = []
     probe_l2_frames: list[torch.Tensor] = []
     probe_l3_frames: list[torch.Tensor] = []
@@ -272,6 +277,7 @@ def run_overlap_perturbed_dms(
         net.layer3.reset_decision_state()
         net.layer3.v_mem.fill_(net.layer3.V_L)
         net.layer3.lateral_inh.reset_state(net.layer3.output_shape)
+        probe_onset_snapshot = _snapshot_layer3_for_replay(net, readout_step=readout_step)
         for t_step in range(int(probe_spikes.shape[1])):
             step_network(probe_spikes[:, t_step, ...], phase="probe", phase_step=t_step, force_l3_time=t_step)
 
@@ -279,6 +285,8 @@ def run_overlap_perturbed_dms(
         raise RuntimeError("Requested probe readout snapshot was not produced.")
     if not probe_l1_frames or not probe_l2_frames or not probe_l3_frames:
         raise RuntimeError("Probe traces were not recorded.")
+    if probe_onset_snapshot is None:
+        raise RuntimeError("Probe-onset snapshot was not captured.")
 
     flat_times = net.layer3.firing_times
     has_fired = (flat_times != float("inf")).any(dim=1)
@@ -291,9 +299,12 @@ def run_overlap_perturbed_dms(
 
     return RolloutReadout(
         grouped_voltage=extract_grouped_voltage_vector(net, readout_snapshot),
+        readout_snapshot=readout_snapshot,
         probe_l1_trace=torch.stack(probe_l1_frames, dim=0),
         probe_l2_trace=torch.stack(probe_l2_frames, dim=0),
         probe_l3_trace=torch.stack(probe_l3_frames, dim=0),
+        probe_s2p_trace=torch.stack(probe_l3_frames, dim=1),
+        probe_onset_snapshot=probe_onset_snapshot,
         prediction_probe=prediction_probe.detach().cpu().numpy().astype(np.int64, copy=False),
         first_fire_t_probe=first_fire_t_probe.detach().cpu().numpy().astype(np.int64, copy=False),
         readout_step=int(readout_step),
