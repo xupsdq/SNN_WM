@@ -60,6 +60,11 @@ from src.experiments.paper_figures.fig6.subexperiments.supplement import (
     write_global_mechanism_metadata,
 )
 from src.experiments.paper_figures.fig6.types import ExperimentContext, Fig6Config, PeakAmplifiedReentryBank
+from src.experiments.paper_figures.common.sequence_root.artifacts import (
+    copy_artifact_tree as copy_shared_artifact_tree,
+    load_root_bank_artifact as load_shared_root_bank_artifact,
+)
+from src.experiments.paper_figures.common.specs.artifacts import materialize_spec_view
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
@@ -92,15 +97,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         {
             "reuse_artifacts": mode,
             "artifact_root": str(artifact_root.resolve()),
+            "shared_sequence_root": str(Path(args.shared_sequence_root).resolve()) if args.shared_sequence_root else "",
             "task": str(args.task),
         }
     )
     write_run_info(ctx.meta_dir, run_info)
     try:
         legacy._write_config_files(ctx)
-        sequence_trials, sequence_hash = _get_sequence_trials(ctx, mode=mode, artifact_root=artifact_root)
+        sequence_trials, sequence_hash = _get_sequence_trials(
+            ctx,
+            mode=mode,
+            artifact_root=artifact_root,
+            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
+        )
         run_info["sequence_trials_hash"] = sequence_hash
-        _run_task(ctx, sequence_trials, sequence_hash=sequence_hash, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
+        _run_task(
+            ctx,
+            sequence_trials,
+            sequence_hash=sequence_hash,
+            task_id=str(args.task),
+            mode=mode,
+            artifact_root=artifact_root,
+            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
+        )
         _finalize_bundle(ctx, artifact_root=artifact_root, mode=mode, task_id=str(args.task))
         finalize_run_info(ctx.meta_dir, run_info, status="success")
         return 0
@@ -114,9 +133,25 @@ def _get_sequence_trials(
     *,
     mode: str,
     artifact_root: Path,
+    shared_sequence_root: Path | None = None,
 ) -> tuple[pd.DataFrame, str]:
     task_dir = task_artifact_dir(artifact_root, TASK_SEQUENCE_TRIALS)
     expected_key = build_sequence_trials_cache_key(ctx.cfg)
+    if shared_sequence_root is not None:
+        root_bank = load_shared_root_bank_artifact(shared_sequence_root)
+        artifact = save_sequence_trials_artifact(task_dir, sequence_trials=root_bank.specs.sequence_trials, cache_key=expected_key)
+        if root_bank.specs.spec_artifact is not None:
+            materialize_spec_view(
+                root_bank.specs.spec_artifact,
+                task_dir,
+                view_figure="fig6",
+                view_task=TASK_SEQUENCE_TRIALS,
+                view_artifact_digest=artifact.digest,
+                view_cache_key_digest=cache_key_digest(expected_key),
+            )
+        _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
+        _set_artifact_metadata(ctx, "sequence_trials", "shared_sequence_root", task_dir, artifact.digest, expected_key)
+        return artifact.sequence_trials, artifact.digest
     if mode == "require":
         artifact = load_sequence_trials_artifact(task_dir, expected_key=expected_key)
         _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
@@ -149,9 +184,18 @@ def _get_sequence_bank(
     sequence_hash: str,
     mode: str,
     artifact_root: Path,
+    shared_sequence_root: Path | None = None,
 ) -> PeakAmplifiedReentryBank:
     task_dir = task_artifact_dir(artifact_root, TASK_SEQUENCE_BANK)
     expected_key = build_sequence_bank_cache_key(ctx.cfg, sequence_trials_hash_value=sequence_hash)
+    if shared_sequence_root is not None:
+        root_bank = load_shared_root_bank_artifact(shared_sequence_root)
+        copy_shared_artifact_tree(root_bank.fig6_sequence_bank_dir, task_dir)
+        artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
+        _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
+        _set_artifact_metadata(ctx, "sequence_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
+        ctx.run_log.append(f"{legacy._now()} sequence_bank source=shared_sequence_root artifact={root_bank.root}")
+        return artifact.bank
     if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
         artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
@@ -191,11 +235,19 @@ def _run_task(
     task_id: str,
     mode: str,
     artifact_root: Path,
+    shared_sequence_root: Path | None,
 ) -> None:
     if task_id == TASK_SEQUENCE_TRIALS:
         return
 
-    bank = _get_sequence_bank(ctx, sequence_trials, sequence_hash=sequence_hash, mode=mode, artifact_root=artifact_root)
+    bank = _get_sequence_bank(
+        ctx,
+        sequence_trials,
+        sequence_hash=sequence_hash,
+        mode=mode,
+        artifact_root=artifact_root,
+        shared_sequence_root=shared_sequence_root,
+    )
     if task_id == TASK_SEQUENCE_BANK:
         return
     if task_id == TASK_FIELD_PING_READOUT:
@@ -525,6 +577,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--task", required=True, choices=TASK_IDS)
     parser.add_argument("--reuse-artifacts", default="auto", choices=REUSE_MODES)
     parser.add_argument("--artifact-root", default=None)
+    parser.add_argument("--shared-sequence-root", default=None, help="Path to a shared Fig.3/Fig.6 sequence-root bank artifact or artifact root.")
     parser.add_argument("--model-path", default=None)
     parser.add_argument("--model-path-glob", default=DEFAULT_MODEL_PATH_GLOB)
     parser.add_argument("--dataset-root", default=DEFAULT_DATASET_ROOT)

@@ -132,6 +132,8 @@ class OverlapPerturbationCompatibleBank:
     condition_metrics: pd.DataFrame
     traces: dict[str, np.ndarray]
     vectors: dict[str, np.ndarray]
+    l3_replay_capture_manifest: pd.DataFrame = field(default_factory=pd.DataFrame)
+    l3_replay_captures: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 @dataclass

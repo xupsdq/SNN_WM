@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import torch
+
+from src.experiments.distractor.shared.l3_replay import L3TraceCaptureResult, Layer3ReplaySnapshot
 from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
 
 # Keep module-level names identical while Fig.4 is split into smaller files.
@@ -256,3 +259,237 @@ def compute_l3_accumulator_region_replay_metrics(
     ctx.output_files["panel_f_l3_accumulator_region_effects"] = "data/raw/panel_f_l3_accumulator_region_effects.npz"
     ctx.completed_modules["decision_deflection"] = True
     return L3AccumulatorReplayBank(pair_trials, results, pd.DataFrame(summary_rows), pair_payload, region_payload)
+
+
+def _capture_storage_key(bank: OverlapPerturbationCompatibleBank, pair_id: int, condition: str, field: str) -> str:
+    manifest = bank.l3_replay_capture_manifest
+    rows = manifest[
+        manifest["pair_id"].astype(int).eq(int(pair_id))
+        & manifest["condition"].astype(str).eq(str(condition))
+        & manifest["field"].astype(str).eq(str(field))
+    ]
+    if len(rows) != 1:
+        raise RuntimeError(f"Fig.4 L3 replay capture expected one row for pair={pair_id}, condition={condition}, field={field}; found {len(rows)}")
+    return str(rows.iloc[0]["storage_key"])
+
+
+def _capture_array(bank: OverlapPerturbationCompatibleBank, pair_id: int, condition: str, field: str) -> np.ndarray:
+    key = _capture_storage_key(bank, pair_id, condition, field)
+    if key not in bank.l3_replay_captures:
+        raise RuntimeError(f"Fig.4 L3 replay capture array is missing key: {key}")
+    return np.asarray(bank.l3_replay_captures[key])
+
+
+def _optional_capture_tensor(bank: OverlapPerturbationCompatibleBank, pair_id: int, condition: str, field: str) -> torch.Tensor | None:
+    arr = _capture_array(bank, pair_id, condition, field)
+    if arr.size == 0:
+        return None
+    return torch.as_tensor(arr)
+
+
+def _capture_result_from_bank(bank: OverlapPerturbationCompatibleBank, pair_id: int, condition: str) -> L3TraceCaptureResult:
+    input_shape = tuple(int(v) for v in _capture_array(bank, pair_id, condition, "probe_onset_input_shape").tolist())
+    output_shape = tuple(int(v) for v in _capture_array(bank, pair_id, condition, "probe_onset_output_shape").tolist())
+    readout_step = int(_capture_array(bank, pair_id, condition, "readout_step").reshape(-1)[0])
+    snapshot = Layer3ReplaySnapshot(
+        v_mem=torch.as_tensor(_capture_array(bank, pair_id, condition, "probe_onset_v_mem")),
+        g_e=torch.as_tensor(_capture_array(bank, pair_id, condition, "probe_onset_g_e")),
+        res=torch.as_tensor(_capture_array(bank, pair_id, condition, "probe_onset_res")),
+        inh_trace=torch.as_tensor(_capture_array(bank, pair_id, condition, "probe_onset_inh_trace")),
+        u_pre=_optional_capture_tensor(bank, pair_id, condition, "probe_onset_u_pre"),
+        x_pre=_optional_capture_tensor(bank, pair_id, condition, "probe_onset_x_pre"),
+        input_trace=_optional_capture_tensor(bank, pair_id, condition, "probe_onset_input_trace"),
+        eligibility_trace=_optional_capture_tensor(bank, pair_id, condition, "probe_onset_eligibility_trace"),
+        firing_times=_optional_capture_tensor(bank, pair_id, condition, "probe_onset_firing_times"),
+        input_shape=input_shape,
+        output_shape=output_shape,
+        readout_step=readout_step,
+    )
+    return L3TraceCaptureResult(
+        grouped_voltage=np.asarray(_capture_array(bank, pair_id, condition, "grouped_voltage"), dtype=np.float64),
+        readout_snapshot=torch.as_tensor(_capture_array(bank, pair_id, condition, "readout_snapshot")),
+        probe_s2p_trace=torch.as_tensor(_capture_array(bank, pair_id, condition, "probe_s2p_trace")),
+        probe_onset_snapshot=snapshot,
+        first_fire_t_probe=np.asarray(_capture_array(bank, pair_id, condition, "first_fire_t_probe"), dtype=np.int64),
+        prediction_probe=np.asarray(_capture_array(bank, pair_id, condition, "prediction_probe"), dtype=np.int64),
+        readout_step=readout_step,
+    )
+
+
+def compute_l3_accumulator_region_replay_metrics_from_bank(
+    ctx: ExperimentContext,
+    overlap_bank: OverlapPerturbationCompatibleBank,
+) -> L3AccumulatorReplayBank:
+    cfg = ctx.cfg
+    readout_step = _resolve_fig4_readout_step(ctx)
+    work_pairs = overlap_bank.pair_trials.copy()
+    if cfg.smoke:
+        work_pairs = work_pairs.head(min(4, len(work_pairs))).copy()
+    pair_rows: list[dict[str, Any]] = []
+    case_rows: list[dict[str, Any]] = []
+    pair_ids: list[int] = []
+    delta_v_rows: list[np.ndarray] = []
+    delta_hat_plus_rows: list[np.ndarray] = []
+    delta_hat_minus_rows: list[np.ndarray] = []
+    v_dynamic_rows: list[np.ndarray] = []
+    v_static_rows: list[np.ndarray] = []
+    pred_dynamic_rows: list[int] = []
+    pred_static_rows: list[int] = []
+    region_effect_payload: dict[str, list[np.ndarray]] = {
+        "pair_id": [],
+        "region_id": [],
+        "D_dyn": [],
+        "D_sta": [],
+        "E_dyn": [],
+        "E_sta": [],
+        "R_plus": [],
+        "R_minus": [],
+        "R_plus_tilde": [],
+        "R_minus_tilde": [],
+    }
+    regions = None
+    for case_idx, row in enumerate(
+        _progress(work_pairs.itertuples(index=False), total=len(work_pairs), desc="fig4 L3 accumulator replay from bank", enabled=cfg.show_progress)
+    ):
+        pair_id = int(row.pair_id)
+        dynamic_capture = _capture_result_from_bank(overlap_bank, pair_id, "full_dynamic")
+        static_capture = _capture_result_from_bank(overlap_bank, pair_id, "full_static")
+        if int(dynamic_capture.readout_step) != int(readout_step) or int(static_capture.readout_step) != int(readout_step):
+            raise RuntimeError(
+                f"Fig.4 L3 replay capture readout_step mismatch for pair={pair_id}: "
+                f"expected={readout_step}, dynamic={dynamic_capture.readout_step}, static={static_capture.readout_step}"
+            )
+        if regions is None:
+            regions = make_l3_region_masks(
+                int(dynamic_capture.probe_s2p_trace.shape[-2]),
+                int(dynamic_capture.probe_s2p_trace.shape[-1]),
+                mask_mode=str(cfg.l3_mask_mode),
+            )
+        num_classes = int(getattr(ctx.net.layer3, "num_classes", NUM_CLASSES))
+        if bool(cfg.run_l3_region_deletion):
+            deletion = run_l3_deletion_analysis_for_pair(
+                ctx.net,
+                dynamic_capture=dynamic_capture,
+                static_capture=static_capture,
+                regions=regions,
+                batch_size=int(cfg.l3_region_batch_size),
+            )
+        else:
+            nan_matrix = np.full((len(regions), num_classes), np.nan, dtype=np.float64)
+            deletion = {"D_dyn": nan_matrix.copy(), "D_sta": nan_matrix.copy(), "E_dyn": nan_matrix.copy(), "E_sta": nan_matrix.copy()}
+        if bool(cfg.run_l3_region_replacement):
+            replacement = run_l3_replacement_analysis_for_pair(
+                ctx.net,
+                dynamic_capture=dynamic_capture,
+                static_capture=static_capture,
+                regions=regions,
+                batch_size=int(cfg.l3_region_batch_size),
+            )
+        else:
+            nan_matrix = np.full((len(regions), num_classes), np.nan, dtype=np.float64)
+            replacement = {
+                "R_plus": nan_matrix.copy(),
+                "R_minus": nan_matrix.copy(),
+                "R_plus_tilde": nan_matrix.copy(),
+                "R_minus_tilde": nan_matrix.copy(),
+            }
+        v_dyn = np.asarray(dynamic_capture.grouped_voltage[0], dtype=np.float64)
+        v_sta = np.asarray(static_capture.grouped_voltage[0], dtype=np.float64)
+        delta_v = _legacy_center_vector(v_dyn) - _legacy_center_vector(v_sta)
+        bias_direction = int(np.argmax(np.abs(delta_v))) if delta_v.size else -1
+        bias_magnitude = float(delta_v[bias_direction]) if bias_direction >= 0 else float("nan")
+        delta_hat_plus = np.nansum(np.asarray(replacement["R_plus_tilde"], dtype=np.float64), axis=0)
+        delta_hat_minus = np.nansum(np.asarray(replacement["R_minus_tilde"], dtype=np.float64), axis=0)
+        sim_plus = _legacy_vector_similarity(delta_hat_plus, delta_v)
+        sim_minus = _legacy_vector_similarity(delta_hat_minus, delta_v)
+        e_dyn_k = np.asarray(deletion["E_dyn"][:, bias_direction], dtype=np.float64) if bias_direction >= 0 else np.asarray([])
+        e_sta_k = np.asarray(deletion["E_sta"][:, bias_direction], dtype=np.float64) if bias_direction >= 0 else np.asarray([])
+        r_plus_k = np.asarray(replacement["R_plus_tilde"][:, bias_direction], dtype=np.float64) if bias_direction >= 0 else np.asarray([])
+        r_minus_k = np.asarray(replacement["R_minus_tilde"][:, bias_direction], dtype=np.float64) if bias_direction >= 0 else np.asarray([])
+        pair_rows.append(
+            {
+                "network_seed": int(cfg.network_seed),
+                "pair_id": pair_id,
+                "sample_image_id": int(row.sample_image_id),
+                "probe_image_id": int(row.probe_image_id),
+                "sample_label": int(row.sample_label),
+                "probe_label": int(row.probe_label),
+                "prediction_dynamic": int(dynamic_capture.prediction_probe[0]),
+                "prediction_static": int(static_capture.prediction_probe[0]),
+                "correct_dynamic": int(int(dynamic_capture.prediction_probe[0]) == int(row.probe_label)),
+                "correct_static": int(int(static_capture.prediction_probe[0]) == int(row.probe_label)),
+                "first_fire_dynamic": int(dynamic_capture.first_fire_t_probe[0]),
+                "first_fire_static": int(static_capture.first_fire_t_probe[0]),
+                "bias_direction": int(bias_direction),
+                "bias_magnitude": float(bias_magnitude),
+                "replacement_push_kstar": float(np.nanmean(r_plus_k)) if r_plus_k.size else float("nan"),
+                "replacement_pullback_kstar": float(np.nanmean(r_minus_k)) if r_minus_k.size else float("nan"),
+                "deletion_dynamic_minus_static_kstar": float(np.nanmean(e_dyn_k - e_sta_k)) if e_dyn_k.size and e_sta_k.size else float("nan"),
+                "reconstruction_cosine_plus": float(sim_plus["cosine"]),
+                "reconstruction_cosine_minus": float(sim_minus["cosine"]),
+                "direction_match_plus": int(np.nanargmax(delta_hat_plus) == bias_direction) if np.isfinite(delta_hat_plus).any() and bias_direction >= 0 else 0,
+                "direction_match_minus": int(np.nanargmax(delta_hat_minus) == bias_direction) if np.isfinite(delta_hat_minus).any() and bias_direction >= 0 else 0,
+                "n_regions": int(len(regions)),
+                "l3_mask_mode": str(cfg.l3_mask_mode),
+                "readout_step": int(readout_step),
+            }
+        )
+        if case_idx < int(cfg.save_case_count):
+            case_rows.append(
+                {
+                    "network_seed": int(cfg.network_seed),
+                    "case_id": int(case_idx),
+                    "pair_id": pair_id,
+                    "selection_reason": "first_cases_smoke" if cfg.smoke else "first_cases",
+                    "sample_image_id": int(row.sample_image_id),
+                    "probe_image_id": int(row.probe_image_id),
+                }
+            )
+        pair_ids.append(pair_id)
+        delta_v_rows.append(delta_v)
+        delta_hat_plus_rows.append(delta_hat_plus)
+        delta_hat_minus_rows.append(delta_hat_minus)
+        v_dynamic_rows.append(v_dyn)
+        v_static_rows.append(v_sta)
+        pred_dynamic_rows.append(int(dynamic_capture.prediction_probe[0]))
+        pred_static_rows.append(int(static_capture.prediction_probe[0]))
+        for region_idx, region in enumerate(regions):
+            region_effect_payload["pair_id"].append(np.asarray([pair_id], dtype=np.int64))
+            region_effect_payload["region_id"].append(np.asarray([int(region.region_id)], dtype=np.int64))
+            for name, source in (
+                ("D_dyn", deletion["D_dyn"]),
+                ("D_sta", deletion["D_sta"]),
+                ("E_dyn", deletion["E_dyn"]),
+                ("E_sta", deletion["E_sta"]),
+                ("R_plus", replacement["R_plus"]),
+                ("R_minus", replacement["R_minus"]),
+                ("R_plus_tilde", replacement["R_plus_tilde"]),
+                ("R_minus_tilde", replacement["R_minus_tilde"]),
+            ):
+                region_effect_payload[name].append(np.asarray(source[region_idx], dtype=np.float64))
+    results = pd.DataFrame(pair_rows)
+    summary_dict = summarize_l3_mechanism_results(results) if not results.empty else {}
+    summary_rows = _l3_summary_rows(results, summary_dict, int(cfg.network_seed))
+    pair_payload = {
+        "pair_id": np.asarray(pair_ids, dtype=np.int64),
+        "delta_v": np.stack(delta_v_rows, axis=0) if delta_v_rows else np.zeros((0, NUM_CLASSES), dtype=np.float64),
+        "Delta_hat_plus": np.stack(delta_hat_plus_rows, axis=0) if delta_hat_plus_rows else np.zeros((0, NUM_CLASSES), dtype=np.float64),
+        "Delta_hat_minus": np.stack(delta_hat_minus_rows, axis=0) if delta_hat_minus_rows else np.zeros((0, NUM_CLASSES), dtype=np.float64),
+        "v_dynamic": np.stack(v_dynamic_rows, axis=0) if v_dynamic_rows else np.zeros((0, NUM_CLASSES), dtype=np.float64),
+        "v_static": np.stack(v_static_rows, axis=0) if v_static_rows else np.zeros((0, NUM_CLASSES), dtype=np.float64),
+        "prediction_dynamic": np.asarray(pred_dynamic_rows, dtype=np.int64),
+        "prediction_static": np.asarray(pred_static_rows, dtype=np.int64),
+    }
+    region_payload = {
+        name: (np.concatenate(values, axis=0) if name in {"pair_id", "region_id"} and values else np.stack(values, axis=0) if values else np.zeros((0, NUM_CLASSES), dtype=np.float64))
+        for name, values in region_effect_payload.items()
+    }
+    _save_csv(ctx, results, ctx.metrics_dir / "panel_f_l3_accumulator_region_replay_metrics.csv")
+    _save_csv(ctx, pd.DataFrame(summary_rows), ctx.metrics_dir / "panel_f_l3_accumulator_summary.csv")
+    _save_csv(ctx, pd.DataFrame(case_rows), ctx.raw_dir / "panel_f_l3_accumulator_case_metadata.csv")
+    np.savez_compressed(ctx.raw_dir / "panel_f_l3_accumulator_pair_vectors.npz", **pair_payload)
+    np.savez_compressed(ctx.raw_dir / "panel_f_l3_accumulator_region_effects.npz", **region_payload)
+    ctx.output_files["panel_f_l3_accumulator_pair_vectors"] = "data/raw/panel_f_l3_accumulator_pair_vectors.npz"
+    ctx.output_files["panel_f_l3_accumulator_region_effects"] = "data/raw/panel_f_l3_accumulator_region_effects.npz"
+    ctx.completed_modules["decision_deflection"] = True
+    return L3AccumulatorReplayBank(overlap_bank.pair_trials, results, pd.DataFrame(summary_rows), pair_payload, region_payload)

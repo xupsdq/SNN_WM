@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.experiments.distractor.shared.l3_replay import Layer3ReplaySnapshot
 from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
 
 # Keep module-level names identical while Fig.4 is split into smaller files.
@@ -81,6 +82,121 @@ def _condition_input_masks(
     if not np.any(stacked):
         return None
     return torch.as_tensor(stacked, dtype=torch.bool)
+
+
+L3_REPLAY_CAPTURE_CONDITIONS = ("full_dynamic", "full_static")
+L3_REPLAY_SNAPSHOT_FIELDS = (
+    "v_mem",
+    "g_e",
+    "res",
+    "inh_trace",
+    "u_pre",
+    "x_pre",
+    "input_trace",
+    "eligibility_trace",
+    "firing_times",
+)
+
+
+def _slice_tensor_batch(value: torch.Tensor | None, sl: slice) -> torch.Tensor | None:
+    if value is None:
+        return None
+    return value[sl].detach().cpu().clone()
+
+
+def _slice_l3_replay_snapshot(snapshot: Layer3ReplaySnapshot, sl: slice) -> Layer3ReplaySnapshot:
+    batch_size = int((sl.stop or 0) - (sl.start or 0))
+    input_shape = tuple(int(v) for v in snapshot.input_shape)
+    output_shape = tuple(int(v) for v in snapshot.output_shape)
+    if input_shape:
+        input_shape = (batch_size, *input_shape[1:])
+    if output_shape:
+        output_shape = (batch_size, *output_shape[1:])
+    return Layer3ReplaySnapshot(
+        v_mem=_slice_tensor_batch(snapshot.v_mem, sl),
+        g_e=_slice_tensor_batch(snapshot.g_e, sl),
+        res=_slice_tensor_batch(snapshot.res, sl),
+        inh_trace=_slice_tensor_batch(snapshot.inh_trace, sl),
+        u_pre=_slice_tensor_batch(snapshot.u_pre, sl),
+        x_pre=_slice_tensor_batch(snapshot.x_pre, sl),
+        input_trace=_slice_tensor_batch(snapshot.input_trace, sl),
+        eligibility_trace=_slice_tensor_batch(snapshot.eligibility_trace, sl),
+        firing_times=_slice_tensor_batch(snapshot.firing_times, sl),
+        input_shape=input_shape,
+        output_shape=output_shape,
+        readout_step=int(snapshot.readout_step),
+    )
+
+
+def _capture_array(value: torch.Tensor | np.ndarray | int) -> np.ndarray:
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().numpy()
+    return np.asarray(value)
+
+
+def _add_l3_replay_capture(
+    *,
+    payload: dict[str, np.ndarray],
+    rows: list[dict[str, Any]],
+    network_seed: int,
+    pair_id: int,
+    condition: str,
+    field: str,
+    value: torch.Tensor | np.ndarray | int | None,
+) -> None:
+    key = f"pair_{int(pair_id)}_{condition}_{field}"
+    arr = np.asarray([] if value is None else _capture_array(value))
+    payload[key] = arr
+    rows.append(
+        {
+            "network_seed": int(network_seed),
+            "pair_id": int(pair_id),
+            "condition": str(condition),
+            "field": str(field),
+            "storage_file": "l3_replay_capture_arrays.npz",
+            "storage_key": key,
+            "shape": "x".join(str(int(v)) for v in arr.shape),
+            "dtype": str(arr.dtype),
+        }
+    )
+
+
+def _add_pair_l3_replay_capture(
+    *,
+    payload: dict[str, np.ndarray],
+    rows: list[dict[str, Any]],
+    cfg: Fig4Config,
+    pair_id: int,
+    condition: str,
+    condition_output: Mapping[str, Any],
+    local_idx: int,
+) -> None:
+    snapshot: Layer3ReplaySnapshot = condition_output["probe_onset_snapshot"]
+    fields: dict[str, torch.Tensor | np.ndarray | int | None] = {
+        "probe_s2p_trace": condition_output["probe_s2p_trace"][local_idx : local_idx + 1],
+        "grouped_voltage": np.asarray(condition_output.get("l3_grouped_voltage", condition_output["grouped_voltage"])[local_idx : local_idx + 1], dtype=np.float64),
+        "readout_snapshot": condition_output["readout_snapshot"][local_idx : local_idx + 1],
+        "prediction_probe": np.asarray([int(condition_output["prediction_probe"][local_idx])], dtype=np.int64),
+        "first_fire_t_probe": np.asarray([int(condition_output["first_fire_t_probe"][local_idx])], dtype=np.int64),
+        "readout_step": np.asarray([int(condition_output["readout_step"])], dtype=np.int64),
+        "probe_onset_input_shape": np.asarray((1, *tuple(int(v) for v in snapshot.input_shape[1:])), dtype=np.int64),
+        "probe_onset_output_shape": np.asarray((1, *tuple(int(v) for v in snapshot.output_shape[1:])), dtype=np.int64),
+    }
+    for snapshot_field in L3_REPLAY_SNAPSHOT_FIELDS:
+        value = getattr(snapshot, snapshot_field)
+        if isinstance(value, torch.Tensor):
+            value = value[local_idx : local_idx + 1]
+        fields[f"probe_onset_{snapshot_field}"] = value
+    for field, value in fields.items():
+        _add_l3_replay_capture(
+            payload=payload,
+            rows=rows,
+            network_seed=int(cfg.network_seed),
+            pair_id=int(pair_id),
+            condition=str(condition),
+            field=str(field),
+            value=value,
+        )
 
 def run_overlap_reentry_rollouts(
     ctx: ExperimentContext,
@@ -340,8 +456,10 @@ def run_overlap_perturbation_compatible_rollouts(
     traces_l2: dict[str, np.ndarray] = {}
     traces_l3: dict[str, np.ndarray] = {}
     vectors: dict[str, np.ndarray] = {}
+    l3_replay_capture_payload: dict[str, np.ndarray] = {}
     metric_rows: list[dict[str, Any]] = []
     manifest_rows: list[dict[str, Any]] = []
+    l3_replay_capture_rows: list[dict[str, Any]] = []
     images_cache = _image_cache(ctx, pair_trials)
     for batch_start in _progress(
         range(0, len(pair_trials), int(cfg.batch_size)),
@@ -376,7 +494,11 @@ def run_overlap_perturbation_compatible_rollouts(
                     "probe_l1_trace": out.probe_l1_trace[:, sl],
                     "probe_l2_trace": out.probe_l2_trace[:, sl],
                     "probe_l3_trace": out.probe_l3_trace[:, sl],
+                    "probe_s2p_trace": out.probe_s2p_trace[sl],
                     "grouped_voltage": np.asarray(out.grouped_voltage[sl], dtype=np.float32),
+                    "l3_grouped_voltage": np.asarray(out.grouped_voltage[sl], dtype=np.float64),
+                    "readout_snapshot": out.readout_snapshot[sl],
+                    "probe_onset_snapshot": _slice_l3_replay_snapshot(out.probe_onset_snapshot, sl),
                     "prediction_probe": np.asarray(out.prediction_probe[sl], dtype=np.int64),
                     "first_fire_t_probe": np.asarray(out.first_fire_t_probe[sl], dtype=np.int64),
                     "readout_step": int(out.readout_step),
@@ -392,6 +514,16 @@ def run_overlap_perturbation_compatible_rollouts(
                 vectors[f"{key_prefix}_grouped_voltage"] = np.asarray(out["grouped_voltage"][local_idx], dtype=np.float32)
                 vectors[f"{key_prefix}_class_evidence"] = np.asarray(out["grouped_voltage"][local_idx], dtype=np.float32)
                 vectors[f"{key_prefix}_prediction"] = np.asarray([int(out["prediction_probe"][local_idx])], dtype=np.int64)
+                if condition in L3_REPLAY_CAPTURE_CONDITIONS:
+                    _add_pair_l3_replay_capture(
+                        payload=l3_replay_capture_payload,
+                        rows=l3_replay_capture_rows,
+                        cfg=cfg,
+                        pair_id=pair_id,
+                        condition=str(condition),
+                        condition_output=out,
+                        local_idx=local_idx,
+                    )
                 mask_name = SAMPLE_SIDE_MASKS[condition]
                 metric_rows.append(
                     {
@@ -436,18 +568,30 @@ def run_overlap_perturbation_compatible_rollouts(
                 )
     condition_metrics = pd.DataFrame(metric_rows)
     rollout_manifest = pd.DataFrame(manifest_rows)
+    l3_replay_capture_manifest = pd.DataFrame(l3_replay_capture_rows)
     all_traces = {**traces_l3}
     _save_csv(ctx, rollout_manifest, ctx.raw_dir / "overlap_perturbation_rollout_manifest.csv")
     _save_csv(ctx, rollout_manifest, ctx.raw_dir / "rollout_manifest.csv")
+    _save_csv(ctx, l3_replay_capture_manifest, ctx.raw_dir / "l3_replay_capture_manifest.csv")
     _save_csv(ctx, perturbation_masks, ctx.metrics_dir / "supp_overlap_mask_application_audit.csv")
     np.savez_compressed(ctx.raw_dir / "probe_trace_arrays_l1.npz", **traces_l1)
     np.savez_compressed(ctx.raw_dir / "probe_trace_arrays_l2.npz", **traces_l2)
     np.savez_compressed(ctx.raw_dir / "probe_trace_arrays_l3.npz", **traces_l3)
     np.savez_compressed(ctx.raw_dir / "readout_trajectory_vectors.npz", **vectors)
+    np.savez_compressed(ctx.raw_dir / "l3_replay_capture_arrays.npz", **l3_replay_capture_payload)
     ctx.output_files["overlap_perturbation_rollout_manifest"] = "data/raw/overlap_perturbation_rollout_manifest.csv"
     ctx.output_files["probe_trace_arrays_l1"] = "data/raw/probe_trace_arrays_l1.npz"
     ctx.output_files["probe_trace_arrays_l2"] = "data/raw/probe_trace_arrays_l2.npz"
     ctx.output_files["probe_trace_arrays_l3"] = "data/raw/probe_trace_arrays_l3.npz"
     ctx.output_files["readout_trajectory_vectors"] = "data/raw/readout_trajectory_vectors.npz"
     ctx.completed_modules["rollouts"] = True
-    return OverlapPerturbationCompatibleBank(pair_trials, perturbation_masks, rollout_manifest, condition_metrics, all_traces, vectors)
+    return OverlapPerturbationCompatibleBank(
+        pair_trials,
+        perturbation_masks,
+        rollout_manifest,
+        condition_metrics,
+        all_traces,
+        vectors,
+        l3_replay_capture_manifest,
+        l3_replay_capture_payload,
+    )

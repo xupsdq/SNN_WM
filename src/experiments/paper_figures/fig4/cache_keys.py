@@ -174,6 +174,8 @@ def build_rollouts_cache_key(cfg: Any, *, pair_hash: str) -> dict[str, Any]:
             "sample_keep_nonoverlap_only_dynamic",
             "sample_random_matched_dynamic",
         ],
+        "l3_replay_capture_version": 1,
+        "l3_replay_capture_conditions": ["full_dynamic", "full_static"],
         "save_l3_trace": bool(getattr(cfg, "save_l3_trace")),
         "save_full_trace": bool(getattr(cfg, "save_full_trace")),
         "legacy_exact_mode": bool(getattr(cfg, "legacy_exact_mode")),
