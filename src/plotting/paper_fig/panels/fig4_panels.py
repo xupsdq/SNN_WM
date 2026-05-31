@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
 from src.plotting.common.colors import get_plot_color
@@ -14,27 +15,7 @@ from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 def render_fig4_reentry_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, spec, style
     ax.set_axis_off()
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    y = 0.54
-    boxes = [
-        (0.05, "Sample", "writes prior STSP"),
-        (0.34, "Delay", "history persists"),
-        (0.63, "Probe", "re-enters overlap"),
-    ]
-    colors = [get_plot_color("dynamic"), "#f8fafc", get_plot_color("true_pair")]
-    for idx, (x, title, subtitle) in enumerate(boxes):
-        ax.add_patch(Rectangle((x, y - 0.17), 0.20, 0.34, facecolor=colors[idx], edgecolor=COLOR_NEUTRAL, linewidth=0.7, alpha=0.16 if idx != 1 else 1.0))
-        ax.text(x + 0.10, y + 0.05, title, ha="center", va="center", fontsize=7.2, fontweight="bold", color=COLOR_NEUTRAL)
-        ax.text(x + 0.10, y - 0.07, subtitle, ha="center", va="center", fontsize=5.6, color=COLOR_NEUTRAL)
-    for x0, x1 in ((0.25, 0.34), (0.54, 0.63)):
-        ax.add_patch(FancyArrowPatch((x0, y), (x1, y), arrowstyle="-|>", mutation_scale=9, linewidth=0.9, color=COLOR_NEUTRAL))
-    ax.add_patch(FancyArrowPatch((0.15, 0.25), (0.73, 0.25), connectionstyle="arc3,rad=-0.12", arrowstyle="-|>", mutation_scale=9, linewidth=1.0, color=get_plot_color("true_pair")))
-    ax.text(0.44, 0.13, "overlap-aligned sample support deflects later probe processing", ha="center", va="center", fontsize=6.2, color=COLOR_NEUTRAL)
-    ax.add_patch(Rectangle((0.82, y - 0.13), 0.07, 0.26, facecolor=get_plot_color("true_pair"), edgecolor="none", alpha=0.22))
-    ax.add_patch(Rectangle((0.88, y - 0.13), 0.07, 0.26, facecolor=get_plot_color("shuffled_pair"), edgecolor="none", alpha=0.22))
-    ax.text(0.885, y + 0.18, "overlap", ha="center", va="bottom", fontsize=5.2, color=COLOR_NEUTRAL)
-    ax.paper_fig_plot_form = "fig4_reentry_schematic"
+    ax.paper_fig_plot_form = "blank_reserved_slot"
 
 
 def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -52,8 +33,8 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     if _run_mode(stats) == "single_network_draft":
         ax.scatter(np.arange(len(df)), np.interp(df["similarity_bin_order"], summary["similarity_bin_order"], y), s=4, color=COLOR_NEUTRAL, alpha=0.18)
     ax.set_xticks(x, [""] * len(x))
-    ax.annotate("", xy=(0.86, -0.16), xytext=(0.14, -0.16), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.7, "color": COLOR_NEUTRAL}, annotation_clip=False)
-    ax.text(0.50, -0.25, "increasing similarity", transform=ax.transAxes, ha="center", va="top", fontsize=5.2, color=COLOR_NEUTRAL)
+    ax.annotate("", xy=(0.86, -0.075), xytext=(0.14, -0.075), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
+    ax.text(0.50, -0.135, "Similarity increases", transform=ax.transAxes, ha="center", va="top", fontsize=5.9, color=COLOR_NEUTRAL, clip_on=False)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
     _tidy(ax)
@@ -61,6 +42,7 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     ax.paper_fig_plot_form = "fig4_similarity_entry"
     ax.paper_fig_similarity_direction_arrow = True
     ax.paper_fig_literal_bin_xticklabels = False
+    ax.paper_fig_similarity_bar_order_preserved = True
 
 
 def render_fig4_overlap_localization(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -156,7 +138,7 @@ def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None,
     ax.set_xlim(0.0, max_time_ms)
     ax.set_xlabel(str(spec.get("x_axis", "Probe time (ms)")))
     ax.set_ylabel(str(spec.get("y_axis", "DPI")))
-    legend = ax.legend(frameon=False, fontsize=5.0, loc="best", handlelength=1.1)
+    legend = ax.legend(frameon=False, fontsize=5.8, loc="best", handlelength=1.1)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_overlaps_data = False
     _tidy(ax)
@@ -227,8 +209,8 @@ def render_fig4_l3_accumulator_process(ax, panel_data: pd.DataFrame | None, stat
     ax.plot([-1.1, 1.1], [-1.1, 1.1], color=guide_color, linewidth=0.8, zorder=1)
     ax.axhline(0.0, color=guide_color, linewidth=0.6, linestyle=":", zorder=1)
     ax.axvline(0.0, color=guide_color, linewidth=0.6, linestyle=":", zorder=1)
-    _draw_process_group(ax, df[df["group"].astype(str).eq("plus")], color=plus_color, marker="o")
-    _draw_process_group(ax, df[df["group"].astype(str).eq("minus")], color=minus_color, marker="^")
+    _draw_process_group(ax, df[df["group"].astype(str).eq("plus")], color=plus_color, marker="o", max_individual=120)
+    _draw_process_group(ax, df[df["group"].astype(str).eq("minus")], color=minus_color, marker="^", max_individual=120)
     ax.set_xlim(-1.15, 1.15)
     ax.set_ylim(-1.15, 1.15)
     ax.set_aspect("equal", adjustable="box")
@@ -236,13 +218,18 @@ def render_fig4_l3_accumulator_process(ax, panel_data: pd.DataFrame | None, stat
     ax.set_yticks([])
     ax.set_xlabel("")
     ax.set_ylabel("")
-    ax.annotate("", xy=(0.82, 0.04), xytext=(0.18, 0.04), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.65, "color": COLOR_NEUTRAL})
-    ax.text(0.5, 0.075, "more dynamic-like firing pattern", transform=ax.transAxes, ha="center", va="bottom", fontsize=4.9, color=COLOR_NEUTRAL)
-    ax.annotate("", xy=(0.04, 0.82), xytext=(0.04, 0.18), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.65, "color": COLOR_NEUTRAL})
-    ax.text(0.075, 0.5, "more dynamic-like decision", transform=ax.transAxes, ha="left", va="center", rotation=90, fontsize=4.9, color=COLOR_NEUTRAL)
-    ax.text(0.04, 0.95, "plus: static -> dynamic", transform=ax.transAxes, ha="left", va="top", fontsize=5.2, color=plus_color)
-    ax.text(0.04, 0.86, "minus: dynamic -> static", transform=ax.transAxes, ha="left", va="top", fontsize=5.2, color=minus_color)
-    ax.text(0.96, 0.08, "open before\nfilled after", transform=ax.transAxes, ha="right", va="bottom", fontsize=5.0, color=COLOR_NEUTRAL)
+    ax.annotate("", xy=(0.82, -0.045), xytext=(0.18, -0.045), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
+    ax.text(0.5, -0.098, "Dynamic-like firing", transform=ax.transAxes, ha="center", va="top", fontsize=5.8, color=COLOR_NEUTRAL, clip_on=False)
+    ax.annotate("", xy=(-0.055, 0.82), xytext=(-0.055, 0.18), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
+    ax.text(-0.108, 0.5, "Dynamic-like decision", transform=ax.transAxes, ha="right", va="center", rotation=90, fontsize=5.8, color=COLOR_NEUTRAL, clip_on=False)
+    handles = [
+        Line2D([0], [0], color=plus_color, marker="o", markersize=5.0, linewidth=1.6, markerfacecolor=plus_color, markeredgecolor="white", label="Static to dynamic"),
+        Line2D([0], [0], color=minus_color, marker="^", markersize=5.0, linewidth=1.6, markerfacecolor=minus_color, markeredgecolor="white", label="Dynamic to static"),
+    ]
+    legend = ax.legend(handles=handles, frameon=False, fontsize=5.8, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2, handlelength=1.2, columnspacing=0.8, borderaxespad=0.0)
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = 2
     _tidy(ax)
     ax.grid(False)
     ax.paper_fig_plot_form = "l3_accumulator_process"
@@ -287,17 +274,19 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     ax.paper_fig_jitter_points = False
 
 
-def _draw_process_group(ax, part: pd.DataFrame, *, color: str, marker: str) -> None:
+def _draw_process_group(ax, part: pd.DataFrame, *, color: str, marker: str, max_individual: int | None = None) -> None:
     if part.empty:
         return
+    if max_individual is not None and len(part) > max_individual:
+        part = part.sort_values(["x0", "y0", "x1", "y1"], kind="stable").iloc[np.linspace(0, len(part) - 1, max_individual, dtype=int)]
     x0 = part["x0"].to_numpy(dtype=float)
     y0 = part["y0"].to_numpy(dtype=float)
     x1 = part["x1"].to_numpy(dtype=float)
     y1 = part["y1"].to_numpy(dtype=float)
     for sx, sy, ex, ey in zip(x0, y0, x1, y1):
-        ax.plot([sx, ex], [sy, ey], color=color, alpha=0.10, linewidth=0.45, zorder=2)
-    ax.scatter(x0, y0, s=10, marker=marker, facecolors="white", edgecolors=color, linewidths=0.5, alpha=0.35, zorder=3)
-    ax.scatter(x1, y1, s=12, marker=marker, facecolors=color, edgecolors="white", linewidths=0.35, alpha=0.36, zorder=4)
+        ax.plot([sx, ex], [sy, ey], color=color, alpha=0.035, linewidth=0.28, zorder=2)
+    ax.scatter(x0, y0, s=5.5, marker=marker, facecolors="white", edgecolors=color, linewidths=0.3, alpha=0.16, zorder=3)
+    ax.scatter(x1, y1, s=6.0, marker=marker, facecolors=color, edgecolors="white", linewidths=0.25, alpha=0.16, zorder=4)
     mean_start = (float(np.nanmean(x0)), float(np.nanmean(y0)))
     mean_end = (float(np.nanmean(x1)), float(np.nanmean(y1)))
     ax.add_patch(FancyArrowPatch(mean_start, mean_end, arrowstyle="-|>", color=color, linewidth=2.0, mutation_scale=14, alpha=0.95, shrinkA=2, shrinkB=2, zorder=6))
@@ -364,8 +353,8 @@ def _tidy(ax) -> None:
 
 
 def _compact(ax) -> None:
-    ax.tick_params(axis="both", labelsize=5.2, pad=0.8, length=1.8, width=0.55, color=COLOR_NEUTRAL)
-    ax.xaxis.label.set_size(5.7)
-    ax.yaxis.label.set_size(5.7)
-    ax.xaxis.labelpad = 0.5
-    ax.yaxis.labelpad = 0.7
+    ax.tick_params(axis="both", labelsize=6.0, pad=1.0, length=1.9, width=0.58, color=COLOR_NEUTRAL)
+    ax.xaxis.label.set_size(6.4)
+    ax.yaxis.label.set_size(6.4)
+    ax.xaxis.labelpad = 0.8
+    ax.yaxis.labelpad = 0.5

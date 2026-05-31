@@ -7,7 +7,7 @@ canvas_mm:
   height: 134
 gutters_mm:
   horizontal: 6
-  vertical: 6
+  vertical: 16
 reading_order: [S2A, S2B, S2C, S2D]
 run_modes:
   single_network_draft:
@@ -40,9 +40,9 @@ panels:
     data_adapter: s2_phase_firing_adapter
     renderer: render_phase_firing_rates
     source: data/metrics/supp_phase_firing_rates.csv
-    position_mm: {x: 12, y: 20, w: 70.5, h: 28}
+    position_mm: {x: 12, y: 20, w: 70.5, h: 42}
     panel_label_mm: {x: 8.5, y: 16}
-    size_mm: {w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 42}
     x_axis: Phase
     y_axis: Spike rate (Hz)
     conditions: [layer1, layer2, layer3]
@@ -56,9 +56,9 @@ panels:
     source_priority:
       - data/metrics/supp_delay_decode_curve.csv
       - data/metrics/panel_c_delay_decode_metrics.csv
-    position_mm: {x: 88.5, y: 20, w: 70.5, h: 28}
+    position_mm: {x: 88.5, y: 20, w: 70.5, h: 42}
     panel_label_mm: {x: 85, y: 16}
-    size_mm: {w: 70.5, h: 28}
+    size_mm: {w: 70.5, h: 42}
     x_axis: Delay (ms)
     y_axis: Decoding accuracy (%)
     reference_lines:
@@ -80,9 +80,9 @@ panels:
     source_priority:
       - data/metrics/supp_dms_delay_sweep_contrast.csv
       - data/metrics/supp_dms_delay_sweep_metrics.csv
-    position_mm: {x: 12, y: 62, w: 70.5, h: 28}
-    panel_label_mm: {x: 8.5, y: 58}
-    size_mm: {w: 70.5, h: 28}
+    position_mm: {x: 12, y: 78, w: 70.5, h: 42}
+    panel_label_mm: {x: 8.5, y: 74}
+    size_mm: {w: 70.5, h: 42}
     x_axis: Delay (ms)
     y_axis: Static - dynamic probe accuracy (%)
     conditions: [static_minus_dynamic]
@@ -99,9 +99,9 @@ panels:
       - data/metrics/compat_metrics_condition_summary.csv
       - data/metrics/compat_metrics_error_bias.csv
       - data/metrics/compat_metrics_collapse_summary.csv
-    position_mm: {x: 12, y: 98, w: 147, h: 30}
-    panel_label_mm: {x: 8.5, y: 94}
-    size_mm: {w: 147, h: 30}
+    position_mm: {x: 88.5, y: 78, w: 70.5, h: 42}
+    panel_label_mm: {x: 85, y: 74}
+    size_mm: {w: 70.5, h: 42}
     x_axis: ""
     y_axis: Donor attribution gain (%)
     conditions:
@@ -112,7 +112,7 @@ panels:
       - static_frozen
     display_labels:
       dynamic_intact: Dynamic
-      spike_state_shuffle: Spike shuffle
-      membrane_state_shuffle: Membrane shuffle
+      spike_state_shuffle: Spike
+      membrane_state_shuffle: Vm
       ux_trial_shuffle: u/x shuffle
-      static_frozen: Static frozen
+      static_frozen: Static

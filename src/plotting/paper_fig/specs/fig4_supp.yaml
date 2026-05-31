@@ -1,6 +1,6 @@
 figure_id: fig4_supp
 figure_title_draft: "Supplementary Fig. S5: Controls for overlap-aligned re-entry and downstream decision dynamics"
-experiment_root: results/paper_figure_multi_seed/fig4_overlap_reentry/fig4_overlap_reentry
+experiment_root: results/paper_figure_full_encoded_seed1000_amp010/fig4_overlap_reentry
 canvas_mm:
   width: 165
   height: 128

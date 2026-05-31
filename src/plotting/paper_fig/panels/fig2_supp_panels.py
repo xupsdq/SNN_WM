@@ -10,8 +10,9 @@ from src.plotting.paper_fig.panels.fig2_panels import (
     STATE_LABELS,
     STATE_ORDER,
     _autoscale_y,
-    _bar_scatter,
+    _bar_summary,
     _clean,
+    _fill_sem_band,
     _placeholder,
     _style,
     _tidy,
@@ -49,11 +50,12 @@ def render_s3_linear_model_comparison(ax, panel_data: pd.DataFrame | None, stats
         _placeholder(ax, spec, "Linear model labels unavailable")
         return
     colors = ["#C7C7C7", "#C7C7C7", "#9ECAE1", "#9ECAE1", "#54A24B", "#72B7B2"][: len(order)]
-    _bar_scatter(ax, df.assign(condition=df["condition"].astype(str)), "condition", order, colors=colors, st=st, alpha=0.82)
+    _bar_summary(ax, df.assign(condition=df["condition"].astype(str)), "condition", order, colors=colors, st=st, alpha=0.82)
     ax.set_xticks(np.arange(len(order)), [MODEL_LABELS.get(m, m) for m in order], rotation=25, ha="right")
     ax.set_ylabel(str(spec.get("y_axis", "Fit R2")))
     ax.set_xlabel("")
     ax.paper_fig_model_labels_readable = True
+    ax.paper_fig_raw_points = False
     _autoscale_y(ax, df["value"], include_zero=True)
     _tidy(ax, st)
 
@@ -92,7 +94,7 @@ def render_s4_completion_delay_gain(ax, panel_data: pd.DataFrame | None, stats: 
         label = "S_AB - single" if condition == "S_AB_minus_relevant_single" else condition.replace("_", " ")
         ax.plot(x, y, marker="o", markersize=2.7, linewidth=0.9, color=color, label=label)
         if part["seed_id"].replace("", pd.NA).dropna().nunique() > 1:
-            ax.errorbar(x, y, yerr=sem, fmt="none", ecolor=color, elinewidth=0.45, capsize=1.4, alpha=0.45)
+            _fill_sem_band(ax, x, y, sem, color)
     ax.set_xlabel(str(spec.get("x_axis", "Post-pair delay (ms)")))
     ax.set_ylabel(str(spec.get("y_axis", "Completion gain (%)")))
     if len(conditions) > 1:
@@ -117,11 +119,12 @@ def _layerwise_bar(ax, panel_data: pd.DataFrame | None, spec: Mapping[str, Any],
     plot_df = df.copy()
     if "layer" in plot_df.columns:
         plot_df["condition"] = plot_df["layer"].astype(str)
-    _bar_scatter(ax, plot_df, "condition", order, colors=["#4C78A8", "#F58518", "#54A24B"], st=st, alpha=0.82)
+    _bar_summary(ax, plot_df, "condition", order, colors=["#4C78A8", "#F58518", "#54A24B"], st=st, alpha=0.82)
     ax.axhline(0, color="0.45", linewidth=0.65, linestyle="--")
     ax.set_xticks(np.arange(len(order)), [LAYER_LABELS.get(layer, layer) for layer in order])
     ax.set_ylabel(str(spec.get("y_axis", "Score")))
     ax.set_xlabel(str(spec.get("x_axis", "Layer")))
+    ax.paper_fig_raw_points = False
     _autoscale_y(ax, plot_df["value"], include_zero=True)
     _tidy(ax, st)
 
@@ -147,7 +150,7 @@ def _line_by_state(ax, panel_data: pd.DataFrame | None, spec: Mapping[str, Any],
         color = STATE_COLORS.get(condition, "0.3")
         ax.plot(x, y, marker="o", markersize=2.6, linewidth=0.88, color=color, label=STATE_LABELS.get(condition, condition).replace("\n", " "))
         if part["seed_id"].replace("", pd.NA).dropna().nunique() > 1:
-            ax.errorbar(x, y, yerr=sem, fmt="none", ecolor=color, elinewidth=0.45, capsize=1.4, alpha=0.45)
+            _fill_sem_band(ax, x, y, sem, color)
     ax.set_ylim(0, 100)
     ax.set_xlabel(str(spec.get("x_axis", "")))
     ax.set_ylabel(str(spec.get("y_axis", "Pair-member readout (%)")))

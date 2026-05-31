@@ -25,9 +25,6 @@ group_labels:
   - label: Supplementary Fig. S3 - Morphological integration controls
     x_mm: 12
     y_mm: 8
-  - label: Functional robustness and retention-window controls
-    x_mm: 12
-    y_mm: 62
 panels:
   S3A:
     panel_id: S3A
@@ -39,8 +36,8 @@ panels:
     source_priority:
       - data/metrics/supp_layerwise_morphology_metrics.csv
       - data/metrics/panel_d_pair_level_organization_metrics.csv
-    position_mm: {x: 12.00, y: 18.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 12.00, y: 22.00, w: 41.00, h: 34.00}
+    size_mm: {width: 41.00, height: 34.00}
     x_axis: Layer
     y_axis: WPRI
     reference_lines:
@@ -56,8 +53,8 @@ panels:
     source_priority:
       - data/metrics/supp_layerwise_morphology_metrics.csv
       - data/metrics/panel_d_linear_residual_pair_specificity_metrics.csv
-    position_mm: {x: 62.67, y: 18.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 65.00, y: 22.00, w: 41.00, h: 34.00}
+    size_mm: {width: 41.00, height: 34.00}
     x_axis: Layer
     y_axis: Beyond-linear index
     reference_lines:
@@ -74,8 +71,8 @@ panels:
       - data/metrics/supp_linear_mixture_model_comparison.csv
       - data/metrics/panel_d_linear_mixture_fit_metrics.csv
     model_order: [A_only, B_only, mean_AB, sum_AB, unconstrained_AB, convex_AB]
-    position_mm: {x: 113.33, y: 18.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 118.00, y: 22.00, w: 41.00, h: 34.00}
+    size_mm: {width: 41.00, height: 34.00}
     x_axis: Model
     y_axis: "Fit R2"
     reference_lines: []
@@ -89,8 +86,8 @@ panels:
     renderer: render_s4_ping_amplitude_sweep
     source: data/metrics/supp_ping_sweep_metrics.csv
     sweep_parameter: ping_amp
-    position_mm: {x: 12.00, y: 72.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 12.00, y: 72.00, w: 66.50, h: 34.00}
+    size_mm: {width: 66.50, height: 34.00}
     x_axis: Ping amplitude
     y_axis: Pair-member readout (%)
     conditions: [S0, S_A, S_B, S_AB]
@@ -106,8 +103,8 @@ panels:
     source_priority:
       - data/metrics/supp_completion_delay_sweep_contrast.csv
       - data/metrics/supp_completion_delay_sweep_metrics.csv
-    position_mm: {x: 113.33, y: 72.00, w: 45.67, h: 34.00}
-    size_mm: {width: 45.67, height: 34.00}
+    position_mm: {x: 92.50, y: 72.00, w: 66.50, h: 34.00}
+    size_mm: {width: 66.50, height: 34.00}
     x_axis: Post-pair delay (ms)
     y_axis: Completion gain S_AB - relevant single (%)
     expected_delay_ms: [100, 200, 300, 400, 800, 1200]

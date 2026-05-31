@@ -31,7 +31,7 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
         ax.paper_fig_axes_mm = dict(axes_pos)
         ax.paper_fig_panel_bounds = _bounds_fraction(panel.get("position_mm") or axes_pos, canvas)
         ax.paper_fig_plot_axes_bounds = _bounds_fraction(axes_pos, canvas)
-        if panel_id == "C" and panel.get("colorbar_mm"):
+        if panel.get("colorbar_mm"):
             cbar_pos = panel["colorbar_mm"]
             cax = add_axes_mm(
                 fig,

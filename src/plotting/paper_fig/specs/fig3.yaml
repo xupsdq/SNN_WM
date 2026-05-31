@@ -1,20 +1,20 @@
 figure_id: fig3
 figure_title_draft: Multi-item peak-structured STSP landscape and functional access
-experiment_root_default: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/fig3_multiitem_peak_landscape
+experiment_root_default: results/paper_figure_full_encoded_seed1000_amp010/fig3_multiitem_peak_landscape
 canvas_mm:
   width: 165
   height: 158
-reading_order: [B, C, D, E]
+reading_order: [A, B, C, D]
 run_modes:
   - single_network_draft
   - multi_network_final
 argument_bands:
   - band_id: morphology_establishment
     label: Morphology establishment
-    panels: [B, C]
+    panels: [A, B]
   - band_id: functional_accessibility
     label: Functional accessibility
-    panels: [D, E]
+    panels: [C, D]
 expected_outputs:
   full_figure: [pdf, svg, png]
   resolved_spec: fig3_resolved_spec.yaml
@@ -34,6 +34,26 @@ qc_requirements:
   required_memory_conditions: [cue_only, single_item_memory, sequence_state]
   single_network_warning: true
 panels:
+  A:
+    panel_id: A
+    claim: Representative final STSP state exhibits a structured 3D peak-valley landscape.
+    panel_type: support_landscape_heatmap
+    producer_task: [state_bank, peak_valley_landscape]
+    data_adapter: fig3_example_landscape_adapter
+    renderer: render_fig3_landscape_heatmap
+    source_priority:
+      - data/raw/panel_c_example_landscape.npz
+      - data/metrics/panel_c_example_landscape_summary.csv
+      - data/raw/panel_c_example_landscape_metadata.json
+    size_mm: {width: 147.00, height: 88.00}
+    position_mm: {x: 12.00, y: 6.00, w: 147.00, h: 88.00}
+    axes_mm: {x: 15.00, y: 14.00, w: 128.00, h: 76.00}
+    colorbar_mm: {x: 148.00, y: 24.00, w: 2.80, h: 54.00}
+    letter_mm: {x: 6.00, y: 6.00}
+    metric: delta_gain_map
+    x_axis: Spatial x / column
+    y_axis: Spatial y / row
+    z_axis: Δ STSP support
   B:
     panel_id: B
     claim: STSP state is progressively updated across sequence stages.
@@ -42,38 +62,15 @@ panels:
     data_adapter: fig3_progressive_update_adapter
     renderer: render_fig3_progressive_update
     source: data/metrics/panel_b_progressive_update_metrics.csv
-    size_mm: {width: 52.00, height: 42.00}
-    position_mm: {x: 12.00, y: 8.00, w: 52.00, h: 42.00}
-    axes_mm: {x: 20.00, y: 18.00, w: 40.00, h: 25.00}
-    letter_mm: {x: 6.00, y: 6.00}
+    size_mm: {width: 45.00, height: 50.00}
+    position_mm: {x: 12.00, y: 102.00, w: 45.00, h: 50.00}
+    axes_mm: {x: 18.00, y: 113.00, w: 39.00, h: 35.00}
+    letter_mm: {x: 6.00, y: 100.00}
     metric: stepwise_update_ratio
     x_axis: Sequence stage
     y_axis: Update ratio
-    title: Progressive update
   C:
     panel_id: C
-    claim: Representative final STSP state exhibits a structured 3D peak-valley landscape.
-    panel_type: 3d_surface
-    producer_task: [state_bank, peak_valley_landscape]
-    projection: "3d"
-    data_adapter: fig3_example_landscape_adapter
-    renderer: render_fig3_3d_landscape
-    source_priority:
-      - data/raw/panel_c_example_landscape.npz
-      - data/metrics/panel_c_example_landscape_summary.csv
-      - data/raw/panel_c_example_landscape_metadata.json
-    size_mm: {width: 84.00, height: 96.00}
-    position_mm: {x: 75.00, y: 8.00, w: 84.00, h: 96.00}
-    axes_mm: {x: 68.00, y: 30.00, w: 54.00, h: 54.00}
-    colorbar_mm: {x: 145.00, y: 40.00, w: 2.00, h: 34.00}
-    letter_mm: {x: 69.00, y: 6.00}
-    metric: delta_gain_map
-    x_axis: Spatial x / column
-    y_axis: Spatial y / row
-    z_axis: Δ STSP support
-    title: Peak-structured STSP landscape
-  D:
-    panel_id: D
     claim: Neutral ping reveals a serial-position readout profile from the final sequence state.
     panel_type: neutral_ping_serial_profile
     producer_task: neutral_ping
@@ -84,17 +81,16 @@ panels:
       - data/metrics/panel_d_ping_summary.csv
       - data/raw/panel_d_neutral_ping_trial_readout.csv
       - data/metrics/panel_e_ping_position_distribution.csv
-    size_mm: {width: 52.00, height: 42.00}
-    position_mm: {x: 12.00, y: 62.00, w: 52.00, h: 42.00}
-    axes_mm: {x: 20.00, y: 72.00, w: 40.00, h: 25.00}
-    letter_mm: {x: 6.00, y: 60.00}
+    size_mm: {width: 45.00, height: 50.00}
+    position_mm: {x: 63.00, y: 102.00, w: 45.00, h: 50.00}
+    axes_mm: {x: 69.00, y: 113.00, w: 39.00, h: 35.00}
+    letter_mm: {x: 57.00, y: 100.00}
     metric: readout_mass
     x_axis: Serial position
     y_axis: Readout mass
     conditions: [S_final, S0]
-    title: Neutral ping serial readout
-  E:
-    panel_id: E
+  D:
+    panel_id: D
     claim: Sequence state improves weak-probe recovery beyond cue-only and a slot-matched single-item memory boundary.
     panel_type: weak_probe_completion
     producer_task: weak_probe
@@ -106,12 +102,11 @@ panels:
       - data/metrics/panel_e_weak_probe_auc_metrics.csv
       - data/raw/panel_e_weak_probe_trial_readout.csv
       - data/metrics/panel_f_weak_probe_metrics.csv
-    size_mm: {width: 147.00, height: 34.00}
-    position_mm: {x: 12.00, y: 116.00, w: 147.00, h: 34.00}
-    axes_mm: {x: 20.00, y: 126.00, w: 132.00, h: 20.00}
-    letter_mm: {x: 6.00, y: 114.00}
+    size_mm: {width: 45.00, height: 50.00}
+    position_mm: {x: 114.00, y: 102.00, w: 45.00, h: 50.00}
+    axes_mm: {x: 120.00, y: 113.00, w: 39.00, h: 35.00}
+    letter_mm: {x: 108.00, y: 100.00}
     metric: P_target
     x_axis: Keep probability
     y_axis: Target recovery (%)
     conditions: [cue_only, single_item_memory, sequence_state]
-    title: Weak-probe recovery

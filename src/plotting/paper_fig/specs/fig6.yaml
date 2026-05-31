@@ -1,9 +1,9 @@
 figure_id: fig6
 figure_title_draft: Overlap-gated STSP fields bias Layer 1 recruitment
-experiment_root: results/paper_figure_multi_seed/fig6_peak_amplified_reentry/fig6_peak_amplified_reentry
+experiment_root: results/paper_figure_full_encoded_seed1000_amp010/fig6_peak_amplified_reentry
 canvas_mm:
   width: 165
-  height: 112
+  height: 172
 reading_order: [A, B, C, D, E, F]
 score_name: entry_gated_stsp_gain_score
 primary_endpoint: Layer 1 spatial spike enrichment / recruitment
@@ -62,7 +62,7 @@ qc_requirements:
   require_source_manifest: true
   require_position_mm: true
   require_size_mm: true
-  canvas_mm: {width: 165, height: 112}
+  canvas_mm: {width: 165, height: 172}
   score_name: entry_gated_stsp_gain_score
   score_excludes:
     - connection_weights
@@ -83,8 +83,8 @@ panels:
     data_adapter: fig6_region_ping_readout_bias_adapter
     source_priority:
       - data/metrics/panel_b_region_ping_readout_bias.csv
-    position_mm: {x: 8.00, y: 8.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 8.00, y: 16.00, w: 45.00, h: 46.00}
+    size_mm: {w: 45.00, h: 46.00}
     metric: old_middle_recent_readout_mass
     x_axis: Ping entry
     y_axis: Readout mass
@@ -99,8 +99,8 @@ panels:
     data_adapter: fig6_global_ping_score_spike_prediction_adapter
     source_priority:
       - data/metrics/panel_c_global_ping_score_spike_prediction.csv
-    position_mm: {x: 60.00, y: 8.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 60.00, y: 16.00, w: 45.00, h: 46.00}
+    size_mm: {w: 45.00, h: 46.00}
     metric: spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Early L1 spike probability
@@ -115,8 +115,8 @@ panels:
     data_adapter: fig6_real_probe_score_spike_deflection_adapter
     source_priority:
       - data/metrics/panel_d_real_probe_score_spike_deflection.csv
-    position_mm: {x: 112.00, y: 8.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 112.00, y: 16.00, w: 45.00, h: 46.00}
+    size_mm: {w: 45.00, h: 46.00}
     metric: delta_spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Dynamic minus baseline L1 firing
@@ -132,8 +132,8 @@ panels:
     source_priority:
       - data/metrics/panel_e_overlap_gated_stsp_recruitment.csv
       - data/metrics/panel_e_overlap_gated_stsp_interaction.csv
-    position_mm: {x: 8.00, y: 58.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 8.00, y: 82.00, w: 56.00, h: 46.00}
+    size_mm: {w: 56.00, h: 46.00}
     metric: overlap_gated_delta_spike_probability
     x_axis: Probe overlap
     y_axis: Dynamic minus baseline L1 firing
@@ -149,8 +149,8 @@ panels:
     source_priority:
       - data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv
       - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
-    position_mm: {x: 60.00, y: 58.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 92.00, y: 82.00, w: 56.00, h: 46.00}
+    size_mm: {w: 56.00, h: 46.00}
     metric: loss_delta_spike_probability
     x_axis: Removed input sites
     y_axis: Loss in L1 recruitment
@@ -164,8 +164,8 @@ panels:
     data_adapter: fig6_global_mechanism_adapter
     source_priority:
       - data/raw/panel_f_global_mechanism_metadata.json
-    position_mm: {x: 112.00, y: 58.00, w: 45.00, h: 38.00}
-    size_mm: {w: 45.00, h: 38.00}
+    position_mm: {x: 12.00, y: 140.00, w: 147.00, h: 28.00}
+    size_mm: {w: 147.00, h: 28.00}
     metric: mechanism_statement
     x_axis: Mechanism chain
     y_axis: Layer 1 recruitment
