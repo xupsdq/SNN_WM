@@ -79,13 +79,14 @@ def render_fig2_morphology_closure(ax, panel_data: pd.DataFrame | None, stats: M
     if plot_df.empty:
         _placeholder(ax, spec, "Morphology closure metrics unavailable")
         return
-    _bar_scatter(ax, plot_df, "condition", order, colors=["#54A24B", "#B279A2"], st=st, alpha=0.83)
+    _bar_summary(ax, plot_df, "condition", order, colors=["#54A24B", "#B279A2"], st=st, alpha=0.83)
     ax.axhline(0, color="0.35", linestyle="--", linewidth=0.65)
     ax.set_xticks(np.arange(len(order)), ["WPRI", "Beyond\nlinear"])
     ax.set_ylabel(str(spec.get("y_axis", "Score")))
     ax.set_xlabel("")
     ax.paper_fig_x_metric = "Metric"
     ax.paper_fig_y_metric = "Score"
+    ax.paper_fig_raw_points = False
     _autoscale_y(ax, plot_df["value"], include_zero=True)
     _tidy(ax, st)
 
@@ -154,7 +155,7 @@ def render_fig2_partial_cue_target(ax, panel_data: pd.DataFrame | None, stats: M
         color = STATE_COLORS.get(condition, "0.3")
         ax.plot(x, y, marker="o", markersize=2.4, linewidth=0.82, color=color, label=STATE_LABELS.get(condition, condition).replace("\n", " "))
         if part["seed_id"].replace("", pd.NA).dropna().nunique() > 1:
-            ax.errorbar(x, y, yerr=sem, fmt="none", ecolor=color, elinewidth=0.45, capsize=1.4, alpha=0.45)
+            _fill_sem_band(ax, x, y, sem, color)
     ax.set_ylim(0, 100)
     ax.set_xlim(0, 1.02)
     ax.set_xticks([0.0, 0.25, 0.5, 0.75, 1.0], ["0", ".25", ".5", ".75", "1"])
@@ -281,6 +282,20 @@ def _bar_scatter(ax, df: pd.DataFrame, group_col: str, order: list[str], *, colo
     ax.paper_fig_raw_point_alpha = 0.62
 
 
+def _fill_sem_band(ax, x: np.ndarray, y: np.ndarray, sem: np.ndarray, color: str, *, alpha: float = 0.16) -> None:
+    if x.size == 0 or y.size == 0 or sem.size == 0:
+        return
+    order = np.argsort(x)
+    xs = x[order]
+    ys = y[order]
+    errs = np.nan_to_num(sem[order], nan=0.0)
+    ax.fill_between(xs, ys - errs, ys + errs, color=color, alpha=alpha, linewidth=0, zorder=1)
+    ax.paper_fig_has_shaded_band = True
+    bands = list(getattr(ax, "paper_fig_shaded_band", []) or [])
+    bands.append({"color": color, "alpha": alpha, "kind": "mean_sem"})
+    ax.paper_fig_shaded_band = bands
+
+
 def _plot_partial_cue_axis(ax, df: pd.DataFrame, target_item: str, spec: Mapping[str, Any], st: Mapping[str, float], *, show_ylabel: bool) -> tuple[list[Any], list[str]]:
     target_df = df[df["target_item"].astype(str).str.upper().eq(target_item)].copy()
     curve = target_df[target_df.get("curve_or_summary", pd.Series("curve", index=target_df.index)).astype(str).eq("curve")].copy() if "curve_or_summary" in target_df.columns else target_df
@@ -303,7 +318,7 @@ def _plot_partial_cue_axis(ax, df: pd.DataFrame, target_item: str, spec: Mapping
         if not handles:
             pass
         if part["seed_id"].replace("", pd.NA).dropna().nunique() > 1:
-            ax.errorbar(x, y, yerr=sem, fmt="none", ecolor=color, elinewidth=0.38, capsize=1.1, alpha=0.42)
+            _fill_sem_band(ax, x, y, sem, color)
         handles.append(line)
         labels.append(STATE_LABELS.get(condition, condition).replace("\n", " "))
     ax.set_ylim(0, 100)

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import shutil
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
+from numpy.lib import format as np_format
 
 from src.experiments.paper_figures.fig4.cache_keys import (
     cache_key_digest,
@@ -30,6 +32,18 @@ from src.experiments.paper_figures.fig4.types import (
 
 
 CACHE_KEY_FILE = "cache_key.json"
+ROLLOUT_NPZ_FILES = (
+    "probe_trace_arrays_l1.npz",
+    "probe_trace_arrays_l2.npz",
+    "probe_trace_arrays_l3.npz",
+    "readout_trajectory_vectors.npz",
+    "l3_replay_capture_arrays.npz",
+)
+REQUIRED_ROLLOUT_NPZ_FILES = (
+    "probe_trace_arrays_l3.npz",
+    "readout_trajectory_vectors.npz",
+    "l3_replay_capture_arrays.npz",
+)
 
 
 @dataclass(frozen=True)
@@ -300,11 +314,10 @@ def save_rollout_bank_artifact(
         files=ROLLOUT_BANK_FILES,
         keep_default_na=True,
     )
-    npz_payloads = _copy_rollout_npz_payloads(Path(raw_dir))
-    array_manifest = _save_npz_files(task_dir, npz_payloads)
-    _validate_rollout_payload(
+    array_manifest = _copy_rollout_npz_files_to_artifact(Path(raw_dir), task_dir)
+    _validate_rollout_array_manifest(
         table_bundle.tables["condition_metrics"],
-        npz_payloads,
+        array_manifest,
         capture_manifest=table_bundle.tables["l3_replay_capture_manifest"],
     )
     digest = _artifact_digest(table_bundle.digest, array_manifest)
@@ -315,10 +328,10 @@ def save_rollout_bank_artifact(
         table_bundle.tables["perturbation_masks"],
         table_bundle.tables["rollout_manifest"],
         table_bundle.tables["condition_metrics"],
-        npz_payloads.get("probe_trace_arrays_l3.npz", {}),
-        npz_payloads.get("readout_trajectory_vectors.npz", {}),
+        {str(key): np.asarray(value) for key, value in bank.traces.items()},
+        {str(key): np.asarray(value) for key, value in bank.vectors.items()},
         table_bundle.tables["l3_replay_capture_manifest"],
-        npz_payloads.get("l3_replay_capture_arrays.npz", {}),
+        {str(key): np.asarray(value) for key, value in bank.l3_replay_captures.items()},
     )
     return RolloutBankArtifact(task_dir, artifact_bank, table_bundle.manifest, array_manifest, digest)
 
@@ -370,13 +383,7 @@ def load_rollout_bank_artifact(
 def copy_rollout_artifact_npz_to_raw(task_dir: Path, raw_dir: Path) -> None:
     raw_dir = Path(raw_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
-    for filename in (
-        "probe_trace_arrays_l1.npz",
-        "probe_trace_arrays_l2.npz",
-        "probe_trace_arrays_l3.npz",
-        "readout_trajectory_vectors.npz",
-        "l3_replay_capture_arrays.npz",
-    ):
+    for filename in ROLLOUT_NPZ_FILES:
         src = Path(task_dir) / filename
         if src.exists():
             shutil.copy2(src, raw_dir / filename)
@@ -622,25 +629,49 @@ def _read_array_manifest(task_dir: Path) -> pd.DataFrame:
     return manifest
 
 
-def _copy_rollout_npz_payloads(raw_dir: Path) -> dict[str, dict[str, np.ndarray]]:
-    payloads: dict[str, dict[str, np.ndarray]] = {}
-    for filename in (
-        "probe_trace_arrays_l1.npz",
-        "probe_trace_arrays_l2.npz",
-        "probe_trace_arrays_l3.npz",
-        "readout_trajectory_vectors.npz",
-        "l3_replay_capture_arrays.npz",
-    ):
-        path = Path(raw_dir) / filename
-        if not path.exists():
+def _copy_rollout_npz_files_to_artifact(raw_dir: Path, task_dir: Path) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    found_files: set[str] = set()
+    for filename in ROLLOUT_NPZ_FILES:
+        src = Path(raw_dir) / filename
+        if not src.exists():
             continue
-        with np.load(path, allow_pickle=False) as payload:
-            payloads[filename] = {str(key): np.array(payload[key]) for key in payload.files}
-    if "probe_trace_arrays_l3.npz" not in payloads:
-        raise FileNotFoundError(f"Fig.4 rollout artifact cannot find probe_trace_arrays_l3.npz in {raw_dir}")
-    if "readout_trajectory_vectors.npz" not in payloads:
-        raise FileNotFoundError(f"Fig.4 rollout artifact cannot find readout_trajectory_vectors.npz in {raw_dir}")
-    return payloads
+        dst = Path(task_dir) / filename
+        if src.resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+        file_hash = sha256_file(dst)
+        rows.extend(_npz_manifest_rows(dst, storage_file=filename, file_hash=file_hash))
+        found_files.add(filename)
+    missing = sorted(set(REQUIRED_ROLLOUT_NPZ_FILES).difference(found_files))
+    if missing:
+        raise FileNotFoundError(f"Fig.4 rollout artifact cannot find required NPZ files in {raw_dir}: {missing}")
+    manifest = pd.DataFrame(rows, columns=list(ARRAY_MANIFEST_COLUMNS))
+    manifest.to_csv(Path(task_dir) / "array_manifest.csv", index=False, encoding="utf-8")
+    return manifest
+
+
+def _npz_manifest_rows(path: Path, *, storage_file: str, file_hash: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with zipfile.ZipFile(path, "r") as archive:
+        members = sorted(name for name in archive.namelist() if name.endswith(".npy"))
+        if not members:
+            raise RuntimeError(f"Fig.4 rollout NPZ has no array members: {path}")
+        for member in members:
+            with archive.open(member, "r") as handle:
+                version = np_format.read_magic(handle)
+                shape, _fortran_order, dtype = np_format._read_array_header(handle, version)
+            key = member[:-4]
+            rows.append(
+                {
+                    "name": Path(storage_file).stem,
+                    "storage_file": str(storage_file),
+                    "storage_key": str(key),
+                    "shape": _shape_text(tuple(int(value) for value in shape)),
+                    "dtype": str(dtype),
+                    "sha256": file_hash,
+                }
+            )
+    return rows
 
 
 def _validate_similarity_payload(trial_metrics: pd.DataFrame, voltage_vectors: Mapping[str, np.ndarray]) -> None:
@@ -684,6 +715,38 @@ def _validate_rollout_payload(
     if capture_manifest is None or capture_manifest.empty:
         raise RuntimeError("Fig.4 rollout L3 replay capture manifest is missing or empty.")
     _validate_l3_replay_capture_payload(condition_metrics, capture_manifest, capture_arrays)
+
+
+def _validate_rollout_array_manifest(
+    condition_metrics: pd.DataFrame,
+    array_manifest: pd.DataFrame,
+    *,
+    capture_manifest: pd.DataFrame | None = None,
+) -> None:
+    if condition_metrics.empty:
+        raise RuntimeError("Fig.4 rollouts artifact condition_metrics is empty.")
+    _require_columns(array_manifest, ARRAY_MANIFEST_COLUMNS, Path("array_manifest.csv"))
+    by_file: dict[str, set[str]] = {}
+    for filename, part in array_manifest.groupby("storage_file", sort=False):
+        by_file[str(filename)] = {str(value) for value in part["storage_key"].tolist()}
+    missing_files = sorted(set(REQUIRED_ROLLOUT_NPZ_FILES).difference(by_file))
+    if missing_files:
+        raise RuntimeError(f"Fig.4 rollout array manifest missing required files: {missing_files}")
+    pair_ids = sorted(int(value) for value in condition_metrics["pair_id"].dropna().unique().tolist())
+    conditions = sorted(str(value) for value in condition_metrics["condition"].dropna().unique().tolist())
+    l3_keys = by_file.get("probe_trace_arrays_l3.npz", set())
+    vector_keys = by_file.get("readout_trajectory_vectors.npz", set())
+    for pair_id in pair_ids:
+        for condition in conditions:
+            trace_key = f"pair_{int(pair_id)}_{condition}_l3_trace"
+            vector_key = f"pair_{int(pair_id)}_{condition}_grouped_voltage"
+            if trace_key not in l3_keys:
+                raise RuntimeError(f"Fig.4 rollout L3 trace missing key: {trace_key}")
+            if vector_key not in vector_keys:
+                raise RuntimeError(f"Fig.4 rollout vector missing key: {vector_key}")
+    if capture_manifest is None or capture_manifest.empty:
+        raise RuntimeError("Fig.4 rollout L3 replay capture manifest is missing or empty.")
+    _validate_l3_replay_capture_array_manifest(condition_metrics, capture_manifest, array_manifest)
 
 
 def _validate_l3_replay_capture_payload(
@@ -731,6 +794,65 @@ def _validate_l3_replay_capture_payload(
             raise RuntimeError(f"Fig.4 L3 replay capture shape mismatch for {key}: expected={row['shape']}, found={_shape_text(arr.shape)}")
         if str(arr.dtype) != str(row["dtype"]):
             raise RuntimeError(f"Fig.4 L3 replay capture dtype mismatch for {key}: expected={row['dtype']}, found={arr.dtype}")
+    for pair_id in pair_ids:
+        for condition in required_conditions:
+            for field in fields:
+                rows = capture_manifest[
+                    capture_manifest["pair_id"].astype(int).eq(int(pair_id))
+                    & capture_manifest["condition"].astype(str).eq(str(condition))
+                    & capture_manifest["field"].astype(str).eq(str(field))
+                ]
+                if len(rows) != 1:
+                    raise RuntimeError(
+                        f"Fig.4 L3 replay capture expected one row for pair={pair_id}, condition={condition}, field={field}; found {len(rows)}"
+                    )
+
+
+def _validate_l3_replay_capture_array_manifest(
+    condition_metrics: pd.DataFrame,
+    capture_manifest: pd.DataFrame,
+    array_manifest: pd.DataFrame,
+) -> None:
+    required_columns = ("network_seed", "pair_id", "condition", "field", "storage_file", "storage_key", "shape", "dtype")
+    _require_columns(capture_manifest, required_columns, Path("l3_replay_capture_manifest.csv"))
+    if set(str(value) for value in capture_manifest["storage_file"].dropna().unique().tolist()) != {"l3_replay_capture_arrays.npz"}:
+        raise RuntimeError("Fig.4 L3 replay capture manifest must reference only l3_replay_capture_arrays.npz.")
+    array_rows = array_manifest[array_manifest["storage_file"].astype(str).eq("l3_replay_capture_arrays.npz")]
+    manifest_keys = set(str(value) for value in capture_manifest["storage_key"].tolist())
+    array_keys = set(str(value) for value in array_rows["storage_key"].tolist())
+    if manifest_keys != array_keys:
+        raise RuntimeError(
+            f"Fig.4 L3 replay capture key mismatch: manifest={sorted(manifest_keys)[:10]}, arrays={sorted(array_keys)[:10]}"
+        )
+    array_meta = {str(row["storage_key"]): row for row in array_rows.to_dict("records")}
+    for row in capture_manifest.to_dict("records"):
+        key = str(row["storage_key"])
+        meta = array_meta[key]
+        if str(meta["shape"]) != str(row["shape"]):
+            raise RuntimeError(f"Fig.4 L3 replay capture shape mismatch for {key}: expected={row['shape']}, found={meta['shape']}")
+        if str(meta["dtype"]) != str(row["dtype"]):
+            raise RuntimeError(f"Fig.4 L3 replay capture dtype mismatch for {key}: expected={row['dtype']}, found={meta['dtype']}")
+    pair_ids = sorted(int(value) for value in condition_metrics["pair_id"].dropna().unique().tolist())
+    required_conditions = ("full_dynamic", "full_static")
+    fields = (
+        "probe_s2p_trace",
+        "grouped_voltage",
+        "readout_snapshot",
+        "prediction_probe",
+        "first_fire_t_probe",
+        "readout_step",
+        "probe_onset_v_mem",
+        "probe_onset_g_e",
+        "probe_onset_res",
+        "probe_onset_inh_trace",
+        "probe_onset_u_pre",
+        "probe_onset_x_pre",
+        "probe_onset_input_trace",
+        "probe_onset_eligibility_trace",
+        "probe_onset_firing_times",
+        "probe_onset_input_shape",
+        "probe_onset_output_shape",
+    )
     for pair_id in pair_ids:
         for condition in required_conditions:
             for field in fields:

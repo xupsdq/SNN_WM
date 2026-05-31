@@ -130,7 +130,15 @@ sandbox_document.xml
 # 10) Local agent / scratch workspaces
 # =========================
 .claude/
-docs/
+!docs/archive/
+!docs/archive/**
+!docs/evidence/
+!docs/evidence/logs/
+!docs/evidence/logs/**
+docs/evidence/generated/
 fig/
 tools/
 scripts/
+!scripts/
+scripts/*
+!scripts/audit_paper_figure_task_map.py

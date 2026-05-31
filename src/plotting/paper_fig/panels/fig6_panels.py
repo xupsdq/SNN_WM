@@ -91,11 +91,11 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
         "silent_rate": "#9c9c9c",
     }
     labels = {
-        "old_mass": "old",
-        "middle_mass": "middle",
-        "recent_mass": "recent",
-        "other_mass": "other",
-        "silent_rate": "silent",
+        "old_mass": "Old item mass",
+        "middle_mass": "Middle item mass",
+        "recent_mass": "Recent item mass",
+        "other_mass": "Other readout",
+        "silent_rate": "Silent rate",
     }
     for metric in metrics:
         vals = [
@@ -111,7 +111,20 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
     ax.set_ylabel("Readout mass")
     ax.set_xlabel("Ping entry")
     ax.set_ylim(0, max(1.0, float(np.nanmax(bottom)) if len(bottom) else 1.0) * 1.08)
-    ax.legend(frameon=False, fontsize=5.2, ncol=2, loc="upper right")
+    legend = ax.legend(
+        frameon=False,
+        fontsize=4.9,
+        ncol=3,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        borderaxespad=0.0,
+        handlelength=0.9,
+        columnspacing=0.7,
+        handletextpad=0.35,
+    )
+    legend.set_in_layout(False)
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_plot_form = "region_gated_ping_readout_bias"
     _tidy(ax)
 
@@ -282,7 +295,19 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
     ax.set_xticks(x, ["No overlap", "Overlap"])
     ax.set_ylabel("Dynamic - baseline L1 firing")
     ax.set_xlabel("Probe overlap")
-    ax.legend(frameon=False, fontsize=5.2, loc="best")
+    legend = ax.legend(
+        frameon=False,
+        fontsize=5.2,
+        ncol=2,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        borderaxespad=0.0,
+        handlelength=0.9,
+        columnspacing=0.9,
+        handletextpad=0.35,
+    )
+    legend.set_in_layout(False)
+    ax.paper_fig_legend_above_plot = True
     interaction = df[df.get("metric", pd.Series(dtype=str)).astype(str).eq("interaction_delta")].copy() if not df.empty else pd.DataFrame()
     if not interaction.empty and "early_window_ms" in interaction.columns:
         windows = pd.to_numeric(interaction["early_window_ms"], errors="coerce")

@@ -37,6 +37,55 @@
 - CLI arguments override YAML config values; YAML overrides code defaults.
 - Experiment IDs and mainline metadata belong in `src/experiments/catalog.py`.
 
+## Paper Figure Runtime DAG Contract
+- Fig.1-Fig.6 are the active paper-figure experiment spine. Treat each figure package under `src/experiments/paper_figures/figX/` as the canonical place for figure-local runtime orchestration.
+- The current canonical runtime pattern for paper figures is:
+  `python -m src.experiments.paper_figures.figX.run_task --task <task_id> --reuse-artifacts <auto|require|off|force> --output-dir results/<run_root> ...`
+- Each active paper figure should keep a figure-local DAG layer:
+  - `schemas.py`: task ids, reuse modes, manifest columns, artifact schema constants.
+  - `cache_keys.py`: stable cache key, digest, table/file hash, parent specs hash, model fingerprint when applicable.
+  - `artifacts.py`: artifact save/load/copy/validate helpers.
+  - `run_task.py`: task-level DAG dispatch and CLI.
+  - `subexperiments/`: scientific implementation and figure-local task logic.
+- Do not bypass the figure-local `run_task.py` layer for new runtime work unless the user explicitly asks for a legacy comparison or a narrow legacy fix.
+- Do not treat the old `figX_*_experiment.py` modules as the preferred place for new runtime orchestration. They may remain scientific backends or compatibility baselines, but new DAG behavior belongs in the figure package.
+- The runtime structure must preserve this dependency model:
+  `source-of-truth specs -> reusable artifact bank -> downstream task -> raw/metrics outputs -> plot-only panel sink`.
+- Source-of-truth specs include trial specs, sequence specs, pair specs, mask specs, perturbation specs, cue specs, ping target specs, overlap/region specs, and sweep/job specs. If rerunning such a table could change downstream identity or provenance, persist it as an artifact before downstream use.
+- Heavy reusable artifacts include STSP/state boundary banks, sequence banks, feature banks, encoded input banks, support/overlap maps, perturbation baseline banks, rollout banks, trace banks, and reference state banks. Downstream tasks must consume these explicitly instead of implicitly rerunning parent simulation.
+- Every reusable artifact should live under `data/intermediates/<task_id>/` and include `cache_key.json` plus a manifest such as `manifest.csv`, `array_manifest.csv`, or `boundary_manifest.csv`.
+- Artifact loaders must validate cache key digest, required files, manifest schema, file hashes, row counts or array shapes, condition/delay/task membership, parent specs hash, model fingerprint when model-dependent, and dataset identity when data-dependent.
+- `--reuse-artifacts require` is a hard contract: it may only load and validate existing parent artifacts. It must not regenerate specs, masks, sequence banks, state banks, rollouts, traces, or any parent computation. Missing, stale, or corrupt artifacts must fail loudly.
+- `--reuse-artifacts auto` may build missing artifacts or reuse matching ones, but it must not hide schema/hash corruption. `force` is only for explicit producer rebuilds. `off` is for legacy/fresh comparison paths.
+- A downstream task run in `require` mode must not modify parent artifact directories. If parent artifact hashes change after a downstream require run, the implementation is wrong.
+- Plotting specs under `src/plotting/paper_fig/specs/` must declare `producer_task` for every data-backed panel. A panel may list multiple producer tasks, but the dependency must be explicit.
+- Plotting code must remain plot-only: it may read `data/raw/`, `data/metrics/`, `summary.json`, resolved specs, and source manifests, but it must not run simulations or create runtime artifacts.
+- These DAG rules are mandatory and self-contained. Do not replace them with a new interpretation, a new orchestration style, or a doc-driven redesign unless the user explicitly asks for a new architecture.
+- A paper-figure runtime refactor is valid only if it preserves these invariants:
+  - parent source specs are generated once, persisted, hashable, and reused by identity;
+  - parent artifact banks are generated once, persisted, hashable, and loaded by downstream tasks;
+  - every downstream task declares its producer task id, required parent artifacts, output files, and panel consumers;
+  - `require` mode loads existing parent artifacts only and never regenerates or mutates them;
+  - plot/build code is a leaf consumer and never performs runtime computation;
+  - structural refactors must prove output equivalence against the pre-refactor or fresh baseline before being considered complete.
+- Do not replace explicit constraints with external prose, memory, or informal prior context. If a rule matters, encode it directly in code, CLI behavior, cache validation, or this file.
+- Do not create a new figure runtime pattern for a single figure. Fig.1-Fig.6 must share the same DAG semantics even when their scientific tasks, artifacts, and panels differ.
+- Do not collapse multiple DAG nodes into a single all-in-one task for convenience. A task boundary is required whenever its output can be reused, inspected, validated, or rerun independently.
+- Do not allow downstream task outputs to depend on freshly resampled trials, masks, pairs, sequences, pings, probes, or perturbations when an upstream spec artifact already exists.
+- Do not silently regenerate a missing parent artifact in a downstream-only run. Missing parents in `require` mode are errors, not opportunities to rerun upstream work.
+- Do not weaken equality checks to make a refactor pass. If floating-point tolerance is needed, keep row identity, column identity, file presence, shape, and scientific condition labels exact.
+
+## Paper Figure Change Gates
+- Before changing a paper-figure runtime path, map the affected DAG nodes: parent specs, reusable artifacts, downstream tasks, output files, and panel consumers.
+- Preserve scientific protocol unless the user explicitly approves a protocol change. Do not change delay grids, sequence lengths, sampling rules, mask definitions, target scopes, readout endpoints, restore order, perturbation semantics, STSP mutation/update behavior, or spike encoding as part of a structural refactor.
+- Do not extract shared/common code from a single figure just because similar names appear elsewhere. Shared extraction requires stable semantics, at least two real consumers, regression evidence, and human confirmation that the scientific protocol is identical.
+- Do not add hidden cross-figure dependencies. If Fig.6 should reuse a Fig.3 artifact, that must become an explicit artifact contract with cache key and manifest validation, not an import from Fig.3 private task code.
+- Prefer figure-local helpers until reuse is proven. Move logic into `src/experiments/paper_figures/common/` only when it encodes a stable invariant used by multiple figures.
+- Keep legacy/fresh behavior available for regression comparison when refactoring runtime structure. The refactor is not complete until the DAG output matches the legacy/fresh smoke output for key files.
+- Smoke/single-seed validation proves structure and equivalence only. Do not describe it as manuscript-final multi-seed evidence.
+- If an output equivalence check fails, stop and diagnose. Do not adjust tolerances, drop comparison files, or relabel the change as harmless without evidence.
+- If a required source spec or state capture boundary cannot be separated without ambiguity, stop and ask the user before implementing.
+
 ## Experiment Development Rules
 - For new mainline experiments, add or update a computation entrypoint under `src/experiments/runners/` and a plot-only entrypoint under `src/plotting/experiments/` when figures are expected.
 - Every new experiment script must be paired with a runner entrypoint and plot-only code: add or update `src/experiments/runners/<experiment_id>.py` and `src/plotting/experiments/<experiment_id>_plot.py` together with the experiment implementation.
@@ -74,6 +123,16 @@
   `python scripts/validate_results_layout.py --input-dir results/<experiment_id>`
 - Use strict validation when checking mainline-ready bundles:
   `python scripts/validate_results_layout.py --input-dir results/<experiment_id> --strict`
+- After changing a paper-figure DAG runtime path, run the figure-specific gate:
+  - compile changed files with `python -m compileall`;
+  - run `run_task --task all --reuse-artifacts auto` on a smoke/small validation root;
+  - run at least one high-value downstream `run_task --task <task_id> --reuse-artifacts require` from the produced artifact root;
+  - compare fresh/legacy vs DAG outputs with `scripts/regression_compare_fig_outputs.py` using an explicit comparison file list and explicit tolerance;
+  - compare standalone require vs full DAG outputs for the downstream task;
+  - verify parent artifact hashes are unchanged by the require run;
+  - run a broken-artifact guard and confirm `require` fails loudly;
+  - run `scripts/validate_results_layout.py` on the DAG bundle;
+  - run `python -m src.plotting.paper_fig.build --fig <fig_id> --check-only --experiment-root <dag_seed_root>` for affected main/supp figures.
 - If no automated tests exist for the touched area, state that explicitly and provide the smoke/layout command that was run.
 - Do not consider a change complete based only on syntax checks when a smoke path is available.
 

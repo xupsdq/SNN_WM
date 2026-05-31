@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import cm
-from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.colors import Normalize, PowerNorm, TwoSlopeNorm
 
 from src.plotting.common.colors import get_plot_cmap, get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL
@@ -55,20 +55,18 @@ def render_fig3_progressive_update(ax, panel_data: pd.DataFrame | None, stats: M
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     use["stage_k"] = pd.to_numeric(use["stage_k"], errors="coerce")
-    for _, part in use.groupby("sequence_id", sort=False):
-        part = part.sort_values("stage_k")
-        ax.plot(part["stage_k"], part["value"], color=MAIN, alpha=0.12, linewidth=0.55)
     summary = _summary(use, "stage_k", "value")
     if not summary.empty:
-        ax.fill_between(summary["x"], summary["mean"] - summary["sem"], summary["mean"] + summary["sem"], color=MAIN, alpha=0.16, linewidth=0)
+        ax.fill_between(summary["x"], summary["mean"] - summary["sem"], summary["mean"] + summary["sem"], color=MAIN, alpha=0.18, linewidth=0)
         ax.plot(summary["x"], summary["mean"], color=MAIN, linewidth=1.35, marker="o", markersize=2.6)
     ax.set_xlabel("Sequence stage")
     ax.set_ylabel("Update ratio")
     ax.set_xlim(1, max(3, float(np.nanmax(use["stage_k"]))) + 0.25)
-    _title(ax, spec)
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig3_progressive_update"
+    ax.paper_fig_individual_traces = False
+    ax.paper_fig_has_shaded_band = True
 
 
 def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -85,21 +83,34 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
         finite = mat[np.isfinite(mat)]
         if finite.size == 0:
             raise ValueError("landscape matrix contains no finite values")
-        diverging = float(np.nanmin(finite)) < 0 < float(np.nanmax(finite)) or str((stats or {}).get("landscape_metric_used", "")).startswith("delta")
+        diverging = float(np.nanmin(finite)) < 0 < float(np.nanmax(finite)) or (float(np.nanmin(finite)) < 0 and str((stats or {}).get("landscape_metric_used", "")).startswith("delta"))
         if diverging:
             vmax = float(np.nanpercentile(np.abs(finite), 98)) or 1.0
             norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
             cmap = get_plot_cmap("difference")
             cbar_label = "Δ STSP support"
         else:
-            norm = Normalize(vmin=float(np.nanmin(finite)), vmax=float(np.nanmax(finite)) or 1.0)
-            cmap = cm.viridis
+            vmin = float(np.nanmin(finite))
+            vmax = float(np.nanpercentile(finite, 92)) or float(np.nanmax(finite)) or 1.0
+            if not np.isfinite(vmax) or vmax <= vmin:
+                vmin = float(np.nanmin(finite))
+                vmax = float(np.nanmax(finite)) or 1.0
+            norm = PowerNorm(gamma=0.38, vmin=vmin, vmax=vmax, clip=True)
+            cmap = cm.turbo
             cbar_label = "Support"
         colors = cmap(norm(mat))
-        surface = ax.plot_surface(xx, yy, mat, facecolors=colors, rstride=1, cstride=1, linewidth=0, antialiased=True, shade=False, alpha=0.96)
+        surface = ax.plot_surface(xx, yy, mat, facecolors=colors, rstride=1, cstride=1, linewidth=0.04, edgecolor=(1, 1, 1, 0.16), antialiased=True, shade=False, alpha=1.0)
         surface.set_array(finite)
         surface.set_cmap(cmap)
         surface.set_norm(norm)
+        zmin = float(np.nanmin(finite))
+        zmax = float(np.nanmax(finite))
+        zspan = max(zmax - zmin, 1e-9)
+        try:
+            floor = np.full_like(mat, zmin - 0.16 * zspan)
+            ax.plot_surface(xx, yy, floor, facecolors=cmap(norm(mat)), rstride=1, cstride=1, linewidth=0, antialiased=False, shade=False, alpha=0.78)
+        except Exception:
+            pass
         for role, color, marker in (("peak", PEAK, "o"), ("valley", VALLEY, "^"), ("random", RANDOM, "s")):
             pts = df[df.get("mask_role", pd.Series(dtype=str)).astype(str).eq(role)].copy()
             if not pts.empty:
@@ -108,13 +119,13 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
                 pts["value"] = pd.to_numeric(pts["value"], errors="coerce")
                 pts = pts.iloc[:: max(1, int(len(pts) // 32))]
                 ax.scatter(pts["col"], pts["row"], pts["value"] + 0.012 * (np.nanmax(finite) - np.nanmin(finite) + 1e-9), s=3.6, color=color, marker=marker, depthshade=False, alpha=0.50)
-        ax.view_init(elev=34, azim=-48)
+        ax.view_init(elev=56, azim=-50)
         try:
-            ax.set_box_aspect((1.05, 0.95, 0.20), zoom=0.58)
+            ax.set_box_aspect((1.08, 0.95, 0.18), zoom=0.72)
         except TypeError:
             try:
-                ax.set_box_aspect((1.05, 0.95, 0.20))
-                ax.dist = 14
+                ax.set_box_aspect((1.08, 0.95, 0.18))
+                ax.dist = 12
             except Exception:
                 pass
         except Exception:
@@ -125,7 +136,7 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
             pass
         ax.set_xlim(float(cols.min()), float(cols.max()))
         ax.set_ylim(float(rows.min()), float(rows.max()))
-        ax.set_zlim(float(np.nanmin(finite)), float(np.nanmax(finite)))
+        ax.set_zlim(zmin - 0.16 * zspan, zmax)
         ax.set_xlabel("")
         ax.set_ylabel("")
         ax.set_zlabel("Δ STSP support" if cbar_label.startswith("Δ") else "STSP support", fontsize=5.2, labelpad=-1.5)
@@ -146,16 +157,13 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
         if cax is not None:
             mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
             cbar = ax.figure.colorbar(mappable, cax=cax)
-            cbar.set_ticks([])
-            cbar.ax.set_yticklabels([])
-            cbar.ax.tick_params(labelsize=0, length=1.2, width=0.4, pad=0)
-            cbar.set_label(cbar_label, fontsize=4.8, labelpad=-1.0)
+            if hasattr(norm, "vmin") and hasattr(norm, "vmax"):
+                cbar.set_ticks([norm.vmin, norm.vmax])
+                cbar.ax.set_yticklabels([f"{float(norm.vmin):.2f}", f"{float(norm.vmax):.2f}"])
+            cbar.ax.tick_params(labelsize=4.6, length=1.2, width=0.4, pad=1.0)
+            cbar.set_label(cbar_label, fontsize=5.2, labelpad=1.2)
             ax.paper_fig_has_colorbar = True
             ax.paper_fig_colorbar_label = cbar_label
-        title = str(spec.get("title", "")).strip()
-        if title:
-            pos = ax.get_position()
-            ax.figure.text((pos.x0 + pos.x1) / 2.0, pos.y1 + 0.008, title, ha="center", va="bottom", fontsize=6.7)
         ax.paper_fig_plot_form = "fig3_3d_surface_landscape"
         ax.paper_fig_is_3d_surface = True
         ax.paper_fig_has_summary_inset = False
@@ -168,6 +176,56 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
         ax.paper_fig_has_summary_inset = False
 
 
+def render_fig3_landscape_heatmap(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    if df.empty or not {"row", "col", "value"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    mat, rows, cols = _matrix(df)
+    finite = mat[np.isfinite(mat)]
+    if finite.size == 0:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    vmin = float(np.nanmin(finite))
+    vmax = float(np.nanpercentile(finite, 94)) or float(np.nanmax(finite)) or 1.0
+    if not np.isfinite(vmax) or vmax <= vmin:
+        vmax = float(np.nanmax(finite)) or 1.0
+    norm = PowerNorm(gamma=0.48, vmin=vmin, vmax=vmax, clip=True)
+    cmap = cm.turbo
+    image = ax.imshow(mat, origin="lower", cmap=cmap, norm=norm, interpolation="nearest", aspect="equal")
+    contour_levels = [float(np.nanpercentile(finite, q)) for q in (60, 78, 90)]
+    contour_levels = sorted({level for level in contour_levels if np.isfinite(level) and vmin < level < vmax})
+    if contour_levels:
+        ax.contour(mat, levels=contour_levels, colors="white", linewidths=0.28, alpha=0.42, origin="lower")
+    for role, color, marker, alpha in (("peak", PEAK, "o", 0.72), ("valley", VALLEY, "^", 0.58), ("random", RANDOM, "s", 0.42)):
+        pts = df[df.get("mask_role", pd.Series(dtype=str)).astype(str).eq(role)].copy()
+        if pts.empty:
+            continue
+        pts = pts.iloc[:: max(1, int(len(pts) // 80))]
+        ax.scatter(pts["col"], pts["row"], s=8.0 if role == "peak" else 6.0, facecolors="none", edgecolors=color, linewidths=0.55, marker=marker, alpha=alpha)
+    ax.set_xlim(-0.5, len(cols) - 0.5)
+    ax.set_ylim(-0.5, len(rows) - 0.5)
+    ax.set_xticks([0, len(cols) - 1])
+    ax.set_yticks([0, len(rows) - 1])
+    ax.set_xlabel("Spatial x")
+    ax.set_ylabel("Spatial y")
+    cax = getattr(ax, "paper_fig_colorbar_ax", None)
+    if cax is not None:
+        cbar = ax.figure.colorbar(image, cax=cax)
+        cbar.set_ticks([vmin, vmax])
+        cbar.ax.set_yticklabels([f"{vmin:.2f}", f"{vmax:.2f}"])
+        cbar.ax.tick_params(labelsize=5.0, length=1.4, width=0.45, pad=1.0)
+        cbar.set_label("STSP support", fontsize=5.6, labelpad=1.4)
+        ax.paper_fig_has_colorbar = True
+        ax.paper_fig_colorbar_label = "STSP support"
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_support_landscape_heatmap"
+    ax.paper_fig_is_3d_surface = False
+    ax.paper_fig_has_summary_inset = False
+
+
 def render_fig3_neutral_ping_serial_profile(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = style
     df = _clean(panel_data)
@@ -175,8 +233,20 @@ def render_fig3_neutral_ping_serial_profile(ax, panel_data: pd.DataFrame | None,
     if use.empty or "serial_position" not in use.columns:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    use["serial_position"] = pd.to_numeric(use["serial_position"], errors="coerce")
-    use = use.dropna(subset=["serial_position"])
+    serial_numeric = pd.to_numeric(use["serial_position"], errors="coerce")
+    numeric_positions = serial_numeric.dropna()
+    if numeric_positions.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    max_pos = int(np.nanmax(numeric_positions))
+    serial_bin = use.get("serial_bin", pd.Series("", index=use.index)).astype(str).str.lower()
+    nonserial_mask = serial_numeric.isna() & serial_bin.isin({"silent", "other", "no_readout", "none"})
+    use["serial_position_plot"] = serial_numeric
+    silent_values = pd.to_numeric(use.loc[serial_bin.eq("silent"), "value"], errors="coerce").fillna(0.0)
+    has_silent_bin = bool(nonserial_mask.any() and float(silent_values.sum()) > 1e-12)
+    if has_silent_bin:
+        use.loc[serial_bin.eq("silent"), "serial_position_plot"] = max_pos + 1
+    use = use.dropna(subset=["serial_position_plot"])
     if use.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
@@ -186,20 +256,30 @@ def render_fig3_neutral_ping_serial_profile(ax, panel_data: pd.DataFrame | None,
         part = use[use.get("state_condition", use.get("condition")).astype(str).eq(state)]
         if part.empty:
             continue
-        summary = _summary(part, "serial_position", "value")
+        summary = _summary(part, "serial_position_plot", "value")
         label = {"S_final": "S final", "S0": "S0"}.get(state, state.replace("_", " "))
         ax.plot(summary["x"], summary["mean"], color=colors.get(state, "0.25"), linewidth=1.3, marker="o", markersize=2.6, label=label)
         ax.fill_between(summary["x"], summary["mean"] - summary["sem"], summary["mean"] + summary["sem"], color=colors.get(state, "0.25"), alpha=0.12, linewidth=0)
-    max_pos = int(np.nanmax(use["serial_position"]))
     ticks = list(range(1, max_pos + 1))
-    ax.set_xticks(ticks if max_pos <= 10 else ticks[::2])
-    ax.set_xlim(0.75, max_pos + 0.25)
+    if has_silent_bin:
+        ticks = ticks + [max_pos + 1]
+    if has_silent_bin and max_pos >= 8:
+        shown_ticks = list(range(1, max_pos + 1, 2)) + [max_pos + 1]
+    else:
+        shown_ticks = ticks if max_pos <= 10 else ticks[::2]
+        if has_silent_bin and (max_pos + 1) not in shown_ticks:
+            shown_ticks = shown_ticks + [max_pos + 1]
+    ax.set_xticks(shown_ticks)
+    ax.set_xticklabels(["Silent" if tick == max_pos + 1 and has_silent_bin else str(int(tick)) for tick in shown_ticks])
+    ax.set_xlim(0.75, max_pos + (1.28 if has_silent_bin else 0.25))
     ymax = min(1.0, max(0.25, float(use["value"].max()) * 1.2))
     ax.set_ylim(0, ymax)
     ax.set_xlabel("Serial position")
     ax.set_ylabel("Readout mass")
-    ax.legend(frameon=False, fontsize=5.1, loc="upper right", handlelength=1.0, borderaxespad=0.2)
-    _title(ax, spec)
+    legend = ax.legend(frameon=False, fontsize=5.1, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2, handlelength=1.0, borderaxespad=0.0, columnspacing=0.8)
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_ncols = 2
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig3_neutral_ping_serial_profile"
@@ -217,26 +297,65 @@ def render_fig3_weak_probe_completion(ax, panel_data: pd.DataFrame | None, stats
     if "target_source" in use.columns and use["target_source"].astype(str).str.contains("sequence_member", na=False).any():
         use = use[use["target_source"].astype(str).str.contains("sequence_member", na=False)].copy()
     use["keep_prob"] = pd.to_numeric(use["keep_prob"], errors="coerce")
-    colors = {"cue_only": "0.45", "single_item_memory": "#CC79A7", "sequence_state": MAIN}
+    colors = {"cue_only": "0.45", "single_item_memory": "#009E73", "sequence_state": MAIN}
     labels = {"cue_only": "No memory", "single_item_memory": "Single-item memory", "sequence_state": "Sequence state"}
-    for condition in ("cue_only", "single_item_memory", "sequence_state"):
+    markers = {"cue_only": "o", "single_item_memory": "s", "sequence_state": "^"}
+    linestyles = {"cue_only": "-", "single_item_memory": "-", "sequence_state": "-"}
+    zorders = {"cue_only": 3, "sequence_state": 4, "single_item_memory": 5}
+    legend_handles = {}
+    for condition in ("cue_only", "sequence_state", "single_item_memory"):
         part = use[use["memory_condition"].astype(str).eq(condition)] if "memory_condition" in use.columns else pd.DataFrame()
         if part.empty:
             continue
         summary = _summary(part, "keep_prob", "value")
-        ax.plot(summary["x"], summary["mean"], color=colors[condition], linewidth=1.35, marker="o", markersize=2.6, label=labels[condition])
-        ax.fill_between(summary["x"], summary["mean"] - summary["sem"], summary["mean"] + summary["sem"], color=colors[condition], alpha=0.12, linewidth=0)
+        (line,) = ax.plot(
+            summary["x"],
+            summary["mean"],
+            color=colors[condition],
+            linewidth=1.35,
+            linestyle=linestyles[condition],
+            marker=markers[condition],
+            markersize=2.8,
+            markerfacecolor="white" if condition == "single_item_memory" else colors[condition],
+            markeredgewidth=0.7,
+            label=labels[condition],
+            zorder=zorders[condition],
+        )
+        legend_handles[condition] = line
+        ax.fill_between(summary["x"], summary["mean"] - summary["sem"], summary["mean"] + summary["sem"], color=colors[condition], alpha=0.16, linewidth=0)
     ax.set_xlabel("Weak-probe keep probability")
     ax.set_ylabel("Target recovery (%)")
     xmax = float(pd.to_numeric(use["keep_prob"], errors="coerce").max())
     keep_ticks = sorted(pd.to_numeric(use["keep_prob"], errors="coerce").dropna().unique().tolist())
-    if 1 <= len(keep_ticks) <= 8:
+    if 1 <= len(keep_ticks) <= 5:
         ax.set_xticks(keep_ticks)
+    elif keep_ticks:
+        shown = [keep_ticks[0], 0.3, 0.5, 0.7, keep_ticks[-1]]
+        shown = sorted({float(v) for v in shown if min(keep_ticks) <= float(v) <= max(keep_ticks)})
+        ax.set_xticks(shown)
     ax.set_xlim(0, max(0.35, xmax * 1.14))
     ymax = max(100.0, float(pd.to_numeric(use["value"], errors="coerce").max()) * 1.08)
-    ax.set_ylim(0, ymax)
-    ax.legend(frameon=False, fontsize=4.9, loc="lower right", handlelength=1.0, borderaxespad=0.2)
-    _title(ax, spec)
+    ymin = -4.0 if float(pd.to_numeric(use["value"], errors="coerce").min()) <= 0 else 0.0
+    ax.set_ylim(ymin, ymax)
+    if ymin < 0:
+        ax.axhline(0, color="0.62", linewidth=0.55, linestyle="--", zorder=0)
+    ordered = [key for key in ("cue_only", "single_item_memory", "sequence_state") if key in legend_handles]
+    legend = ax.legend(
+        [legend_handles[key] for key in ordered],
+        [labels[key] for key in ordered],
+        frameon=False,
+        fontsize=4.5,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=2,
+        handlelength=0.9,
+        borderaxespad=0.0,
+        columnspacing=0.45,
+        handletextpad=0.28,
+    )
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_ncols = 2
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig3_weak_probe_completion"

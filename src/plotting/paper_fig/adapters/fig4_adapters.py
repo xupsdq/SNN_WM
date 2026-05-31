@@ -230,18 +230,31 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
         summary_path = seed_dir / "data" / "metrics" / "panel_e_decision_spike_displacement.csv"
         sources.extend([_source(path, seed_dir), _source(summary_path, seed_dir)])
         if path.exists():
-            df = pd.read_csv(path)
+            needed_cols = {"network_seed", "condition", "time_step", "time_ms", "DPI_L3_t", "overlap_bin", "similarity_bin"}
+            df = pd.read_csv(path, usecols=lambda col: col in needed_cols)
             df = df[df["condition"].isin(keep)]
             before_filter += int(len(df))
             df = _ensure_time_ms(df, spec, warnings, _display(path, repo_root))
             if "time_ms" in df.columns:
-                original_times.extend(pd.to_numeric(df["time_ms"], errors="coerce").dropna().tolist())
+                original_time_values = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
+                if not original_time_values.empty:
+                    original_times.extend([float(original_time_values.min()), float(original_time_values.max())])
                 df = df[pd.to_numeric(df["time_ms"], errors="coerce") <= max_time_ms].copy()
-                plotted_times.extend(pd.to_numeric(df["time_ms"], errors="coerce").dropna().tolist())
+                plotted_time_values = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
+                if not plotted_time_values.empty:
+                    plotted_times.extend([float(plotted_time_values.min()), float(plotted_time_values.max())])
             else:
                 warnings.append(f"{_display(path, repo_root)} lacks time_ms and time_step/dt_ms; Fig.4E time filter could not be applied.")
             after_filter += int(len(df))
-            for _, r in df.iterrows():
+            group_cols = [col for col in ("condition", "time_ms") if col in df.columns]
+            if "time_step" in df.columns:
+                group_cols.append("time_step")
+            if not group_cols:
+                warnings.append(f"{_display(path, repo_root)} has no usable time columns after filtering.")
+                continue
+            df["DPI_L3_t"] = pd.to_numeric(df["DPI_L3_t"], errors="coerce")
+            reduced = df.dropna(subset=["DPI_L3_t"]).groupby(group_cols, dropna=False, sort=True)["DPI_L3_t"].agg(["mean", "count"]).reset_index()
+            for _, r in reduced.iterrows():
                 raw = str(r.get("condition", ""))
                 rows.append(
                     _canonical(
@@ -251,15 +264,14 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
                         condition=CONDITION_LABELS.get(raw, raw),
                         layer="L3",
                         seed_id=_seed_id(seed_dir),
-                        value=_num(r.get("DPI_L3_t", np.nan)),
+                        value=_num(r.get("mean", np.nan)),
                         unit="index",
                         source_file=_display(path, repo_root),
                         raw_condition=raw,
-                        pair_id=int(_num(r.get("pair_id", -1))),
-                        time_step=int(_num(r.get("time_step", 0))),
+                        pair_id="summary",
+                        time_step=int(_num(r.get("time_step", 0))) if "time_step" in reduced.columns else "",
                         time_ms=_num(r.get("time_ms", np.nan)),
-                        similarity_bin=str(r.get("similarity_bin", "")),
-                        overlap_bin=str(r.get("overlap_bin", "")),
+                        n_source_rows=int(_num(r.get("count", 0))),
                         run_mode=_run_mode(seeds),
                     )
                 )

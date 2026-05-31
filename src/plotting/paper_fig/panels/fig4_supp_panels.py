@@ -56,28 +56,23 @@ def render_s7_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping
     pivot = grouped.pivot_table(index=["iso_similarity_bin_order", "iso_similarity_bin"], columns="condition", values="value").reset_index()
     if {"High overlap excess", "Low overlap excess"}.issubset(pivot.columns):
         pivot = pivot.sort_values("iso_similarity_bin_order")
-        for _, row in pivot.iterrows():
-            low = _num(row.get("Low overlap excess"))
-            high = _num(row.get("High overlap excess"))
-            if np.isfinite(low) and np.isfinite(high):
-                ax.plot([0, 1], [low, high], color="0.72", linewidth=0.55, alpha=0.65, zorder=1)
         low_vals = pd.to_numeric(pivot["Low overlap excess"], errors="coerce").dropna()
         high_vals = pd.to_numeric(pivot["High overlap excess"], errors="coerce").dropna()
         means = [float(low_vals.mean()) if len(low_vals) else np.nan, float(high_vals.mean()) if len(high_vals) else np.nan]
         sems = [float(low_vals.sem()) if len(low_vals) > 1 else 0.0, float(high_vals.sem()) if len(high_vals) > 1 else 0.0]
         ax.bar([0, 1], means, yerr=sems, color=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.72, capsize=1.8, zorder=2)
-        ax.scatter(np.zeros(len(low_vals)), low_vals, s=8, color=get_plot_color("shuffled_pair"), alpha=0.45, zorder=3)
-        ax.scatter(np.ones(len(high_vals)), high_vals, s=8, color=get_plot_color("true_pair"), alpha=0.45, zorder=3)
         ax.set_xticks([0, 1], ["Low", "High"])
     else:
         order = _ordered_unique(df["condition"], ["Low overlap excess", "High overlap excess"])
-        _dot_bar(ax, df, order, colors=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")])
+        _bar_summary(ax, df, order, colors=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")])
         ax.set_xticks(np.arange(len(order)), ["Low", "High"])
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
     ax.set_xlabel(str(spec.get("x_axis", "Similarity stratum")))
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_overlap_excess"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_paired_lines = False
 
 
 def render_s7_similarity_full_trend(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -185,9 +180,11 @@ def render_s7_overlap_regression(ax, panel_data: pd.DataFrame | None, stats: Map
         xs = x + (idx - (len(outcomes) - 1) / 2) * width
         ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx % len(colors)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, capsize=1.5, label=str(outcome))
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
-    ax.set_xticks(x, [_short_metric(v) for v in order], rotation=25, ha="right")
+    ax.set_xticks(x, [_short_metric(v).replace("\n", " ") for v in order], rotation=0, ha="center")
     ax.set_ylabel(str(spec.get("y_axis", "Coefficient")))
-    ax.legend(frameon=False, fontsize=4.5, loc="best", handlelength=0.8)
+    legend = ax.legend(frameon=False, fontsize=4.5, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=max(1, len(outcomes)), handlelength=0.8, borderaxespad=0.0)
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_overlap_regression"
 
@@ -237,8 +234,6 @@ def render_s7_perturbation_specificity_contrast(ax, panel_data: pd.DataFrame | N
     ax.set_xticks(np.arange(len(order)), ["vs non", "vs random"])
     ax.set_ylabel(str(spec.get("y_axis", "L3 DPI difference")))
     audit_cols = ["probe_input_unchanged", "sample_input_complete", "l2_stsp_frozen", "l3_stsp_frozen"]
-    if all(col in df.columns and df[col].astype(bool).all() for col in audit_cols):
-        ax.text(0.98, 0.94, "audit pass", transform=ax.transAxes, ha="right", va="top", fontsize=4.8, color=COLOR_NEUTRAL)
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_perturbation_specificity_contrast"
 
@@ -266,7 +261,8 @@ def render_s7_decision_spike_summary(ax, panel_data: pd.DataFrame | None, stats:
         sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
     ax.bar(xs, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.78, capsize=1.8, zorder=2)
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
-    ax.set_xticks(np.arange(len(order)), [str(v).replace(" support", "").replace("Non-overlap", "Non") for v in order], rotation=25, ha="right")
+    labels = [str(v).replace(" support", "").replace("Non-overlap", "Non").replace("Random matched", "Random\nmatched") for v in order]
+    ax.set_xticks(np.arange(len(order)), labels, rotation=0, ha="center")
     ax.set_ylabel(str(spec.get("y_axis", "Decision-step L3 DPI")))
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_decision_spike_summary_bar_only"
@@ -372,6 +368,21 @@ def _dot_bar(ax, df: pd.DataFrame, order: Sequence[str], *, color: str | None = 
             jitter = np.linspace(-0.08, 0.08, len(vals)) if len(vals) > 1 else np.array([0.0])
             c = (colors[idx] if colors else color) or COLOR_NEUTRAL
             ax.scatter(np.full(len(vals), xs[idx]) + jitter, vals, s=8, color=c, alpha=0.35, zorder=3)
+    bar_colors = list(colors) if colors else [color or COLOR_NEUTRAL] * len(order)
+    ax.bar(xs, means, yerr=sems, color=bar_colors, edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.68, capsize=1.8, zorder=2)
+
+
+def _bar_summary(ax, df: pd.DataFrame, order: Sequence[str], *, color: str | None = None, colors: Sequence[str] | None = None) -> None:
+    xs = np.arange(len(order), dtype=float)
+    means = []
+    sems = []
+    for key in order:
+        if key in set(df.get("condition", pd.Series(dtype=str)).astype(str)):
+            vals = pd.to_numeric(df.loc[df["condition"].astype(str).eq(key), "value"], errors="coerce").dropna()
+        else:
+            vals = pd.to_numeric(df.loc[df["metric"].astype(str).eq(key), "value"], errors="coerce").dropna()
+        means.append(float(vals.mean()) if len(vals) else np.nan)
+        sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
     bar_colors = list(colors) if colors else [color or COLOR_NEUTRAL] * len(order)
     ax.bar(xs, means, yerr=sems, color=bar_colors, edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.68, capsize=1.8, zorder=2)
 

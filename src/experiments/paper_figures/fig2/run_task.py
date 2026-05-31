@@ -169,9 +169,10 @@ def _get_pair_specs(
         candidate_pool=candidate_pool,
         cache_key=expected_key,
     )
+    _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
     _set_artifact_metadata(ctx, "pair_trial_specs", "built", task_dir, artifact.digest, expected_key)
     ctx.run_log.append(f"{legacy._now()} pair_trial_specs source=built artifact={task_dir}")
-    return pair_trials
+    return artifact.pair_trials
 
 
 def _write_pair_specs_to_bundle(ctx: ExperimentContext, pair_trials: pd.DataFrame, candidate_pool: pd.DataFrame) -> None:

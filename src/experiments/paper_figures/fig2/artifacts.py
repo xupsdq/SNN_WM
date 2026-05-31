@@ -139,8 +139,8 @@ def save_pair_trial_specs_artifact(
     )
     return PairTrialSpecsArtifact(
         root=artifact.root,
-        pair_trials=tables["pair_trials"],
-        candidate_pool=tables["candidate_pool"],
+        pair_trials=artifact.table["pair_trials"].copy(),
+        candidate_pool=artifact.table["candidate_pool"].copy(),
         manifest=artifact.manifest,
         digest=artifact.digest,
     )
@@ -498,7 +498,7 @@ def _save_table_bundle(
     manifest = pd.DataFrame(rows, columns=list(manifest_columns))
     manifest.to_csv(task_dir / "manifest.csv", index=False, encoding="utf-8")
     write_cache_key(task_dir, cache_key)
-    table_payload = {name: tables[name].copy() for name in files}
+    table_payload = {name: written[name][1].copy() for name in files}
     return TableArtifact(task_dir, table_payload, manifest, digest)  # type: ignore[arg-type]
 
 

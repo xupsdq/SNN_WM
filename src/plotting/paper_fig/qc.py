@@ -1299,18 +1299,17 @@ def _check_fig3_standalone_contract(
         passes.append("Fig.3 canvas is 165 x 158 mm")
     else:
         failures.append(f"Fig.3 canvas must be 165 x 158 mm, found {canvas}")
-    expected_order = ["B", "C", "D", "E"]
+    expected_order = ["A", "B", "C", "D"]
     if list(spec.get("reading_order") or []) == expected_order and set(panels.keys()) == set(expected_order):
-        passes.append("Fig.3 has schematic A and region-ping F removed and uses B-E reading order")
-        passes.append("fig3_has_schematic_A = false")
+        passes.append("Fig.3 uses A-D reading order with enlarged landscape panel A")
+        passes.append("fig3_has_landscape_A = true")
         passes.append("fig3_region_ping_main_panel = false")
-        passes.append("no_empty_A_panel = true")
     else:
-        failures.append(f"Fig.3 must contain panels/reading_order B-E with no A/F panel, found panels={sorted(panels.keys())}, reading_order={spec.get('reading_order')}")
+        failures.append(f"Fig.3 must contain panels/reading_order A-D with no E/F panel, found panels={sorted(panels.keys())}, reading_order={spec.get('reading_order')}")
     _check_fig3_new_geometry(panels, passes, failures)
 
     panel_data: dict[str, pd.DataFrame] = {}
-    for panel_id in ("B", "C", "D", "E"):
+    for panel_id in ("A", "B", "C", "D"):
         if panel_id not in panels:
             failures.append(f"Fig.3{panel_id}: panel missing from spec")
             continue
@@ -1350,91 +1349,93 @@ def _check_fig3_standalone_contract(
         else:
             failures.append(f"Fig.3B has insufficient stage coverage: {sorted(stages)}")
 
+    a_df = panel_data.get("A")
+    if a_df is not None:
+        metrics = set(a_df.get("metric", pd.Series(dtype=str)).astype(str))
+        masks = set(a_df.get("mask_role", pd.Series(dtype=str)).astype(str))
+        if {"delta_gain_map", "G_final"}.intersection(metrics):
+            passes.append("Fig.3A includes representative support landscape")
+        else:
+            failures.append(f"Fig.3A missing delta_gain_map/G_final, found {sorted(metrics)}")
+        if {"peak", "valley"}.issubset(masks):
+            passes.append("Fig.3A includes optional peak/valley overlays")
+        else:
+            warnings.append(f"Fig.3A peak/valley overlays unavailable or partial, found {sorted(masks)}")
+        a_sources = _panel_sources(output_dir, figure_id, "A")
+        if "panel_c_example_landscape.npz" in a_sources:
+            passes.append("Fig.3A source manifest includes panel_c_example_landscape.npz")
+        else:
+            warnings.append("Fig.3A source manifest does not list panel_c_example_landscape.npz")
+        a_panel = panels.get("A") or {}
+        if a_panel.get("renderer") in {"render_fig3_3d_landscape", "render_fig3_landscape_heatmap"}:
+            passes.append("Fig.3A spec requests landscape renderer")
+        else:
+            failures.append("Fig.3A must use a landscape renderer")
+        a_meta = render_metadata.get("A", {})
+        if a_meta:
+            form = str(a_meta.get("plot_form"))
+            if form == "fig3_3d_surface_landscape" or bool(a_meta.get("paper_fig_is_3d_surface", False)):
+                passes.append("Fig.3A rendered as 3D surface")
+            elif form == "fig3_support_landscape_heatmap":
+                passes.append("Fig.3A rendered as STSP support heatmap")
+            elif form == "fig3_2d_landscape_fallback" or a_meta.get("3d_fallback_reason"):
+                warnings.append(f"Fig.3A used explicit 2D fallback: {a_meta.get('3d_fallback_reason', '')}")
+            else:
+                failures.append(f"Fig.3A renderer did not report 3D landscape/fallback form, found {form}")
+            if bool(a_meta.get("has_summary_inset", a_meta.get("paper_fig_has_summary_inset", False))):
+                failures.append("Fig.3A must not contain a summary inset")
+            else:
+                passes.append("Fig.3A reports no summary inset")
+
     c_df = panel_data.get("C")
     if c_df is not None:
         metrics = set(c_df.get("metric", pd.Series(dtype=str)).astype(str))
-        masks = set(c_df.get("mask_role", pd.Series(dtype=str)).astype(str))
-        if {"delta_gain_map", "G_final"}.intersection(metrics):
-            passes.append("Fig.3C includes representative support landscape")
+        serial_positions = pd.to_numeric(c_df.get("serial_position", pd.Series(dtype=float)), errors="coerce").dropna()
+        states = set(c_df.get("state_condition", pd.Series(dtype=str)).astype(str))
+        if "readout_mass" in metrics:
+            passes.append("Fig.3C uses neutral-ping readout_mass")
         else:
-            failures.append(f"Fig.3C missing delta_gain_map/G_final, found {sorted(metrics)}")
-        if {"peak", "valley"}.issubset(masks):
-            passes.append("Fig.3C includes optional peak/valley overlays")
+            failures.append(f"Fig.3C missing readout_mass, found {sorted(metrics)}")
+        if not serial_positions.empty and int(serial_positions.min()) >= 1:
+            passes.append("Fig.3C has numeric serial positions for plotting")
         else:
-            warnings.append(f"Fig.3C peak/valley overlays unavailable or partial, found {sorted(masks)}")
+            failures.append("Fig.3C must include numeric serial_position rows")
+        if "S_final" in states and ({"S0", "S0_ping_null"}.intersection(states)):
+            passes.append("Fig.3C includes S_final and S0/null baseline")
+        else:
+            warnings.append(f"Fig.3C missing preferred state conditions, found {sorted(states)}")
         c_sources = _panel_sources(output_dir, figure_id, "C")
-        if "panel_c_example_landscape.npz" in c_sources:
-            passes.append("Fig.3C source manifest includes panel_c_example_landscape.npz")
+        if "panel_d_ping_" in c_sources:
+            passes.append("Fig.3C uses panel_d neutral-ping sources")
+        elif "panel_e_ping_" in c_sources:
+            warnings.append("Fig.3C uses old panel_e neutral-ping aliases")
         else:
-            warnings.append("Fig.3C source manifest does not list panel_c_example_landscape.npz")
-        c_panel = panels.get("C") or {}
-        if c_panel.get("renderer") == "render_fig3_3d_landscape" and c_panel.get("projection") == "3d":
-            passes.append("Fig.3C spec requests 3D landscape renderer")
-        else:
-            failures.append("Fig.3C must use render_fig3_3d_landscape with projection=3d")
-        c_meta = render_metadata.get("C", {})
-        if c_meta:
-            form = str(c_meta.get("plot_form"))
-            if form == "fig3_3d_surface_landscape" or bool(c_meta.get("paper_fig_is_3d_surface", False)):
-                passes.append("Fig.3C rendered as 3D surface")
-            elif form == "fig3_2d_landscape_fallback" or c_meta.get("3d_fallback_reason"):
-                warnings.append(f"Fig.3C used explicit 2D fallback: {c_meta.get('3d_fallback_reason', '')}")
-            else:
-                failures.append(f"Fig.3C renderer did not report 3D landscape/fallback form, found {form}")
-            if bool(c_meta.get("has_summary_inset", c_meta.get("paper_fig_has_summary_inset", False))):
-                failures.append("Fig.3C must not contain a summary inset")
-            else:
-                passes.append("Fig.3C reports no summary inset")
+            warnings.append("Fig.3C source manifest does not list panel_d/panel_e ping source names")
 
     d_df = panel_data.get("D")
     if d_df is not None:
         metrics = set(d_df.get("metric", pd.Series(dtype=str)).astype(str))
-        serial_positions = pd.to_numeric(d_df.get("serial_position", pd.Series(dtype=float)), errors="coerce").dropna()
-        states = set(d_df.get("state_condition", pd.Series(dtype=str)).astype(str))
-        if "readout_mass" in metrics:
-            passes.append("Fig.3D uses neutral-ping readout_mass")
-        else:
-            failures.append(f"Fig.3D missing readout_mass, found {sorted(metrics)}")
-        if not serial_positions.empty and int(serial_positions.min()) >= 1:
-            passes.append("Fig.3D has numeric serial positions for plotting")
-        else:
-            failures.append("Fig.3D must include numeric serial_position rows")
-        if "S_final" in states and ({"S0", "S0_ping_null"}.intersection(states)):
-            passes.append("Fig.3D includes S_final and S0/null baseline")
-        else:
-            warnings.append(f"Fig.3D missing preferred state conditions, found {sorted(states)}")
-        d_sources = _panel_sources(output_dir, figure_id, "D")
-        if "panel_d_ping_" in d_sources:
-            passes.append("Fig.3D uses panel_d neutral-ping sources")
-        elif "panel_e_ping_" in d_sources:
-            warnings.append("Fig.3D uses old panel_e neutral-ping aliases")
-        else:
-            warnings.append("Fig.3D source manifest does not list panel_d/panel_e ping source names")
-
-    e_df = panel_data.get("E")
-    if e_df is not None:
-        metrics = set(e_df.get("metric", pd.Series(dtype=str)).astype(str))
-        memories = set(e_df.get("memory_condition", pd.Series(dtype=str)).astype(str))
+        memories = set(d_df.get("memory_condition", pd.Series(dtype=str)).astype(str))
         if "P_target" in metrics:
-            passes.append("Fig.3E uses weak-probe P_target recovery")
+            passes.append("Fig.3D uses weak-probe P_target recovery")
         else:
-            failures.append(f"Fig.3E missing P_target, found {sorted(metrics)}")
+            failures.append(f"Fig.3D missing P_target, found {sorted(metrics)}")
         if {"sequence_state", "single_item_memory", "cue_only"}.issubset(memories):
-            passes.append("Fig.3E includes cue_only, single_item_memory, and sequence_state weak-probe curves")
+            passes.append("Fig.3D includes cue_only, single_item_memory, and sequence_state weak-probe curves")
         else:
-            warnings.append(f"Fig.3E missing preferred memory conditions, found {sorted(memories)}")
-        e_sources = _panel_sources(output_dir, figure_id, "E")
-        if "panel_e_weak_probe_" in e_sources:
-            passes.append("Fig.3E uses panel_e weak-probe sources")
-        elif "panel_f_weak_probe_" in e_sources:
-            warnings.append("Fig.3E uses old panel_f weak-probe aliases")
+            warnings.append(f"Fig.3D missing preferred memory conditions, found {sorted(memories)}")
+        d_sources = _panel_sources(output_dir, figure_id, "D")
+        if "panel_e_weak_probe_" in d_sources:
+            passes.append("Fig.3D uses panel_e weak-probe sources")
+        elif "panel_f_weak_probe_" in d_sources:
+            warnings.append("Fig.3D uses old panel_f weak-probe aliases")
         else:
-            warnings.append("Fig.3E source manifest does not list panel_e/panel_f weak-probe source names")
+            warnings.append("Fig.3D source manifest does not list panel_e/panel_f weak-probe source names")
 
-    if "F" in panels:
-        failures.append("Fig.3F region-ping panel must be removed from the main figure spec")
+    if "E" in panels or "F" in panels:
+        failures.append("Fig.3 main figure must not contain E/F panels after A-D compaction")
     else:
-        passes.append("Fig.3F region-ping panel is absent from the main figure spec")
+        passes.append("Fig.3 E/F panels are absent from the main figure spec")
 
     visible_terms: list[str] = []
     for df in panel_data.values():
@@ -1539,19 +1540,23 @@ def _check_fig3_supp_contract(
 
 def _check_fig3_new_geometry(panels: Mapping[str, Any], passes: list[str], failures: list[str]) -> None:
     expected = {
-        "B": {"x": 12.00, "y": 8.00, "w": 52.00, "h": 42.00},
-        "C": {"x": 75.00, "y": 8.00, "w": 84.00, "h": 96.00},
-        "D": {"x": 12.00, "y": 62.00, "w": 52.00, "h": 42.00},
-        "E": {"x": 12.00, "y": 116.00, "w": 147.00, "h": 34.00},
+        "A": {"x": 12.00, "y": 6.00, "w": 147.00, "h": 88.00},
+        "B": {"x": 12.00, "y": 102.00, "w": 45.00, "h": 50.00},
+        "C": {"x": 63.00, "y": 102.00, "w": 45.00, "h": 50.00},
+        "D": {"x": 114.00, "y": 102.00, "w": 45.00, "h": 50.00},
     }
-    if "A" in panels:
-        failures.append("Fig.3A schematic panel must be removed from the main figure")
+    if "A" in panels and (panels.get("A") or {}).get("renderer") in {"render_fig3_3d_landscape", "render_fig3_landscape_heatmap"}:
+        passes.append("Fig.3A is the enlarged landscape panel")
     else:
-        passes.append("Fig.3A schematic panel is removed")
+        failures.append("Fig.3A must be the enlarged landscape panel")
     if "F" in panels:
         failures.append("Fig.3F region-ping panel must be removed from the main figure")
     else:
         passes.append("Fig.3F region-ping panel is removed")
+    if "E" in panels:
+        failures.append("Fig.3E must be removed after relabeling weak-probe recovery to Fig.3D")
+    else:
+        passes.append("Fig.3E is removed after relabeling")
     for panel_id, target in expected.items():
         pos = (panels.get(panel_id) or {}).get("position_mm") or {}
         if _fig3_mm_box_close(pos, target, tol=0.08):
@@ -1559,30 +1564,26 @@ def _check_fig3_new_geometry(panels: Mapping[str, Any], passes: list[str], failu
         else:
             failures.append(f"Fig.3{panel_id}: position_mm must be {target}, found {pos}")
     pos = {panel_id: (panels.get(panel_id) or {}).get("position_mm") or {} for panel_id in expected}
-    if _near(float(pos["B"].get("x", -1)), float(pos["D"].get("x", -2)), tol=0.08) and _near(float(pos["B"].get("w", -1)), float(pos["D"].get("w", -2)), tol=0.08):
-        passes.append("Fig.3B/D left-column widths align")
+    if _near(float(pos["A"].get("x", -1)), float(pos["B"].get("x", -2)), tol=0.08) and _near(float(pos["A"].get("x", 0)) + float(pos["A"].get("w", 0)), 159.0, tol=0.08):
+        passes.append("Fig.3A spans the full top row")
     else:
-        failures.append("Fig.3B and Fig.3D must align in the left column")
-    b_right = float(pos["B"].get("x", 0)) + float(pos["B"].get("w", 0))
-    d_right = float(pos["D"].get("x", 0)) + float(pos["D"].get("w", 0))
-    c_left = float(pos["C"].get("x", 0))
-    if c_left > max(b_right, d_right):
-        passes.append("C_right_of_BD = true")
+        failures.append("Fig.3A must span the full top row from x=12 to x=159")
+    bottom_ids = ["B", "C", "D"]
+    widths = [float(pos[pid].get("w", 0)) for pid in bottom_ids]
+    heights = [float(pos[pid].get("h", 0)) for pid in bottom_ids]
+    tops = [float(pos[pid].get("y", 0)) for pid in bottom_ids]
+    if max(widths) - min(widths) <= 0.08 and max(heights) - min(heights) <= 0.08:
+        passes.append("Fig.3B-D use equal-sized bottom-row panels")
     else:
-        failures.append("Fig.3C must be to the right of Fig.3B/D")
-    c_top = float(pos["C"].get("y", 0))
-    c_bottom = c_top + float(pos["C"].get("h", 0))
-    bd_top = min(float(pos["B"].get("y", 0)), float(pos["D"].get("y", 0)))
-    bd_bottom = max(float(pos["B"].get("y", 0)) + float(pos["B"].get("h", 0)), float(pos["D"].get("y", 0)) + float(pos["D"].get("h", 0)))
-    if _near(c_top, bd_top, tol=0.08) and _near(c_bottom, bd_bottom, tol=0.08):
-        passes.append("C_spans_BD_height = true")
+        failures.append(f"Fig.3B-D must have equal panel sizes, found widths={widths}, heights={heights}")
+    if max(tops) - min(tops) <= 0.08:
+        passes.append("Fig.3B-D top edges align in one row")
     else:
-        failures.append("Fig.3C must span the combined Fig.3B/D height")
-    e_right = float(pos["E"].get("x", 0)) + float(pos["E"].get("w", 0))
-    if _near(e_right, 159.0, tol=0.08):
-        passes.append("Fig.3E spans the bottom functional-access row after region-ping removal")
+        failures.append(f"Fig.3B-D top edges must align, found y={tops}")
+    if float(pos["C"].get("x", 0)) > float(pos["B"].get("x", 0)) + float(pos["B"].get("w", 0)) and float(pos["D"].get("x", 0)) > float(pos["C"].get("x", 0)) + float(pos["C"].get("w", 0)):
+        passes.append("Fig.3B-D are separated by positive horizontal gutters")
     else:
-        failures.append("Fig.3E must span the bottom functional-access row after Fig.3F removal")
+        failures.append("Fig.3B-D must have positive horizontal gutters")
 
 
 def _panel_sources(output_dir: Path, figure_id: str, panel_id: str) -> str:
@@ -3137,10 +3138,10 @@ def _check_fig6_stsp_recruitment_contract(
     failures: list[str],
 ) -> None:
     canvas = spec.get("canvas_mm") or {}
-    if float(canvas.get("width", 0)) == 165 and float(canvas.get("height", 0)) == 112:
-        passes.append("Fig.6 canvas is 165 x 112 mm")
+    if float(canvas.get("width", 0)) == 165 and float(canvas.get("height", 0)) == 172:
+        passes.append("Fig.6 canvas is 165 x 172 mm")
     else:
-        failures.append(f"Fig.6 canvas must be 165 x 112 mm for the A-F overlap-gated STSP layout, found {canvas}")
+        failures.append(f"Fig.6 canvas must be 165 x 172 mm for the A-F overlap-gated STSP layout, found {canvas}")
 
     expected_panels = {"A", "B", "C", "D", "E", "F"}
     if set(panels.keys()) == expected_panels:
@@ -3153,12 +3154,12 @@ def _check_fig6_stsp_recruitment_contract(
         failures.append(f"Fig.6 reading_order must be A-F, found {spec.get('reading_order')}")
 
     expected_boxes = {
-        "A": {"x": 8.00, "y": 8.00, "w": 45.00, "h": 38.00},
-        "B": {"x": 60.00, "y": 8.00, "w": 45.00, "h": 38.00},
-        "C": {"x": 112.00, "y": 8.00, "w": 45.00, "h": 38.00},
-        "D": {"x": 8.00, "y": 58.00, "w": 45.00, "h": 38.00},
-        "E": {"x": 60.00, "y": 58.00, "w": 45.00, "h": 38.00},
-        "F": {"x": 112.00, "y": 58.00, "w": 45.00, "h": 38.00},
+        "A": {"x": 8.00, "y": 16.00, "w": 45.00, "h": 46.00},
+        "B": {"x": 60.00, "y": 16.00, "w": 45.00, "h": 46.00},
+        "C": {"x": 112.00, "y": 16.00, "w": 45.00, "h": 46.00},
+        "D": {"x": 8.00, "y": 82.00, "w": 56.00, "h": 46.00},
+        "E": {"x": 92.00, "y": 82.00, "w": 56.00, "h": 46.00},
+        "F": {"x": 12.00, "y": 140.00, "w": 147.00, "h": 28.00},
     }
     for panel_id, expected in expected_boxes.items():
         if panel_id in panels and _fig6_box_close(_fig6_pos(panels[panel_id]), expected):
