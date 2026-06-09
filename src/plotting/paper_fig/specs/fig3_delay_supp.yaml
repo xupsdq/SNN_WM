@@ -1,0 +1,62 @@
+figure_id: fig3_delay_supp
+implementation_id: fig3
+figure_title_draft: Delay boundary of sequence-state rescue
+scientific_contract: fig3_delay_boundary_supp_v1
+experiment_root_default: results/fig3_full_seed1000_b32_s4/fig3_multiitem_peak_landscape
+canvas_mm:
+  width: 165
+  height: 82
+reading_order: [A, B]
+run_modes:
+  - single_network_draft
+  - multi_network_final
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  resolved_spec: fig3_delay_supp_resolved_spec.yaml
+  source_manifest: fig3_delay_supp_source_manifest.json
+  qc_report: fig3_delay_supp_qc_report.md
+  panel_data: panel_data/*.csv
+  stats: stats/*.json
+  source_manifests: source_manifests/*.json
+qc_requirements:
+  require_claims: true
+  require_source_manifest: true
+  canvas_mm: {width: 165, height: 82}
+  expected_seq_lengths: [3, 5, 7, 10]
+  expected_delay_ms: [100, 200, 400, 800]
+  single_network_warning: true
+panels:
+  A:
+    panel_id: A
+    claim: L1 morphology retention has a delay-dependent capacity boundary across K.
+    panel_type: delay_boundary_heatmap
+    producer_task: boundary_summary
+    data_adapter: fig3_delay_morphology_heatmap_adapter
+    renderer: render_fig3_boundary_heatmap
+    source: data/metrics/panel_f_boundary_summary.csv
+    size_mm: {width: 70.00, height: 62.00}
+    position_mm: {x: 10.00, y: 8.00, w: 70.00, h: 62.00}
+    axes_mm: {x: 19.00, y: 21.00, w: 54.00, h: 38.00}
+    letter_mm: {x: 4.00, y: 6.00}
+    metric: N_eff_fraction
+    vmin: 0.0
+    vmax: 1.0
+    x_axis: K
+    y_axis: Delay
+  B:
+    panel_id: B
+    claim: Sequence-state rescue occupies a high-K and long-delay temporal boundary zone.
+    panel_type: delay_boundary_heatmap
+    producer_task: boundary_summary
+    data_adapter: fig3_delay_rescue_heatmap_adapter
+    renderer: render_fig3_boundary_heatmap
+    source: data/metrics/panel_f_boundary_summary.csv
+    size_mm: {width: 70.00, height: 62.00}
+    position_mm: {x: 88.00, y: 8.00, w: 70.00, h: 62.00}
+    axes_mm: {x: 97.00, y: 21.00, w: 54.00, h: 38.00}
+    letter_mm: {x: 82.00, y: 6.00}
+    metric: rescued_fraction
+    vmin: 0.0
+    vmax: 1.0
+    x_axis: K
+    y_axis: Delay

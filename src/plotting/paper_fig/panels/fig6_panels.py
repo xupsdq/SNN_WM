@@ -70,9 +70,9 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
 
 def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     df = _clean(panel_data)
-    metrics = ["old_mass", "middle_mass", "recent_mass", "other_mass", "silent_rate"]
+    default_metrics = ["old_mass", "middle_mass", "recent_mass", "other_mass", "silent_rate"]
+    metrics = [str(metric) for metric in (spec.get("metrics") or default_metrics)]
     if not df.empty and "other_mass" not in set(df.get("metric", pd.Series(dtype=str)).astype(str)):
-        metrics = ["old_mass", "middle_mass", "recent_mass", "silent_rate"]
         ax.paper_fig_missing_other_mass = True
     use = df[df.get("metric", pd.Series(dtype=str)).astype(str).isin(metrics)].copy() if not df.empty else df
     if use.empty:
@@ -97,6 +97,7 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
         "other_mass": "Other readout",
         "silent_rate": "Silent rate",
     }
+    labels.update({str(key): str(value) for key, value in (spec.get("metric_labels") or {}).items()})
     for metric in metrics:
         vals = [
             float(summary.loc[summary["condition"].astype(str).eq(cond) & summary["metric"].astype(str).eq(metric), "value"].mean())
@@ -113,8 +114,8 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
     ax.set_ylim(0, max(1.0, float(np.nanmax(bottom)) if len(bottom) else 1.0) * 1.08)
     legend = ax.legend(
         frameon=False,
-        fontsize=4.9,
-        ncol=3,
+        fontsize=5.0,
+        ncol=min(3, max(1, len(metrics))),
         loc="lower center",
         bbox_to_anchor=(0.5, 1.02),
         borderaxespad=0.0,
@@ -124,7 +125,9 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
     )
     legend.set_in_layout(False)
     ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = min(3, max(1, len(metrics)))
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_stack_metrics = metrics
     ax.paper_fig_plot_form = "region_gated_ping_readout_bias"
     _tidy(ax)
 
@@ -308,18 +311,21 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
     )
     legend.set_in_layout(False)
     ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_interaction_annotation = False
     interaction = df[df.get("metric", pd.Series(dtype=str)).astype(str).eq("interaction_delta")].copy() if not df.empty else pd.DataFrame()
-    if not interaction.empty and "early_window_ms" in interaction.columns:
+    show_interaction_annotation = bool(spec.get("show_interaction_annotation", False))
+    if show_interaction_annotation and not interaction.empty and "early_window_ms" in interaction.columns:
         windows = pd.to_numeric(interaction["early_window_ms"], errors="coerce")
         primary_interaction = interaction[windows.sub(primary_window).abs().le(1e-6)].copy()
         if not primary_interaction.empty:
             interaction = primary_interaction
-    if not interaction.empty:
+    if show_interaction_annotation and not interaction.empty:
         val = pd.to_numeric(interaction.get("value"), errors="coerce").dropna()
         if not val.empty:
             mean_val = float(val.mean())
             label = "interaction > 0" if mean_val > 0 else f"interaction = {mean_val:.3f}"
             ax.text(0.98, 0.96, label, transform=ax.transAxes, ha="right", va="top", fontsize=5.6, color="0.25")
+            ax.paper_fig_interaction_annotation = True
     ax.paper_fig_plot_form = "overlap_gated_stsp_recruitment_2x2"
     ax.paper_fig_primary_metric = "delta_spike_probability"
     ax.paper_fig_interaction_metric = "interaction_delta"
@@ -327,6 +333,18 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
     ax.paper_fig_primary_early_window_ms = primary_window
     ax.paper_fig_used_fallback_early_window = used_fallback_window
     _tidy(ax)
+
+
+def render_fig6_blank_mechanism_placeholder(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = panel_data, stats, spec, style
+    ax.axis("off")
+    ax.paper_fig_plot_form = "fig6_blank_mechanism_placeholder"
+    ax.paper_fig_optional_placeholder = True
+    ax.paper_fig_pure_mechanism_schematic = True
+    ax.paper_fig_has_summary_inset = False
+    ax.paper_fig_final_label_claim = False
+    ax.paper_fig_high_stsp_alone_sufficient = False
+    ax.paper_fig_primary_endpoint = "Layer 1 spike recruitment"
 
 
 def render_fig6_stsp_overlap_gated_recruitment_synthesis(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import cm
 from matplotlib.colors import Normalize, PowerNorm, TwoSlopeNorm
+from matplotlib.ticker import MaxNLocator
 
 from src.plotting.common.colors import get_plot_cmap, get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL
@@ -19,6 +20,40 @@ RANDOM = "#6A6A6A"
 VALLEY = "#0072B2"
 GRID = "0.86"
 STATE_ORDER = ("S_final", "S0", "S0_ping_null")
+ACCESS_COLORS = {
+    "cue_only": "0.62",
+    "single_item_memory": "#D55E00",
+    "sequence_state": "#0072B2",
+    "singleton_access_fraction": "#D55E00",
+    "sequence_access_fraction": "#0072B2",
+    "rescued_fraction": "#009E73",
+    "morphology_N_eff": "#6A6A6A",
+    "single_item_access_count": "#D55E00",
+    "sequence_state_access_count": "#0072B2",
+    "rescued_count": "#009E73",
+}
+ACCESS_LABELS = {
+    "cue_only": "Cue only",
+    "single_item_memory": "Slot singleton",
+    "sequence_state": "Full sequence",
+    "singleton_access_fraction": "Singleton",
+    "sequence_access_fraction": "Sequence",
+    "rescued_fraction": "Rescued",
+    "morphology_N_eff": "L1 N_eff",
+    "single_item_access_count": "Singleton",
+    "sequence_state_access_count": "Sequence",
+    "rescued_count": "Rescued",
+}
+CUE_SPECIFICITY_COLORS = {
+    "matched": "#0072B2",
+    "mismatched": "#D55E00",
+    "unseen": "#6A6A6A",
+}
+CUE_SPECIFICITY_LABELS = {
+    "matched": "Matched",
+    "mismatched": "Mismatched",
+    "unseen": "Unseen",
+}
 
 
 def render_fig3_sequence_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -427,6 +462,407 @@ def render_fig3_region_ping_readout(ax, panel_data: pd.DataFrame | None, stats: 
     ax.paper_fig_y_metric = "readout_mass"
     ax.paper_fig_region_ping_categories = cats
     ax.paper_fig_stacked_bars_not_normalized = True
+
+
+def render_fig3_access_serial_profile(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("target_probability")].copy() if "metric" in df.columns else pd.DataFrame()
+    required = {"memory_condition", "serial_position", "value"}
+    if use.empty or not required.issubset(use.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    use["serial_position"] = pd.to_numeric(use["serial_position"], errors="coerce")
+    use = use.dropna(subset=["serial_position", "value"])
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    order = ["cue_only", "single_item_memory", "sequence_state"]
+    for memory in order:
+        part = use[use["memory_condition"].astype(str).eq(memory)]
+        if part.empty:
+            continue
+        summary = _summary(part, "serial_position", "value")
+        if summary.empty:
+            continue
+        xs = summary["x"].to_numpy(dtype=float)
+        mean = summary["mean"].to_numpy(dtype=float)
+        sem = summary["sem"].to_numpy(dtype=float)
+        color = ACCESS_COLORS.get(memory, MAIN)
+        ax.fill_between(xs, mean - sem, mean + sem, color=color, alpha=0.13, linewidth=0)
+        ax.plot(xs, mean, color=color, linewidth=1.25, marker="o", markersize=2.5, label=ACCESS_LABELS.get(memory, memory))
+    serial = pd.to_numeric(use["serial_position"], errors="coerce").dropna().to_numpy(dtype=float)
+    if serial.size == 0:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ticks = np.sort(np.unique(serial))
+    ax.set_xticks(ticks if ticks.size <= 10 else np.linspace(float(ticks.min()), float(ticks.max()), 5))
+    ax.set_xlim(max(0.55, float(np.nanmin(serial)) - 0.45), float(np.nanmax(serial)) + 0.45)
+    ax.set_ylim(-0.02, 1.03)
+    ax.set_xlabel("Serial position")
+    ax.set_ylabel("Target readout probability")
+    ax.legend(frameon=False, fontsize=5.6, loc="upper left", ncol=3, handlelength=1.2, columnspacing=0.8, borderaxespad=0.25)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_access_serial_profile"
+    ax.paper_fig_y_metric = "target_probability"
+
+
+def render_fig3_cue_specificity_target_profile(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("target_probability")].copy() if "metric" in df.columns else pd.DataFrame()
+    required = {"cue_type", "serial_position", "value"}
+    if use.empty or not required.issubset(use.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    use["serial_position"] = pd.to_numeric(use["serial_position"], errors="coerce")
+    use["value"] = pd.to_numeric(use["value"], errors="coerce")
+    if "sem" in use.columns:
+        use["sem"] = pd.to_numeric(use["sem"], errors="coerce")
+    else:
+        use["sem"] = np.nan
+    use = use.dropna(subset=["serial_position", "value"])
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    cue_order = [str(v) for v in (spec.get("cue_types") or ["matched", "mismatched", "unseen"])]
+    for cue in cue_order:
+        part = use[use["cue_type"].astype(str).eq(cue)].copy()
+        if part.empty:
+            continue
+        rows = []
+        for serial, serial_part in part.groupby("serial_position", sort=True):
+            vals = pd.to_numeric(serial_part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+            if vals.size == 0:
+                continue
+            if vals.size > 1:
+                sem = _sem(vals)
+            else:
+                sem_values = pd.to_numeric(serial_part.get("sem", pd.Series(dtype=float)), errors="coerce").dropna().to_numpy(dtype=float)
+                sem = float(sem_values.mean()) if sem_values.size else 0.0
+            rows.append({"x": float(serial), "mean": float(vals.mean()), "sem": sem})
+        summary = pd.DataFrame(rows).sort_values("x") if rows else pd.DataFrame()
+        if summary.empty:
+            continue
+        xs = summary["x"].to_numpy(dtype=float)
+        mean = summary["mean"].to_numpy(dtype=float)
+        sem = summary["sem"].to_numpy(dtype=float)
+        color = CUE_SPECIFICITY_COLORS.get(cue, MAIN)
+        ax.fill_between(xs, mean - sem, mean + sem, color=color, alpha=0.13, linewidth=0)
+        ax.plot(xs, mean, color=color, linewidth=1.25, marker="o", markersize=2.5, label=CUE_SPECIFICITY_LABELS.get(cue, cue))
+    serial = pd.to_numeric(use["serial_position"], errors="coerce").dropna().to_numpy(dtype=float)
+    ticks = np.sort(np.unique(serial))
+    ax.set_xticks(ticks if ticks.size <= 10 else np.linspace(float(ticks.min()), float(ticks.max()), 5))
+    ax.set_xlim(max(0.55, float(np.nanmin(serial)) - 0.45), float(np.nanmax(serial)) + 0.45)
+    ax.set_ylim(-0.02, 1.03)
+    ax.set_xlabel("Serial position")
+    ax.set_ylabel("Target readout probability")
+    ax.legend(frameon=False, fontsize=5.6, loc="upper left", ncol=3, handlelength=1.2, columnspacing=0.8, borderaxespad=0.25)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_cue_specificity_target_profile"
+    ax.paper_fig_y_metric = "target_probability"
+    ax.paper_fig_state_condition = str(spec.get("state_condition") or "S_final")
+
+
+def render_fig3_rescue_fraction(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    if df.empty or not {"seq_len", "metric", "value"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    requested_metrics = spec.get("metrics_to_plot")
+    if requested_metrics in (None, ""):
+        requested_metrics = [str(spec.get("metric") or "rescued_fraction")]
+    if isinstance(requested_metrics, str):
+        metrics = [requested_metrics]
+    else:
+        metrics = [str(item) for item in requested_metrics]
+    if not metrics:
+        metrics = ["rescued_fraction"]
+    work = df[df["metric"].astype(str).isin(metrics)].copy()
+    work["seq_len"] = pd.to_numeric(work["seq_len"], errors="coerce")
+    work = work.dropna(subset=["seq_len", "value"])
+    if work.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    seqs = np.sort(work["seq_len"].unique())
+    xs = np.arange(len(seqs), dtype=float)
+    if len(metrics) == 1:
+        metric = metrics[0]
+        means: list[float] = []
+        sems: list[float] = []
+        counts: list[float] = []
+        for seq_len in seqs:
+            mask = work["seq_len"].eq(seq_len) & work["metric"].astype(str).eq(metric)
+            vals = pd.to_numeric(work.loc[mask, "value"], errors="coerce").dropna().to_numpy(dtype=float)
+            means.append(float(vals.mean()) if vals.size else np.nan)
+            sems.append(_sem(vals))
+            if "item_count" in work.columns:
+                item_counts = pd.to_numeric(work.loc[mask, "item_count"], errors="coerce").dropna().to_numpy(dtype=float)
+                counts.append(float(item_counts.mean()) if item_counts.size else np.nan)
+            else:
+                counts.append(np.nan)
+        color = ACCESS_COLORS.get(metric, MAIN)
+        mean_arr = np.asarray(means, dtype=float)
+        ax.vlines(xs, 0, mean_arr, color=color, linewidth=2.1, alpha=0.62, zorder=2)
+        ax.plot(xs, mean_arr, color="0.16", linewidth=0.85, zorder=3)
+        ax.scatter(xs, mean_arr, s=22, facecolor=color, edgecolor="0.16", linewidth=0.45, zorder=4)
+        ax.errorbar(xs, mean_arr, yerr=sems, fmt="none", ecolor="0.25", elinewidth=0.55, capsize=1.2, capthick=0.55, zorder=5)
+        if str(spec.get("annotate_counts", "true")).lower() not in {"false", "0", "no"}:
+            for x, mean, count, seq_len in zip(xs, means, counts, seqs):
+                if np.isfinite(mean) and np.isfinite(count):
+                    ax.text(x, min(1.07, mean + 0.065), f"{count:.1f}/{int(seq_len)}", ha="center", va="bottom", fontsize=4.8, color="0.18")
+        ax.paper_fig_plot_form = "fig3_rescue_fraction_lollipop"
+    else:
+        width = 0.23
+        offsets = np.linspace(-width, width, len(metrics))
+        for metric, offset in zip(metrics, offsets):
+            means = []
+            sems = []
+            for seq_len in seqs:
+                mask = work["seq_len"].eq(seq_len) & work["metric"].astype(str).eq(metric)
+                vals = pd.to_numeric(work.loc[mask, "value"], errors="coerce").dropna().to_numpy(dtype=float)
+                means.append(float(vals.mean()) if vals.size else np.nan)
+                sems.append(_sem(vals))
+            ax.bar(xs + offset, means, width=width, color=ACCESS_COLORS.get(metric, MAIN), edgecolor="white", linewidth=0.35, label=ACCESS_LABELS.get(metric, metric))
+            ax.errorbar(xs + offset, means, yerr=sems, fmt="none", ecolor="0.25", elinewidth=0.45, capsize=1.0, capthick=0.45)
+        ax.legend(frameon=False, fontsize=4.7, loc="upper left", handlelength=0.9, borderaxespad=0.15)
+        ax.paper_fig_plot_form = "fig3_rescue_fraction"
+    ax.set_xticks(xs, [str(int(v)) for v in seqs])
+    ax.set_xlabel("K")
+    ax.set_ylabel("Rescued item fraction" if metrics == ["rescued_fraction"] else "Fraction")
+    ax.set_ylim(0, 1.12)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_y_metric = metrics[0] if len(metrics) == 1 else "rescued_fraction"
+
+
+def render_fig3_morphology_capacity(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("N_eff")].copy() if "metric" in df.columns else pd.DataFrame()
+    if use.empty or not {"seq_len", "value"}.issubset(use.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    use["seq_len"] = pd.to_numeric(use["seq_len"], errors="coerce")
+    use = use.dropna(subset=["seq_len", "value"])
+    summary = _summary(use, "seq_len", "value")
+    if summary.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    xs = summary["x"].to_numpy(dtype=float)
+    mean = summary["mean"].to_numpy(dtype=float)
+    sem = summary["sem"].to_numpy(dtype=float)
+    ax.plot(xs, xs, color="0.72", linewidth=0.85, linestyle="--", label="Independent")
+    ax.fill_between(xs, mean - sem, mean + sem, color=MAIN, alpha=0.15, linewidth=0)
+    ax.plot(xs, mean, color=MAIN, linewidth=1.25, marker="o", markersize=2.6, label="Observed")
+    ax.set_xticks(xs, [str(int(v)) for v in xs])
+    ax.set_xlim(float(xs.min()) - 0.6, float(xs.max()) + 0.6)
+    ax.set_ylim(0, max(float(xs.max()), float(np.nanmax(mean + sem))) * 1.08)
+    ax.set_xlabel("K")
+    ax.set_ylabel("Effective L1 items")
+    ax.legend(frameon=False, fontsize=4.8, loc="upper left", handlelength=1.1, borderaxespad=0.15)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_morphology_capacity"
+    ax.paper_fig_y_metric = "N_eff"
+
+
+def render_fig3_access_capacity(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metrics = ["morphology_N_eff", "single_item_access_count", "sequence_state_access_count", "rescued_count"]
+    if df.empty or not {"seq_len", "metric", "value"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    work = df[df["metric"].astype(str).isin(metrics)].copy()
+    work["seq_len"] = pd.to_numeric(work["seq_len"], errors="coerce")
+    work = work.dropna(subset=["seq_len", "value"])
+    if work.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    seqs = np.sort(work["seq_len"].unique())
+    xs = np.arange(len(seqs), dtype=float)
+    width = 0.18
+    offsets = np.linspace(-0.27, 0.27, len(metrics))
+    ymax = 0.0
+    for metric, offset in zip(metrics, offsets):
+        means: list[float] = []
+        sems: list[float] = []
+        for seq_len in seqs:
+            vals = pd.to_numeric(work.loc[work["seq_len"].eq(seq_len) & work["metric"].astype(str).eq(metric), "value"], errors="coerce").dropna().to_numpy(dtype=float)
+            means.append(float(vals.mean()) if vals.size else np.nan)
+            sems.append(_sem(vals))
+        finite = np.asarray(means, dtype=float)
+        if np.isfinite(finite).any():
+            ymax = max(ymax, float(np.nanmax(finite)))
+        ax.bar(xs + offset, means, width=width, color=ACCESS_COLORS.get(metric, MAIN), edgecolor="white", linewidth=0.35, label=ACCESS_LABELS.get(metric, metric))
+        ax.errorbar(xs + offset, means, yerr=sems, fmt="none", ecolor="0.25", elinewidth=0.45, capsize=1.0, capthick=0.45)
+    ax.set_xticks(xs, [str(int(v)) for v in seqs])
+    ax.set_xlabel("K")
+    ax.set_ylabel("Items")
+    ax.set_ylim(0, max(1.0, ymax * 1.18))
+    ax.legend(frameon=False, fontsize=4.15, loc="upper left", handlelength=0.75, borderaxespad=0.1, labelspacing=0.18)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_access_capacity"
+    ax.paper_fig_y_metric = "sequence_state_access_count"
+
+
+def render_fig3_morphology_serial_profile(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    use = df[df["metric"].astype(str).eq("morphology_support_mass")].copy() if "metric" in df.columns else pd.DataFrame()
+    if use.empty or "serial_position" not in use.columns:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    use["serial_position"] = pd.to_numeric(use["serial_position"], errors="coerce")
+    use = use.dropna(subset=["serial_position", "value"])
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    summary = _summary(use, "serial_position", "value")
+    if summary.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    xs = summary["x"].to_numpy(dtype=float)
+    mean = summary["mean"].to_numpy(dtype=float)
+    sem = summary["sem"].to_numpy(dtype=float)
+    inferred_k = _infer_seq_len(use)
+    if inferred_k > 0:
+        ax.axhline(1.0 / inferred_k, color="0.68", linewidth=0.8, linestyle="--", label="Uniform")
+    ax.fill_between(xs, mean - sem, mean + sem, color=MAIN, alpha=0.16, linewidth=0)
+    ax.plot(xs, mean, color=MAIN, linewidth=1.35, marker="o", markersize=2.8, label="Observed")
+    raw_x = pd.to_numeric(use["serial_position"], errors="coerce").to_numpy(dtype=float)
+    raw_y = pd.to_numeric(use["value"], errors="coerce").to_numpy(dtype=float)
+    if raw_x.size <= 40:
+        jitter = np.linspace(-0.045, 0.045, raw_x.size) if raw_x.size > 1 else np.array([0.0])
+        ax.scatter(raw_x + jitter, raw_y, s=7.5, color=MAIN, alpha=0.32, linewidth=0)
+    ax.set_xlabel("Serial position")
+    ax.set_ylabel("L1 STSP support")
+    xmin = max(0.6, float(np.nanmin(xs)) - 0.45)
+    xmax = float(np.nanmax(xs)) + 0.45
+    ax.set_xlim(xmin, xmax)
+    unique_positions = np.sort(np.unique(raw_x[np.isfinite(raw_x)]))
+    if unique_positions.size <= 10:
+        ticks = unique_positions
+    else:
+        ticks = np.linspace(float(unique_positions.min()), float(unique_positions.max()), 5)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(int(round(tick))) for tick in ticks])
+    ymax = float(np.nanmax(mean + sem)) if mean.size else 1.0
+    ax.set_ylim(0, max(0.05, ymax * 1.18))
+    ax.legend(frameon=False, fontsize=4.8, loc="upper right", handlelength=1.0, borderaxespad=0.15)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_morphology_serial_profile"
+    ax.paper_fig_y_metric = "morphology_support_mass"
+
+
+def render_fig3_boundary_heatmap(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("metric") or "")
+    use = df[df["metric"].astype(str).eq(metric)].copy() if metric and "metric" in df.columns else df.copy()
+    if use.empty or not {"seq_len", "delay_ms", "value"}.issubset(use.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    use["seq_len"] = pd.to_numeric(use["seq_len"], errors="coerce")
+    use["delay_ms"] = pd.to_numeric(use["delay_ms"], errors="coerce")
+    use = use.dropna(subset=["seq_len", "delay_ms", "value"])
+    if use.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    xs = np.sort(use["seq_len"].unique())
+    ys = np.sort(use["delay_ms"].unique())
+    mat = np.full((len(ys), len(xs)), np.nan)
+    for yi, delay in enumerate(ys):
+        for xi, seq_len in enumerate(xs):
+            vals = pd.to_numeric(use.loc[use["seq_len"].eq(seq_len) & use["delay_ms"].eq(delay), "value"], errors="coerce").dropna()
+            if not vals.empty:
+                mat[yi, xi] = float(vals.mean())
+    finite = mat[np.isfinite(mat)]
+    if finite.size == 0:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    vmin = float(np.nanmin(finite))
+    vmax = float(np.nanmax(finite))
+    if spec.get("vmin", spec.get("color_vmin", None)) is not None:
+        try:
+            vmin = float(spec.get("vmin", spec.get("color_vmin")))
+        except Exception:
+            pass
+    if spec.get("vmax", spec.get("color_vmax", None)) is not None:
+        try:
+            vmax = float(spec.get("vmax", spec.get("color_vmax")))
+        except Exception:
+            pass
+    if not np.isfinite(vmax) or vmax <= vmin:
+        vmax = vmin + 1.0
+    image = ax.imshow(mat, origin="lower", aspect="auto", cmap=get_plot_cmap("sequential"), vmin=vmin, vmax=vmax, interpolation="nearest")
+    for yi in range(len(ys)):
+        for xi in range(len(xs)):
+            val = mat[yi, xi]
+            if np.isfinite(val):
+                ax.text(xi, yi, f"{val:.2g}", ha="center", va="center", fontsize=5.0, color="white" if val > (vmin + vmax) / 2 else "0.15")
+    ax.set_xticks(np.arange(len(xs)), [str(int(x)) for x in xs])
+    ax.set_yticks(np.arange(len(ys)), [str(int(y)) for y in ys])
+    ax.set_xlabel("K")
+    ax.set_ylabel("Delay (ms)")
+    cax = getattr(ax, "paper_fig_colorbar_ax", None)
+    if cax is not None:
+        cbar = ax.figure.colorbar(image, cax=cax)
+        cbar.ax.tick_params(labelsize=5.0, length=1.4, width=0.45, pad=1.0)
+        cbar.set_label(metric.replace("_", " "), fontsize=5.4, labelpad=1.2)
+        ax.paper_fig_has_colorbar = True
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_boundary_heatmap"
+    ax.paper_fig_y_metric = metric
+
+
+def render_fig3_morphology_function_coupling(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats, style
+    df = _clean(panel_data)
+    if df.empty or not {"morphology_support_p", "functional_gain_norm"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    work = df.copy()
+    work["morphology_support_p"] = pd.to_numeric(work["morphology_support_p"], errors="coerce")
+    work["functional_gain_norm"] = pd.to_numeric(work["functional_gain_norm"], errors="coerce")
+    work = work.dropna(subset=["morphology_support_p", "functional_gain_norm"])
+    if work.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    x = work["morphology_support_p"].to_numpy(dtype=float)
+    y = work["functional_gain_norm"].to_numpy(dtype=float)
+    pos = pd.to_numeric(work.get("serial_position", pd.Series(np.arange(len(work)))), errors="coerce").fillna(0).to_numpy(dtype=float)
+    sc = ax.scatter(x, y, c=pos, cmap=get_plot_cmap("sequential"), s=14, alpha=0.72, edgecolors="white", linewidths=0.25)
+    if x.size >= 2 and float(np.nanstd(x)) > 1e-12:
+        coef = np.polyfit(x, y, deg=1)
+        xx = np.linspace(float(np.nanmin(x)), float(np.nanmax(x)), 50)
+        ax.plot(xx, coef[0] * xx + coef[1], color="0.18", linewidth=0.9, alpha=0.82)
+    ax.set_xlabel("Morphology support")
+    ax.set_ylabel("Access gain")
+    xmin, xmax = float(np.nanmin(x)), float(np.nanmax(x))
+    ymin, ymax = float(np.nanmin(y)), float(np.nanmax(y))
+    xpad = max(0.03, (xmax - xmin) * 0.12)
+    ypad = max(0.03, (ymax - ymin) * 0.12)
+    ax.set_xlim(xmin - xpad, xmax + xpad)
+    ax.set_ylim(ymin - ypad, ymax + ypad)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=3, prune="both"))
+    cax = getattr(ax, "paper_fig_colorbar_ax", None)
+    if cax is not None:
+        cbar = ax.figure.colorbar(sc, cax=cax)
+        cbar.ax.tick_params(labelsize=5.0, length=1.4, width=0.45, pad=1.0)
+        cbar.set_label("Serial position", fontsize=5.4, labelpad=1.2)
+        ax.paper_fig_has_colorbar = True
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_morphology_function_coupling"
+    ax.paper_fig_y_metric = "G_i_norm"
 
 
 def _render_landscape_heatmap(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:

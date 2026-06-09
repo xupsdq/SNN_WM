@@ -121,15 +121,20 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         return
     ax.paper_fig_plot_form = "fig5_winner_loser_event_traces"
     colors = {"winner_delta_v": "#D95F02", "loser_delta_v": "#1B9E77", "loser_inhibition": "#7570B3"}
-    for metric in ("winner_delta_v", "loser_delta_v", "loser_inhibition"):
+    default_metrics = ("winner_delta_v", "loser_delta_v", "loser_inhibition")
+    metric_order = tuple(str(metric) for metric in (spec.get("metrics") or default_metrics) if str(metric) in colors)
+    trace_labels = spec.get("trace_labels") or {}
+    plotted_metrics: list[str] = []
+    for metric in metric_order:
         part = df[df["metric"].eq(metric)].copy()
         if part.empty:
             continue
+        plotted_metrics.append(metric)
         grouped = part.groupby("time_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
         x = grouped["time_ms"].to_numpy(dtype=float)
         y = grouped["mean"].to_numpy(dtype=float)
         sem = grouped["sem"].fillna(0).to_numpy(dtype=float)
-        ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=_trace_label(metric))
+        ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=str(trace_labels.get(metric, _trace_label(metric))))
         if part["seed_id"].nunique() > 1:
             ax.fill_between(x, y - sem, y + sem, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
     ax.axvline(0, color="0.25", linewidth=0.6)
@@ -146,6 +151,7 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:g}"))
     ax.paper_fig_legend_above_plot = False
     ax.paper_fig_legend_ncols = 1
+    ax.paper_fig_trace_metrics = plotted_metrics
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
     _tidy(ax, st)
@@ -200,7 +206,9 @@ def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None,
     ax.set_ylim(0, ymax)
     ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
     ax.set_xlabel(str(spec.get("x_axis", "")))
-    ax.set_title(str(spec.get("title", "Layer1 STSP perturbation")), fontsize=st["axis_labelsize"], pad=2.0)
+    title = str(spec.get("title", "")).strip()
+    if title:
+        ax.set_title(title, fontsize=st["axis_labelsize"], pad=2.0)
     ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="lower center", bbox_to_anchor=(0.5, 1.015), ncols=3, handlelength=0.9, columnspacing=0.65)
     ax.paper_fig_legend_above_plot = True
     ax.paper_fig_legend_ncols = 3

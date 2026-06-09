@@ -1,9 +1,9 @@
 figure_id: fig4
 figure_title_draft: Overlap-gated re-entry from prior STSP history into later probe processing
-experiment_root: results/paper_figure_full_encoded_seed1000_amp010/fig4_overlap_reentry
+experiment_root: results/paper_figure_multi_seed/fig4_overlap_reentry
 canvas_mm:
   width: 165
-  height: 148
+  height: 136
 reading_order: [A, B, C, D, E, F]
 argument_bands:
   - band_id: reentry_assay
@@ -41,6 +41,7 @@ panels:
     metric: none
     position_mm: {x: 12.00, y: 8.00, w: 147.00, h: 24.00}
     size_mm: {w: 147.00, h: 24.00}
+    letter_mm: {x: 6.00, y: 4.00}
     x_axis: none
     y_axis: none
   B:
@@ -56,6 +57,7 @@ panels:
       - data/metrics/panel_b_similarity_entry_metrics.csv
     position_mm: {x: 12.00, y: 39.00, w: 45.67, h: 34.00}
     size_mm: {w: 45.67, h: 34.00}
+    letter_mm: {x: 6.00, y: 34.00}
     x_axis: Sample-probe similarity bin
     y_axis: Accuracy drop (static - dynamic)
   C:
@@ -73,8 +75,11 @@ panels:
     conditions: [Low overlap excess, High overlap excess]
     position_mm: {x: 62.67, y: 39.00, w: 45.67, h: 34.00}
     size_mm: {w: 45.67, h: 34.00}
+    letter_mm: {x: 56.67, y: 34.00}
     x_axis: Overlap-excess group
     y_axis: Accuracy drop
+    y_labelpad: -2.0
+    y_label_x: -0.15
   D:
     panel_id: D
     panel_type: overlap_preserving_causal_perturbation
@@ -103,8 +108,11 @@ panels:
       sample_random_matched_dynamic: Random matched
     position_mm: {x: 113.33, y: 39.00, w: 45.67, h: 34.00}
     size_mm: {w: 45.67, h: 34.00}
+    letter_mm: {x: 107.33, y: 34.00}
     x_axis: Perturbation condition
-    y_axis: Accuracy drop vs static
+    y_axis: Drop vs static
+    y_labelpad: -2.0
+    y_label_x: -0.15
   E:
     panel_id: E
     panel_type: time_resolved_l3_displacement
@@ -120,8 +128,9 @@ panels:
       - sample_keep_overlap_only_dynamic
       - sample_keep_nonoverlap_only_dynamic
     max_time_ms: 60
-    position_mm: {x: 12.00, y: 81.00, w: 70.50, h: 59.00}
-    size_mm: {w: 70.50, h: 59.00}
+    position_mm: {x: 12.00, y: 81.00, w: 70.50, h: 48.00}
+    size_mm: {w: 70.50, h: 48.00}
+    letter_mm: {x: 6.00, y: 76.00}
     x_axis: Probe time (ms)
     y_axis: L3 dynamic-pattern index
     reference_lines:
@@ -143,7 +152,8 @@ panels:
       - pair_vectors.npz
       - data/metrics/panel_f_decision_deflection_metrics.csv
     groups: [plus, minus]
-    position_mm: {x: 88.50, y: 81.00, w: 70.50, h: 59.00}
-    size_mm: {w: 70.50, h: 59.00}
+    position_mm: {x: 88.50, y: 81.00, w: 70.50, h: 48.00}
+    size_mm: {w: 70.50, h: 48.00}
+    letter_mm: {x: 82.50, y: 76.00}
     x_axis: More dynamic-like firing pattern
     y_axis: More dynamic-like decision

@@ -50,21 +50,22 @@ def _weak_probe_memory_specs_for_target(
     bank: MultiItemSequenceLandscapeBank,
     seq_id: int,
     target_position: int,
+    condition_id: str | None = None,
+    delay_ms: int | None = None,
 ) -> list[tuple[str, str, Mapping[str, Mapping[str, torch.Tensor]]]]:
     specs: list[tuple[str, str, Mapping[str, Mapping[str, torch.Tensor]]]] = [
-        ("S0", "cue_only", bank.boundaries[int(seq_id)]["S0"]),
+        ("S0", "cue_only", bank.boundary_for(int(seq_id), "S0", condition_id=condition_id, delay_ms=delay_ms)),
     ]
     if bool(ctx.cfg.weak_probe_include_singleton):
-        if int(target_position) in bank.singleton_boundaries[int(seq_id)]:
-            singleton_boundary = bank.singleton_boundaries[int(seq_id)][int(target_position)]
-        else:
-            singleton_boundary = bank.boundaries[int(seq_id)]["S0"]
+        singleton_boundary = bank.singleton_boundary_for(int(seq_id), int(target_position), condition_id=condition_id, delay_ms=delay_ms)
+        if singleton_boundary is None:
+            singleton_boundary = bank.boundary_for(int(seq_id), "S0", condition_id=condition_id, delay_ms=delay_ms)
             ctx.warnings.append(
                 f"Weak-probe singleton boundary unavailable for sequence_id={seq_id}, "
                 f"target_position={target_position}; using S0 for that non-sequence target."
             )
         specs.append(("S_singleton_slot_matched", "single_item_memory", singleton_boundary))
-    specs.append(("S_final", "sequence_state", bank.boundaries[int(seq_id)]["S_final"]))
+    specs.append(("S_final", "sequence_state", bank.boundary_for(int(seq_id), "S_final", condition_id=condition_id, delay_ms=delay_ms)))
     return specs
 
 def run_probe_readout_from_boundary(
@@ -161,6 +162,116 @@ def _capture_sequence(
     arrays["S_final"] = arrays[f"S_{seq_len}"]
     boundaries["S_final"] = boundaries[f"S_{seq_len}"]
     return arrays, boundaries
+
+def _capture_sequences_same_length_batch(
+    ctx: ExperimentContext,
+    spikes_batch: torch.Tensor,
+) -> list[
+    tuple[
+        dict[str, dict[str, dict[str, np.ndarray]]],
+        dict[str, Mapping[str, Mapping[str, torch.Tensor]]],
+        dict[int, dict[str, dict[str, np.ndarray]]],
+        dict[int, Mapping[str, Mapping[str, torch.Tensor]]],
+    ]
+]:
+    cfg = ctx.cfg
+    batch_size, seq_len, _, channels, height, width = spikes_batch.shape
+    batch_size = int(batch_size)
+    seq_len = int(seq_len)
+    zero_input = torch.zeros((batch_size, channels, height, width), device=ctx.device)
+
+    prepare_network_state(ctx.net, batch_size, channels, height, width)
+    with torch.no_grad():
+        for _ in range(seq_len):
+            for _ in range(cfg.sample_steps + cfg.delay_steps):
+                _step_network_once(ctx.net, zero_input, 0)
+    s0_snapshot = snapshot_ux_state(ctx.net, batch_size=batch_size)
+    s0_boundary = snapshot_boundary_state(ctx.net)
+
+    prepare_network_state(ctx.net, batch_size, channels, height, width)
+    current_time = 0
+    stage_snapshots: dict[str, Mapping[str, Mapping[str, np.ndarray]]] = {}
+    stage_boundaries: dict[str, Mapping[str, Mapping[str, torch.Tensor]]] = {}
+    with torch.no_grad():
+        for idx in range(seq_len):
+            for t in range(cfg.sample_steps):
+                current_time = _step_network_once(ctx.net, spikes_batch[:, idx, t, ...], current_time)
+            for _ in range(cfg.delay_steps):
+                current_time = _step_network_once(ctx.net, zero_input, current_time)
+            state = f"S_{idx + 1}"
+            stage_snapshots[state] = snapshot_ux_state(ctx.net, batch_size=batch_size)
+            stage_boundaries[state] = snapshot_boundary_state(ctx.net)
+
+    singleton_batch_size = max(1, int(getattr(cfg, "state_bank_singleton_batch_size", batch_size)))
+    if singleton_batch_size >= batch_size:
+        singleton_refs, singleton_boundaries = _capture_singleton_refs_and_boundaries_batch_rows(ctx, spikes_batch)
+    else:
+        singleton_refs = []
+        singleton_boundaries = []
+        for start in range(0, batch_size, singleton_batch_size):
+            stop = min(batch_size, start + singleton_batch_size)
+            refs_chunk, boundaries_chunk = _capture_singleton_refs_and_boundaries_batch_rows(ctx, spikes_batch[start:stop])
+            singleton_refs.extend(refs_chunk)
+            singleton_boundaries.extend(boundaries_chunk)
+    out = []
+    for row_idx in range(batch_size):
+        arrays: dict[str, dict[str, dict[str, np.ndarray]]] = {
+            "S0": _singleton_ref_from_snapshot(s0_snapshot, row_idx),
+        }
+        boundaries: dict[str, Mapping[str, Mapping[str, torch.Tensor]]] = {
+            "S0": slice_boundary_state(s0_boundary, [row_idx]),
+        }
+        for idx in range(seq_len):
+            state = f"S_{idx + 1}"
+            arrays[state] = _singleton_ref_from_snapshot(stage_snapshots[state], row_idx)
+            boundaries[state] = slice_boundary_state(stage_boundaries[state], [row_idx])
+        arrays["S_final"] = arrays[f"S_{seq_len}"]
+        boundaries["S_final"] = boundaries[f"S_{seq_len}"]
+        out.append((arrays, boundaries, singleton_refs[row_idx], singleton_boundaries[row_idx]))
+    return out
+
+def _capture_singleton_refs_and_boundaries_batch_rows(
+    ctx: ExperimentContext,
+    spikes_batch: torch.Tensor,
+) -> tuple[
+    list[dict[int, dict[str, dict[str, np.ndarray]]]],
+    list[dict[int, Mapping[str, Mapping[str, torch.Tensor]]]],
+]:
+    cfg = ctx.cfg
+    batch_size, seq_len, _, channels, height, width = spikes_batch.shape
+    batch_size = int(batch_size)
+    seq_len = int(seq_len)
+    flat_batch = batch_size * seq_len
+    zero_input = torch.zeros((flat_batch, channels, height, width), device=ctx.device)
+    input_t = torch.empty_like(zero_input)
+    row_offsets = torch.arange(batch_size, device=ctx.device, dtype=torch.long) * seq_len
+
+    prepare_network_state(ctx.net, flat_batch, channels, height, width)
+    current_time = 0
+    with torch.no_grad():
+        for idx in range(seq_len):
+            target_rows = row_offsets + int(idx)
+            for t in range(cfg.sample_steps):
+                input_t.zero_()
+                input_t.index_copy_(0, target_rows, spikes_batch[:, idx, t, ...])
+                current_time = _step_network_once(ctx.net, input_t, current_time)
+            for _ in range(cfg.delay_steps):
+                current_time = _step_network_once(ctx.net, zero_input, current_time)
+
+    snapshot = snapshot_ux_state(ctx.net, batch_size=flat_batch)
+    batched_boundary = snapshot_boundary_state(ctx.net)
+    refs_by_sequence: list[dict[int, dict[str, dict[str, np.ndarray]]]] = []
+    boundaries_by_sequence: list[dict[int, Mapping[str, Mapping[str, torch.Tensor]]]] = []
+    for row_idx in range(batch_size):
+        refs: dict[int, dict[str, dict[str, np.ndarray]]] = {}
+        boundaries: dict[int, Mapping[str, Mapping[str, torch.Tensor]]] = {}
+        for target_idx in range(seq_len):
+            flat_idx = row_idx * seq_len + target_idx
+            refs[target_idx + 1] = _singleton_ref_from_snapshot(snapshot, flat_idx)
+            boundaries[target_idx + 1] = slice_boundary_state(batched_boundary, [flat_idx])
+        refs_by_sequence.append(refs)
+        boundaries_by_sequence.append(boundaries)
+    return refs_by_sequence, boundaries_by_sequence
 
 def _capture_singleton_refs(ctx: ExperimentContext, spikes: torch.Tensor) -> dict[int, dict[str, dict[str, np.ndarray]]]:
     refs, _ = _capture_singleton_refs_and_boundaries(ctx, spikes)
@@ -375,6 +486,36 @@ def _run_ping_from_boundary(ctx: ExperimentContext, boundary: Mapping[str, Mappi
     pred, fire = decode_prediction_and_fire_time_from_layer3(ctx.net, batch_size)
     ping_spike_count = ping_energy
     return int(pred[0].item()), int(fire[0].item()), ping_energy, ping_spike_count, restore_info
+
+def _run_ping_multi_boundary_batch(
+    ctx: ExperimentContext,
+    boundaries: Sequence[Mapping[str, Mapping[str, torch.Tensor]]],
+) -> list[tuple[int, int, float, float, dict[str, object]]]:
+    if len(boundaries) == 0:
+        return []
+    if len(boundaries) == 1:
+        return [_run_ping_from_boundary(ctx, boundaries[0])]
+    batch_size = int(len(boundaries))
+    batched_boundary = concat_named_boundaries(boundaries, device=ctx.device)
+    restore_info = restore_condition_state_for_functional_readout(ctx, batched_boundary, batch_size)
+    input_shape = _layer_input_shapes_for_batch(batched_boundary, batch_size)["layer1"]
+    zero = torch.zeros(input_shape, dtype=torch.float32, device=ctx.device)
+    ping = torch.full_like(zero, float(ctx.cfg.ping_amp))
+    per_row_ping_energy = float(ping[:1].detach().to(torch.float32).sum().item()) * float(ctx.cfg.ping_steps)
+    with torch.no_grad():
+        for t_idx in range(ctx.cfg.ping_steps):
+            _step_network_once(ctx.net, zero, int(t_idx), ping_drive=ping)
+    pred, fire = decode_prediction_and_fire_time_from_layer3(ctx.net, batch_size)
+    return [
+        (
+            int(pred[idx].item()),
+            int(fire[idx].item()),
+            per_row_ping_energy,
+            per_row_ping_energy,
+            restore_info,
+        )
+        for idx in range(batch_size)
+    ]
 
 def _run_weak_cue_spikes_from_boundary(ctx: ExperimentContext, boundary: Mapping[str, Mapping[str, torch.Tensor]], spikes: torch.Tensor) -> tuple[int, int]:
     batch_size = int(spikes.shape[0])
@@ -908,4 +1049,4 @@ def _trial_condition_audit(network_seed: int, trials: pd.DataFrame) -> pd.DataFr
         rows.append({"network_seed": int(network_seed), "audit_type": "item_label_count", "label": int(label), "count": int(count), "value": float(count)})
     return pd.DataFrame(rows)
 
-__all__ = ('slice_boundary_state', 'concat_sequence_condition_boundaries', 'concat_named_boundaries', '_weak_probe_memory_specs_for_target', 'run_probe_readout_from_boundary', '_fig3f_memory_states', '_memory_condition_label', '_weak_probe_target_sources', '_capture_sequence', '_capture_singleton_refs', '_capture_singleton_refs_and_boundaries', '_snapshot_arrays', '_landscape_for_sequence', '_save_example_landscape', '_example_landscape_summary', 'boundary_state_to_restore_ux_by_layer', '_layer_input_shapes_from_boundary', '_layer_input_shapes_for_batch', 'restore_condition_state_for_functional_readout', '_run_ping_from_boundary', '_run_weak_cue_spikes_from_boundary', '_run_weak_cue_from_boundary', '_run_weak_cue_multi_boundary_batch', '_step_network_once', '_restore_boundary_state', '_region_ping_serial_bins', '_region_ping_position_distribution', '_region_ping_summary', '_region_ping_contrast', '_region_ping_current_matching', '_region_ping_current_matching_status', '_region_ping_amp_sweep_summary', '_region_ping_amp_sweep_latency', '_serial_distribution', '_js_divergence', '_kl_divergence', '_tv_distance', '_normalized_auc', '_p50_from_curve', '_nan_diff', '_mode_value', '_first_float', '_mean_numeric', '_row_float', '_missing_csv_columns', '_read_csv_if_exists', '_network_peak_summary', '_pairwise_image_sims', '_image_flat', '_images_for_ids', '_encode_cached', '_masked_image', '_encoded_spike_count', '_encode_image_tensor_cached', '_foreground_mask', '_layer1_map', '_top_mask', '_bottom_mask', '_random_mask_like', '_trim_or_expand_mask', '_target_position', '_cosine_distance', '_centered_cosine', '_gini', '_trial_condition_audit')
+__all__ = ('slice_boundary_state', 'concat_sequence_condition_boundaries', 'concat_named_boundaries', '_weak_probe_memory_specs_for_target', 'run_probe_readout_from_boundary', '_fig3f_memory_states', '_memory_condition_label', '_weak_probe_target_sources', '_capture_sequence', '_capture_singleton_refs', '_capture_singleton_refs_and_boundaries', '_snapshot_arrays', '_landscape_for_sequence', '_save_example_landscape', '_example_landscape_summary', 'boundary_state_to_restore_ux_by_layer', '_layer_input_shapes_from_boundary', '_layer_input_shapes_for_batch', 'restore_condition_state_for_functional_readout', '_run_ping_from_boundary', '_run_ping_multi_boundary_batch', '_run_weak_cue_spikes_from_boundary', '_run_weak_cue_from_boundary', '_run_weak_cue_multi_boundary_batch', '_step_network_once', '_restore_boundary_state', '_region_ping_serial_bins', '_region_ping_position_distribution', '_region_ping_summary', '_region_ping_contrast', '_region_ping_current_matching', '_region_ping_current_matching_status', '_region_ping_amp_sweep_summary', '_region_ping_amp_sweep_latency', '_serial_distribution', '_js_divergence', '_kl_divergence', '_tv_distance', '_normalized_auc', '_p50_from_curve', '_nan_diff', '_mode_value', '_first_float', '_mean_numeric', '_row_float', '_missing_csv_columns', '_read_csv_if_exists', '_network_peak_summary', '_pairwise_image_sims', '_image_flat', '_images_for_ids', '_encode_cached', '_masked_image', '_encoded_spike_count', '_encode_image_tensor_cached', '_foreground_mask', '_layer1_map', '_top_mask', '_bottom_mask', '_random_mask_like', '_trim_or_expand_mask', '_target_position', '_cosine_distance', '_centered_cosine', '_gini', '_trial_condition_audit')

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ from src.experiments.paper_figures.fig3.schemas import (
     SEQUENCE_SPEC_FILES,
     SEQUENCE_SPEC_MANIFEST_COLUMNS,
     STATE_BANK_MANIFEST_COLUMNS,
+    TABLE_ARTIFACT_MANIFEST_COLUMNS,
     TASK_STATE_BANK,
 )
 from src.experiments.paper_figures.fig3.types import MultiItemSequenceLandscapeBank
@@ -42,6 +43,14 @@ class StateBankArtifact:
     manifest: pd.DataFrame
     boundary_manifest: pd.DataFrame
     landscape_manifest: pd.DataFrame
+    digest: str
+
+
+@dataclass
+class TableBundleArtifact:
+    path: Path
+    tables: dict[str, pd.DataFrame]
+    manifest: pd.DataFrame
     digest: str
 
 
@@ -153,6 +162,72 @@ def load_sequence_specs_artifact(task_dir: Path, *, expected_key: Mapping[str, A
         manifest=manifest,
         digest=table_digest(tables),
     )
+
+
+def save_table_bundle_artifact(
+    task_dir: Path,
+    *,
+    tables: Mapping[str, pd.DataFrame],
+    filenames: Mapping[str, str] | None = None,
+    cache_key: Mapping[str, Any],
+) -> TableBundleArtifact:
+    task_dir.mkdir(parents=True, exist_ok=True)
+    filenames = dict(filenames or {})
+    persisted_tables: dict[str, pd.DataFrame] = {}
+    manifest_rows: list[dict[str, Any]] = []
+    for name, df in sorted(tables.items()):
+        filename = filenames.get(name, f"{name}.csv")
+        path = task_dir / filename
+        clean = df.reset_index(drop=True).copy()
+        clean.to_csv(path, index=False, encoding="utf-8")
+        persisted = pd.read_csv(path)
+        persisted_tables[str(name)] = persisted
+        manifest_rows.append(_table_manifest_row(str(name), filename, path, persisted))
+    manifest = pd.DataFrame(manifest_rows, columns=list(TABLE_ARTIFACT_MANIFEST_COLUMNS))
+    manifest.to_csv(task_dir / MANIFEST_FILE, index=False, encoding="utf-8")
+    write_cache_key(task_dir, cache_key)
+    return TableBundleArtifact(
+        path=task_dir,
+        tables=persisted_tables,
+        manifest=manifest,
+        digest=table_digest(persisted_tables),
+    )
+
+
+def load_table_bundle_artifact(
+    task_dir: Path,
+    *,
+    expected_key: Mapping[str, Any],
+    expected_names: Sequence[str] | None = None,
+    expected_columns: Mapping[str, Sequence[str]] | None = None,
+) -> TableBundleArtifact:
+    require_cache_key_match(task_dir, expected_key, task_id=str(expected_key.get("task_id", "table_bundle")))
+    manifest_path = task_dir / MANIFEST_FILE
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Fig.3 table artifact manifest is missing: {manifest_path}")
+    manifest = pd.read_csv(manifest_path)
+    _require_columns(manifest, TABLE_ARTIFACT_MANIFEST_COLUMNS, manifest_path)
+    expected = set(str(name) for name in (expected_names or manifest["name"].astype(str).tolist()))
+    found = set(manifest["name"].astype(str).tolist())
+    missing = sorted(expected - found)
+    if missing:
+        raise ValueError(f"Fig.3 table artifact missing expected tables {missing} in {manifest_path}")
+    tables: dict[str, pd.DataFrame] = {}
+    for name in sorted(expected):
+        row = _single_manifest_row(manifest, name=name, path=manifest_path)
+        filename = str(row["filename"])
+        path = task_dir / filename
+        _require_file_hash(path, str(row["sha256"]))
+        df = pd.read_csv(path)
+        if int(row["rows"]) != len(df):
+            raise ValueError(f"Fig.3 table artifact row count mismatch for {path}: {len(df)} != {row['rows']}")
+        columns = ",".join(str(col) for col in df.columns)
+        if str(row["columns"]) != columns:
+            raise ValueError(f"Fig.3 table artifact columns mismatch for {path}: {columns} != {row['columns']}")
+        if expected_columns and name in expected_columns:
+            _require_data_columns(df, expected_columns[name], path)
+        tables[name] = df
+    return TableBundleArtifact(path=task_dir, tables=tables, manifest=manifest, digest=table_digest(tables))
 
 
 def save_state_bank_artifact(
@@ -329,8 +404,16 @@ def load_state_bank_artifact(
             _require_shape(arr, str(row["shape"]), storage_key)
             landscapes.setdefault(int(row["sequence_id"]), {})[str(row["landscape_key"])] = arr
 
+    meta_sequences = set(int(v) for v in sequence_meta["sequence_id"].dropna().unique())
+    if set(arrays) != meta_sequences:
+        raise ValueError(f"Fig.3 state-bank sequence membership mismatch: arrays={sorted(arrays)} sequence_meta={sorted(meta_sequences)}")
     expected_sequences = set(int(v) for v in sequence_trials["sequence_id"].dropna().unique())
-    if set(arrays) != expected_sequences:
+    if "source_sequence_id" in sequence_meta.columns:
+        source_sequences = set(int(v) for v in sequence_meta["source_sequence_id"].dropna().unique())
+        unknown_sources = sorted(source_sequences - expected_sequences)
+        if unknown_sources:
+            raise ValueError(f"Fig.3 boundary state-bank source sequence ids not present in specs: {unknown_sources}")
+    elif set(arrays) != expected_sequences:
         raise ValueError(f"Fig.3 state-bank sequence membership mismatch: arrays={sorted(arrays)} expected={sorted(expected_sequences)}")
     bank = MultiItemSequenceLandscapeBank(
         sequence_trials=sequence_trials.reset_index(drop=True).copy(),
@@ -490,6 +573,15 @@ def _require_columns(df: pd.DataFrame, columns: tuple[str, ...], path: Path) -> 
         raise ValueError(f"Fig.3 artifact manifest missing columns {missing} in {path}")
 
 
+def _require_data_columns(df: pd.DataFrame, columns: Sequence[str], path: Path) -> None:
+    missing = [str(col) for col in columns if str(col) not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Fig.3 table artifact missing required data columns {missing} in {path}. "
+            "This artifact predates the current Fig.3 schema; rebuild the producer task."
+        )
+
+
 def _require_shape(arr: np.ndarray, expected_shape: str, storage_key: str) -> None:
     found = _shape_text(arr.shape)
     if found != str(expected_shape):
@@ -552,13 +644,16 @@ def _json_safe(value: Any) -> Any:
 __all__ = [
     "SequenceSpecArtifact",
     "StateBankArtifact",
+    "TableBundleArtifact",
     "cache_key_matches",
     "default_artifact_root",
     "load_sequence_specs_artifact",
     "load_state_bank_artifact",
+    "load_table_bundle_artifact",
     "read_cache_key",
     "save_sequence_specs_artifact",
     "save_state_bank_artifact",
+    "save_table_bundle_artifact",
     "task_artifact_dir",
     "write_json",
 ]

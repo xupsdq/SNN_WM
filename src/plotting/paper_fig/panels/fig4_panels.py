@@ -266,7 +266,9 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     label_map = {"Dynamic": "Dyn", "Overlap support": "Overlap", "Non-overlap support": "Non", "Random matched": "Random", "Static": "Static", "Static baseline": "Static"}
     ax.set_xticks(x, [label_map.get(item, item) for item in order], rotation=0)
     ax.set_xlabel("")
-    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop vs static")))
+    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop vs static")), labelpad=float(spec.get("y_labelpad", 1.0)))
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_overlap_perturbation_bar"

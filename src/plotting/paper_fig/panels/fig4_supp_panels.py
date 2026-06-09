@@ -68,7 +68,9 @@ def render_s7_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping
         ax.set_xticks(np.arange(len(order)), ["Low", "High"])
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
     ax.set_xlabel(str(spec.get("x_axis", "Similarity stratum")))
-    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
+    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")), labelpad=float(spec.get("y_labelpad", 1.0)))
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_overlap_excess"
     ax.paper_fig_raw_points = False
