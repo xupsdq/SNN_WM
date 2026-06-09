@@ -11,7 +11,7 @@ from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values
 from src.plotting.paper_fig.utils import read_json
 
 
-DEFAULT_EXPERIMENT_ROOT = "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/fig6_peak_amplified_reentry"
+DEFAULT_EXPERIMENT_ROOT = "results/paper_figure_multi_seed/fig6_peak_amplified_reentry"
 DRAFT_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
 FIG6_SCORE_NAME = "entry_gated_stsp_gain_score"
 FIG6_SCORE_DEFINITION = "mean g_final/g_baseline over entry-active presynaptic sites in each Layer 1 receptive field"

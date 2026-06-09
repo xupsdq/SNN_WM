@@ -21,34 +21,75 @@ from src.experiments.common.run_info import build_run_info, finalize_run_info, w
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
 from src.experiments.paper_figures.fig3.artifacts import (
+    StateBankArtifact,
+    TableBundleArtifact,
     cache_key_matches,
     default_artifact_root,
     load_sequence_specs_artifact,
     load_state_bank_artifact,
+    load_table_bundle_artifact,
     save_sequence_specs_artifact,
     save_state_bank_artifact,
+    save_table_bundle_artifact,
     task_artifact_dir,
     write_json,
 )
 from src.experiments.paper_figures.fig3.cache_keys import (
+    build_access_job_specs_cache_key,
+    build_boundary_condition_specs_cache_key,
+    build_boundary_state_bank_cache_key,
+    build_boundary_summary_cache_key,
+    build_cue_specificity_access_cache_key,
+    build_cue_specificity_specs_cache_key,
+    build_morphology_decomposition_cache_key,
+    build_morphology_function_coupling_cache_key,
+    build_neutral_ping_access_cache_key,
     build_sequence_specs_cache_key,
     build_state_bank_cache_key,
+    build_weak_cue_access_cache_key,
     cache_key_digest,
     sequence_specs_hash,
+    table_digest,
 )
 from src.experiments.paper_figures.fig3.schemas import (
+    BOUNDARY_SUMMARY_REQUIRED_COLUMNS,
+    CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS,
+    CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS,
+    FUNCTIONAL_BOUNDARY_REQUIRED_COLUMNS,
+    MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS,
     REUSE_MODES,
+    TASK_ACCESS_JOB_SPECS,
     TASK_ALL,
+    TASK_BOUNDARY_CONDITION_SPECS,
+    TASK_BOUNDARY_STATE_BANK,
+    TASK_BOUNDARY_SUMMARY,
+    TASK_CUE_SPECIFICITY_ACCESS,
+    TASK_CUE_SPECIFICITY_SPECS,
+    TASK_MORPHOLOGY_DECOMPOSITION,
+    TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_IDS,
     TASK_NEUTRAL_PING,
+    TASK_NEUTRAL_PING_ACCESS,
     TASK_PEAK_VALLEY_LANDSCAPE,
     TASK_PROGRESSIVE_UPDATE,
     TASK_SEQUENCE_TRIAL_SPECS,
     TASK_STATE_BANK,
     TASK_SUPPLEMENT,
+    TASK_WEAK_CUE_ACCESS,
     TASK_WEAK_PROBE,
     normalize_reuse_mode,
 )
+from src.experiments.paper_figures.fig3.subexperiments.boundary_specs import build_access_job_specs, build_boundary_condition_specs
+from src.experiments.paper_figures.fig3.subexperiments.boundary_state_bank import materialize_boundary_state_bank
+from src.experiments.paper_figures.fig3.subexperiments.boundary_summary import compute_boundary_summary, compute_morphology_function_coupling
+from src.experiments.paper_figures.fig3.subexperiments.cue_specificity import (
+    build_cue_specificity_specs,
+    compute_cue_specificity_tables,
+    cue_specificity_scientific_checks,
+    run_cue_specificity_readout,
+)
+from src.experiments.paper_figures.fig3.subexperiments.functional_access import run_neutral_ping_access, run_weak_cue_access
+from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition
 from src.experiments.paper_figures.fig3.subexperiments.neutral_ping import run_neutral_ping_readout_distribution
 from src.experiments.paper_figures.fig3.subexperiments.peak_valley_landscape import compute_final_support_landscape
 from src.experiments.paper_figures.fig3.subexperiments.progressive_update import compute_progressive_update_metrics
@@ -221,6 +262,101 @@ def _run_task(
 ) -> None:
     if task_id == TASK_SEQUENCE_TRIAL_SPECS:
         return
+    if task_id == TASK_BOUNDARY_CONDITION_SPECS:
+        _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        return
+    if task_id == TASK_ACCESS_JOB_SPECS:
+        condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_access_job_specs(ctx, sequence_trials, condition_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        return
+    if task_id == TASK_BOUNDARY_STATE_BANK:
+        condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_boundary_state_bank(
+            ctx,
+            sequence_trials,
+            condition_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        return
+    if task_id == TASK_MORPHOLOGY_DECOMPOSITION:
+        condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        boundary_artifact = _get_boundary_state_bank(
+            ctx,
+            sequence_trials,
+            condition_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        _get_morphology_decomposition(ctx, condition_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_NEUTRAL_PING_ACCESS:
+        condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        _get_neutral_ping_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_WEAK_CUE_ACCESS:
+        condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        _get_weak_cue_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_CUE_SPECIFICITY_SPECS:
+        condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        access_artifact = _get_access_job_specs(ctx, sequence_trials, condition_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_cue_specificity_specs(ctx, sequence_trials, access_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        return
+    if task_id == TASK_CUE_SPECIFICITY_ACCESS:
+        condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        cue_specs_artifact = _get_cue_specificity_specs(ctx, sequence_trials, access_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_cue_specificity_access(ctx, cue_specs_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_MORPHOLOGY_FUNCTION_COUPLING:
+        condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        morphology_artifact = _get_morphology_decomposition(ctx, condition_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        weak_cue_artifact = _get_weak_cue_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        _get_morphology_function_coupling(ctx, morphology_artifact, weak_cue_artifact, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_BOUNDARY_SUMMARY:
+        parents = _get_new_boundary_downstream_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        _get_boundary_summary(ctx, *parents, mode=mode, artifact_root=artifact_root)
+        return
     if task_id == TASK_STATE_BANK:
         _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root)
         return
@@ -240,12 +376,21 @@ def _run_task(
         compute_supplementary_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_ALL:
-        bank = _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root)
-        compute_progressive_update_metrics(ctx, bank)
-        compute_final_support_landscape(ctx, bank)
-        run_neutral_ping_readout_distribution(ctx, bank)
-        run_sequence_weak_probe_real_rollout_from_state_bank(ctx, bank)
-        compute_supplementary_metrics(ctx, bank)
+        condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        morphology_artifact = _get_morphology_decomposition(ctx, condition_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        weak_cue_artifact = _get_weak_cue_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        neutral_ping_artifact = _get_neutral_ping_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        coupling_artifact = _get_morphology_function_coupling(ctx, morphology_artifact, weak_cue_artifact, mode=mode, artifact_root=artifact_root)
+        _get_boundary_summary(ctx, morphology_artifact, weak_cue_artifact, neutral_ping_artifact, coupling_artifact, mode=mode, artifact_root=artifact_root)
+        cue_specs_artifact = _get_cue_specificity_specs(ctx, sequence_trials, access_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        _get_cue_specificity_access(ctx, cue_specs_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
         return
     raise ValueError(f"Unsupported Fig.3 task: {task_id}")
 
@@ -259,38 +404,509 @@ def _get_state_bank(
     specs_hash: str,
     shared_sequence_root: Path | None = None,
 ) -> MultiItemSequenceLandscapeBank:
+    if mode == "off" and shared_sequence_root is None:
+        return run_multiitem_sequence_state_bank(ctx, sequence_trials)
+    return _get_state_bank_artifact(
+        ctx,
+        sequence_trials,
+        mode=mode,
+        artifact_root=artifact_root,
+        specs_hash=specs_hash,
+        shared_sequence_root=shared_sequence_root,
+    ).bank
+
+
+def _get_state_bank_artifact(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+    shared_sequence_root: Path | None = None,
+    write_compat_outputs: bool = True,
+) -> StateBankArtifact:
     task_dir = task_artifact_dir(artifact_root, TASK_STATE_BANK)
     expected_key = build_state_bank_cache_key(ctx.cfg, specs_hash=specs_hash)
     if shared_sequence_root is not None:
         root_bank = load_shared_root_bank_artifact(shared_sequence_root)
         copy_shared_artifact_tree(root_bank.fig3_state_bank_dir, task_dir)
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        _write_state_bank_compat_outputs(ctx, task_dir)
+        if write_compat_outputs:
+            _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "state_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["state_bank"] = True
         ctx.run_log.append(f"{legacy._now()} state_bank source=shared_sequence_root artifact={root_bank.root}")
-        return artifact.bank
+        return artifact
     if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        _write_state_bank_compat_outputs(ctx, task_dir)
+        if write_compat_outputs:
+            _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["state_bank"] = True
-        return artifact.bank
+        return artifact
     if mode == "require":
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        _write_state_bank_compat_outputs(ctx, task_dir)
+        if write_compat_outputs:
+            _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["state_bank"] = True
-        return artifact.bank
-    bank = run_multiitem_sequence_state_bank(ctx, sequence_trials)
-    if mode != "off":
-        artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
-        _set_artifact_metadata(ctx, "state_bank", "built", task_dir, artifact.digest, expected_key)
-    return bank
+        return artifact
+    if mode == "off":
+        raise ValueError("Fig.3 state-bank artifact helper cannot return a persisted artifact in reuse mode 'off'.")
+    bank = run_multiitem_sequence_state_bank(ctx, sequence_trials, write_compat_outputs=write_compat_outputs)
+    artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
+    _set_artifact_metadata(ctx, "state_bank", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_boundary_condition_specs(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_BOUNDARY_CONDITION_SPECS)
+    expected_key = build_boundary_condition_specs_cache_key(ctx.cfg, specs_hash=specs_hash)
+    filenames = {"boundary_condition_specs": "boundary_condition_specs.csv"}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_boundary_condition_specs_to_bundle(ctx, artifact.tables["boundary_condition_specs"])
+        _set_artifact_metadata(ctx, "boundary_condition_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_boundary_condition_specs_to_bundle(ctx, artifact.tables["boundary_condition_specs"])
+        _set_artifact_metadata(ctx, "boundary_condition_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    table = build_boundary_condition_specs(ctx, sequence_trials)
+    if mode == "off":
+        return TableBundleArtifact(task_dir, {"boundary_condition_specs": table}, pd.DataFrame(), table_digest({"boundary_condition_specs": table}))
+    artifact = save_table_bundle_artifact(task_dir, tables={"boundary_condition_specs": table}, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "boundary_condition_specs", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_access_job_specs(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    condition_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_ACCESS_JOB_SPECS)
+    expected_key = build_access_job_specs_cache_key(
+        ctx.cfg,
+        specs_hash=specs_hash,
+        condition_specs_digest=condition_artifact.digest,
+    )
+    filenames = {"access_job_specs": "access_job_specs.csv"}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_access_job_specs_to_bundle(ctx, artifact.tables["access_job_specs"])
+        _set_artifact_metadata(ctx, "access_job_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_access_job_specs_to_bundle(ctx, artifact.tables["access_job_specs"])
+        _set_artifact_metadata(ctx, "access_job_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    table = build_access_job_specs(ctx, sequence_trials, condition_artifact.tables["boundary_condition_specs"])
+    if mode == "off":
+        return TableBundleArtifact(task_dir, {"access_job_specs": table}, pd.DataFrame(), table_digest({"access_job_specs": table}))
+    artifact = save_table_bundle_artifact(task_dir, tables={"access_job_specs": table}, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "access_job_specs", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_boundary_state_bank(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    condition_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+    shared_sequence_root: Path | None,
+) -> StateBankArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_BOUNDARY_STATE_BANK)
+    expected_key = build_boundary_state_bank_cache_key(
+        ctx.cfg,
+        specs_hash=specs_hash,
+        condition_specs_digest=condition_artifact.digest,
+    )
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
+        materialize_boundary_state_bank(ctx, artifact.bank, condition_artifact.tables["boundary_condition_specs"], sequence_trials=sequence_trials)
+        _write_state_bank_compat_outputs(ctx, task_dir)
+        _set_artifact_metadata(ctx, "boundary_state_bank", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
+        materialize_boundary_state_bank(ctx, artifact.bank, condition_artifact.tables["boundary_condition_specs"], sequence_trials=sequence_trials)
+        _write_state_bank_compat_outputs(ctx, task_dir)
+        _set_artifact_metadata(ctx, "boundary_state_bank", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    condition_specs = condition_artifact.tables["boundary_condition_specs"]
+    condition_delays = sorted(int(v) for v in condition_specs["delay_ms"].dropna().unique())
+    source_bank = None
+    if condition_delays == [int(ctx.cfg.delay_ms)]:
+        source_bank = _get_state_bank(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+    bank = materialize_boundary_state_bank(ctx, source_bank, condition_specs, sequence_trials=sequence_trials)
+    if mode == "off":
+        return StateBankArtifact(task_dir, bank, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), "off")
+    artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
+    _write_state_bank_compat_outputs(ctx, task_dir)
+    _set_artifact_metadata(ctx, "boundary_state_bank", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_boundary_access_parents(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+    shared_sequence_root: Path | None,
+) -> tuple[TableBundleArtifact, TableBundleArtifact, StateBankArtifact]:
+    condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+    access_artifact = _get_access_job_specs(ctx, sequence_trials, condition_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+    boundary_artifact = _get_boundary_state_bank(
+        ctx,
+        sequence_trials,
+        condition_artifact,
+        mode=mode,
+        artifact_root=artifact_root,
+        specs_hash=specs_hash,
+        shared_sequence_root=shared_sequence_root,
+    )
+    return condition_artifact, access_artifact, boundary_artifact
+
+
+def _get_morphology_decomposition(
+    ctx: ExperimentContext,
+    condition_artifact: TableBundleArtifact,
+    boundary_artifact: StateBankArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_MORPHOLOGY_DECOMPOSITION)
+    expected_key = build_morphology_decomposition_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        condition_specs_digest=condition_artifact.digest,
+    )
+    filenames = {
+        "morphology_item_support": "panel_b_morphology_item_support.csv",
+        "morphology_serial_profile": "panel_b_morphology_serial_profile.csv",
+        "morphology_boundary_metrics": "panel_c_morphology_boundary_metrics.csv",
+    }
+    expected_columns = {"morphology_boundary_metrics": MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_morphology_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "morphology_decomposition", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_morphology_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "morphology_decomposition", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = compute_morphology_decomposition(ctx, boundary_artifact.bank, condition_artifact.tables["boundary_condition_specs"])
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "morphology_decomposition", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_weak_cue_access(
+    ctx: ExperimentContext,
+    access_artifact: TableBundleArtifact,
+    boundary_artifact: StateBankArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_WEAK_CUE_ACCESS)
+    expected_key = build_weak_cue_access_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        access_job_specs_digest=access_artifact.digest,
+    )
+    filenames = {
+        "weak_cue_item_readout": "panel_d_weak_cue_item_readout.csv",
+        "weak_cue_item_metrics": "panel_d_weak_cue_item_metrics.csv",
+        "item_functional_gain": "panel_d_item_functional_gain.csv",
+        "functional_boundary_metrics": "panel_d_functional_boundary_metrics.csv",
+    }
+    expected_columns = {"functional_boundary_metrics": FUNCTIONAL_BOUNDARY_REQUIRED_COLUMNS}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_weak_cue_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "weak_cue_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_weak_cue_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "weak_cue_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = run_weak_cue_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "weak_cue_access", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_cue_specificity_specs(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    access_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_CUE_SPECIFICITY_SPECS)
+    expected_key = build_cue_specificity_specs_cache_key(
+        ctx.cfg,
+        specs_hash=specs_hash,
+        access_job_specs_digest=access_artifact.digest,
+    )
+    filenames = {"cue_specificity_specs": "cue_specificity_specs.csv"}
+    expected_columns = {"cue_specificity_specs": CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
+        _set_artifact_metadata(ctx, "cue_specificity_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
+        _set_artifact_metadata(ctx, "cue_specificity_specs", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    table = build_cue_specificity_specs(
+        ctx,
+        sequence_trials,
+        access_artifact.tables["access_job_specs"],
+        seq_len=int(ctx.cfg.cue_specificity_seq_len),
+        delay_ms=int(ctx.cfg.cue_specificity_delay_ms),
+        keep_prob=float(ctx.cfg.cue_specificity_keep_prob),
+        cue_types=ctx.cfg.cue_specificity_cue_types,
+    )
+    if mode == "off":
+        return TableBundleArtifact(task_dir, {"cue_specificity_specs": table}, pd.DataFrame(), table_digest({"cue_specificity_specs": table}))
+    artifact = save_table_bundle_artifact(task_dir, tables={"cue_specificity_specs": table}, filenames=filenames, cache_key=expected_key)
+    _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
+    _set_artifact_metadata(ctx, "cue_specificity_specs", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_cue_specificity_access(
+    ctx: ExperimentContext,
+    cue_specs_artifact: TableBundleArtifact,
+    boundary_artifact: StateBankArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_CUE_SPECIFICITY_ACCESS)
+    expected_key = build_cue_specificity_access_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        cue_specificity_specs_digest=cue_specs_artifact.digest,
+    )
+    filenames = {
+        "cue_specificity_trial_readout": "panel_c_cue_specificity_trial_readout.csv",
+        "cue_specificity_metrics": "panel_c_cue_specificity_metrics.csv",
+        "cue_specificity_serial_summary": "panel_c_cue_specificity_serial_summary.csv",
+        "cue_specificity_contrast_summary": "panel_c_cue_specificity_contrast_summary.csv",
+        "cue_specificity_summary": "panel_c_cue_specificity_summary.csv",
+    }
+    expected_columns = {"cue_specificity_metrics": CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
+        _validate_cue_specificity_science(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "cue_specificity_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
+        _validate_cue_specificity_science(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "cue_specificity_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    cue_specs = cue_specs_artifact.tables["cue_specificity_specs"]
+    raw = run_cue_specificity_readout(
+        ctx,
+        boundary_artifact.bank,
+        cue_specs,
+        readout_batch_size=int(ctx.cfg.cue_specificity_readout_batch_size),
+    )
+    if len(raw) != len(cue_specs):
+        raise RuntimeError(f"Cue specificity raw row count mismatch: found {len(raw)}, expected {len(cue_specs)}.")
+    tables = compute_cue_specificity_tables(raw)
+    _validate_cue_specificity_science(ctx, tables)
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
+    _set_artifact_metadata(ctx, "cue_specificity_access", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_neutral_ping_access(
+    ctx: ExperimentContext,
+    access_artifact: TableBundleArtifact,
+    boundary_artifact: StateBankArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_NEUTRAL_PING_ACCESS)
+    expected_key = build_neutral_ping_access_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        access_job_specs_digest=access_artifact.digest,
+    )
+    filenames = {
+        "neutral_ping_access_readout": "panel_c_neutral_ping_access_readout.csv",
+        "neutral_ping_position_distribution": "panel_c_neutral_ping_position_distribution.csv",
+        "neutral_ping_access_summary": "panel_c_neutral_ping_access_summary.csv",
+    }
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_neutral_ping_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "neutral_ping_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_neutral_ping_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "neutral_ping_access", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = run_neutral_ping_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "neutral_ping_access", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_morphology_function_coupling(
+    ctx: ExperimentContext,
+    morphology_artifact: TableBundleArtifact,
+    weak_cue_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_MORPHOLOGY_FUNCTION_COUPLING)
+    expected_key = build_morphology_function_coupling_cache_key(
+        ctx.cfg,
+        morphology_digest=morphology_artifact.digest,
+        weak_cue_digest=weak_cue_artifact.digest,
+    )
+    filenames = {
+        "morphology_function_coupling": "panel_e_morphology_function_coupling.csv",
+        "coupling_summary": "panel_e_coupling_summary.csv",
+        "order_specificity_control": "panel_f_order_specificity_control.csv",
+    }
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_coupling_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "morphology_function_coupling", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
+        _write_coupling_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "morphology_function_coupling", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = compute_morphology_function_coupling(ctx, morphology_artifact.tables, weak_cue_artifact.tables)
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "morphology_function_coupling", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_new_boundary_downstream_parents(
+    ctx: ExperimentContext,
+    sequence_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+    shared_sequence_root: Path | None,
+) -> tuple[TableBundleArtifact, TableBundleArtifact, TableBundleArtifact, TableBundleArtifact]:
+    condition_artifact, access_artifact, boundary_artifact = _get_boundary_access_parents(
+        ctx,
+        sequence_trials,
+        mode=mode,
+        artifact_root=artifact_root,
+        specs_hash=specs_hash,
+        shared_sequence_root=shared_sequence_root,
+    )
+    morphology_artifact = _get_morphology_decomposition(ctx, condition_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+    weak_cue_artifact = _get_weak_cue_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+    neutral_ping_artifact = _get_neutral_ping_access(ctx, access_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+    coupling_artifact = _get_morphology_function_coupling(ctx, morphology_artifact, weak_cue_artifact, mode=mode, artifact_root=artifact_root)
+    return morphology_artifact, weak_cue_artifact, neutral_ping_artifact, coupling_artifact
+
+
+def _get_boundary_summary(
+    ctx: ExperimentContext,
+    morphology_artifact: TableBundleArtifact,
+    weak_cue_artifact: TableBundleArtifact,
+    neutral_ping_artifact: TableBundleArtifact,
+    coupling_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_BOUNDARY_SUMMARY)
+    expected_key = build_boundary_summary_cache_key(
+        ctx.cfg,
+        morphology_digest=morphology_artifact.digest,
+        weak_cue_digest=weak_cue_artifact.digest,
+        neutral_ping_digest=neutral_ping_artifact.digest,
+        coupling_digest=coupling_artifact.digest,
+    )
+    filenames = {"boundary_summary": "panel_f_boundary_summary.csv"}
+    expected_columns = {"boundary_summary": BOUNDARY_SUMMARY_REQUIRED_COLUMNS}
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_boundary_summary_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "boundary_summary", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
+        _write_boundary_summary_tables_to_bundle(ctx, artifact.tables)
+        _set_artifact_metadata(ctx, "boundary_summary", "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = compute_boundary_summary(ctx, morphology_artifact.tables, weak_cue_artifact.tables, neutral_ping_artifact.tables, coupling_artifact.tables)
+    if mode == "off":
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "boundary_summary", "built", task_dir, artifact.digest, expected_key)
+    return artifact
 
 
 def _write_state_bank_compat_outputs(ctx: ExperimentContext, task_dir: Path) -> None:
-    for filename in ("state_bank_layer1.npz", "state_bank_layer3.npz"):
+    for filename in ("state_bank_layer1.npz", "state_bank_layer2.npz", "state_bank_layer3.npz"):
         src = task_dir / filename
         dst = ctx.raw_dir / filename
         if src.exists():
@@ -302,6 +918,104 @@ def _write_state_bank_compat_outputs(ctx: ExperimentContext, task_dir: Path) -> 
         dst = ctx.raw_dir / "state_bank_manifest.csv"
         shutil.copy2(manifest_src, dst)
         ctx.output_files["state_bank_manifest"] = legacy._rel(dst, ctx.seed_dir)
+
+
+def _write_boundary_condition_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "boundary_condition_specs.csv")
+    ctx.completed_modules["boundary_condition_specs"] = True
+
+
+def _write_access_job_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "access_job_specs.csv")
+    ctx.completed_modules["access_job_specs"] = True
+
+
+def _write_morphology_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    mapping = {
+        "morphology_item_support": ctx.raw_dir / "panel_b_morphology_item_support.csv",
+        "morphology_serial_profile": ctx.metrics_dir / "panel_b_morphology_serial_profile.csv",
+        "morphology_boundary_metrics": ctx.metrics_dir / "panel_c_morphology_boundary_metrics.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules["morphology_decomposition"] = True
+
+
+def _write_weak_cue_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    mapping = {
+        "weak_cue_item_readout": ctx.raw_dir / "panel_d_weak_cue_item_readout.csv",
+        "weak_cue_item_metrics": ctx.metrics_dir / "panel_d_weak_cue_item_metrics.csv",
+        "item_functional_gain": ctx.metrics_dir / "panel_d_item_functional_gain.csv",
+        "functional_boundary_metrics": ctx.metrics_dir / "panel_d_functional_boundary_metrics.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules["weak_cue_access"] = True
+
+
+def _write_cue_specificity_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "cue_specificity_specs.csv")
+    ctx.completed_modules["cue_specificity_specs"] = True
+
+
+def _write_cue_specificity_access_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    mapping = {
+        "cue_specificity_trial_readout": ctx.raw_dir / "panel_c_cue_specificity_trial_readout.csv",
+        "cue_specificity_metrics": ctx.metrics_dir / "panel_c_cue_specificity_metrics.csv",
+        "cue_specificity_serial_summary": ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv",
+        "cue_specificity_contrast_summary": ctx.metrics_dir / "panel_c_cue_specificity_contrast_summary.csv",
+        "cue_specificity_summary": ctx.metrics_dir / "panel_c_cue_specificity_summary.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules["cue_specificity_access"] = True
+
+
+def _validate_cue_specificity_science(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    metrics = tables.get("cue_specificity_metrics")
+    if metrics is None or metrics.empty:
+        raise ValueError("Cue specificity access produced no metrics.")
+    checks = cue_specificity_scientific_checks(metrics)
+    setattr(ctx, "cue_specificity_scientific_checks", checks)
+    if bool(ctx.cfg.smoke):
+        return
+    if not bool(checks.get("S_final_matched_gt_unseen_P_target")):
+        raise RuntimeError(f"Cue specificity hard gate failed: S_final matched must exceed unseen for P_target. Checks={checks}")
+    if not bool(checks.get("S_final_matched_gt_mismatched_P_target")):
+        raise RuntimeError(f"Cue specificity hard gate failed: S_final matched must exceed mismatched for P_target. Checks={checks}")
+
+
+def _write_neutral_ping_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    mapping = {
+        "neutral_ping_access_readout": ctx.raw_dir / "panel_c_neutral_ping_access_readout.csv",
+        "neutral_ping_position_distribution": ctx.metrics_dir / "panel_c_neutral_ping_position_distribution.csv",
+        "neutral_ping_access_summary": ctx.metrics_dir / "panel_c_neutral_ping_access_summary.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules["neutral_ping_access"] = True
+
+
+def _write_coupling_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    mapping = {
+        "morphology_function_coupling": ctx.metrics_dir / "panel_e_morphology_function_coupling.csv",
+        "coupling_summary": ctx.metrics_dir / "panel_e_coupling_summary.csv",
+        "order_specificity_control": ctx.metrics_dir / "panel_f_order_specificity_control.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules["morphology_function_coupling"] = True
+
+
+def _write_boundary_summary_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
+    if "boundary_summary" in tables:
+        legacy._save_csv(ctx, tables["boundary_summary"], ctx.metrics_dir / "panel_f_boundary_summary.csv")
+    ctx.completed_modules["boundary_summary"] = True
 
 
 def _build_context(cfg: Fig3Config) -> ExperimentContext:
@@ -394,6 +1108,11 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) 
     legacy._write_config_files(ctx)
     _refresh_output_file_registry(ctx)
     summary = legacy._write_summary(ctx)
+    _apply_boundary_summary_contract(ctx, summary)
+    _apply_runtime_artifact_metadata(ctx, summary)
+    cue_specificity_checks = getattr(ctx, "cue_specificity_scientific_checks", None)
+    if cue_specificity_checks is not None:
+        summary["cue_specificity_scientific_checks"] = cue_specificity_checks
     summary.update(
         {
             "reuse_artifacts": str(mode),
@@ -404,10 +1123,108 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) 
     legacy._write_run_log(ctx)
 
 
+def _apply_boundary_summary_contract(ctx: ExperimentContext, summary: dict[str, Any]) -> None:
+    required = {
+        "panel_b_morphology_item_support": ctx.raw_dir / "panel_b_morphology_item_support.csv",
+        "panel_c_morphology_boundary_metrics": ctx.metrics_dir / "panel_c_morphology_boundary_metrics.csv",
+        "panel_d_functional_boundary_metrics": ctx.metrics_dir / "panel_d_functional_boundary_metrics.csv",
+        "panel_e_morphology_function_coupling": ctx.metrics_dir / "panel_e_morphology_function_coupling.csv",
+        "panel_f_boundary_summary": ctx.metrics_dir / "panel_f_boundary_summary.csv",
+    }
+    if not any(path.exists() for path in required.values()):
+        return
+    missing = [str(path.relative_to(ctx.seed_dir)).replace("\\", "/") for path in required.values() if not path.exists()]
+    sequence_path = ctx.trial_specs_dir / "sequence_trials.csv"
+    condition_path = ctx.trial_specs_dir / "boundary_condition_specs.csv"
+    access_path = ctx.trial_specs_dir / "access_job_specs.csv"
+    n_sequences = 0
+    n_conditions = 0
+    n_access_jobs = 0
+    if sequence_path.exists():
+        n_sequences = int(len(pd.read_csv(sequence_path)))
+    if condition_path.exists():
+        n_conditions = int(len(pd.read_csv(condition_path)))
+    if access_path.exists():
+        n_access_jobs = int(len(pd.read_csv(access_path)))
+    summary.update(
+        {
+            "fig3_design_version": "morphology_function_boundary_v1",
+            "main_panels": {
+                "A": "L1 item-wise STSP morphology profile",
+                "B": "K x delay morphology boundary",
+                "C": "K x delay weak-cue functional access boundary",
+                "D": "item-level morphology-to-function coupling",
+            },
+            "main_claim_supported_fields_available": not missing,
+            "missing_for_main_figure": missing,
+            "new_fig3_boundary_dag": True,
+            "smoke_only_engineering_validation": bool(ctx.cfg.smoke),
+            "manuscript_evidence_status": "smoke_only_not_final_evidence" if ctx.cfg.smoke else "candidate_single_seed_or_full_run",
+            "boundary_grid": {
+                "sequence_lengths": [int(v) for v in ctx.cfg.boundary_sequence_lengths],
+                "delay_ms": [int(v) for v in ctx.cfg.boundary_delay_grid_ms],
+            },
+            "n_sequences": n_sequences,
+            "n_boundary_conditions": n_conditions,
+            "n_access_jobs": n_access_jobs,
+            "morphology_metrics": [
+                "beta",
+                "p_i",
+                "N_eff",
+                "N_eff_fraction",
+                "multi_item_retention_index",
+                "latest_collapse_index",
+            ],
+            "functional_metrics": [
+                "G_i",
+                "G_i_norm",
+                "accessible_item_count",
+                "singleton_access_count",
+                "sequence_access_count",
+                "rescued_count",
+                "rescued_fraction",
+            ],
+            "coupling_metrics": [
+                "morphology_support_p",
+                "functional_gain_norm",
+                "support_gain_corr",
+            ],
+        }
+    )
+
+
+def _apply_runtime_artifact_metadata(ctx: ExperimentContext, summary: dict[str, Any]) -> None:
+    task_sources: dict[str, dict[str, str]] = {}
+    for task_id in TASK_IDS:
+        if task_id == TASK_ALL:
+            continue
+        source = getattr(ctx, f"{task_id}_artifact_source", None)
+        if source is None:
+            continue
+        task_sources[str(task_id)] = {
+            "source": str(source),
+            "artifact_root": str(getattr(ctx, f"{task_id}_artifact_root", "")),
+            "artifact_digest": str(getattr(ctx, f"{task_id}_artifact_digest", "")),
+            "cache_key_digest": str(getattr(ctx, f"{task_id}_cache_key_digest", "")),
+        }
+    if task_sources:
+        summary["runtime_artifact_sources"] = task_sources
+
+
 def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
     checks = {
         "sequence_trial_specs": [ctx.trial_specs_dir / "sequence_trials.csv", ctx.trial_specs_dir / "singleton_reference_trials.csv", ctx.trial_specs_dir / "partial_cue_trials.csv"],
         "state_bank": [ctx.raw_dir / "state_bank_layer1.npz", ctx.raw_dir / "state_bank_layer3.npz", ctx.raw_dir / "state_bank_manifest.csv"],
+        "boundary_condition_specs": [ctx.trial_specs_dir / "boundary_condition_specs.csv"],
+        "access_job_specs": [ctx.trial_specs_dir / "access_job_specs.csv"],
+        "boundary_state_bank": [ctx.raw_dir / "boundary_state_bank_manifest.csv"],
+        "morphology_decomposition": [ctx.raw_dir / "panel_b_morphology_item_support.csv", ctx.metrics_dir / "panel_c_morphology_boundary_metrics.csv"],
+        "weak_cue_access": [ctx.raw_dir / "panel_d_weak_cue_item_readout.csv", ctx.metrics_dir / "panel_d_functional_boundary_metrics.csv"],
+        "neutral_ping_access": [ctx.raw_dir / "panel_c_neutral_ping_access_readout.csv", ctx.metrics_dir / "panel_c_neutral_ping_access_summary.csv"],
+        "morphology_function_coupling": [ctx.metrics_dir / "panel_e_morphology_function_coupling.csv", ctx.metrics_dir / "panel_f_order_specificity_control.csv"],
+        "boundary_summary": [ctx.metrics_dir / "panel_f_boundary_summary.csv"],
+        "cue_specificity_specs": [ctx.trial_specs_dir / "cue_specificity_specs.csv"],
+        "cue_specificity_access": [ctx.raw_dir / "panel_c_cue_specificity_trial_readout.csv", ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv"],
         "progressive_update": [ctx.metrics_dir / "panel_b_progressive_update_metrics.csv"],
         "peak_valley_landscape": [ctx.metrics_dir / "panel_c_example_landscape_summary.csv"],
         "neutral_ping": [ctx.raw_dir / "panel_d_neutral_ping_trial_readout.csv", ctx.metrics_dir / "panel_d_ping_summary.csv"],
@@ -449,8 +1266,11 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
     task = str(args.task)
     run_all = task == TASK_ALL
     seq_lengths = tuple(int(v) for v in str(args.sequence_lengths).split(",") if str(v).strip())
+    boundary_sequence_lengths = tuple(int(v) for v in str(args.boundary_sequence_lengths).split(",") if str(v).strip())
+    boundary_delay_grid_ms = tuple(int(v) for v in str(args.boundary_delay_grid_ms).split(",") if str(v).strip())
     weak_probe_keep = tuple(float(v) for v in str(args.weak_probe_keep_probs).split(",") if str(v).strip())
     weak_cue_keep = tuple(float(v) for v in str(args.weak_cue_keep_fractions).split(",") if str(v).strip())
+    cue_specificity_cue_types = tuple(str(v).strip() for v in str(args.cue_specificity_cue_types).split(",") if str(v).strip())
     peak_cue_main_keep = float(args.peak_cue_main_keep_fraction)
     if not any(np.isclose(float(value), peak_cue_main_keep) for value in weak_cue_keep):
         weak_cue_keep = tuple(sorted([*weak_cue_keep, peak_cue_main_keep]))
@@ -459,6 +1279,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
     if smoke:
         weak_probe_keep = (0.2, 0.7)
         weak_cue_keep = (peak_cue_main_keep,)
+        boundary_sequence_lengths = seq_lengths
+        boundary_delay_grid_ms = (int(args.delay_ms),)
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
     return Fig3Config(
         model_path=str(model_path),
@@ -514,6 +1336,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         show_progress=not bool(args.no_progress),
         use_encode_cache=not bool(args.no_encode_cache),
         enable_condition_batch=bool(args.enable_condition_batch),
+        enable_state_bank_batch=bool(args.enable_state_bank_batch),
+        state_bank_singleton_batch_size=max(1, int(args.state_bank_singleton_batch_size)),
         smoke=smoke,
         peak_cue_main_keep_fraction=peak_cue_main_keep,
         region_ping_q=float(args.region_ping_q),
@@ -523,6 +1347,17 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         region_ping_amp_sweep=tuple(float(v) for v in str(args.region_ping_amp_sweep).split(",") if str(v).strip()),
         region_ping_use_random_matched=bool(args.region_ping_use_random_matched),
         weak_probe_include_singleton=bool(args.weak_probe_include_singleton),
+        boundary_sequence_lengths=boundary_sequence_lengths,
+        boundary_delay_grid_ms=boundary_delay_grid_ms,
+        morphology_layer=str(args.morphology_layer),
+        morphology_variable=str(args.morphology_variable),
+        weak_cue_main_keep_prob=float(args.weak_cue_main_keep_prob),
+        access_null_quantile=float(args.access_null_quantile),
+        cue_specificity_seq_len=int(args.cue_specificity_seq_len),
+        cue_specificity_delay_ms=int(args.cue_specificity_delay_ms),
+        cue_specificity_keep_prob=float(args.cue_specificity_keep_prob),
+        cue_specificity_readout_batch_size=max(1, int(args.cue_specificity_readout_batch_size)),
+        cue_specificity_cue_types=cue_specificity_cue_types,
     )
 
 
@@ -545,11 +1380,29 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--no-progress", action="store_true")
     parser.add_argument("--no-encode-cache", action="store_true")
     parser.add_argument("--enable-condition-batch", action="store_true")
+    parser.add_argument("--enable-state-bank-batch", action="store_true", help="Batch same-length Fig.3 state-bank sequence captures.")
+    parser.add_argument(
+        "--state-bank-singleton-batch-size",
+        type=int,
+        default=4,
+        help="Maximum row batch for singleton-boundary capture inside batched Fig.3 state-bank capture.",
+    )
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--sequence-lengths", default="3,5,7,10")
     parser.add_argument("--primary-sequence-length", type=int, default=7)
     parser.add_argument("--main-sequence-length", type=int, default=10)
     parser.add_argument("--main-only-seq-len-10", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--boundary-sequence-lengths", default="3,5,7,10")
+    parser.add_argument("--boundary-delay-grid-ms", default="100,200,400,800")
+    parser.add_argument("--morphology-layer", default="layer1", choices=["layer1", "layer2", "layer3"])
+    parser.add_argument("--morphology-variable", default="g", choices=["g", "u", "x"])
+    parser.add_argument("--weak-cue-main-keep-prob", type=float, default=0.5)
+    parser.add_argument("--access-null-quantile", type=float, default=0.95)
+    parser.add_argument("--cue-specificity-seq-len", type=int, default=7)
+    parser.add_argument("--cue-specificity-delay-ms", type=int, default=400)
+    parser.add_argument("--cue-specificity-keep-prob", type=float, default=0.5)
+    parser.add_argument("--cue-specificity-readout-batch-size", type=int, default=6)
+    parser.add_argument("--cue-specificity-cue-types", default="matched,mismatched,unseen")
     parser.add_argument("--sample-ms", type=int, default=200)
     parser.add_argument("--delay-ms", type=int, default=200)
     parser.add_argument("--ping-ms", type=int, default=30)
@@ -574,7 +1427,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--region-ping-repeats", type=int, default=5)
     parser.add_argument("--region-ping-amp-sweep", default="0.25,0.5,1.0,1.5")
     parser.add_argument("--region-ping-use-random-matched", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--num-sequences", type=int, default=100)
+    parser.add_argument("--num-sequences", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--peak-q", type=float, default=0.20)
     parser.add_argument("--valley-q", type=float, default=0.20)
@@ -582,7 +1435,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--weak-cue-target-source", default="sequence_member_random", choices=["sequence_member_random", "unseen_random", "both"])
     parser.add_argument("--weak-cue-keep-fractions", default="0.05,0.1,0.2,0.3")
     parser.add_argument("--peak-cue-main-keep-fraction", type=float, default=0.10)
-    parser.add_argument("--weak-cue-repeats", type=int, default=20)
+    parser.add_argument("--weak-cue-repeats", type=int, default=10)
     parser.add_argument("--weak-cue-mask-mode", default="rank_within_target_foreground", choices=["rank_within_target_foreground"])
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
     parser.add_argument("--functional-restore-mode", choices=["full_boundary", "stsp_only", "stsp_only_legacy_current_ux"], default="stsp_only")

@@ -135,18 +135,41 @@ def build_fig3_neutral_ping_serial_adapter(spec: Mapping[str, Any], repo_root: P
     for seed_dir in seeds:
         metrics_dir = seed_dir / "data" / "metrics"
         raw_dir = seed_dir / "data" / "raw"
-        position_path = _first_existing(metrics_dir, ["panel_d_ping_position_distribution.csv", "panel_e_ping_position_distribution.csv"])
-        summary_path = _first_existing(metrics_dir, ["panel_d_ping_summary.csv", "panel_e_ping_summary.csv"])
-        raw_path = raw_dir / "panel_d_neutral_ping_trial_readout.csv"
+        position_path = _first_existing(
+            metrics_dir,
+            [
+                "panel_c_neutral_ping_position_distribution.csv",
+                "panel_d_ping_position_distribution.csv",
+                "panel_e_ping_position_distribution.csv",
+            ],
+        )
+        summary_path = _first_existing(
+            metrics_dir,
+            [
+                "panel_c_neutral_ping_access_summary.csv",
+                "panel_d_ping_summary.csv",
+                "panel_e_ping_summary.csv",
+            ],
+        )
+        raw_path = _first_existing(
+            raw_dir,
+            [
+                "panel_c_neutral_ping_access_readout.csv",
+                "panel_d_neutral_ping_trial_readout.csv",
+            ],
+        )
         checked = [
+            metrics_dir / "panel_c_neutral_ping_position_distribution.csv",
+            metrics_dir / "panel_c_neutral_ping_access_summary.csv",
+            raw_dir / "panel_c_neutral_ping_access_readout.csv",
             metrics_dir / "panel_d_ping_position_distribution.csv",
             metrics_dir / "panel_d_ping_summary.csv",
-            raw_path,
+            raw_dir / "panel_d_neutral_ping_trial_readout.csv",
             metrics_dir / "panel_e_ping_position_distribution.csv",
             metrics_dir / "panel_e_ping_summary.csv",
         ]
         sources.extend(_source(path, repo_root, seed_dir) for path in checked)
-        if position_path is None and raw_path.exists():
+        if position_path is None and raw_path is not None and raw_path.exists():
             position_df = _ping_position_from_raw(pd.read_csv(raw_path))
             position_source = raw_path
         elif position_path is not None:
@@ -333,6 +356,512 @@ def build_fig3_region_ping_readout_adapter(spec: Mapping[str, Any], repo_root: P
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "readout_mass", ["region_condition", "readout_category"], stats_extra=stats_extra)
 
 
+def build_fig3_boundary_morphology_profile_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_seq_len = _optional_int(spec.get("focus_seq_len", spec.get("seq_len_focus", None)))
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", spec.get("delay_ms_focus", None)))
+    layer = str(spec.get("morphology_layer") or "layer1")
+    state_variable = str(spec.get("state_variable") or "g")
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "raw" / "panel_b_morphology_item_support.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing morphology item-support source: {_display(path, repo_root)}")
+            continue
+        df = _primary(pd.read_csv(path), layer=layer, state_variable=state_variable)
+        df = _filter_focus(df, seq_len=focus_seq_len, delay_ms=focus_delay_ms)
+        for _, row in df.iterrows():
+            value = _float(row.get("p_i"))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="morphology_support_mass",
+                    condition=str(row.get("condition_id", "")),
+                    layer=str(row.get("layer", "layer1")),
+                    seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                    value=value,
+                    unit="mass",
+                    source_file=_display(path, repo_root),
+                    sequence_id=row.get("sequence_id", ""),
+                    seq_len=row.get("seq_len", ""),
+                    delay_ms=row.get("delay_ms", ""),
+                    serial_position=row.get("serial_position", ""),
+                    x_value=row.get("serial_position", ""),
+                    y_value=value,
+                    beta=row.get("beta", ""),
+                    p_i=value,
+                    multi_item_retention_index=row.get("multi_item_retention_index", ""),
+                    latest_collapse_index=row.get("latest_collapse_index", ""),
+                    reconstruction_R2=row.get("reconstruction_R2", ""),
+                )
+            )
+    stats_extra = {"focus_seq_len": focus_seq_len, "focus_delay_ms": focus_delay_ms, "morphology_layer": layer, "state_variable": state_variable}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "morphology_support_mass", ["seq_len", "delay_ms", "serial_position"], stats_extra=stats_extra)
+
+
+def build_fig3_morphology_boundary_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return _build_fig3_boundary_metric_adapter(
+        spec,
+        repo_root,
+        output_dir,
+        source_name="panel_c_morphology_boundary_metrics.csv",
+        metric=str(spec.get("metric") or "multi_item_retention_index"),
+        unit="index",
+    )
+
+
+def build_fig3_functional_boundary_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return _build_fig3_boundary_metric_adapter(
+        spec,
+        repo_root,
+        output_dir,
+        source_name="panel_d_functional_boundary_metrics.csv",
+        metric=str(spec.get("metric") or "accessible_item_count"),
+        unit="count",
+    )
+
+
+def build_fig3_morphology_function_coupling_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    summary_frames: list[pd.DataFrame] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_e_morphology_function_coupling.csv"
+        summary_path = seed_dir / "data" / "metrics" / "panel_e_coupling_summary.csv"
+        sources.extend(_source(item, repo_root, seed_dir) for item in (path, summary_path))
+        if summary_path.exists():
+            summary_frames.append(pd.read_csv(summary_path))
+        if not path.exists():
+            warnings.append(f"Missing morphology-function coupling source: {_display(path, repo_root)}")
+            continue
+        df = pd.read_csv(path)
+        for _, row in df.iterrows():
+            x_value = _float(row.get("morphology_support_p", row.get("p_i")))
+            y_value = _float(row.get("functional_gain_norm", row.get("G_i_norm")))
+            if not np.isfinite(x_value) or not np.isfinite(y_value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="G_i_norm",
+                    condition=str(row.get("condition_id", "")),
+                    layer=str(row.get("layer", "layer1")),
+                    seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                    value=y_value,
+                    unit="normalized_gain",
+                    source_file=_display(path, repo_root),
+                    sequence_id=row.get("sequence_id", ""),
+                    seq_len=row.get("seq_len", ""),
+                    delay_ms=row.get("delay_ms", ""),
+                    serial_position=row.get("serial_position", row.get("target_position", "")),
+                    x_value=x_value,
+                    y_value=y_value,
+                    morphology_support_p=x_value,
+                    morphology_support_beta=row.get("morphology_support_beta", row.get("beta", "")),
+                    functional_gain=row.get("functional_gain", row.get("G_i", "")),
+                    functional_gain_norm=y_value,
+                )
+            )
+    stats_extra: dict[str, Any] = {}
+    if summary_frames:
+        summary = pd.concat(summary_frames, ignore_index=True)
+        if "support_gain_corr" in summary.columns:
+            stats_extra["support_gain_corr_mean"] = float(pd.to_numeric(summary["support_gain_corr"], errors="coerce").mean())
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "G_i_norm", ["seq_len", "delay_ms"], stats_extra=stats_extra)
+
+
+def build_fig3_access_serial_profile_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_seq_len = _optional_int(spec.get("focus_seq_len", spec.get("seq_len_focus", 10)))
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", spec.get("delay_ms_focus", 400)))
+    memory_cols = [
+        ("cue_only", "Cue only", "P_target_cue_only"),
+        ("single_item_memory", "Slot singleton", "P_target_single_item_memory"),
+        ("sequence_state", "Full sequence", "P_target_sequence_state"),
+    ]
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_d_item_functional_gain.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing weak-cue item-gain source: {_display(path, repo_root)}")
+            continue
+        df = _numeric_gain_frame(pd.read_csv(path))
+        df = _filter_focus(df, seq_len=focus_seq_len, delay_ms=focus_delay_ms)
+        if df.empty:
+            warnings.append(f"No access serial-profile rows after focus filter in {_display(path, repo_root)}")
+            continue
+        for _, row in df.iterrows():
+            for memory_condition, memory_label, source_col in memory_cols:
+                value = _float(row.get(source_col))
+                if not np.isfinite(value):
+                    continue
+                rows.append(
+                    _canonical(
+                        figure_id,
+                        panel_id,
+                        metric="target_probability",
+                        condition=f"{row.get('condition_id', '')}:{memory_condition}",
+                        layer="",
+                        seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                        value=value,
+                        unit="probability",
+                        source_file=_display(path, repo_root),
+                        sequence_id=row.get("sequence_id", ""),
+                        seq_len=row.get("seq_len", ""),
+                        delay_ms=row.get("delay_ms", ""),
+                        serial_position=row.get("target_position", ""),
+                        target_position=row.get("target_position", ""),
+                        memory_condition=memory_condition,
+                        memory_label=memory_label,
+                        x_value=row.get("target_position", ""),
+                        y_value=value,
+                        G_i=row.get("G_i", ""),
+                        U_i=row.get("U_i", ""),
+                        G_i_norm=row.get("G_i_norm", ""),
+                    )
+                )
+    stats_extra = {"focus_seq_len": focus_seq_len, "focus_delay_ms": focus_delay_ms}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "target_probability", ["memory_condition", "serial_position"], stats_extra=stats_extra)
+
+
+def build_fig3_cue_specificity_target_profile_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_seq_len = _optional_int(spec.get("focus_seq_len", 7))
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", 400))
+    state_condition = str(spec.get("state_condition") or "S_final")
+    cue_order = tuple(str(v) for v in (spec.get("cue_types") or ["matched", "mismatched", "unseen"]))
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_c_cue_specificity_serial_summary.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing cue-specificity serial source: {_display(path, repo_root)}")
+            continue
+        df = pd.read_csv(path)
+        required = {"state_condition", "cue_type", "target_position", "P_target_mean"}
+        if not required.issubset(df.columns):
+            warnings.append(f"Cue-specificity source missing columns {sorted(required - set(df.columns))}: {_display(path, repo_root)}")
+            continue
+        df = df[df["state_condition"].astype(str).eq(state_condition)].copy()
+        df = df[df["cue_type"].astype(str).isin(cue_order)].copy()
+        if df.empty:
+            warnings.append(f"No cue-specificity rows for state={state_condition} in {_display(path, repo_root)}")
+            continue
+        for _, row in df.iterrows():
+            value = _float(row.get("P_target_mean"))
+            if not np.isfinite(value):
+                continue
+            cue_type = str(row.get("cue_type", ""))
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="target_probability",
+                    condition=cue_type,
+                    layer="",
+                    seed_id=_seed_id(seed_dir),
+                    value=value,
+                    unit="probability",
+                    source_file=_display(path, repo_root),
+                    seq_len=focus_seq_len,
+                    delay_ms=focus_delay_ms,
+                    serial_position=row.get("target_position", ""),
+                    target_position=row.get("target_position", ""),
+                    cue_type=cue_type,
+                    state_condition=state_condition,
+                    memory_condition=row.get("memory_condition", ""),
+                    x_value=row.get("target_position", ""),
+                    y_value=value,
+                    sem=row.get("P_target_sem", ""),
+                    P_target_sem=row.get("P_target_sem", ""),
+                    n_sequences=row.get("n_sequences", ""),
+                )
+            )
+    stats_extra = {"focus_seq_len": focus_seq_len, "focus_delay_ms": focus_delay_ms, "state_condition": state_condition, "cue_types": list(cue_order)}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "target_probability", ["cue_type", "serial_position"], stats_extra=stats_extra)
+
+
+def build_fig3_rescue_fraction_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", spec.get("delay_ms_focus", 400)))
+    threshold = float(spec.get("access_threshold", 0.0))
+    metrics = [
+        ("singleton_access_fraction", "Slot singleton", "singleton_count"),
+        ("sequence_access_fraction", "Full sequence", "sequence_count"),
+        ("rescued_fraction", "Rescued", "rescued_count"),
+    ]
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_d_item_functional_gain.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing weak-cue item-gain source: {_display(path, repo_root)}")
+            continue
+        df = _numeric_gain_frame(pd.read_csv(path))
+        df = _filter_focus(df, delay_ms=focus_delay_ms)
+        if df.empty:
+            warnings.append(f"No rescue rows after delay filter in {_display(path, repo_root)}")
+            continue
+        work = df.copy()
+        work["singleton_access"] = work["U_i"] > threshold
+        work["sequence_access"] = work["G_i"] > threshold
+        work["rescued"] = (work["U_i"] <= threshold) & (work["G_i"] > threshold)
+        group_cols = ["network_seed", "condition_id", "sequence_id", "seq_len", "delay_ms"]
+        for keys, part in work.groupby(group_cols, dropna=False, sort=True):
+            network_seed, condition_id, sequence_id, seq_len, delay_ms = keys
+            denom = float(seq_len) if np.isfinite(_float(seq_len)) and float(seq_len) > 0 else float(len(part))
+            counts = {
+                "singleton_count": int(part["singleton_access"].sum()),
+                "sequence_count": int(part["sequence_access"].sum()),
+                "rescued_count": int(part["rescued"].sum()),
+            }
+            for metric, label, count_key in metrics:
+                value = counts[count_key] / denom if denom > 0 else np.nan
+                if not np.isfinite(value):
+                    continue
+                rows.append(
+                    _canonical(
+                        figure_id,
+                        panel_id,
+                        metric=metric,
+                        condition=str(condition_id),
+                        layer="",
+                        seed_id=network_seed if str(network_seed) else _seed_id(seed_dir),
+                        value=value,
+                        unit="fraction",
+                        source_file=_display(path, repo_root),
+                        sequence_id=sequence_id,
+                        seq_len=seq_len,
+                        delay_ms=delay_ms,
+                        access_label=label,
+                        item_count=counts[count_key],
+                        item_fraction=value,
+                        x_value=seq_len,
+                        y_value=value,
+                        access_threshold=threshold,
+                    )
+                )
+    stats_extra = {"focus_delay_ms": focus_delay_ms, "access_threshold": threshold}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "rescued_fraction", ["seq_len"], stats_extra=stats_extra)
+
+
+def build_fig3_morphology_capacity_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", spec.get("delay_ms_focus", 400)))
+    layer = str(spec.get("morphology_layer") or "layer1")
+    state_variable = str(spec.get("state_variable") or "g")
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_c_morphology_boundary_metrics.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing morphology boundary source: {_display(path, repo_root)}")
+            continue
+        df = pd.read_csv(path)
+        df = _primary(df, layer=layer, state_variable=state_variable)
+        df = _filter_focus(df, delay_ms=focus_delay_ms)
+        if df.empty:
+            warnings.append(f"No morphology capacity rows after focus filter in {_display(path, repo_root)}")
+            continue
+        for _, row in df.iterrows():
+            value = _float(row.get("N_eff"))
+            seq_len = _float(row.get("seq_len"))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="N_eff",
+                    condition=str(row.get("condition_id", "")),
+                    layer=str(row.get("layer", layer)),
+                    seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                    value=value,
+                    unit="items",
+                    source_file=_display(path, repo_root),
+                    sequence_id=row.get("sequence_id", ""),
+                    seq_len=row.get("seq_len", ""),
+                    delay_ms=row.get("delay_ms", ""),
+                    x_value=row.get("seq_len", ""),
+                    y_value=value,
+                    N_eff=value,
+                    N_eff_fraction=value / seq_len if np.isfinite(seq_len) and seq_len > 0 else np.nan,
+                    multi_item_retention_index=row.get("multi_item_retention_index", ""),
+                    latest_collapse_index=row.get("latest_collapse_index", ""),
+                    reconstruction_R2=row.get("reconstruction_R2", ""),
+                )
+            )
+    stats_extra = {"focus_delay_ms": focus_delay_ms, "morphology_layer": layer, "state_variable": state_variable}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "N_eff", ["seq_len"], stats_extra=stats_extra)
+
+
+def build_fig3_delay_boundary_heatmap_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    metric = str(spec.get("metric") or "").strip()
+    if not metric:
+        return _missing(spec, repo_root, output_dir, f"Fig.3{panel_id}: delay heatmap requires a metric in the panel spec.", sources, warnings)
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / "panel_f_boundary_summary.csv"
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing boundary-summary source: {_display(path, repo_root)}")
+            continue
+        df = pd.read_csv(path)
+        required = {"network_seed", "condition_id", "seq_len", "delay_ms", metric}
+        missing = sorted(required - set(df.columns))
+        if missing:
+            warnings.append(f"Boundary summary missing {missing} in {_display(path, repo_root)}")
+            continue
+        for _, row in df.iterrows():
+            value = _float(row.get(metric))
+            seq_len = _float(row.get("seq_len"))
+            delay_ms = _float(row.get("delay_ms"))
+            if not (np.isfinite(value) and np.isfinite(seq_len) and np.isfinite(delay_ms)):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric=metric,
+                    condition=str(row.get("condition_id", "")),
+                    layer="layer1" if metric.startswith("N_eff") else "",
+                    seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                    value=value,
+                    unit="fraction" if metric.endswith("_fraction") else "items",
+                    source_file=_display(path, repo_root),
+                    seq_len=int(seq_len),
+                    delay_ms=int(delay_ms),
+                    x_value=int(seq_len),
+                    y_value=int(delay_ms),
+                    z_value=value,
+                    condition_id=str(row.get("condition_id", "")),
+                    N_eff=row.get("N_eff", ""),
+                    N_eff_fraction=row.get("N_eff_fraction", ""),
+                    rescued_count=row.get("rescued_count", ""),
+                    rescued_fraction=row.get("rescued_fraction", ""),
+                    sequence_access_count=row.get("sequence_access_count", ""),
+                    singleton_access_count=row.get("singleton_access_count", ""),
+                )
+            )
+    panel_df = pd.DataFrame(rows)
+    stats_extra = {
+        "boundary_metric": metric,
+        "observed_seq_lengths": sorted({int(v) for v in pd.to_numeric(panel_df.get("seq_len", pd.Series(dtype=float)), errors="coerce").dropna().unique()}) if not panel_df.empty else [],
+        "observed_delay_ms": sorted({int(v) for v in pd.to_numeric(panel_df.get("delay_ms", pd.Series(dtype=float)), errors="coerce").dropna().unique()}) if not panel_df.empty else [],
+        "source_contract": "data/metrics/panel_f_boundary_summary.csv",
+    }
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, metric, ["seq_len", "delay_ms"], stats_extra=stats_extra)
+
+
+def build_fig3_access_capacity_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    focus_delay_ms = _optional_float(spec.get("focus_delay_ms", spec.get("delay_ms_focus", 400)))
+    threshold = float(spec.get("access_threshold", 0.0))
+    layer = str(spec.get("morphology_layer") or "layer1")
+    state_variable = str(spec.get("state_variable") or "g")
+    metric_labels = {
+        "morphology_N_eff": "L1 N_eff",
+        "single_item_access_count": "Slot singleton",
+        "sequence_state_access_count": "Full sequence",
+        "rescued_count": "Rescued",
+    }
+    for seed_dir in seeds:
+        morph_path = seed_dir / "data" / "metrics" / "panel_c_morphology_boundary_metrics.csv"
+        gain_path = seed_dir / "data" / "metrics" / "panel_d_item_functional_gain.csv"
+        sources.extend(_source(item, repo_root, seed_dir) for item in (morph_path, gain_path))
+        if morph_path.exists():
+            morph = _primary(pd.read_csv(morph_path), layer=layer, state_variable=state_variable)
+            morph = _filter_focus(morph, delay_ms=focus_delay_ms)
+            for _, row in morph.iterrows():
+                value = _float(row.get("N_eff"))
+                if not np.isfinite(value):
+                    continue
+                rows.append(
+                    _canonical(
+                        figure_id,
+                        panel_id,
+                        metric="morphology_N_eff",
+                        condition=str(row.get("condition_id", "")),
+                        layer=str(row.get("layer", layer)),
+                        seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                        value=value,
+                        unit="items",
+                        source_file=_display(morph_path, repo_root),
+                        sequence_id=row.get("sequence_id", ""),
+                        seq_len=row.get("seq_len", ""),
+                        delay_ms=row.get("delay_ms", ""),
+                        access_label=metric_labels["morphology_N_eff"],
+                        x_value=row.get("seq_len", ""),
+                        y_value=value,
+                    )
+                )
+        else:
+            warnings.append(f"Missing morphology boundary source: {_display(morph_path, repo_root)}")
+        if gain_path.exists():
+            gain = _numeric_gain_frame(pd.read_csv(gain_path))
+            gain = _filter_focus(gain, delay_ms=focus_delay_ms)
+            if not gain.empty:
+                gain["singleton_access"] = gain["U_i"] > threshold
+                gain["sequence_access"] = gain["G_i"] > threshold
+                gain["rescued"] = (gain["U_i"] <= threshold) & (gain["G_i"] > threshold)
+                for keys, part in gain.groupby(["network_seed", "condition_id", "sequence_id", "seq_len", "delay_ms"], dropna=False, sort=True):
+                    network_seed, condition_id, sequence_id, seq_len, delay_ms = keys
+                    values = {
+                        "single_item_access_count": int(part["singleton_access"].sum()),
+                        "sequence_state_access_count": int(part["sequence_access"].sum()),
+                        "rescued_count": int(part["rescued"].sum()),
+                    }
+                    for metric, value in values.items():
+                        rows.append(
+                            _canonical(
+                                figure_id,
+                                panel_id,
+                                metric=metric,
+                                condition=str(condition_id),
+                                layer="",
+                                seed_id=network_seed if str(network_seed) else _seed_id(seed_dir),
+                                value=float(value),
+                                unit="items",
+                                source_file=_display(gain_path, repo_root),
+                                sequence_id=sequence_id,
+                                seq_len=seq_len,
+                                delay_ms=delay_ms,
+                                access_label=metric_labels[metric],
+                                x_value=seq_len,
+                                y_value=float(value),
+                                access_threshold=threshold,
+                            )
+                        )
+        else:
+            warnings.append(f"Missing weak-cue item-gain source: {_display(gain_path, repo_root)}")
+    stats_extra = {"focus_delay_ms": focus_delay_ms, "access_threshold": threshold, "morphology_layer": layer}
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "sequence_state_access_count", ["seq_len", "metric"], stats_extra=stats_extra)
+
+
 def build_fig3_peak_cue_memory_gain_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
@@ -392,6 +921,59 @@ def build_fig3_peak_cue_memory_gain_adapter(spec: Mapping[str, Any], repo_root: 
     panel_df = pd.DataFrame(rows)
     stats_extra = _peak_gain_stats(panel_df)
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "memory_gain", ["cue_condition"], stats_extra=stats_extra)
+
+
+def _build_fig3_boundary_metric_adapter(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+    *,
+    source_name: str,
+    metric: str,
+    unit: str,
+) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / source_name
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(f"Missing Fig.3 boundary metric source: {_display(path, repo_root)}")
+            continue
+        df = pd.read_csv(path)
+        if metric not in df.columns:
+            warnings.append(f"Metric {metric!r} missing from {_display(path, repo_root)}")
+            continue
+        for _, row in df.iterrows():
+            value = _float(row.get(metric))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric=metric,
+                    condition=str(row.get("condition_id", "")),
+                    layer=str(row.get("layer", "layer1")),
+                    seed_id=row.get("network_seed", _seed_id(seed_dir)),
+                    value=value,
+                    unit=unit,
+                    source_file=_display(path, repo_root),
+                    sequence_id=row.get("sequence_id", ""),
+                    seq_len=row.get("seq_len", ""),
+                    delay_ms=row.get("delay_ms", ""),
+                    x_value=row.get("seq_len", ""),
+                    y_value=row.get("delay_ms", ""),
+                    z_value=value,
+                    multi_item_retention_index=row.get("multi_item_retention_index", ""),
+                    latest_collapse_index=row.get("latest_collapse_index", ""),
+                    accessible_item_count=row.get("accessible_item_count", ""),
+                    functional_retention_index=row.get("functional_retention_index", ""),
+                )
+            )
+    return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, metric, ["seq_len", "delay_ms"])
 
 
 def build_fig3_neutral_ping_distribution_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -533,6 +1115,50 @@ def _first_existing(base: Path, names: Sequence[str]) -> Path | None:
         if path.exists():
             return path
     return None
+
+
+def _optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    out = _float(value)
+    return int(round(out)) if np.isfinite(out) else None
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    out = _float(value)
+    return float(out) if np.isfinite(out) else None
+
+
+def _numeric_gain_frame(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for col in [
+        "network_seed",
+        "sequence_id",
+        "seq_len",
+        "delay_ms",
+        "target_position",
+        "P_target_sequence_state",
+        "P_target_single_item_memory",
+        "P_target_cue_only",
+        "G_i",
+        "U_i",
+        "G_i_norm",
+    ]:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
+
+
+def _filter_focus(df: pd.DataFrame, *, seq_len: int | None = None, delay_ms: float | None = None) -> pd.DataFrame:
+    out = df.copy()
+    if seq_len is not None and "seq_len" in out.columns:
+        out = out[pd.to_numeric(out["seq_len"], errors="coerce").eq(seq_len)]
+    if delay_ms is not None and "delay_ms" in out.columns:
+        delays = pd.to_numeric(out["delay_ms"], errors="coerce")
+        out = out[np.isclose(delays, delay_ms, rtol=0.0, atol=1e-9)]
+    return out
 
 
 def _primary(df: pd.DataFrame, *, layer: str, state_variable: str) -> pd.DataFrame:
@@ -1011,3 +1637,5 @@ build_fig3_neutral_ping_adapter = build_fig3_neutral_ping_serial_adapter
 build_fig3_region_ping_readout = build_fig3_region_ping_readout_adapter
 build_fig3_peak_aligned_completion_adapter = build_fig3_peak_cue_memory_gain_adapter
 build_fig3_structural_weak_cue = build_fig3_structural_weak_cue_adapter
+build_fig3_delay_morphology_heatmap_adapter = build_fig3_delay_boundary_heatmap_adapter
+build_fig3_delay_rescue_heatmap_adapter = build_fig3_delay_boundary_heatmap_adapter

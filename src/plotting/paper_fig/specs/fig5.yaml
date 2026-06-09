@@ -1,6 +1,6 @@
 figure_id: fig5
 figure_title_draft: Unit-level conversion of overlap-aligned support into local competition
-experiment_root: results/paper_figure_multi_seed/fig5_local_support_competition/fig5_local_support_competition
+experiment_root: results/paper_figure_multi_seed/fig5_local_support_competition
 canvas_mm:
   width: 165
   height: 124
@@ -46,6 +46,7 @@ panels:
     source: data/metrics/panel_a_preprobe_support_metrics.csv
     position_mm: {x: 12.00, y: 8.00, w: 70.50, h: 46.00}
     size_mm: {w: 70.50, h: 46.00}
+    letter_mm: {x: 6.00, y: 4.00}
     metric: preprobe_support
     unit_group_order: [overlap_dominant, probe_only_dominant, random_matched, balanced]
     display_labels:
@@ -66,6 +67,7 @@ panels:
       - data/metrics/panel_b_transition_summary_by_group.csv
     position_mm: {x: 88.50, y: 8.00, w: 70.50, h: 46.00}
     size_mm: {w: 70.50, h: 46.00}
+    letter_mm: {x: 82.50, y: 4.00}
     primary_metric: transition_fraction
     transition_types: [advance, recruit, loss]
     unit_group_order: [overlap_dominant, probe_only_dominant, random_matched]
@@ -79,7 +81,7 @@ panels:
     panel_id: C
     producer_task: local_events
     panel_type: event_aligned_trace
-    claim: Early winner recruitment is coupled to loser voltage suppression and local inhibition.
+    claim: Early winner recruitment is paired with loser voltage suppression around the winner-spike event.
     data_adapter: fig5_winner_loser_adapter
     renderer: render_fig5_winner_loser_events
     source_priority:
@@ -87,11 +89,11 @@ panels:
       - data/metrics/panel_c_winner_loser_event_metrics.csv
     position_mm: {x: 12.00, y: 62.00, w: 70.50, h: 54.00}
     size_mm: {w: 70.50, h: 54.00}
-    metrics: [winner_delta_v, loser_delta_v, loser_inhibition]
+    letter_mm: {x: 6.00, y: 56.00}
+    metrics: [winner_delta_v, loser_delta_v]
     trace_labels:
       winner_delta_v: Winner ΔV
       loser_delta_v: Loser ΔV
-      loser_inhibition: Inhibition received by loser
     inhibition_trace_definition: loser_unit_received_inhibition
     baseline_correction:
       enabled: true
@@ -113,9 +115,9 @@ panels:
       - data/metrics/panel_d_l1_stsp_perturbation_audit.csv
     position_mm: {x: 88.50, y: 62.00, w: 70.50, h: 54.00}
     size_mm: {w: 70.50, h: 54.00}
+    letter_mm: {x: 82.50, y: 56.00}
     primary_metric: transition_fraction
     transition_types: [advance, recruit, loss]
-    title: Layer1 STSP perturbation
     perturbation_conditions:
       - dynamic_intact
       - attenuate_l1_stsp

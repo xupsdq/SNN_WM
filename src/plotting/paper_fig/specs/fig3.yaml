@@ -1,20 +1,21 @@
 figure_id: fig3
-figure_title_draft: Multi-item peak-structured STSP landscape and functional access
-experiment_root_default: results/paper_figure_full_encoded_seed1000_amp010/fig3_multiitem_peak_landscape
+figure_title_draft: Multi-item sequence state rescues access beyond singleton traces
+scientific_contract: sequence_chunk_rescue_v1
+experiment_root_default: results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_1000
 canvas_mm:
   width: 165
-  height: 158
-reading_order: [A, B, C, D]
+  height: 132
+reading_order: [A, B, C, D, E]
 run_modes:
   - single_network_draft
   - multi_network_final
 argument_bands:
-  - band_id: morphology_establishment
-    label: Morphology establishment
-    panels: [A, B]
-  - band_id: functional_accessibility
-    label: Functional accessibility
-    panels: [C, D]
+  - band_id: morphology
+    label: Morphology
+    panels: [A]
+  - band_id: function
+    label: Functional access
+    panels: [B, C, D, E]
 expected_outputs:
   full_figure: [pdf, svg, png]
   resolved_spec: fig3_resolved_spec.yaml
@@ -26,87 +27,102 @@ expected_outputs:
 qc_requirements:
   require_claims: true
   require_source_manifest: true
-  canvas_mm: {width: 165, height: 158}
+  canvas_mm: {width: 165, height: 132}
   require_position_mm: true
   require_size_mm: true
-  required_state_conditions: [S0, S_final]
-  required_cue_conditions: [peak, random, valley]
-  required_memory_conditions: [cue_only, single_item_memory, sequence_state]
+  morphology_layer: layer1
+  required_rescue_metrics: [N_eff, target_probability, rescued_fraction]
+  expected_seq_lengths: [3, 5, 7, 10]
+  expected_delay_ms: [100, 200, 400, 800]
   single_network_warning: true
 panels:
   A:
     panel_id: A
-    claim: Representative final STSP state exhibits a structured 3D peak-valley landscape.
-    panel_type: support_landscape_heatmap
-    producer_task: [state_bank, peak_valley_landscape]
-    data_adapter: fig3_example_landscape_adapter
-    renderer: render_fig3_landscape_heatmap
-    source_priority:
-      - data/raw/panel_c_example_landscape.npz
-      - data/metrics/panel_c_example_landscape_summary.csv
-      - data/raw/panel_c_example_landscape_metadata.json
-    size_mm: {width: 147.00, height: 88.00}
-    position_mm: {x: 12.00, y: 6.00, w: 147.00, h: 88.00}
-    axes_mm: {x: 15.00, y: 14.00, w: 128.00, h: 76.00}
-    colorbar_mm: {x: 148.00, y: 24.00, w: 2.80, h: 54.00}
-    letter_mm: {x: 6.00, y: 6.00}
-    metric: delta_gain_map
-    x_axis: Spatial x / column
-    y_axis: Spatial y / row
-    z_axis: Δ STSP support
+    claim: L1 STSP morphology is capacity-compressed at high K instead of preserving ten independent item traces.
+    panel_type: morphology_capacity
+    producer_task: [morphology_decomposition, boundary_summary]
+    data_adapter: fig3_morphology_capacity_adapter
+    renderer: render_fig3_morphology_capacity
+    source: data/metrics/panel_c_morphology_boundary_metrics.csv
+    size_mm: {width: 72.00, height: 62.00}
+    position_mm: {x: 8.00, y: 8.00, w: 72.00, h: 62.00}
+    axes_mm: {x: 16.00, y: 18.00, w: 64.00, h: 42.00}
+    letter_mm: {x: 3.00, y: 5.00}
+    metric: N_eff
+    focus_delay_ms: 400
+    morphology_layer: layer1
+    state_variable: g
+    x_axis: K
+    y_axis: Effective L1 items
   B:
     panel_id: B
-    claim: STSP state is progressively updated across sequence stages.
-    panel_type: progressive_update
-    producer_task: progressive_update
-    data_adapter: fig3_progressive_update_adapter
-    renderer: render_fig3_progressive_update
-    source: data/metrics/panel_b_progressive_update_metrics.csv
-    size_mm: {width: 45.00, height: 50.00}
-    position_mm: {x: 12.00, y: 102.00, w: 45.00, h: 50.00}
-    axes_mm: {x: 18.00, y: 113.00, w: 39.00, h: 35.00}
-    letter_mm: {x: 6.00, y: 100.00}
-    metric: stepwise_update_ratio
-    x_axis: Sequence stage
-    y_axis: Update ratio
+    claim: Full sequence state keeps early items accessible after slot-matched singleton memory has collapsed.
+    panel_type: access_serial_profile
+    producer_task: weak_cue_access
+    data_adapter: fig3_access_serial_profile_adapter
+    renderer: render_fig3_access_serial_profile
+    source: data/metrics/panel_d_item_functional_gain.csv
+    size_mm: {width: 72.00, height: 62.00}
+    position_mm: {x: 88.00, y: 8.00, w: 72.00, h: 62.00}
+    axes_mm: {x: 96.00, y: 18.00, w: 64.00, h: 42.00}
+    letter_mm: {x: 83.00, y: 5.00}
+    metric: target_probability
+    focus_seq_len: 10
+    focus_delay_ms: 400
+    x_axis: Serial position
+    y_axis: Target readout probability
   C:
     panel_id: C
-    claim: Neutral ping reveals a serial-position readout profile from the final sequence state.
-    panel_type: neutral_ping_serial_profile
-    producer_task: neutral_ping
-    data_adapter: fig3_neutral_ping_serial_adapter
-    renderer: render_fig3_neutral_ping_serial_profile
-    source_priority:
-      - data/metrics/panel_d_ping_position_distribution.csv
-      - data/metrics/panel_d_ping_summary.csv
-      - data/raw/panel_d_neutral_ping_trial_readout.csv
-      - data/metrics/panel_e_ping_position_distribution.csv
-    size_mm: {width: 45.00, height: 50.00}
-    position_mm: {x: 63.00, y: 102.00, w: 45.00, h: 50.00}
-    axes_mm: {x: 69.00, y: 113.00, w: 39.00, h: 35.00}
-    letter_mm: {x: 57.00, y: 100.00}
-    metric: readout_mass
+    claim: Matched weak cues selectively recover the target item more than mismatched or unseen controls.
+    panel_type: cue_specificity_target_profile
+    producer_task: cue_specificity_access
+    data_adapter: fig3_cue_specificity_target_profile_adapter
+    renderer: render_fig3_cue_specificity_target_profile
+    source: data/metrics/panel_c_cue_specificity_serial_summary.csv
+    size_mm: {width: 48.00, height: 52.00}
+    position_mm: {x: 8.00, y: 74.00, w: 48.00, h: 52.00}
+    axes_mm: {x: 16.00, y: 84.00, w: 40.00, h: 36.00}
+    letter_mm: {x: 3.00, y: 71.00}
+    metric: target_probability
+    focus_seq_len: 7
+    focus_delay_ms: 400
+    state_condition: S_final
+    cue_types: [matched, mismatched, unseen]
     x_axis: Serial position
-    y_axis: Readout mass
-    conditions: [S_final, S0]
+    y_axis: Target readout probability
   D:
     panel_id: D
-    claim: Sequence state improves weak-probe recovery beyond cue-only and a slot-matched single-item memory boundary.
-    panel_type: weak_probe_completion
-    producer_task: weak_probe
-    data_adapter: fig3_weak_probe_completion_adapter
-    renderer: render_fig3_weak_probe_completion
-    source_priority:
-      - data/metrics/panel_e_weak_probe_metrics.csv
-      - data/metrics/panel_e_weak_probe_memory_gain.csv
-      - data/metrics/panel_e_weak_probe_auc_metrics.csv
-      - data/raw/panel_e_weak_probe_trial_readout.csv
-      - data/metrics/panel_f_weak_probe_metrics.csv
-    size_mm: {width: 45.00, height: 50.00}
-    position_mm: {x: 114.00, y: 102.00, w: 45.00, h: 50.00}
-    axes_mm: {x: 120.00, y: 113.00, w: 39.00, h: 35.00}
-    letter_mm: {x: 108.00, y: 100.00}
-    metric: P_target
-    x_axis: Keep probability
-    y_axis: Target recovery (%)
-    conditions: [cue_only, single_item_memory, sequence_state]
+    claim: Sequence-state rescue becomes more prevalent as item count increases.
+    panel_type: rescue_fraction
+    producer_task: [weak_cue_access, boundary_summary]
+    data_adapter: fig3_rescue_fraction_adapter
+    renderer: render_fig3_rescue_fraction
+    source: data/metrics/panel_d_item_functional_gain.csv
+    size_mm: {width: 48.00, height: 52.00}
+    position_mm: {x: 61.50, y: 74.00, w: 48.00, h: 52.00}
+    axes_mm: {x: 69.50, y: 84.00, w: 40.00, h: 36.00}
+    letter_mm: {x: 56.50, y: 71.00}
+    metric: rescued_fraction
+    metrics_to_plot: [rescued_fraction]
+    focus_delay_ms: 400
+    access_threshold: 0.0
+    annotate_counts: true
+    x_axis: K
+    y_axis: Rescued item fraction
+  E:
+    panel_id: E
+    claim: Functional rescue occupies a K x delay boundary across sequence length and retention interval.
+    panel_type: delay_boundary_heatmap
+    producer_task: boundary_summary
+    data_adapter: fig3_delay_boundary_heatmap_adapter
+    renderer: render_fig3_boundary_heatmap
+    source: data/metrics/panel_f_boundary_summary.csv
+    size_mm: {width: 48.00, height: 52.00}
+    position_mm: {x: 112.00, y: 74.00, w: 48.00, h: 52.00}
+    axes_mm: {x: 120.00, y: 84.00, w: 40.00, h: 36.00}
+    letter_mm: {x: 107.00, y: 71.00}
+    metric: rescued_fraction
+    vmin: 0.0
+    vmax: 1.0
+    x_axis: K
+    y_axis: Delay

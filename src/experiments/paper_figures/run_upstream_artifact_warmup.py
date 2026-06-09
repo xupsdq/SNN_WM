@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -9,7 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 
 FIGURE_IDS = {
@@ -33,7 +34,11 @@ FIGURE_MODULES = {
 SHARED_SEQUENCE_MODULE = "src.experiments.paper_figures.common.sequence_root.run_task"
 SHARED_SEQUENCE_TASK = "shared_sequence_root_bank"
 
-PRESETS = ("core", "extended", "fig3_fig6", "fig4")
+DEFAULT_WARMUP_OUTPUT_ROOT = Path("results/paper_figure_warm_cache")
+MULTI_SEED_ROLLOUT_OUTPUT_ROOT = Path("results/multi_seed_rollout")
+MULTI_SEED_ROLLOUT_SEEDS = tuple(range(1000, 1020))
+
+PRESETS = ("core", "extended", "fig3_fig6", "fig4", "multi_seed_rollout")
 REUSE_MODES = ("auto", "force")
 
 
@@ -72,23 +77,39 @@ FIG4_TASKS = (
     WarmupTask("fig4", "similarity_entry"),
 )
 
+MULTI_SEED_ROLLOUT_TASKS = (
+    WarmupTask("fig1", "dms_boundary_bank"),
+    WarmupTask("fig2", "state_bank"),
+    WarmupTask("fig2", "completion_delay_boundary_bank"),
+    WarmupTask("shared_sequence_root", SHARED_SEQUENCE_TASK),
+    WarmupTask("fig3", "state_bank"),
+    WarmupTask("fig3", "boundary_condition_specs"),
+    WarmupTask("fig4", "rollouts"),
+    WarmupTask("fig6", "sequence_bank"),
+    WarmupTask("fig5", "preprobe_support_bank"),
+)
+
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
-    output_root = _resolve_path(args.output_root)
-    seeds = _parse_seeds(args.seeds)
+    output_root = _resolve_path(_default_output_root(args))
+    seeds = _parse_seeds(args.seeds, default=_default_seeds(args.preset))
     tasks = _preset_tasks(args.preset)
+    skip_existing = _skip_existing(args)
     manifest_path = output_root / "warmup_manifest.json"
     manifest: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "entrypoint": "src.experiments.paper_figures.run_upstream_artifact_warmup",
         "created_at": _utc_now(),
         "updated_at": _utc_now(),
         "preset": str(args.preset),
+        "preset_description": _preset_description(args.preset),
         "reuse_artifacts": str(args.reuse_artifacts),
         "batch_size": None if args.batch_size is None else int(args.batch_size),
         "output_root": str(output_root),
         "seeds": seeds,
+        "skip_existing": bool(skip_existing),
+        "skip_existing_check": "task artifact exists and the seed bundle has a successful summary/run_info marker",
         "dry_run": bool(args.dry_run),
         "continue_on_error": bool(args.continue_on_error),
         "tasks": [],
@@ -97,15 +118,25 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     output_root.mkdir(parents=True, exist_ok=True)
     planned = _build_plan(args, output_root=output_root, seeds=seeds, tasks=tasks)
+    for item in planned:
+        item["existing_artifact"] = _check_existing_artifact(Path(item["task_artifact_dir"]))
+        item["existing_bundle"] = _check_existing_bundle(item)
+        item["skip_existing"] = bool(skip_existing and item["existing_artifact"]["ok"] and item["existing_bundle"]["ok"])
     manifest["tasks"] = [
-        _manifest_entry(item, status="planned" if args.dry_run else "pending")
+        _manifest_entry(item, status=_initial_status(item, dry_run=bool(args.dry_run)))
         for item in planned
     ]
+    manifest["planned_count"] = len(planned)
+    manifest["skipped_count"] = sum(1 for item in planned if item["skip_existing"])
+    manifest["executable_count"] = len(planned) - int(manifest["skipped_count"])
     _write_manifest(manifest_path, manifest)
 
     if args.dry_run:
         for item in planned:
-            print(_display_command(item["command"]))
+            if item["skip_existing"]:
+                print(f"[skip-existing] seed={item['seed']} target={_task_label(item)} artifact={item['task_artifact_dir']}")
+            else:
+                print(_display_command(item["command"]))
         return 0
 
     env = os.environ.copy()
@@ -117,13 +148,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.no_progress:
         print(
             f"[warmup] planned {total} task(s) "
+            f"execute={manifest['executable_count']} skip={manifest['skipped_count']} "
             f"preset={args.preset} seeds={','.join(str(seed) for seed in seeds)} output_root={output_root}"
         )
     for index, item in enumerate(planned):
         progress = _progress_prefix(index + 1, total)
+        entry = manifest["tasks"][index]
+        if item["skip_existing"]:
+            entry["start_time"] = _utc_now()
+            entry["end_time"] = entry["start_time"]
+            entry["duration_seconds"] = 0.0
+            entry["return_code"] = 0
+            entry["status"] = "skipped"
+            manifest["updated_at"] = _utc_now()
+            _write_manifest(manifest_path, manifest)
+            if not args.no_progress:
+                print(f"{progress} skip seed={item['seed']} target={_task_label(item)} reason=existing_artifact")
+            continue
+
         if not args.no_progress:
             print(f"{progress} start seed={item['seed']} target={_task_label(item)}")
-        entry = manifest["tasks"][index]
         entry["start_time"] = _utc_now()
         entry["status"] = "running"
         manifest["updated_at"] = _utc_now()
@@ -158,9 +202,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.no_progress:
         completed = sum(1 for task in manifest["tasks"] if task["status"] == "success")
         failed = sum(1 for task in manifest["tasks"] if task["status"] == "failed")
+        skipped = sum(1 for task in manifest["tasks"] if task["status"] == "skipped")
         pending = sum(1 for task in manifest["tasks"] if task["status"] == "pending")
         print(
-            f"[warmup] finished success={completed} failed={failed} pending={pending} "
+            f"[warmup] finished success={completed} skipped={skipped} failed={failed} pending={pending} "
             f"elapsed={time.perf_counter() - overall_start:.1f}s manifest={manifest_path}"
         )
 
@@ -172,8 +217,17 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         description="Warm up reusable upstream artifacts for the paper-figure DAG.",
         allow_abbrev=False,
     )
-    parser.add_argument("--seeds", nargs="+", default=["1000"], help="Network seeds, as space- or comma-separated integers.")
-    parser.add_argument("--output-root", default="results/paper_figure_warm_cache")
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        default=None,
+        help="Network seeds, as space-, comma-, or range-separated integers. Example: 1000-1019.",
+    )
+    parser.add_argument(
+        "--output-root",
+        default=None,
+        help="Output root. Defaults to results/multi_seed_rollout for --preset multi_seed_rollout, otherwise results/paper_figure_warm_cache.",
+    )
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--dataset-root", default="MNIST")
     parser.add_argument("--model-path-glob", default="results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_*/net_final.pth")
@@ -185,19 +239,63 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--no-progress", action="store_true")
+    skip_group = parser.add_mutually_exclusive_group()
+    skip_group.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip a task only when its artifact directory and seed bundle success markers are already present.",
+    )
+    skip_group.add_argument(
+        "--rerun-existing",
+        action="store_true",
+        help="Disable the multi_seed_rollout preset's default skip-existing behavior.",
+    )
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
-def _parse_seeds(values: Sequence[str]) -> list[int]:
+def _parse_seeds(values: Sequence[str] | None, *, default: Sequence[int]) -> list[int]:
+    if values is None:
+        return [int(seed) for seed in default]
     seeds: list[int] = []
     for value in values:
         for part in str(value).split(","):
             item = part.strip()
-            if item:
+            if not item:
+                continue
+            range_sep = ".." if ".." in item else "-" if "-" in item and not item.startswith("-") else ""
+            if range_sep:
+                start_text, end_text = item.split(range_sep, 1)
+                start = int(start_text)
+                end = int(end_text)
+                step = 1 if end >= start else -1
+                seeds.extend(range(start, end + step, step))
+            else:
                 seeds.append(int(item))
     if not seeds:
         raise ValueError("At least one seed is required.")
-    return seeds
+    return sorted(dict.fromkeys(seeds))
+
+
+def _default_output_root(args: argparse.Namespace) -> str | Path:
+    if args.output_root is not None:
+        return args.output_root
+    if args.preset == "multi_seed_rollout":
+        return MULTI_SEED_ROLLOUT_OUTPUT_ROOT
+    return DEFAULT_WARMUP_OUTPUT_ROOT
+
+
+def _default_seeds(preset: str) -> tuple[int, ...]:
+    if preset == "multi_seed_rollout":
+        return MULTI_SEED_ROLLOUT_SEEDS
+    return (1000,)
+
+
+def _skip_existing(args: argparse.Namespace) -> bool:
+    if args.reuse_artifacts == "force":
+        return False
+    if args.rerun_existing:
+        return False
+    return bool(args.skip_existing or args.preset == "multi_seed_rollout")
 
 
 def _preset_tasks(preset: str) -> tuple[WarmupTask, ...]:
@@ -209,7 +307,26 @@ def _preset_tasks(preset: str) -> tuple[WarmupTask, ...]:
         return FIG3_FIG6_TASKS
     if preset == "fig4":
         return FIG4_TASKS
+    if preset == "multi_seed_rollout":
+        return MULTI_SEED_ROLLOUT_TASKS
     raise ValueError(f"Unsupported warmup preset: {preset}")
+
+
+def _preset_description(preset: str) -> str:
+    if preset == "multi_seed_rollout":
+        return (
+            "Backfill the current 20-seed multi_seed_rollout target: fig1/fig2/fig6 upstream tail seeds, "
+            "fig3 state_bank tail seeds plus boundary_condition_specs for all seeds, fig4 rollouts, shared sequence roots, and fig5 support banks."
+        )
+    if preset == "core":
+        return "Warm up the core upstream artifact banks for active paper figures."
+    if preset == "extended":
+        return "Warm up core upstream banks plus selected extended reusable specs."
+    if preset == "fig3_fig6":
+        return "Warm up shared sequence-root, Fig.3 state-bank, and Fig.6 sequence-bank artifacts."
+    if preset == "fig4":
+        return "Warm up Fig.4 rollout and similarity-entry artifacts."
+    return ""
 
 
 def _build_plan(
@@ -307,7 +424,7 @@ def _figure_item(
     ]
     if figure in {"fig3", "fig6"}:
         command.extend(["--shared-sequence-root", str(shared_root)])
-    _append_common_flags(command, args)
+    _append_common_flags(command, args, figure=figure)
     return {
         "seed": int(seed),
         "kind": "figure",
@@ -322,13 +439,24 @@ def _figure_item(
     }
 
 
-def _append_common_flags(command: list[str], args: argparse.Namespace) -> None:
-    if args.batch_size is not None:
-        command.extend(["--batch-size", str(int(args.batch_size))])
+def _append_common_flags(command: list[str], args: argparse.Namespace, *, figure: str | None = None) -> None:
+    batch_size = _effective_batch_size(args, figure=figure)
+    if batch_size is not None:
+        command.extend(["--batch-size", str(int(batch_size))])
+    if figure == "fig3":
+        command.append("--enable-state-bank-batch")
     if args.smoke:
         command.append("--smoke")
     if args.no_progress:
         command.append("--no-progress")
+
+
+def _effective_batch_size(args: argparse.Namespace, *, figure: str | None = None) -> int | None:
+    if args.batch_size is not None:
+        return int(args.batch_size)
+    if args.preset == "multi_seed_rollout" and figure == "fig6":
+        return 4
+    return None
 
 
 def _task_label(item: Mapping[str, Any]) -> str:
@@ -364,7 +492,97 @@ def _manifest_entry(item: dict[str, Any], *, status: str) -> dict[str, Any]:
         "artifact_root": item["artifact_root"],
         "task_artifact_dir": item["task_artifact_dir"],
         "shared_sequence_root_path": item["shared_sequence_root_path"],
+        "existing_artifact": item["existing_artifact"],
+        "existing_bundle": item["existing_bundle"],
+        "skip_existing": item["skip_existing"],
     }
+
+
+def _initial_status(item: Mapping[str, Any], *, dry_run: bool) -> str:
+    if item.get("skip_existing"):
+        return "skipped" if not dry_run else "planned_skip"
+    return "planned" if dry_run else "pending"
+
+
+def _check_existing_artifact(task_dir: Path) -> dict[str, Any]:
+    missing: list[str] = []
+    if not task_dir.is_dir():
+        return {"ok": False, "task_artifact_dir": str(task_dir), "missing": [str(task_dir)]}
+
+    cache_key = task_dir / "cache_key.json"
+    if not _is_nonempty_file(cache_key):
+        missing.append(str(cache_key))
+
+    manifest_candidates = sorted(task_dir.glob("*manifest*.csv"))
+    usable_manifests = [path for path in manifest_candidates if _is_nonempty_csv(path)]
+    if not usable_manifests:
+        missing.append(f"{task_dir}/*manifest*.csv")
+
+    return {
+        "ok": not missing,
+        "task_artifact_dir": str(task_dir),
+        "missing": missing,
+        "manifest_candidates": [str(path) for path in manifest_candidates],
+        "usable_manifests": [str(path) for path in usable_manifests],
+    }
+
+
+def _check_existing_bundle(item: Mapping[str, Any]) -> dict[str, Any]:
+    output_root = Path(str(item["output_root"]))
+    if item.get("kind") == "shared_sequence_root":
+        summary_path = output_root / "shared_sequence_root_summary.json"
+        ok = _is_nonempty_file(summary_path)
+        return {
+            "ok": ok,
+            "summary_path": str(summary_path),
+            "missing": [] if ok else [str(summary_path)],
+        }
+
+    seed_root = Path(str(item["artifact_root"])).parents[1]
+    summary_path = seed_root / "summary.json"
+    run_info_path = seed_root / "meta" / "run_info.json"
+    missing: list[str] = []
+    if not _is_nonempty_file(summary_path):
+        missing.append(str(summary_path))
+    status = ""
+    if not _is_nonempty_file(run_info_path):
+        missing.append(str(run_info_path))
+    else:
+        try:
+            status = str(_read_json(run_info_path).get("status", ""))
+        except Exception as exc:
+            missing.append(f"{run_info_path}: {exc}")
+    if status and status != "success":
+        missing.append(f"{run_info_path}: status={status}")
+    return {
+        "ok": not missing,
+        "seed_root": str(seed_root),
+        "summary_path": str(summary_path),
+        "run_info_path": str(run_info_path),
+        "run_info_status": status,
+        "missing": missing,
+    }
+
+
+def _is_nonempty_file(path: Path) -> bool:
+    return path.is_file() and path.stat().st_size > 0
+
+
+def _is_nonempty_csv(path: Path) -> bool:
+    if not _is_nonempty_file(path):
+        return False
+    try:
+        with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
+            reader = csv.reader(handle)
+            rows = 0
+            for row in reader:
+                if any(str(cell).strip() for cell in row):
+                    rows += 1
+                if rows > 1:
+                    return True
+    except Exception:
+        return False
+    return False
 
 
 def _require_examples(args: argparse.Namespace, output_root: Path, seeds: Sequence[int]) -> dict[str, str]:
@@ -436,7 +654,7 @@ def _example_figure_command(
     ]
     if shared_sequence_root is not None:
         command.extend(["--shared-sequence-root", str(shared_sequence_root)])
-    _append_common_flags(command, args)
+    _append_common_flags(command, args, figure=figure)
     return command
 
 
@@ -458,6 +676,13 @@ def _resolve_path(value: str | Path) -> Path:
 def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
 
 
 def _display_command(command: Sequence[str]) -> str:

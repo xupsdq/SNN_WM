@@ -73,21 +73,25 @@ def render_fig2_morphology_closure(ax, panel_data: pd.DataFrame | None, stats: M
     if df.empty:
         _placeholder(ax, spec, "Morphology closure data unavailable")
         return
-    ax.paper_fig_plot_form = "morphology_closure_summary"
+    ax.paper_fig_plot_form = "positive_effect_bar_summary_against_zero"
     order = ["WPRI", "Beyond-linear"]
     plot_df = df[df["condition"].astype(str).isin(order)].copy()
     if plot_df.empty:
         _placeholder(ax, spec, "Morphology closure metrics unavailable")
         return
     _bar_summary(ax, plot_df, "condition", order, colors=["#54A24B", "#B279A2"], st=st, alpha=0.83)
-    ax.axhline(0, color="0.35", linestyle="--", linewidth=0.65)
+    ax.axhline(0, color="0.35", linestyle="--", linewidth=0.72)
     ax.set_xticks(np.arange(len(order)), ["WPRI", "Beyond\nlinear"])
+    limits = spec.get("y_limits") or spec.get("y_axis_limits") or [-0.4, 0.4]
+    if isinstance(limits, (list, tuple)) and len(limits) == 2:
+        ax.set_ylim(float(limits[0]), float(limits[1]))
+    else:
+        ax.set_ylim(-0.4, 0.4)
     ax.set_ylabel(str(spec.get("y_axis", "Score")))
     ax.set_xlabel("")
     ax.paper_fig_x_metric = "Metric"
     ax.paper_fig_y_metric = "Score"
     ax.paper_fig_raw_points = False
-    _autoscale_y(ax, plot_df["value"], include_zero=True)
     _tidy(ax, st)
 
 

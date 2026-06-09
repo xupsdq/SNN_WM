@@ -1,6 +1,6 @@
 figure_id: fig6_supp
 figure_title_draft: "Supplementary Fig. S7: Controls and extensions for overlap-gated STSP recruitment"
-experiment_root: results/paper_figure_multi_seed/fig6_peak_amplified_reentry/fig6_peak_amplified_reentry
+experiment_root: results/paper_figure_multi_seed/fig6_peak_amplified_reentry
 canvas_mm:
   width: 165
   height: 116

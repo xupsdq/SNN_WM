@@ -32,6 +32,14 @@ figures:
     spec: fig3_supp.yaml
     title: Supplementary Fig. S4 multi-item landscape morphology and functional controls
     status: implemented_skeleton
+  fig3_delay_supp:
+    spec: fig3_delay_supp.yaml
+    title: Supplementary Fig. S4b delay boundary of sequence-state rescue
+    status: implemented_skeleton
+  fig3_morphology_serial_supp:
+    spec: fig3_morphology_serial_supp.yaml
+    title: Supplementary Fig. S4x serial structure of the compressed Fig.3 scaffold
+    status: implemented_skeleton
   fig4:
     spec: fig4.yaml
     title: Overlap-gated synaptic re-entry

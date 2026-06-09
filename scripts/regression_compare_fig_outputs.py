@@ -10,16 +10,35 @@ import pandas as pd
 
 
 CSV_PARTS = {"trial_specs", "metrics", "raw"}
+VOLATILE_CSV_COLUMNS = {"artifact_digest", "cache_key_digest", "fit_seconds", "sha256", "table_digest"}
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     old_root = Path(args.old_root)
     new_root = Path(args.new_root)
+    ignore_rel_prefixes = tuple(_normalize_rel_prefix(prefix) for prefix in args.ignore_rel_prefix)
+    include_rels = tuple(_normalize_rel_prefix(rel) for rel in args.include_rel)
     errors: list[str] = []
-    _compare_csv_sets(old_root, new_root, errors, atol=float(args.atol), rtol=float(args.rtol))
-    _compare_summaries(old_root, new_root, errors)
-    _compare_npz_sets(old_root, new_root, errors, atol=float(args.atol), rtol=float(args.rtol))
+    _compare_csv_sets(
+        old_root,
+        new_root,
+        errors,
+        atol=float(args.atol),
+        rtol=float(args.rtol),
+        ignore_rel_prefixes=ignore_rel_prefixes,
+        include_rels=include_rels,
+    )
+    _compare_summaries(old_root, new_root, errors, include_rels=include_rels)
+    _compare_npz_sets(
+        old_root,
+        new_root,
+        errors,
+        atol=float(args.atol),
+        rtol=float(args.rtol),
+        ignore_rel_prefixes=ignore_rel_prefixes,
+        include_rels=include_rels,
+    )
     if errors:
         for error in errors:
             print(f"FAIL {error}")
@@ -34,24 +53,82 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--new-root", required=True)
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--rtol", type=float, default=1e-6)
+    parser.add_argument(
+        "--ignore-rel-prefix",
+        action="append",
+        default=[],
+        help="Relative path prefix to exclude from CSV/NPZ set comparison. May be repeated.",
+    )
+    parser.add_argument(
+        "--include-rel",
+        action="append",
+        default=[],
+        help="Relative file path to compare. When set, only listed paths are compared. May be repeated.",
+    )
     return parser.parse_args(argv)
 
 
-def _interesting_csvs(root: Path) -> dict[str, Path]:
+def _normalize_rel_prefix(prefix: str) -> str:
+    return str(prefix).replace("\\", "/").strip("/")
+
+
+def _is_ignored(rel: str, ignore_rel_prefixes: Iterable[str]) -> bool:
+    rel_norm = rel.replace("\\", "/").strip("/")
+    return any(rel_norm == prefix or rel_norm.startswith(f"{prefix}/") for prefix in ignore_rel_prefixes if prefix)
+
+
+def _is_included(rel: str, include_rels: Iterable[str]) -> bool:
+    include = {str(item).replace("\\", "/").strip("/") for item in include_rels if item}
+    if not include:
+        return True
+    return rel.replace("\\", "/").strip("/") in include
+
+
+def _interesting_csvs(
+    root: Path,
+    *,
+    ignore_rel_prefixes: Iterable[str] = (),
+    include_rels: Iterable[str] = (),
+) -> dict[str, Path]:
     out: dict[str, Path] = {}
     for path in root.rglob("*.csv"):
-        if any(part in CSV_PARTS for part in path.parts):
-            out[path.relative_to(root).as_posix()] = path
+        rel = path.relative_to(root).as_posix()
+        if _is_ignored(rel, ignore_rel_prefixes):
+            continue
+        if include_rels:
+            if _is_included(rel, include_rels):
+                out[rel] = path
+        elif any(part in CSV_PARTS for part in path.parts):
+            out[rel] = path
     return out
 
 
-def _npz_files(root: Path) -> dict[str, Path]:
-    return {path.relative_to(root).as_posix(): path for path in root.rglob("*.npz")}
+def _npz_files(
+    root: Path,
+    *,
+    ignore_rel_prefixes: Iterable[str] = (),
+    include_rels: Iterable[str] = (),
+) -> dict[str, Path]:
+    return {
+        path.relative_to(root).as_posix(): path
+        for path in root.rglob("*.npz")
+        if not _is_ignored(path.relative_to(root).as_posix(), ignore_rel_prefixes)
+        and _is_included(path.relative_to(root).as_posix(), include_rels)
+    }
 
 
-def _compare_csv_sets(old_root: Path, new_root: Path, errors: list[str], *, atol: float, rtol: float) -> None:
-    old = _interesting_csvs(old_root)
-    new = _interesting_csvs(new_root)
+def _compare_csv_sets(
+    old_root: Path,
+    new_root: Path,
+    errors: list[str],
+    *,
+    atol: float,
+    rtol: float,
+    ignore_rel_prefixes: Iterable[str] = (),
+    include_rels: Iterable[str] = (),
+) -> None:
+    old = _interesting_csvs(old_root, ignore_rel_prefixes=ignore_rel_prefixes, include_rels=include_rels)
+    new = _interesting_csvs(new_root, ignore_rel_prefixes=ignore_rel_prefixes, include_rels=include_rels)
     for rel in sorted(set(old) | set(new)):
         if rel not in old:
             errors.append(f"csv only in new: {rel}")
@@ -77,6 +154,8 @@ def _compare_csv(rel: str, old_path: Path, new_path: Path, errors: list[str], *,
     old = old.sort_values(sort_cols, kind="mergesort", na_position="last").reset_index(drop=True)
     new = new.sort_values(sort_cols, kind="mergesort", na_position="last").reset_index(drop=True)
     for col in old.columns:
+        if col in VOLATILE_CSV_COLUMNS:
+            continue
         a = old[col]
         b = new[col]
         if pd.api.types.is_float_dtype(a) or pd.api.types.is_float_dtype(b):
@@ -92,9 +171,15 @@ def _compare_csv(rel: str, old_path: Path, new_path: Path, errors: list[str], *,
                 errors.append(f"{rel}: string column differs: {col}")
 
 
-def _compare_summaries(old_root: Path, new_root: Path, errors: list[str]) -> None:
-    old = _summary_files(old_root)
-    new = _summary_files(new_root)
+def _compare_summaries(
+    old_root: Path,
+    new_root: Path,
+    errors: list[str],
+    *,
+    include_rels: Iterable[str] = (),
+) -> None:
+    old = _summary_files(old_root, include_rels=include_rels)
+    new = _summary_files(new_root, include_rels=include_rels)
     for rel in sorted(set(old) | set(new)):
         if rel not in old:
             errors.append(f"summary only in new: {rel}")
@@ -111,8 +196,12 @@ def _compare_summaries(old_root: Path, new_root: Path, errors: list[str]) -> Non
         _check_output_files(rel, new_root / Path(rel).parent, new_payload, errors)
 
 
-def _summary_files(root: Path) -> dict[str, Path]:
-    return {path.relative_to(root).as_posix(): path for path in root.rglob("summary.json")}
+def _summary_files(root: Path, *, include_rels: Iterable[str] = ()) -> dict[str, Path]:
+    return {
+        path.relative_to(root).as_posix(): path
+        for path in root.rglob("summary.json")
+        if _is_included(path.relative_to(root).as_posix(), include_rels)
+    }
 
 
 def _check_output_files(rel: str, root: Path, payload: dict, errors: list[str]) -> None:
@@ -125,9 +214,18 @@ def _check_output_files(rel: str, root: Path, payload: dict, errors: list[str]) 
             errors.append(f"{rel}: output_files[{key}] missing path {value}")
 
 
-def _compare_npz_sets(old_root: Path, new_root: Path, errors: list[str], *, atol: float, rtol: float) -> None:
-    old = _npz_files(old_root)
-    new = _npz_files(new_root)
+def _compare_npz_sets(
+    old_root: Path,
+    new_root: Path,
+    errors: list[str],
+    *,
+    atol: float,
+    rtol: float,
+    ignore_rel_prefixes: Iterable[str] = (),
+    include_rels: Iterable[str] = (),
+) -> None:
+    old = _npz_files(old_root, ignore_rel_prefixes=ignore_rel_prefixes, include_rels=include_rels)
+    new = _npz_files(new_root, ignore_rel_prefixes=ignore_rel_prefixes, include_rels=include_rels)
     for rel in sorted(set(old) | set(new)):
         if rel not in old:
             errors.append(f"npz only in new: {rel}")

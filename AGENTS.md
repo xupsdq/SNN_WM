@@ -75,6 +75,16 @@
 - Do not silently regenerate a missing parent artifact in a downstream-only run. Missing parents in `require` mode are errors, not opportunities to rerun upstream work.
 - Do not weaken equality checks to make a refactor pass. If floating-point tolerance is needed, keep row identity, column identity, file presence, shape, and scientific condition labels exact.
 
+## Paper Figure Result Roots
+- `results/multi_seed_rollout/` is the canonical local root for reusable paper-figure upstream rollout artifacts and task DAG bundles. Use this root for parent specs, state banks, boundary banks, rollout banks, and other reusable `data/intermediates/<task_id>/` artifacts across Fig.1-Fig.6.
+- `results/paper_figure_multi_seed/` is the canonical local root for final paper-figure multi-seed result bundles consumed by plotting and manuscript-facing aggregation.
+- Fig.3 canonical reduced-scale seeds live under:
+  - rollout/artifact root: `results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_<seed>/`
+  - final result root: `results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_<seed>/`
+- When a figure's experimental scale or source specs change, regenerate and replace the entire affected `seed_<seed>/` bundle in both canonical roots. Do not copy only one parent artifact such as `boundary_state_bank`; parent specs, job specs, cache keys, artifact banks, downstream metrics, `run_config.json`, `summary.json`, and `meta/run_info.json` must remain from the same run lineage.
+- Before replacing a canonical paper-figure seed bundle, keep a timestamped backup under `results/` unless the user explicitly asks to delete old generated results.
+- Do not place new final paper-figure multi-seed outputs in ad hoc roots once the run is ready for manuscript-facing use. Temporary smoke, profiling, and transition roots are allowed, but must be copied into the canonical roots only after layout validation and row-count/config checks pass.
+
 ## Paper Figure Change Gates
 - Before changing a paper-figure runtime path, map the affected DAG nodes: parent specs, reusable artifacts, downstream tasks, output files, and panel consumers.
 - Preserve scientific protocol unless the user explicitly approves a protocol change. Do not change delay grids, sequence lengths, sampling rules, mask definitions, target scopes, readout endpoints, restore order, perturbation semantics, STSP mutation/update behavior, or spike encoding as part of a structural refactor.

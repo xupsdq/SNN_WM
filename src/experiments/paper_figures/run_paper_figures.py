@@ -34,7 +34,7 @@ _CONSOLE_LOCK = threading.Lock()
 GPU_BATCH_FLAGS_BY_FIG = {
     "fig1": ("--enable-condition-batch",),
     "fig2": ("--enable-partial-cue-batch",),
-    "fig3": ("--enable-condition-batch",),
+    "fig3": ("--enable-condition-batch", "--enable-state-bank-batch"),
     "fig4": ("--enable-condition-batch",),
     "fig5": ("--enable-branch-batch",),
     # Fig.6 probe condition batch is output-equivalent, but medium validation

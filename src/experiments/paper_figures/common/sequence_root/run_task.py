@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -36,7 +37,6 @@ from src.experiments.paper_figures.common.sequence_root.schemas import (
 from src.experiments.paper_figures.common.specs.artifacts import materialize_spec_view
 from src.experiments.paper_figures.fig3 import run_task as fig3_rt
 from src.experiments.paper_figures.fig3.artifacts import save_sequence_specs_artifact as save_fig3_sequence_specs_artifact
-from src.experiments.paper_figures.fig3.artifacts import load_state_bank_artifact as load_fig3_state_bank_artifact
 from src.experiments.paper_figures.fig3.cache_keys import (
     build_sequence_specs_cache_key as build_fig3_sequence_specs_cache_key,
     build_state_bank_cache_key as build_fig3_state_bank_cache_key,
@@ -71,9 +71,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     fig3_cfg = fig3_rt._config_from_args(fig3_args)
     fig3_ctx = fig3_rt._build_context(fig3_cfg)
     artifact_root = _artifact_root_from_args(args, fig3_ctx.seed_dir)
-    specs = _get_shared_sequence_specs(fig3_ctx, mode=mode, artifact_root=artifact_root)
+    phase_timings: dict[str, float] = {}
+    specs = _get_shared_sequence_specs(fig3_ctx, mode=mode, artifact_root=artifact_root, phase_timings=phase_timings)
     if args.task == TASK_SHARED_SEQUENCE_SPECS:
-        _write_summary(args, artifact_root=artifact_root, task_dir=specs.root, digest=specs.digest)
+        _write_summary(args, artifact_root=artifact_root, task_dir=specs.root, digest=specs.digest, phase_timings=phase_timings)
         return 0
     if args.task in {TASK_SHARED_SEQUENCE_ROOT_BANK, TASK_FIG3_STATE_BANK_VIEW, TASK_FIG6_SEQUENCE_BANK_VIEW, TASK_ALL}:
         fig6_args = fig6_rt._parse_args(_fig6_argv(args, task=FIG6_TASK_SEQUENCE_BANK))
@@ -84,30 +85,36 @@ def main(argv: Sequence[str] | None = None) -> int:
             mode=mode,
             artifact_root=artifact_root,
             specs=specs,
+            phase_timings=phase_timings,
         )
-        _write_summary(args, artifact_root=artifact_root, task_dir=root_bank.root, digest=root_bank.digest)
+        _write_summary(args, artifact_root=artifact_root, task_dir=root_bank.root, digest=root_bank.digest, phase_timings=phase_timings)
         return 0
     raise ValueError(f"Unsupported shared sequence-root task: {args.task}")
 
 
-def _get_shared_sequence_specs(fig3_ctx, *, mode: str, artifact_root: Path):
+def _get_shared_sequence_specs(fig3_ctx, *, mode: str, artifact_root: Path, phase_timings: dict[str, float] | None = None):
+    start = time.perf_counter()
     task_dir = task_artifact_dir(artifact_root, TASK_SHARED_SEQUENCE_SPECS)
     expected_key = build_shared_sequence_specs_cache_key(fig3_ctx.cfg)
-    if mode == "require":
-        return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-    sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
-    return save_sequence_specs_artifact(
-        task_dir,
-        sequence_trials=sequence_trials,
-        singleton_reference_trials=singleton_trials,
-        partial_cue_trials=partial_trials,
-        cache_key=expected_key,
-    )
+    try:
+        if mode == "require":
+            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
+        if mode == "auto" and cache_key_matches(task_dir, expected_key):
+            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
+        sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
+        return save_sequence_specs_artifact(
+            task_dir,
+            sequence_trials=sequence_trials,
+            singleton_reference_trials=singleton_trials,
+            partial_cue_trials=partial_trials,
+            cache_key=expected_key,
+        )
+    finally:
+        if phase_timings is not None:
+            phase_timings["shared_sequence_specs_seconds"] = float(time.perf_counter() - start)
 
 
-def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path, specs):
+def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path, specs, phase_timings: dict[str, float] | None = None):
     task_dir = task_artifact_dir(artifact_root, TASK_SHARED_SEQUENCE_ROOT_BANK)
     fig3_specs_hash = fig3_sequence_specs_hash(specs.sequence_trials, specs.singleton_reference_trials, specs.partial_cue_trials)
     fig6_specs_hash = fig6_sequence_trials_hash(specs.sequence_trials)
@@ -122,15 +129,27 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
     if mode == "require" and not cache_key_matches(task_dir, expected_key):
         from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
-        return load_root_bank_artifact(task_dir, expected_key=expected_key)
+        start = time.perf_counter()
+        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
+        if phase_timings is not None:
+            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
+        return artifact
     if mode == "auto" and cache_key_matches(task_dir, expected_key):
         from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
-        return load_root_bank_artifact(task_dir, expected_key=expected_key)
+        start = time.perf_counter()
+        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
+        if phase_timings is not None:
+            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
+        return artifact
     if mode == "require":
         from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
-        return load_root_bank_artifact(task_dir, expected_key=expected_key)
+        start = time.perf_counter()
+        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
+        if phase_timings is not None:
+            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
+        return artifact
 
     shared_work = task_artifact_dir(artifact_root, "_shared_sequence_root_work")
     fig3_artifact_root = shared_work / "fig3"
@@ -163,16 +182,23 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         specs.singleton_reference_trials,
         specs.partial_cue_trials,
     )
-    fig3_rt._get_state_bank(
+    start = time.perf_counter()
+    fig3_artifact = fig3_rt._get_state_bank_artifact(
         fig3_ctx,
         specs.sequence_trials,
         mode="auto",
         artifact_root=fig3_artifact_root,
         specs_hash=fig3_specs_hash,
+        write_compat_outputs=False,
     )
-    fig3_artifact = load_fig3_state_bank_artifact(fig3_state_dir, expected_key=fig3_bank_key, sequence_trials=specs.sequence_trials)
+    if phase_timings is not None:
+        phase_timings["fig3_state_bank_seconds"] = float(time.perf_counter() - start)
 
+    start = time.perf_counter()
     fig6_ctx = fig6_rt._build_context(fig6_cfg)
+    if phase_timings is not None:
+        phase_timings["fig6_context_seconds"] = float(time.perf_counter() - start)
+    start = time.perf_counter()
     fig6_specs_artifact = save_fig6_sequence_trials_artifact(
         fig6_specs_dir,
         sequence_trials=specs.sequence_trials,
@@ -189,7 +215,13 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
             view_cache_key_digest=fig6_cache_key_digest(fig6_sequence_key),
         )
     fig6_rt._write_sequence_trials_to_bundle(fig6_ctx, specs.sequence_trials)
+    if phase_timings is not None:
+        phase_timings["fig6_sequence_specs_seconds"] = float(time.perf_counter() - start)
+    start = time.perf_counter()
     fig6_bank = _materialize_fig6_bank_from_fig3(fig6_ctx, specs.sequence_trials, fig3_artifact.bank)
+    if phase_timings is not None:
+        phase_timings["fig6_materialize_seconds"] = float(time.perf_counter() - start)
+    start = time.perf_counter()
     fig6_artifact = save_fig6_sequence_bank_artifact(
         fig6_bank_dir,
         fig6_bank,
@@ -197,7 +229,10 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         cache_key=fig6_bank_key,
         network_seed=int(fig6_cfg.network_seed),
     )
-    return save_root_bank_artifact(
+    if phase_timings is not None:
+        phase_timings["fig6_save_seconds"] = float(time.perf_counter() - start)
+    start = time.perf_counter()
+    root_artifact = save_root_bank_artifact(
         task_dir,
         specs=specs,
         fig3_state_bank_dir=fig3_state_dir,
@@ -208,6 +243,9 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         fig3_cache_key_digest=fig3_cache_key_digest(fig3_bank_key),
         fig6_cache_key_digest=fig6_cache_key_digest(fig6_bank_key),
     )
+    if phase_timings is not None:
+        phase_timings["root_artifact_save_seconds"] = float(time.perf_counter() - start)
+    return root_artifact
 
 
 def _materialize_fig6_bank_from_fig3(fig6_ctx, sequence_trials: pd.DataFrame, fig3_bank) -> PeakAmplifiedReentryBank:
@@ -353,7 +391,7 @@ def _resolve_repo_path(value: str | Path) -> Path:
     return (DEFAULT_PROJECT_DEFAULTS.paths.repo_root / path).resolve()
 
 
-def _write_summary(args: argparse.Namespace, *, artifact_root: Path, task_dir: Path, digest: str) -> None:
+def _write_summary(args: argparse.Namespace, *, artifact_root: Path, task_dir: Path, digest: str, phase_timings: Mapping[str, float] | None = None) -> None:
     summary_path = Path(args.output_dir) if args.output_dir else Path(args.output_root)
     output_root = _resolve_repo_path(summary_path)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -363,6 +401,7 @@ def _write_summary(args: argparse.Namespace, *, artifact_root: Path, task_dir: P
             "artifact_root": str(Path(artifact_root).resolve()),
             "task_artifact_dir": str(Path(task_dir).resolve()),
             "artifact_digest": str(digest),
+            "phase_timings": {str(key): float(value) for key, value in (phase_timings or {}).items()},
             "command": " ".join(sys.argv if args.argv_is_real else ["run_task"]),
         },
         output_root / "shared_sequence_root_summary.json",
@@ -383,12 +422,16 @@ def _fig3_argv(args: argparse.Namespace, *, task: str) -> list[str]:
             str(args.target_position),
             "--batch-size",
             str(args.batch_size),
+            "--state-bank-singleton-batch-size",
+            str(args.state_bank_singleton_batch_size),
         ]
     )
     if args.smoke:
         argv.append("--smoke")
     if args.no_progress:
         argv.append("--no-progress")
+    if args.enable_state_bank_batch:
+        argv.append("--enable-state-bank-batch")
     return argv
 
 
@@ -468,10 +511,17 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--sample-ms", type=int, default=200)
     parser.add_argument("--delay-ms", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument(
+        "--state-bank-singleton-batch-size",
+        type=int,
+        default=4,
+        help="Maximum row batch for Fig.3 singleton-boundary capture while the main sequence capture uses --batch-size.",
+    )
     parser.add_argument("--partial-cue-keep-fraction", type=float, default=0.10)
     parser.add_argument("--target-position", default="K-1")
     parser.add_argument("--peak-q", type=float, default=0.20)
     parser.add_argument("--foreground-threshold", type=float, default=0.1)
+    parser.add_argument("--enable-state-bank-batch", action="store_true", help="Forward Fig.3 same-length state-bank batching to the shared root producer.")
     parser.add_argument("--enable-sequence-bank-batch", action="store_true")
     parser.add_argument("--no-progress", action="store_true")
     parsed = parser.parse_args(list(argv) if argv is not None else None)
