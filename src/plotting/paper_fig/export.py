@@ -6,6 +6,12 @@ from typing import Any, Mapping
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
+from src.plotting.paper_fig.typography import (
+    PANEL_LABEL_SIZE_PT,
+    VECTOR_TEXT_RCPARAMS,
+    apply_paper_figure_typography,
+    mark_panel_label,
+)
 from src.plotting.paper_fig.utils import write_json, write_yaml
 
 
@@ -14,9 +20,11 @@ def export_full_figure(fig: Figure, output_dir: Path, figure_id: str, *, panel_i
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = figure_id if panel_id is None else f"{figure_id}_panel_{panel_id.lower()}"
     paths: dict[str, str] = {}
+    apply_paper_figure_typography(fig)
     for ext in ("pdf", "svg", "png"):
         path = output_dir / f"{stem}.{ext}"
-        fig.savefig(path, dpi=300)
+        with plt.rc_context(VECTOR_TEXT_RCPARAMS):
+            fig.savefig(path, dpi=300)
         paths[ext] = str(path)
     return paths
 
@@ -41,11 +49,23 @@ def export_individual_panels(
         else:
             ax = fig.add_subplot(111)
         renderer(ax, panel_data, stats, panel_spec, style=renderer_style)
-        fig.text(0.01, 0.99, panel_id, ha="left", va="top", fontweight="bold")
+        mark_panel_label(
+            fig.text(
+                0.01,
+                0.99,
+                panel_id.lower(),
+                ha="left",
+                va="top",
+                fontweight="bold",
+                fontsize=PANEL_LABEL_SIZE_PT,
+            )
+        )
+        apply_paper_figure_typography(fig)
         panel_paths: dict[str, str] = {}
         for ext in ("svg", "png"):
             path = panel_dir / f"{figure_id}{panel_id.lower()}.{ext}"
-            fig.savefig(path, dpi=300)
+            with plt.rc_context(VECTOR_TEXT_RCPARAMS):
+                fig.savefig(path, dpi=300)
             panel_paths[ext] = str(path)
         plt.close(fig)
         exported[panel_id] = panel_paths

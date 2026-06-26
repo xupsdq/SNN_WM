@@ -21,9 +21,10 @@ STYLE = {
 CONDITION_COLORS = {
     "Dynamic": get_plot_color("dynamic"),
     "Dynamic intact": get_plot_color("dynamic"),
+    "Static": get_plot_color("static_frozen"),
     "Static frozen": get_plot_color("static_frozen"),
-    "Attenuate L1 STSP": "#E45756",
-    "Reset L1 STSP": "#4C78A8",
+    "Attenuate L1 STSP": "#8A8A8A",
+    "Reset L1 STSP": "#6C7A89",
     "Attenuate STSP": "#E45756",
     "Reset STSP": "#4C78A8",
     "Attenuate overlap support": "#E45756",
@@ -31,10 +32,18 @@ CONDITION_COLORS = {
     "Sham perturbation": "#A0A0A0",
 }
 GROUP_COLORS = {
-    "Overlap-dominant": "#D95F02",
-    "Probe-only-dominant": "#1B9E77",
-    "Balanced": "#7570B3",
+    "Overlap-dominant": "#007A5A",
+    "Probe-only-dominant": "#56B4E9",
+    "Balanced": "#6C7A89",
     "Random matched": "#666666",
+}
+HISTORY_COLORS = {
+    "prior_updated": "#4C78A8",
+    "not_prior_updated": "#BAB0AC",
+}
+HISTORY_LEGEND_LABELS = {
+    "prior_updated": "Prior",
+    "not_prior_updated": "No prior",
 }
 UNIT_LABELS_FALLBACK = {
     "overlap_dominant": "Overlap-dominant",
@@ -52,7 +61,7 @@ def render_fig5_preprobe_support(ax, panel_data: pd.DataFrame | None, stats: Map
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     ax.paper_fig_plot_form = "fig5_preprobe_support"
-    order = [g for g in ("Overlap-dominant", "Probe-only-dominant", "Random matched", "Balanced") if g in set(df["condition"])]
+    order = [g for g in ("Probe-only-dominant", "Balanced", "Overlap-dominant") if g in set(df["condition"])]
     _bar_with_points(ax, df, "condition", order, colors=[GROUP_COLORS.get(g, "0.6") for g in order], st=st)
     ax.set_xticks(np.arange(len(order)), [_wrap(g) for g in order], rotation=0)
     ax.set_ylabel(str(spec.get("y_axis", "Pre-probe STSP support")))
@@ -96,13 +105,15 @@ def render_fig5_early_firing_headline(ax, panel_data: pd.DataFrame | None, stats
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     ax.paper_fig_plot_form = "fig5_early_transition_composition"
-    order = [g for g in ("Overlap", "Probe-only", "Random") if g in set(df["condition"].astype(str))]
+    df = _scaled_copy(df, 100.0, extra_cols=("total_transition_mass",))
+    df["condition"] = df["condition"].replace({"Random": "Random matched"})
+    order = [g for g in ("Overlap", "Probe-only", "Random matched") if g in set(df["condition"].astype(str))]
     x = np.arange(len(order), dtype=float)
     _draw_stacked_transition_bars(ax, df, "condition", order, x, st=st)
     ax.set_xticks(x, [_wrap(g) for g in order], rotation=0)
     ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
     ax.set_xlabel("")
-    ymax = max(0.08, min(1.05, _finite_max(df.get("total_transition_mass", df["value"])) * 1.18))
+    ymax = max(8.0, min(105.0, _finite_max(df.get("total_transition_mass", df["value"])) * 1.18))
     ax.set_ylim(0, ymax)
     ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="lower center", bbox_to_anchor=(0.5, 1.015), ncols=3, handlelength=0.9, columnspacing=0.65)
     ax.paper_fig_legend_above_plot = True
@@ -120,10 +131,10 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     ax.paper_fig_plot_form = "fig5_winner_loser_event_traces"
-    colors = {"winner_delta_v": "#D95F02", "loser_delta_v": "#1B9E77", "loser_inhibition": "#7570B3"}
+    colors = {"winner_delta_v": "#F58518", "loser_delta_v": "#CC79A7", "loser_inhibition": "#7570B3"}
     default_metrics = ("winner_delta_v", "loser_delta_v", "loser_inhibition")
     metric_order = tuple(str(metric) for metric in (spec.get("metrics") or default_metrics) if str(metric) in colors)
-    trace_labels = spec.get("trace_labels") or {}
+    trace_labels = _clean_trace_labels(spec.get("trace_labels") or {})
     plotted_metrics: list[str] = []
     for metric in metric_order:
         part = df[df["metric"].eq(metric)].copy()
@@ -132,8 +143,8 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         plotted_metrics.append(metric)
         grouped = part.groupby("time_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
         x = grouped["time_ms"].to_numpy(dtype=float)
-        y = grouped["mean"].to_numpy(dtype=float)
-        sem = grouped["sem"].fillna(0).to_numpy(dtype=float)
+        y = grouped["mean"].to_numpy(dtype=float) * 1000.0
+        sem = grouped["sem"].fillna(0).to_numpy(dtype=float) * 1000.0
         ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=str(trace_labels.get(metric, _trace_label(metric))))
         if part["seed_id"].nunique() > 1:
             ax.fill_between(x, y - sem, y + sem, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
@@ -155,7 +166,7 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
     _tidy(ax, st)
-    ax.tick_params(axis="y", pad=-1.8)
+    ax.tick_params(axis="y", pad=0.8)
     for label in ax.get_yticklabels():
         label.set_fontsize(max(4.0, st["tick_labelsize"] - 1.1))
 
@@ -198,24 +209,109 @@ def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None,
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     ax.paper_fig_plot_form = "fig5_l1_stsp_transition_composition"
+    df = _scaled_copy(df, 100.0, extra_cols=("total_transition_mass",))
     conditions = [c for c in ("Dynamic", "Attenuate L1 STSP", "Reset L1 STSP") if c in set(df["condition"].astype(str))]
     x_positions = np.arange(len(conditions), dtype=float)
     _draw_stacked_transition_bars(ax, df, "condition", conditions, x_positions, st=st, width=0.62, hatch_by_condition=False)
     ax.set_xticks(x_positions, [_wrap(c) for c in conditions], rotation=0)
-    ymax = max(0.08, min(1.05, _finite_max(df.get("total_transition_mass", df["value"])) * 1.16))
+    ymax = max(8.0, min(105.0, _finite_max(df.get("total_transition_mass", df["value"])) * 1.34))
     ax.set_ylim(0, ymax)
     ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
     ax.set_xlabel(str(spec.get("x_axis", "")))
     title = str(spec.get("title", "")).strip()
     if title:
         ax.set_title(title, fontsize=st["axis_labelsize"], pad=2.0)
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="lower center", bbox_to_anchor=(0.5, 1.015), ncols=3, handlelength=0.9, columnspacing=0.65)
-    ax.paper_fig_legend_above_plot = True
+    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 0.995), ncols=3, handlelength=0.9, columnspacing=0.65)
+    ax.paper_fig_legend_above_plot = False
     ax.paper_fig_legend_ncols = 3
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
     ax.paper_fig_y_metric = "transition_fraction"
     _tidy(ax, st)
+    ax.yaxis.labelpad = 0.0
+    ax.tick_params(axis="y", pad=0.8)
+
+
+def render_fig5_l2_writeback_summary(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
+    _ = stats
+    st = _style(style)
+    df = _clean(panel_data)
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    df = df[df["metric"].astype(str).eq("l2_reupdate_probability_given_history")].copy()
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.paper_fig_plot_form = "fig5_l2_reupdate_probability_grouped_bar"
+    df = _scaled_copy(df, 100.0)
+    condition_order = [label for label in ("Dynamic", "Static") if label in set(df["condition"].astype(str))]
+    if not condition_order:
+        order_df = df[["condition"]].drop_duplicates().copy()
+        if "condition_order" in df.columns:
+            order_df["condition_order"] = pd.to_numeric(df.drop_duplicates("condition")["condition_order"], errors="coerce").to_numpy()
+            order_df = order_df.sort_values("condition_order", kind="mergesort")
+        condition_order = order_df["condition"].astype(str).tolist()
+    segment_order = [segment for segment in ("prior_updated", "not_prior_updated") if segment in set(df.get("history_status", pd.Series(dtype=str)).astype(str))]
+    if not segment_order:
+        segment_order = list(dict.fromkeys(df.get("history_status", pd.Series(dtype=str)).astype(str).tolist()))
+    x = np.arange(len(condition_order), dtype=float)
+    width = min(0.28, st["bar_width"] / max(1, len(segment_order)))
+    segment_labels: dict[str, str] = {}
+    for segment in segment_order:
+        labels = df.loc[df.get("history_status", pd.Series(dtype=str)).astype(str).eq(segment), "history_label"] if "history_label" in df.columns else pd.Series(dtype=str)
+        segment_labels[segment] = HISTORY_LEGEND_LABELS.get(segment, str(labels.dropna().astype(str).iloc[0]) if not labels.dropna().empty else segment.replace("_", " "))
+
+    for xpos, condition in zip(x, condition_order):
+        subset = df[df["condition"].astype(str).eq(condition)]
+        for index, segment in enumerate(segment_order):
+            vals = pd.to_numeric(
+                subset.loc[subset.get("history_status", pd.Series(dtype=str)).astype(str).eq(segment), "value"],
+                errors="coerce",
+            ).dropna()
+            mean = float(vals.mean()) if not vals.empty else 0.0
+            sem = float(vals.sem()) if len(vals) > 1 else 0.0
+            offset = (index - (len(segment_order) - 1) / 2.0) * width
+            ax.bar(
+                xpos + offset,
+                mean,
+                yerr=sem,
+                width=width * 0.92,
+                capsize=1.6,
+                color=HISTORY_COLORS.get(segment, "0.7"),
+                edgecolor="black",
+                linewidth=0.32,
+                alpha=0.92,
+                label=segment_labels.get(segment, segment) if xpos == 0 else None,
+            )
+
+    ymax = max(30.0, _finite_max(df["value"]) * 1.34)
+    ax.set_ylim(0, min(45.0, ymax))
+    ax.set_xticks(x, [_wrap(_display_label(spec, label)) for label in condition_order], rotation=0)
+    ax.set_ylabel(str(spec.get("y_axis", "P(probe update | history status)")))
+    ax.set_xlabel(str(spec.get("x_axis", "")))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:.0f}"))
+    legend = ax.legend(
+        frameon=False,
+        fontsize=st["legend_fontsize"],
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.995),
+        ncols=2,
+        handlelength=0.72,
+        columnspacing=0.55,
+        labelspacing=0.25,
+        borderaxespad=0.0,
+    )
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_above_plot = False
+    ax.paper_fig_legend_ncols = 2
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_y_metric = "l2_reupdate_probability_given_history"
+    _tidy(ax, st)
+    ax.yaxis.labelpad = 0.0
+    ax.tick_params(axis="y", pad=0.8)
 
 
 def render_fig5_perturbation_transition_distribution(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -383,6 +479,56 @@ def _group_means(df: pd.DataFrame, group_col: str, order: list[str]) -> tuple[np
     return np.asarray(means, dtype=float), np.asarray(sems, dtype=float)
 
 
+def _fig5_history_probability_delta(df: pd.DataFrame, condition: str) -> float | None:
+    required = {"condition", "history_status", "value"}
+    if df.empty or not required.issubset(df.columns):
+        return None
+    part = df[df["condition"].astype(str).eq(str(condition))]
+    if part.empty:
+        return None
+    index_cols = [col for col in ("seed_id", "network_id") if col in part.columns]
+    if not index_cols:
+        prior = pd.to_numeric(part.loc[part["history_status"].astype(str).eq("prior_updated"), "value"], errors="coerce").dropna()
+        nonprior = pd.to_numeric(part.loc[part["history_status"].astype(str).eq("not_prior_updated"), "value"], errors="coerce").dropna()
+        if prior.empty or nonprior.empty:
+            return None
+        return float(prior.mean() - nonprior.mean())
+    pivot = part.pivot_table(
+        index=index_cols[0],
+        columns="history_status",
+        values="value",
+        aggfunc="mean",
+    )
+    if not {"prior_updated", "not_prior_updated"}.issubset(set(pivot.columns)):
+        return None
+    diff = pd.to_numeric(pivot["prior_updated"] - pivot["not_prior_updated"], errors="coerce").dropna()
+    if diff.empty:
+        return None
+    return float(diff.mean())
+
+
+def _fig5_l2_delta_percent(df: pd.DataFrame, group_order: list[str]) -> dict[str, float]:
+    if "dynamic_minus_static_frac_prior" in df.columns:
+        out: dict[str, float] = {}
+        for group in group_order:
+            vals = pd.to_numeric(
+                df.loc[df["unit_group"].astype(str).eq(group), "dynamic_minus_static_frac_prior"],
+                errors="coerce",
+            ).dropna()
+            if not vals.empty:
+                out[group] = float(vals.mean() * 100.0)
+        if out:
+            return out
+    out = {}
+    for group in group_order:
+        part = df[df["unit_group"].astype(str).eq(group)]
+        static = pd.to_numeric(part.loc[part["condition"].astype(str).eq("Static"), "value"], errors="coerce").dropna()
+        dynamic = pd.to_numeric(part.loc[part["condition"].astype(str).eq("Dynamic"), "value"], errors="coerce").dropna()
+        if not static.empty and not dynamic.empty:
+            out[group] = float((dynamic.mean() - static.mean()) * 100.0)
+    return out
+
+
 def _clean(panel_data: pd.DataFrame | None) -> pd.DataFrame:
     if panel_data is None or panel_data.empty or "value" not in panel_data.columns:
         return pd.DataFrame()
@@ -390,6 +536,26 @@ def _clean(panel_data: pd.DataFrame | None) -> pd.DataFrame:
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df = df.dropna(subset=["value"])
     return df
+
+
+def _scaled_copy(df: pd.DataFrame, factor: float, *, extra_cols: tuple[str, ...] = ()) -> pd.DataFrame:
+    out = df.copy()
+    out["value"] = pd.to_numeric(out["value"], errors="coerce") * factor
+    for col in extra_cols:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce") * factor
+    return out
+
+
+def _clean_trace_labels(labels: Mapping[str, Any]) -> dict[str, str]:
+    out = {str(key): str(value) for key, value in labels.items()}
+    out["winner_delta_v"] = "Winner"
+    out["loser_delta_v"] = "Loser"
+    return out
+
+
+def _display_label(spec: Mapping[str, Any], label: str) -> str:
+    return str((spec.get("display_labels") or {}).get(label, label))
 
 
 def _style(style: Mapping[str, Any] | None) -> dict[str, float]:
@@ -407,7 +573,19 @@ def _tidy(ax, st: Mapping[str, float]) -> None:
 
 
 def _wrap(label: str) -> str:
-    return str(label).replace("Overlap-", "Overlap-\n").replace("Probe-only-", "Probe-only-\n").replace("Random ", "Random\n").replace("Early ", "Early\n").replace("Decision ", "Decision\n").replace("Spike ", "Spike\n")
+    return (
+        str(label)
+        .replace("Dynamic STSP", "Dynamic\nSTSP")
+        .replace("Static baseline", "Static\nbaseline")
+        .replace("Attenuate L1 STSP", "Attenuate\nLayer 1\nSTSP")
+        .replace("Reset L1 STSP", "Reset\nLayer 1\nSTSP")
+        .replace("Overlap-", "Overlap-\n")
+        .replace("Probe-only-", "Probe-only-\n")
+        .replace("Random ", "Random\n")
+        .replace("Early ", "Early\n")
+        .replace("Decision ", "Decision\n")
+        .replace("Spike ", "Spike\n")
+    )
 
 
 def _metric_label(metric: str) -> str:
@@ -416,6 +594,10 @@ def _metric_label(metric: str) -> str:
 
 def _trace_label(metric: str) -> str:
     return {"winner_delta_v": "Winner ΔV", "loser_delta_v": "Loser ΔV", "loser_inhibition": "Inhibition received by loser"}.get(metric, metric)
+
+
+def _trace_label(metric: str) -> str:
+    return {"winner_delta_v": "Winner", "loser_delta_v": "Loser", "loser_inhibition": "Inhibition received by loser"}.get(metric, metric)
 
 
 def _transition_label(transition_type: str) -> str:

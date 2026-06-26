@@ -17,6 +17,11 @@ from src.plotting.paper_fig.export import (
 )
 from src.plotting.paper_fig.qc import run_qc
 from src.plotting.paper_fig.registry import get_figure_index, get_figure_spec, validate_registry
+from src.plotting.paper_fig.typography import (
+    PANEL_LABEL_SIZE_PT,
+    apply_paper_figure_typography,
+    mark_panel_label,
+)
 from src.plotting.paper_fig.utils import paper_fig_output_root, paper_fig_root, read_json, repo_root_from_here
 
 
@@ -26,6 +31,7 @@ def build_figure(
     panel_id: str | None = None,
     check_only: bool = False,
     experiment_root: str | Path | None = None,
+    output_root: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build or check one paper figure."""
     repo_root = repo_root_from_here()
@@ -34,6 +40,8 @@ def build_figure(
     spec = get_figure_spec(fig_id)
     if experiment_root is not None:
         spec["experiment_root"] = str(experiment_root)
+    if output_root is not None:
+        spec["output_root"] = str(output_root)
     implementation_id = _implementation_id(spec, fig_id)
     output_root = spec.get("output_root")
     if output_root:
@@ -78,10 +86,20 @@ def build_figure(
             if reason:
                 placeholder_reasons[pid] = str(reason)
             render_jobs[pid] = (renderer, panel_data, panel_spec, stats)
+        apply_paper_figure_typography(fig)
+        finalize_layout = getattr(fig, "paper_fig_finalize_layout", None)
+        if callable(finalize_layout):
+            finalize_layout(fig, axes, spec)
         panel_label_artists = _draw_panel_labels(fig, spec, panels, selected)
+        apply_paper_figure_typography(fig)
+        if callable(finalize_layout):
+            finalize_layout(fig, axes, spec)
         fig.canvas.draw()
         for pid, ax in axes.items():
             render_metadata[pid].update(_collect_render_metadata(ax, fig=fig, panel_label_artist=panel_label_artists.get(pid)))
+        write_layout_report = getattr(fig, "paper_fig_write_layout_report", None)
+        if callable(write_layout_report):
+            write_layout_report(fig, axes, spec, output_dir)
         full_export_paths = export_full_figure(fig, output_dir, fig_id, panel_id=panel_id)
         export_individual_panels(render_jobs, output_dir, fig_id, renderer_style={})
         plt.close(fig)
@@ -107,12 +125,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--all", action="store_true", help="Build all indexed figures.")
     parser.add_argument("--check-only", action="store_true", help="Validate specs/sources and write QC without exporting figures.")
     parser.add_argument("--experiment-root", type=str, default=None, help="Optional experiment result root for figures that support standalone paper experiments.")
+    parser.add_argument("--output-root", type=str, default=None, help="Repository-relative output root for generated paper figures.")
     args = parser.parse_args(argv)
 
     fig_ids = _requested_figures(args.fig, args.all, args.check_only)
     exit_code = 0
     for fig_id in fig_ids:
-        result = build_figure(fig_id, panel_id=args.panel, check_only=bool(args.check_only), experiment_root=args.experiment_root)
+        result = build_figure(
+            fig_id,
+            panel_id=args.panel,
+            check_only=bool(args.check_only),
+            experiment_root=args.experiment_root,
+            output_root=args.output_root,
+        )
         qc = result["qc"]
         print(f"{fig_id}: {'PASS' if qc['ok'] else 'FAIL'} -> {result['output_dir']}")
         for warning in qc["warnings"]:
@@ -306,6 +331,11 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "y_label_inside_axes": False,
         "panel_label_gap_mm": None,
         "panel_label_bbox": [],
+        "svg_asset": str(getattr(ax, "paper_fig_svg_asset", "")),
+        "svg_viewbox": getattr(ax, "paper_fig_svg_viewbox", {}),
+        "svg_aspect_ratio": float(getattr(ax, "paper_fig_svg_aspect_ratio", 0.0) or 0.0),
+        "svg_rendered_size_mm": getattr(ax, "paper_fig_svg_rendered_size_mm", {}),
+        "svg_raster_cache": str(getattr(ax, "paper_fig_svg_raster_cache", "")),
     }
     legend = ax.get_legend()
     if legend is not None:
@@ -407,12 +437,13 @@ def _draw_panel_labels(fig, spec: Mapping[str, Any], panels: Mapping[str, Mappin
         artists[panel_id] = fig.text(
             x_mm / canvas_w,
             1.0 - (y_mm / canvas_h),
-            panel_id,
+            panel_id.lower(),
             ha="left",
             va="top",
             fontweight="bold",
-            fontsize=float(panel.get("panel_label_fontsize", spec.get("panel_label_fontsize", 12))),
+            fontsize=PANEL_LABEL_SIZE_PT,
         )
+        mark_panel_label(artists[panel_id])
         artists[panel_id].paper_fig_panel_label_gap_mm = float(pos.get("y", 0.0)) - y_mm
     return artists
 
@@ -436,7 +467,11 @@ def _aggregate_source_manifest(
         if panel.get("panel_type") in _schematic_panel_types():
             raw_asset = panel.get("source") or (panel.get("source_mapping") or {}).get("manual_asset")
             if raw_asset:
-                asset_path = paper_fig_root() / str(raw_asset)
+                asset_path = Path(str(raw_asset))
+                if not asset_path.is_absolute():
+                    asset_path = repo_root_from_here() / asset_path
+                if not asset_path.exists():
+                    asset_path = paper_fig_root() / str(raw_asset)
                 entry = {
                     "panel_id": panel_id,
                     "status": "ok" if asset_path.exists() else "missing_source",

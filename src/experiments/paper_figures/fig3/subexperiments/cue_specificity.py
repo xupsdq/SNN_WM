@@ -9,6 +9,7 @@ import torch
 
 from src.config.units import ms
 from src.experiments.common.dataset import encode_images
+from src.experiments.paper_figures.fig3.schemas import CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY
 from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import concat_named_boundaries, run_probe_readout_from_boundary
 from src.experiments.paper_figures.fig3.subexperiments.weak_probe import _make_weak_probe_spikes_encoded_dropout
 from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
@@ -18,6 +19,7 @@ NUM_CLASSES = 10
 DEFAULT_CUE_TYPES = ("matched", "mismatched", "unseen")
 DEFAULT_STATE_SPECS = (("S_final", "sequence_state"), ("S0", "cue_only"))
 UNSEEN_SELECTION_POLICY = "stable_absent_label_then_stable_class_index_legacy_script_v1"
+MATCHED_SELECTION_POLICY = "target_sequence_image_v1"
 
 
 def build_cue_specificity_specs(
@@ -98,6 +100,10 @@ def build_cue_specificity_specs(
                         "ordered_item_ids": ";".join(str(v) for v in image_ids),
                         "ordered_item_labels": ";".join(str(v) for v in labels),
                         "unseen_labels": ";".join(str(v) for v in unseen_labels),
+                        "cue_selection_policy": str(cue_spec["cue_selection_policy"]),
+                        "cue_is_sequence_member": int(cue_spec["cue_image_id"] in set(image_ids)),
+                        "cue_is_same_label_foil": int(cue_spec["cue_type"] == "mismatched"),
+                        "mismatched_selection_policy": CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY,
                         "unseen_selection_policy": UNSEEN_SELECTION_POLICY,
                     }
                 )
@@ -153,6 +159,10 @@ def run_cue_specificity_readout(
             "ordered_item_ids",
             "ordered_item_labels",
             "unseen_labels",
+            "cue_selection_policy",
+            "cue_is_sequence_member",
+            "cue_is_same_label_foil",
+            "mismatched_selection_policy",
         ],
         "cue_specificity_specs",
     )
@@ -195,12 +205,14 @@ def run_cue_specificity_readout(
 
 def compute_cue_specificity_tables(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     metrics = compute_cue_specificity_metrics(raw)
+    memory_gain = compute_cue_specificity_memory_gain(metrics)
     serial = compute_cue_specificity_serial_summary(metrics)
     contrast = compute_cue_specificity_contrast_summary(serial)
     summary = cue_specificity_summary_table(metrics)
     return {
         "cue_specificity_trial_readout": raw.reset_index(drop=True),
         "cue_specificity_metrics": metrics,
+        "cue_specificity_memory_gain": memory_gain,
         "cue_specificity_serial_summary": serial,
         "cue_specificity_contrast_summary": contrast,
         "cue_specificity_summary": summary,
@@ -237,6 +249,70 @@ def compute_cue_specificity_metrics(raw: pd.DataFrame) -> pd.DataFrame:
         row["n_trials"] = int(len(part))
         rows.append(row)
     return pd.DataFrame(rows, columns=[*group_cols, *metric_cols.keys(), "n_trials"])
+
+
+def compute_cue_specificity_memory_gain(metrics: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "network_seed",
+        "condition_id",
+        "sequence_id",
+        "seq_len",
+        "delay_ms",
+        "target_position",
+        "cue_type",
+        "keep_prob",
+        "P_target_sequence_state",
+        "P_target_cue_only",
+        "target_memory_gain",
+        "P_seen_item_sequence_state",
+        "P_seen_item_cue_only",
+        "seen_item_memory_gain",
+        "P_silent_sequence_state",
+        "P_silent_cue_only",
+        "silent_delta",
+        "n_trials_sequence_state",
+        "n_trials_cue_only",
+    ]
+    if metrics.empty:
+        return pd.DataFrame(columns=columns)
+    rows: list[dict[str, Any]] = []
+    group_cols = [
+        "network_seed",
+        "condition_id",
+        "sequence_id",
+        "seq_len",
+        "delay_ms",
+        "target_position",
+        "cue_type",
+        "keep_prob",
+    ]
+    for keys, part in metrics.groupby(group_cols, sort=True):
+        seq = part[part["state_condition"].astype(str).eq("S_final")]
+        cue = part[part["state_condition"].astype(str).eq("S0")]
+        row = dict(zip(group_cols, keys))
+        p_target_seq = _first_metric(seq, "P_target")
+        p_target_cue = _first_metric(cue, "P_target")
+        p_seen_seq = _first_metric(seq, "P_seen_item")
+        p_seen_cue = _first_metric(cue, "P_seen_item")
+        p_silent_seq = _first_metric(seq, "P_silent")
+        p_silent_cue = _first_metric(cue, "P_silent")
+        row.update(
+            {
+                "P_target_sequence_state": p_target_seq,
+                "P_target_cue_only": p_target_cue,
+                "target_memory_gain": _nan_diff(p_target_seq, p_target_cue),
+                "P_seen_item_sequence_state": p_seen_seq,
+                "P_seen_item_cue_only": p_seen_cue,
+                "seen_item_memory_gain": _nan_diff(p_seen_seq, p_seen_cue),
+                "P_silent_sequence_state": p_silent_seq,
+                "P_silent_cue_only": p_silent_cue,
+                "silent_delta": _nan_diff(p_silent_seq, p_silent_cue),
+                "n_trials_sequence_state": int(_first_metric(seq, "n_trials", default=0.0)),
+                "n_trials_cue_only": int(_first_metric(cue, "n_trials", default=0.0)),
+            }
+        )
+        rows.append(row)
+    return pd.DataFrame(rows, columns=columns)
 
 
 def compute_cue_specificity_serial_summary(metrics: pd.DataFrame) -> pd.DataFrame:
@@ -280,6 +356,7 @@ def cue_specificity_scientific_checks(metrics: pd.DataFrame) -> dict[str, Any]:
     out: dict[str, Any] = {}
     s_final = metrics[metrics["state_condition"].astype(str).eq("S_final")]
     s0 = metrics[metrics["state_condition"].astype(str).eq("S0")]
+    memory_gain = compute_cue_specificity_memory_gain(metrics)
     out["S_final_P_target_by_cue"] = _mean_by_cue(s_final, "P_target")
     out["S0_P_target_by_cue"] = _mean_by_cue(s0, "P_target")
     matched = out["S_final_P_target_by_cue"].get("matched", float("nan"))
@@ -297,6 +374,20 @@ def cue_specificity_scientific_checks(metrics: pd.DataFrame) -> dict[str, Any]:
         cue: _nan_diff(s_final_seen.get(cue, float("nan")), s0_seen.get(cue, float("nan")))
         for cue in ("mismatched", "unseen")
     }
+    out["target_memory_gain_by_cue"] = _mean_by_cue(memory_gain, "target_memory_gain")
+    gain_matched = out["target_memory_gain_by_cue"].get("matched", float("nan"))
+    gain_mismatched = out["target_memory_gain_by_cue"].get("mismatched", float("nan"))
+    gain_unseen = out["target_memory_gain_by_cue"].get("unseen", float("nan"))
+    out["target_memory_gain_matched_minus_mismatched"] = _nan_diff(gain_matched, gain_mismatched)
+    out["target_memory_gain_matched_minus_unseen"] = _nan_diff(gain_matched, gain_unseen)
+    out["target_memory_gain_matched_gt_mismatched"] = bool(
+        np.isfinite(out["target_memory_gain_matched_minus_mismatched"])
+        and out["target_memory_gain_matched_minus_mismatched"] > 0.0
+    )
+    out["target_memory_gain_matched_gt_unseen"] = bool(
+        np.isfinite(out["target_memory_gain_matched_minus_unseen"])
+        and out["target_memory_gain_matched_minus_unseen"] > 0.0
+    )
     return out
 
 
@@ -314,6 +405,28 @@ def cue_specificity_summary_table(metrics: pd.DataFrame) -> pd.DataFrame:
         rows.append({"metric": f"S_final_P_target_{cue}", "value": value})
     for cue, value in checks["S_final_P_seen_item_by_cue"].items():
         rows.append({"metric": f"S_final_P_seen_item_{cue}", "value": value})
+    for cue, value in checks["target_memory_gain_by_cue"].items():
+        rows.append({"metric": f"target_memory_gain_{cue}", "value": value})
+    rows.extend(
+        [
+            {
+                "metric": "target_memory_gain_matched_minus_mismatched",
+                "value": checks["target_memory_gain_matched_minus_mismatched"],
+            },
+            {
+                "metric": "target_memory_gain_matched_minus_unseen",
+                "value": checks["target_memory_gain_matched_minus_unseen"],
+            },
+            {
+                "metric": "target_memory_gain_matched_gt_mismatched",
+                "value": int(checks["target_memory_gain_matched_gt_mismatched"]),
+            },
+            {
+                "metric": "target_memory_gain_matched_gt_unseen",
+                "value": int(checks["target_memory_gain_matched_gt_unseen"]),
+            },
+        ]
+    )
     return pd.DataFrame(rows)
 
 
@@ -341,7 +454,16 @@ def _cue_specs_for_job(
 ) -> list[dict[str, Any]]:
     target_idx = int(target_position) - 1
     target_label = int(labels[target_idx])
-    mismatch_idx = (target_idx + 1) % len(image_ids)
+    target_image_id = int(image_ids[target_idx])
+    mismatched_image_id = _same_label_foil_image_id(
+        seq_id=seq_id,
+        target_position=target_position,
+        repeat_id=repeat_id,
+        target_label=target_label,
+        target_image_id=target_image_id,
+        image_ids=image_ids,
+        class_index=class_index,
+    )
     unseen_label = int(unseen_labels[_stable_index(seq_id, target_position, repeat_id, len(unseen_labels), offset=91)])
     unseen_pool = list(class_index.get(unseen_label, ()))
     if not unseen_pool:
@@ -350,20 +472,23 @@ def _cue_specs_for_job(
         {
             "cue_type": "matched",
             "cue_position": int(target_position),
-            "cue_image_id": int(image_ids[target_idx]),
+            "cue_image_id": target_image_id,
             "cue_label": target_label,
+            "cue_selection_policy": MATCHED_SELECTION_POLICY,
         },
         {
             "cue_type": "mismatched",
-            "cue_position": int(mismatch_idx + 1),
-            "cue_image_id": int(image_ids[mismatch_idx]),
-            "cue_label": int(labels[mismatch_idx]),
+            "cue_position": 0,
+            "cue_image_id": mismatched_image_id,
+            "cue_label": target_label,
+            "cue_selection_policy": CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY,
         },
         {
             "cue_type": "unseen",
             "cue_position": 0,
             "cue_image_id": int(unseen_pool[_stable_index(seq_id, target_position, repeat_id, len(unseen_pool), offset=193)]),
             "cue_label": unseen_label,
+            "cue_selection_policy": UNSEEN_SELECTION_POLICY,
         },
     ]
 
@@ -391,6 +516,10 @@ def _base_raw_row_from_spec(ctx: ExperimentContext, row: pd.Series, mask_info: M
         "ordered_item_ids": str(row["ordered_item_ids"]),
         "ordered_item_labels": str(row["ordered_item_labels"]),
         "unseen_labels": str(row["unseen_labels"]),
+        "cue_selection_policy": str(row["cue_selection_policy"]),
+        "cue_is_sequence_member": int(row["cue_is_sequence_member"]),
+        "cue_is_same_label_foil": int(row["cue_is_same_label_foil"]),
+        "mismatched_selection_policy": str(row["mismatched_selection_policy"]),
         "mask_space": "encoded_spikes",
         "same_mask_used_across_states": bool(mask_info["same_mask_used_across_states"]),
         "same_mask_used_across_memory_conditions": bool(mask_info["same_mask_used_across_memory_conditions"]),
@@ -470,6 +599,36 @@ def _mean_by_cue(df: pd.DataFrame, column: str) -> dict[str, float]:
         vals = pd.to_numeric(part[column], errors="coerce").dropna().to_numpy(dtype=float)
         out[str(cue)] = float(vals.mean()) if vals.size else float("nan")
     return out
+
+
+def _same_label_foil_image_id(
+    *,
+    seq_id: int,
+    target_position: int,
+    repeat_id: int,
+    target_label: int,
+    target_image_id: int,
+    image_ids: Sequence[int],
+    class_index: Mapping[int, Sequence[int]],
+) -> int:
+    pool = [int(idx) for idx in class_index.get(int(target_label), ()) if int(idx) not in set(int(v) for v in image_ids)]
+    if not pool:
+        pool = [int(idx) for idx in class_index.get(int(target_label), ()) if int(idx) != int(target_image_id)]
+    if not pool:
+        raise ValueError(
+            "Cue specificity same-label foil requires a non-target image for "
+            f"target_label={target_label}, sequence_id={seq_id}, target_position={target_position}."
+        )
+    return int(pool[_stable_index(seq_id, target_position, repeat_id, len(pool), offset=307)])
+
+
+def _first_metric(df: pd.DataFrame, column: str, *, default: float = float("nan")) -> float:
+    if df.empty or column not in df.columns:
+        return float(default)
+    values = pd.to_numeric(df[column], errors="coerce").dropna()
+    if values.empty:
+        return float(default)
+    return float(values.iloc[0])
 
 
 def _sem(values: np.ndarray) -> float:

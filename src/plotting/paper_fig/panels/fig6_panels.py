@@ -47,9 +47,10 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
         "matched_removal": "Matched\nremoval",
     }
     colors = {
-        "high_stsp_overlap": "#e15759",
-        "matched_removal": "#8da0cb",
+        "high_stsp_overlap": "#B2182B",
+        "matched_removal": "#8A8A8A",
     }
+    use = _percent_copy(use)
     xs = np.arange(len(order), dtype=float)
     for idx, condition in enumerate(order):
         vals = pd.to_numeric(use.loc[use["condition"].astype(str).eq(condition), "value"], errors="coerce").dropna().to_numpy(dtype=float)
@@ -59,7 +60,7 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
         ax.errorbar([xs[idx]], [float(vals.mean())], yerr=[_sem(vals)], fmt="none", color="0.15", linewidth=0.7, capsize=2.0)
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xticks(xs, [labels.get(cond, cond.replace("_", "\n")) for cond in order])
-    ax.set_ylabel("Loss in L1 recruitment")
+    ax.set_ylabel(str(spec.get("y_axis", "Layer 1 recruitment loss (%)")))
     ax.set_xlabel("Removed sites")
     ax.paper_fig_plot_form = "high_stsp_overlap_ablation_bar"
     ax.paper_fig_primary_metric = "loss_delta_spike_probability"
@@ -81,12 +82,13 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
     order = [cond for cond in list(spec.get("conditions") or ["Peak ping", "Valley ping", "Random ping"]) if cond in set(use["condition"].astype(str))]
     if not order:
         order = _ordered_unique(use["condition"], [])
+    use = _percent_copy(use)
     summary = use.groupby(["condition", "metric"], as_index=False)["value"].mean()
     bottom = np.zeros(len(order), dtype=float)
     colors = {
-        "old_mass": "#4c78a8",
-        "middle_mass": "#59a14f",
-        "recent_mass": "#f28e2b",
+        "old_mass": "#4C78A8",
+        "middle_mass": "#59A14F",
+        "recent_mass": "#F28E2B",
         "other_mass": "#b07aa1",
         "silent_rate": "#9c9c9c",
     }
@@ -109,9 +111,9 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
         bottom += np.asarray(vals, dtype=float)
     ax.set_xticks(np.arange(len(order)))
     ax.set_xticklabels([_wrap_label(cond) for cond in order], rotation=0)
-    ax.set_ylabel("Readout mass")
+    ax.set_ylabel(str(spec.get("y_axis", "Readout composition (%)")))
     ax.set_xlabel("Ping entry")
-    ax.set_ylim(0, max(1.0, float(np.nanmax(bottom)) if len(bottom) else 1.0) * 1.08)
+    ax.set_ylim(0, max(100.0, float(np.nanmax(bottom)) if len(bottom) else 100.0) * 1.08)
     legend = ax.legend(
         frameon=False,
         fontsize=5.0,
@@ -150,10 +152,11 @@ def render_fig6_global_ping_score_spike_prediction(ax, panel_data: pd.DataFrame 
         else:
             used_fallback_window = True
             ax.paper_fig_window_filter_fallback = True
+    use = _percent_copy(use)
     _score_quantile_lines(ax, use, preferred=["Global ping"])
     ax.set_xlabel("STSP score quantile")
-    ax.set_ylabel("L1 spike probability")
-    ax.set_ylim(0, 1)
+    ax.set_ylabel(str(spec.get("y_axis", "Layer 1 spike probability (%)")))
+    ax.set_ylim(0, 100)
     ax.paper_fig_plot_form = "global_ping_score_quantile_spike_probability"
     ax.paper_fig_entry_type = "global_ping"
     ax.paper_fig_primary_endpoint = "Layer 1 spike recruitment"
@@ -205,10 +208,11 @@ def render_fig6_real_probe_score_spike_deflection(ax, panel_data: pd.DataFrame |
         else:
             used_fallback_window = True
             ax.paper_fig_window_filter_fallback = True
+    use = _percent_copy(use)
     _score_quantile_lines(ax, use, preferred=["Real probe"])
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xlabel("STSP score quantile")
-    ax.set_ylabel("Dynamic - baseline L1 firing")
+    ax.set_ylabel(str(spec.get("y_axis", "Layer 1 firing change (%)")))
     ax.paper_fig_plot_form = "real_probe_score_quantile_spike_deflection"
     ax.paper_fig_primary_early_window_ms = primary_window
     ax.paper_fig_used_fallback_early_window = used_fallback_window
@@ -283,10 +287,11 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
         use["overlap_group"] = use["x_group"]
     x_order = ["no_overlap", "overlap"]
     hue_order = ["low", "high"]
+    use = _percent_copy(use)
     summary = use.groupby(["overlap_group", "stsp_group"], as_index=False)["value"].mean()
     x = np.arange(len(x_order), dtype=float)
     width = 0.32
-    colors = {"low": "#8da0cb", "high": "#e15759"}
+    colors = {"low": "#6C7A89", "high": "#B2182B"}
     for idx, hue in enumerate(hue_order):
         vals = []
         for group in x_order:
@@ -296,7 +301,7 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
         ax.bar(positions, vals, width=width, color=colors[hue], edgecolor="0.25", linewidth=0.45, label=f"{hue.title()} STSP")
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xticks(x, ["No overlap", "Overlap"])
-    ax.set_ylabel("Dynamic - baseline L1 firing")
+    ax.set_ylabel(str(spec.get("y_axis", "Layer 1 firing change (%)")))
     ax.set_xlabel("Probe overlap")
     legend = ax.legend(
         frameon=False,
@@ -794,6 +799,12 @@ def _clean(panel_data: pd.DataFrame | None) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df.dropna(subset=["value"])
+
+
+def _percent_copy(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out["value"] = pd.to_numeric(out["value"], errors="coerce") * 100.0
+    return out
 
 
 def _ordered_unique(series: pd.Series, preferred: Sequence[str]) -> list[str]:

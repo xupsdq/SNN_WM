@@ -5,6 +5,8 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
+
 
 STYLE = {
     "axis_labelsize": 6.3,
@@ -17,16 +19,15 @@ STYLE = {
 }
 
 STATE_ORDER = ["S0", "S_A", "S_B", "S_AB"]
-STATE_LABELS = {"S0": "No\nmemory", "S_A": "S_A", "S_B": "S_B", "S_AB": "S_AB"}
-STATE_COLORS = {"S0": "#8C8C8C", "S_A": "#4C78A8", "S_B": "#F58518", "S_AB": "#54A24B"}
-READOUT_COLORS = {"A": "#4C78A8", "B": "#F58518", "Other": "#B8B8B8", "Silent": "#F4F4F4"}
-COMPOSITION_LABELS = {"Other": "others", "A": "A", "B": "B", "Silent": "silent"}
+STATE_LABELS = {"S0": "No\nmemory", "S_A": "Item 1", "S_B": "Item 2", "S_AB": "Fused\npair"}
+STATE_COLORS = {"S0": "#8A8A8A", "S_A": "#007A5A", "S_B": "#D55E00", "S_AB": "#0072B2"}
+READOUT_COLORS = {"A": "#007A5A", "B": "#D55E00", "Other": "#B3B3B3", "Silent": "#E6E6E6"}
+COMPOSITION_LABELS = {"Other": "Other", "A": "Item 1", "B": "Item 2", "Silent": "Silent"}
 
 
 def render_fig2_episode_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
-    ax.set_axis_off()
-    ax.paper_fig_plot_form = "blank_manual_slot"
+    render_svg_asset_panel(ax, spec)
 
 
 def render_fig2_dual_retention_constituents(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -57,12 +58,14 @@ def render_fig2_pair_specificity(ax, panel_data: pd.DataFrame | None, stats: Map
         return
     ax.paper_fig_plot_form = "true_vs_shuffled_pair_boxplot"
     order = ["True pair", "Shuffled pair"]
-    _boxplot_by_condition(ax, df, "condition", order, colors=["#4C78A8", "#BAB0AC"], st=st)
-    ax.set_xticks(np.arange(len(order)), ["True", "Shuffled"])
+    _boxplot_by_condition(ax, df, "condition", order, colors=["#B87514", "#8A8A8A"], st=st)
+    ax.set_xticks(np.arange(len(order)), ["Experienced\npair", "Shuffled\npair"])
     ax.set_ylabel(str(spec.get("y_axis", "Pair specificity")))
     ax.set_xlabel("")
     ax.paper_fig_raw_points = False
     _autoscale_y(ax, df["value"])
+    ax.set_ylim(0.44, 1.05)
+    ax.set_yticks([0.5, 0.7, 0.9])
     _tidy(ax, st)
 
 
@@ -79,9 +82,9 @@ def render_fig2_morphology_closure(ax, panel_data: pd.DataFrame | None, stats: M
     if plot_df.empty:
         _placeholder(ax, spec, "Morphology closure metrics unavailable")
         return
-    _bar_summary(ax, plot_df, "condition", order, colors=["#54A24B", "#B279A2"], st=st, alpha=0.83)
+    _bar_summary(ax, plot_df, "condition", order, colors=["#F0B000", "#B87514"], st=st, alpha=0.83)
     ax.axhline(0, color="0.35", linestyle="--", linewidth=0.72)
-    ax.set_xticks(np.arange(len(order)), ["WPRI", "Beyond\nlinear"])
+    ax.set_xticks(np.arange(len(order)), ["WPRI", "Beyond-\nlinear"])
     limits = spec.get("y_limits") or spec.get("y_axis_limits") or [-0.4, 0.4]
     if isinstance(limits, (list, tuple)) and len(limits) == 2:
         ax.set_ylim(float(limits[0]), float(limits[1]))
@@ -125,7 +128,7 @@ def render_fig2_neutral_ping_composition(ax, panel_data: pd.DataFrame | None, st
     ax.set_ylim(0, 100)
     ax.set_ylabel(str(spec.get("y_axis", "Readout composition (%)")))
     ax.set_xlabel("")
-    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 1.04), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
+    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 0.994), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_ncols = 4
     _tidy(ax, st)
@@ -184,16 +187,20 @@ def render_fig2_partial_cue_targets_combined(ax, panel_data: pd.DataFrame | None
     ax.set_axis_off()
     ax.paper_fig_plot_form = "partial_cue_target_recovery_combined"
     ax.paper_fig_target_items = ["A", "B"]
-    span_w_mm = float((spec.get("size_mm") or {}).get("width", (spec.get("position_mm") or {}).get("w", 94.67)))
-    col_w_mm = 42.33
-    gap_w_mm = 10.0
-    col_frac = col_w_mm / span_w_mm
-    gap_frac = gap_w_mm / span_w_mm
-    left_bounds = [0.0, 0.0, col_frac, 1.0]
-    right_bounds = [col_frac + gap_frac, 0.0, col_frac, 1.0]
+    ax.paper_fig_composite_child_axes = True
+    span_w_mm = float((spec.get("size_mm") or {}).get("width", (spec.get("position_mm") or {}).get("w", 106.667)))
+    left_margin_mm = 7.1
+    right_margin_mm = 0.0
+    gap_w_mm = 8.0
+    col_w_mm = max(30.0, (span_w_mm - left_margin_mm - right_margin_mm - gap_w_mm) / 2.0)
+    bottom_mm = 5.5
+    height_mm = 39.333
+    left_bounds = [left_margin_mm / span_w_mm, bottom_mm / 48.0, col_w_mm / span_w_mm, height_mm / 48.0]
+    right_bounds = [(left_margin_mm + col_w_mm + gap_w_mm) / span_w_mm, bottom_mm / 48.0, col_w_mm / span_w_mm, height_mm / 48.0]
     left = ax.inset_axes(left_bounds)
     right = ax.inset_axes(right_bounds)
     right.sharey(left)
+    ax.paper_fig_child_axes = [left, right]
     ax.paper_fig_inner_axes_bounds = [left_bounds, right_bounds]
     ax.paper_fig_inner_axes_aligned = True
     handles: list[Any] = []
@@ -209,8 +216,8 @@ def render_fig2_partial_cue_targets_combined(ax, panel_data: pd.DataFrame | None
             frameon=False,
             fontsize=st["legend_fontsize"],
             ncol=4,
-            loc="lower center",
-            bbox_to_anchor=(0.5, 1.04),
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.0),
             handlelength=1.0,
             handletextpad=0.35,
             columnspacing=0.7,
@@ -218,6 +225,7 @@ def render_fig2_partial_cue_targets_combined(ax, panel_data: pd.DataFrame | None
         )
         ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
         ax.paper_fig_legend_ncols = 4
+        ax.paper_fig_legend_above_plot = True
 
 
 # Backward-compatible renderer names from old Fig.2 specs.
@@ -327,7 +335,7 @@ def _plot_partial_cue_axis(ax, df: pd.DataFrame, target_item: str, spec: Mapping
         labels.append(STATE_LABELS.get(condition, condition).replace("\n", " "))
     ax.set_ylim(0, 100)
     ax.set_xlim(0, 1.02)
-    ax.set_xticks([0.0, 0.5, 1.0], ["0", ".5", "1"])
+    ax.set_xticks([0.0, 0.5, 1.0], ["0", "0.5", "1"])
     ax.set_xlabel(str(spec.get("x_axis", "Keep probability")))
     if show_ylabel:
         ax.set_ylabel(str(spec.get("y_axis", "Target recovery (%)")))

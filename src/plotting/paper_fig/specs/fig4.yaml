@@ -3,7 +3,7 @@ figure_title_draft: Overlap-gated re-entry from prior STSP history into later pr
 experiment_root: results/paper_figure_multi_seed/fig4_overlap_reentry
 canvas_mm:
   width: 165
-  height: 136
+  height: 152
 reading_order: [A, B, C, D, E, F]
 argument_bands:
   - band_id: reentry_assay
@@ -39,9 +39,10 @@ panels:
     data_adapter: none
     renderer: render_fig4_reentry_schematic
     metric: none
-    position_mm: {x: 12.00, y: 8.00, w: 147.00, h: 24.00}
-    size_mm: {w: 147.00, h: 24.00}
-    letter_mm: {x: 6.00, y: 4.00}
+    source: results/paper_figures/outputs/DMS-enhanced.svg
+    position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 2.00, y: 2.00}
     x_axis: none
     y_axis: none
   B:
@@ -55,11 +56,12 @@ panels:
     source_priority:
       - data/metrics/panel_b_similarity_bin_summary.csv
       - data/metrics/panel_b_similarity_entry_metrics.csv
-    position_mm: {x: 12.00, y: 39.00, w: 45.67, h: 34.00}
-    size_mm: {w: 45.67, h: 34.00}
-    letter_mm: {x: 6.00, y: 34.00}
+    position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 83.50, y: 2.00}
     x_axis: Sample-probe similarity bin
-    y_axis: Accuracy drop (static - dynamic)
+    y_axis: Probe bias (%)
+    y_label_x: -0.143
   C:
     panel_id: C
     panel_type: overlap_excess_iso_similarity
@@ -73,13 +75,13 @@ panels:
       - data/metrics/supp_overlap_matching_diagnostics.csv
     plot_metric: mean_acc_drop
     conditions: [Low overlap excess, High overlap excess]
-    position_mm: {x: 62.67, y: 39.00, w: 45.67, h: 34.00}
-    size_mm: {w: 45.67, h: 34.00}
-    letter_mm: {x: 56.67, y: 34.00}
-    x_axis: Overlap-excess group
-    y_axis: Accuracy drop
+    position_mm: {x: 2.00, y: 52.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 2.00, y: 50.00}
+    x_axis: Overlap beyond similarity
+    y_axis: Probe bias (%)
     y_labelpad: -2.0
-    y_label_x: -0.15
+    y_label_x: -0.195
   D:
     panel_id: D
     panel_type: overlap_preserving_causal_perturbation
@@ -101,18 +103,18 @@ panels:
       - sample_keep_nonoverlap_only_dynamic
       - sample_random_matched_dynamic
     display_labels:
-      full_dynamic: Dynamic
+      full_dynamic: Dynamic STSP
       full_static: Static baseline
       sample_keep_overlap_only_dynamic: Overlap support
       sample_keep_nonoverlap_only_dynamic: Non-overlap support
       sample_random_matched_dynamic: Random matched
-    position_mm: {x: 113.33, y: 39.00, w: 45.67, h: 34.00}
-    size_mm: {w: 45.67, h: 34.00}
-    letter_mm: {x: 107.33, y: 34.00}
+    position_mm: {x: 83.50, y: 52.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 83.50, y: 50.00}
     x_axis: Perturbation condition
-    y_axis: Drop vs static
+    y_axis: Probe bias (%)
     y_labelpad: -2.0
-    y_label_x: -0.15
+    y_label_x: -0.135
   E:
     panel_id: E
     panel_type: time_resolved_l3_displacement
@@ -128,11 +130,11 @@ panels:
       - sample_keep_overlap_only_dynamic
       - sample_keep_nonoverlap_only_dynamic
     max_time_ms: 60
-    position_mm: {x: 12.00, y: 81.00, w: 70.50, h: 48.00}
-    size_mm: {w: 70.50, h: 48.00}
-    letter_mm: {x: 6.00, y: 76.00}
+    position_mm: {x: 2.00, y: 102.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 2.00, y: 100.00}
     x_axis: Probe time (ms)
-    y_axis: L3 dynamic-pattern index
+    y_axis: Dynamic-pattern index
     reference_lines:
       - value: 0
         label: 0
@@ -152,8 +154,8 @@ panels:
       - pair_vectors.npz
       - data/metrics/panel_f_decision_deflection_metrics.csv
     groups: [plus, minus]
-    position_mm: {x: 88.50, y: 81.00, w: 70.50, h: 48.00}
-    size_mm: {w: 70.50, h: 48.00}
-    letter_mm: {x: 82.50, y: 76.00}
+    position_mm: {x: 83.50, y: 102.00, w: 79.50, h: 48.00}
+    size_mm: {w: 79.50, h: 48.00}
+    letter_mm: {x: 83.50, y: 100.00}
     x_axis: More dynamic-like firing pattern
     y_axis: More dynamic-like decision

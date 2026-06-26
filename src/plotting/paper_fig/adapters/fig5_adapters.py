@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, summarize_values, write_adapter_outputs
+from src.plotting.paper_fig.utils import read_json
 
 
 DEFAULT_EXPERIMENT_ROOT = "results/paper_experiments/fig5_local_support_competition"
@@ -54,6 +55,10 @@ MAIN_TRANSITION_COLUMNS = {
     "recruit": "P_recruit",
     "loss": "P_loss",
 }
+FIG5D_CAUSAL_ANALYSIS_WINDOW_MS = 50.0
+FIG5D_CAUSAL_WINDOW_SOURCE_NAME = "panel_d_l1_stsp_perturbation_unit_transitions.csv"
+FIG5_L2_WRITEBACK_SOURCE_NAME = "panel_postprobe_l2_reupdate_history_composition.csv"
+FIG5_L2_WRITEBACK_LEGACY_SOURCE_NAME = "panel_postprobe_l2_stsp_writeback_summary.csv"
 
 
 def build_fig5_preprobe_support_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -333,19 +338,53 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
     sources: list[Path] = []
     source_records: list[dict[str, Any]] = []
     plotted_conditions = ["dynamic_intact", "attenuate_l1_stsp", "reset_l1_stsp"]
+    analysis_window_ms = float(spec.get("analysis_window_ms", FIG5D_CAUSAL_ANALYSIS_WINDOW_MS))
+    unit_source_name = FIG5D_CAUSAL_WINDOW_SOURCE_NAME
     source_name = "panel_d_l1_stsp_perturbation_transition_summary.csv"
     audit_name = "panel_d_l1_stsp_perturbation_audit.csv"
     legacy_global_source_name = "panel_d_global_stsp_perturbation_transition_summary.csv"
     legacy_region_source_name = "panel_d_perturbation_transition_summary_by_group.csv"
     required_cols = {"condition", *MAIN_TRANSITION_COLUMNS.values()}
+    unit_required_cols = {
+        "network_seed",
+        "trial_id",
+        "condition",
+        "condition_label",
+        "unit_group",
+        "included_in_main",
+        "first_spike_static",
+        "first_spike_condition",
+        "perturbation_mode",
+        "perturbed_layer",
+        "perturbed_variables",
+    }
+    windowed_unit_source_used = False
     legacy_global_used = False
     legacy_region_used = False
     for seed_dir in seeds:
+        unit_path = seed_dir / "data" / "metrics" / unit_source_name
         path = seed_dir / "data" / "metrics" / source_name
         audit_path = seed_dir / "data" / "metrics" / audit_name
+        source_records.append(_source_entry(unit_path, repo_root))
         source_records.append(_source_entry(path, repo_root))
         source_records.append(_source_entry(audit_path, repo_root))
-        if not path.exists():
+        if unit_path.exists():
+            unit_cols = set(pd.read_csv(unit_path, nrows=0).columns)
+            unit_missing = sorted(unit_required_cols.difference(unit_cols))
+            if unit_missing:
+                warnings.append(f"{_rel(unit_path, repo_root)} lacks Layer1 STSP unit transition columns {unit_missing}; falling back to summary source.")
+            else:
+                unit_df = pd.read_csv(unit_path, usecols=[col for col in unit_required_cols if col in unit_cols])
+                window_steps = _analysis_window_steps(seed_dir, analysis_window_ms)
+                df = _l1_stsp_windowed_summary_from_unit_transitions(
+                    unit_df,
+                    plotted_conditions=plotted_conditions,
+                    analysis_window_ms=analysis_window_ms,
+                    analysis_window_steps=window_steps,
+                )
+                path = unit_path
+                windowed_unit_source_used = True
+        if path != unit_path and not path.exists():
             legacy_global_path = seed_dir / "data" / "metrics" / legacy_global_source_name
             legacy_region_path = seed_dir / "data" / "metrics" / legacy_region_source_name
             source_records.append(_source_entry(legacy_global_path, repo_root))
@@ -365,7 +404,8 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
             else:
                 warnings.append(f"Missing Fig.5D Layer1 STSP source: {path}")
                 continue
-        df = pd.read_csv(path)
+        if path != unit_path:
+            df = pd.read_csv(path)
         missing = sorted(required_cols.difference(df.columns))
         if missing:
             warnings.append(f"{_rel(path, repo_root)} lacks Layer1 STSP transition columns {missing}.")
@@ -393,12 +433,25 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
     panel_df = pd.DataFrame(rows)
     available_conditions = sorted(set(panel_df.get("perturbation_condition", pd.Series(dtype=str)).dropna().astype(str))) if not panel_df.empty else []
     missing_plotted_conditions = [condition for condition in plotted_conditions if condition not in set(available_conditions)]
+    source_level = (
+        "l1_stsp_perturbation_unit_transition_windowed"
+        if windowed_unit_source_used and not (legacy_global_used or legacy_region_used)
+        else "l1_stsp_perturbation_transition_summary"
+        if sources and not (legacy_global_used or legacy_region_used)
+        else "legacy_global_perturbation_fallback"
+        if legacy_global_used
+        else "legacy_region_perturbation_fallback"
+        if legacy_region_used
+        else "missing"
+    )
     extra_stats = {
         "main_metric": "transition_composition",
         "plot_type": "stacked_bar",
         "primary_plot_type": "stacked_bar",
-        "source_file": source_name,
-        "source_level": "l1_stsp_perturbation_transition_summary" if sources and not (legacy_global_used or legacy_region_used) else "legacy_global_perturbation_fallback" if legacy_global_used else "legacy_region_perturbation_fallback" if legacy_region_used else "missing",
+        "source_file": unit_source_name if windowed_unit_source_used else source_name,
+        "source_level": source_level,
+        "analysis_window_ms": analysis_window_ms if windowed_unit_source_used else None,
+        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike" if windowed_unit_source_used else "",
         "conditions": plotted_conditions,
         "transition_types": ["advance", "recruit", "loss"],
         "included_unit_groups": _split_unique(panel_df.get("included_unit_groups", pd.Series(dtype=str))) if not panel_df.empty else [],
@@ -417,8 +470,10 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
     extra_manifest = {
         "primary_plot_type": "stacked_bar",
         "main_metric": "transition_composition",
-        "source_file": source_name,
-        "source_level": "l1_stsp_perturbation_transition_summary" if sources and not (legacy_global_used or legacy_region_used) else "legacy_global_perturbation_fallback" if legacy_global_used else "legacy_region_perturbation_fallback" if legacy_region_used else "missing",
+        "source_file": unit_source_name if windowed_unit_source_used else source_name,
+        "source_level": source_level,
+        "analysis_window_ms": analysis_window_ms if windowed_unit_source_used else None,
+        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike" if windowed_unit_source_used else "",
         "checked_candidates": [record["path"] for record in source_records],
         "plotted_transition_types": ["advance", "recruit", "loss"],
         "plotted_conditions": plotted_conditions,
@@ -446,6 +501,144 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
         sources,
         warnings,
         group_cols=["condition", "perturbation_condition", "transition_type"],
+        extra_stats=extra_stats,
+        extra_manifest=extra_manifest,
+        source_records=source_records,
+    )
+
+
+def build_fig5_l2_writeback_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    seeds, warnings = _seed_dirs(spec, repo_root)
+    if not seeds:
+        return missing_adapter_result(spec, repo_root, output_dir, "Fig.5 experiment root has no seed directories.")
+    rows: list[dict[str, Any]] = []
+    sources: list[Path] = []
+    source_records: list[dict[str, Any]] = []
+    required_cols = {
+        "network_seed",
+        "condition",
+        "condition_label",
+        "condition_order",
+        "memory_control_condition",
+        "source_condition",
+        "layer",
+        "history_status",
+        "history_label",
+        "history_order",
+        "n_trials",
+        "n_l2_total_elements",
+        "n_l2_history_sites",
+        "n_l2_updated_sites",
+        "n_l2_total_updated_sites",
+        "fraction_among_updates",
+        "update_probability_given_history",
+        "dynamic_minus_static_prior_fraction",
+        "dynamic_conditional_prior_minus_nonprior",
+        "static_conditional_prior_minus_nonprior",
+        "conditional_difference_in_differences",
+    }
+    for seed_dir in seeds:
+        path = seed_dir / "data" / "metrics" / FIG5_L2_WRITEBACK_SOURCE_NAME
+        source_records.append(_source_entry(path, repo_root))
+        if not path.exists():
+            warnings.append(f"Missing Fig.5D Layer2 re-update history source: {_rel(path, repo_root)}")
+            continue
+        header = set(pd.read_csv(path, nrows=0).columns)
+        missing = sorted(required_cols.difference(header))
+        if missing:
+            warnings.append(f"{_rel(path, repo_root)} lacks Layer2 re-update history columns {missing}.")
+            continue
+        sources.append(path)
+        df = pd.read_csv(path)
+        use = df[df["condition"].astype(str).isin(["dynamic_intact", "static_opportunity"])].copy()
+        if use.empty:
+            warnings.append(f"{_rel(path, repo_root)} has no dynamic/static Layer2 re-update history rows.")
+            continue
+        use = use.sort_values(["condition_order", "history_order"], kind="mergesort")
+        for _, r in use.iterrows():
+            condition = str(r.get("condition", ""))
+            condition_label = str(r.get("condition_label", "")) or MAIN_CONDITION_LABELS.get(condition, condition)
+            history_status = str(r.get("history_status", ""))
+            history_label = str(r.get("history_label", "")) or history_status.replace("_", " ")
+            value = _num(r.get("update_probability_given_history"))
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    "l2_reupdate_probability_given_history",
+                    condition_label,
+                    str(r.get("layer", "layer2_presynaptic")),
+                    _network_id(seed_dir),
+                    _seed_id(seed_dir, r.get("network_seed", "")),
+                    value,
+                    "probability",
+                    path,
+                    repo_root,
+                    condition_label=condition_label,
+                    condition_order=int(_num(r.get("condition_order"))),
+                    perturbation_condition=condition,
+                    raw_condition=condition,
+                    source_condition=str(r.get("source_condition", "")),
+                    source_metric="update_probability_given_history",
+                    history_status=history_status,
+                    history_label=history_label,
+                    history_order=int(_num(r.get("history_order"))),
+                    n_trials=r.get("n_trials", ""),
+                    n_l2_total_elements=r.get("n_l2_total_elements", ""),
+                    n_l2_history_sites=r.get("n_l2_history_sites", ""),
+                    n_l2_updated_sites=r.get("n_l2_updated_sites", ""),
+                    n_l2_total_updated_sites=r.get("n_l2_total_updated_sites", ""),
+                    fraction_among_updates=_num(r.get("fraction_among_updates")),
+                    update_probability_given_history=value,
+                    dynamic_minus_static_prior_fraction=_num(r.get("dynamic_minus_static_prior_fraction")),
+                    dynamic_conditional_prior_minus_nonprior=_num(r.get("dynamic_conditional_prior_minus_nonprior")),
+                    static_conditional_prior_minus_nonprior=_num(r.get("static_conditional_prior_minus_nonprior")),
+                    conditional_difference_in_differences=_num(r.get("conditional_difference_in_differences")),
+                    denominator_definition=str(r.get("denominator_definition", "")),
+                    run_mode="",
+                )
+            )
+    panel_df = pd.DataFrame(rows)
+    extra_stats = {
+        "main_metric": "l2_reupdate_probability_given_history",
+        "plot_type": "grouped_bar",
+        "primary_plot_type": "grouped_bar",
+        "source_file": FIG5_L2_WRITEBACK_SOURCE_NAME,
+        "layer": "layer2_presynaptic",
+        "conditions": ["dynamic_intact", "static_opportunity"],
+        "condition_labels": ["Dynamic", "Static"],
+        "history_segments": ["prior_updated", "not_prior_updated"],
+        "history_labels": ["Prior-updated", "Not prior-updated"],
+        "comparison": "probe update probability by prior-update history",
+        "static_value_is_opportunity": True,
+        "static_actual_stsp_mutation_expected_zero": True,
+        "annotation_units": "percentage_points",
+    }
+    extra_manifest = {
+        "primary_plot_type": "grouped_bar",
+        "main_metric": "l2_reupdate_probability_given_history",
+        "source_file": FIG5_L2_WRITEBACK_SOURCE_NAME,
+        "checked_candidates": [record["path"] for record in source_records],
+        "legacy_traceability_source_file": FIG5_L2_WRITEBACK_LEGACY_SOURCE_NAME,
+        "plotted_conditions": ["dynamic_intact", "static_opportunity"],
+        "plotted_condition_labels": ["Dynamic", "Static"],
+        "plotted_history_segments": ["prior_updated", "not_prior_updated"],
+        "plotted_history_labels": ["Prior-updated", "Not prior-updated"],
+        "layer": "layer2_presynaptic",
+        "static_value_is_opportunity": True,
+        "static_actual_stsp_mutation_expected_zero": True,
+        "mechanism_claim": "Prior-updated Layer2 sites have a higher probe update probability, especially under dynamic probe processing.",
+    }
+    return _write_result(
+        spec,
+        repo_root,
+        output_dir,
+        panel_id,
+        panel_df,
+        sources,
+        warnings,
+        group_cols=["condition", "history_status"],
         extra_stats=extra_stats,
         extra_manifest=extra_manifest,
         source_records=source_records,
@@ -744,6 +937,9 @@ def _l1_stsp_transition_longform(
                     n_units=r.get("n_units", ""),
                     n_trials=r.get("n_trials", ""),
                     included_unit_groups=r.get("included_unit_groups", ""),
+                    analysis_window_ms=r.get("analysis_window_ms", ""),
+                    analysis_window_steps=r.get("analysis_window_steps", ""),
+                    analysis_window_policy=r.get("analysis_window_policy", ""),
                     perturbation_mode=r.get("perturbation_mode", ""),
                     perturbed_layer=r.get("perturbed_layer", "layer1"),
                     perturbed_variables=r.get("perturbed_variables", ""),
@@ -753,6 +949,104 @@ def _l1_stsp_transition_longform(
                 )
             )
     return rows
+
+
+def _l1_stsp_windowed_summary_from_unit_transitions(
+    unit_df: pd.DataFrame,
+    *,
+    plotted_conditions: list[str],
+    analysis_window_ms: float,
+    analysis_window_steps: int,
+) -> pd.DataFrame:
+    if unit_df.empty:
+        return pd.DataFrame()
+    included_groups = ["overlap_dominant", "probe_only_dominant", "random_matched"]
+    use = unit_df[unit_df["condition"].astype(str).isin(plotted_conditions)].copy()
+    if "included_in_main" in use.columns:
+        use = use[_bool_series(use["included_in_main"])].copy()
+    else:
+        use = use[use["unit_group"].astype(str).isin(included_groups)].copy()
+    if use.empty:
+        return pd.DataFrame()
+    use["_first_static_windowed"] = _windowed_first_spikes(use["first_spike_static"], analysis_window_steps)
+    use["_first_condition_windowed"] = _windowed_first_spikes(use["first_spike_condition"], analysis_window_steps)
+    use["_transition_windowed"] = _windowed_transition_type(
+        use["_first_condition_windowed"],
+        use["_first_static_windowed"],
+    )
+    rows: list[dict[str, Any]] = []
+    for (network_seed, condition), part in use.groupby(["network_seed", "condition"], sort=False):
+        transitions = part["_transition_windowed"].astype(str)
+        label_values = part.get("condition_label", pd.Series(dtype=str)).dropna().astype(str)
+        label = label_values.iloc[0] if not label_values.empty and label_values.iloc[0] else MAIN_CONDITION_LABELS.get(str(condition), str(condition))
+        perturbation_values = part.get("perturbation_mode", pd.Series(dtype=str)).dropna().astype(str)
+        layer_values = part.get("perturbed_layer", pd.Series(dtype=str)).dropna().astype(str)
+        variable_values = part.get("perturbed_variables", pd.Series(dtype=str)).dropna().astype(str)
+        transition_mass = float(transitions.isin(["advance", "recruit", "loss"]).mean())
+        rows.append(
+            {
+                "network_seed": int(network_seed),
+                "condition": str(condition),
+                "condition_label": label,
+                "P_advance": float(transitions.eq("advance").mean()),
+                "P_recruit": float(transitions.eq("recruit").mean()),
+                "P_loss": float(transitions.eq("loss").mean()),
+                "P_unchanged": float(transitions.eq("unchanged").mean()),
+                "P_advance_plus_recruit": float(transitions.isin(["advance", "recruit"]).mean()),
+                "transition_mass": transition_mass,
+                "n_units": int(len(part)),
+                "n_trials": int(part["trial_id"].nunique()) if "trial_id" in part.columns else int(len(part)),
+                "included_unit_groups": ";".join(included_groups),
+                "perturbation_mode": perturbation_values.iloc[0] if not perturbation_values.empty else _l1_stsp_mode(str(condition)),
+                "perturbed_layer": layer_values.iloc[0] if not layer_values.empty else ("layer1" if str(condition) in {"attenuate_l1_stsp", "reset_l1_stsp"} else "none"),
+                "perturbed_variables": variable_values.iloc[0] if not variable_values.empty else ("u_pre;x_pre" if str(condition) in {"attenuate_l1_stsp", "reset_l1_stsp"} else "none"),
+                "analysis_window_ms": float(analysis_window_ms),
+                "analysis_window_steps": int(analysis_window_steps),
+                "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _analysis_window_steps(seed_dir: Path, analysis_window_ms: float) -> int:
+    config_path = seed_dir / "run_config.json"
+    dt_seconds = 0.001
+    if config_path.exists():
+        try:
+            cfg = read_json(config_path)
+            dt_seconds = float(cfg.get("dt", dt_seconds))
+        except Exception:
+            dt_seconds = 0.001
+    dt_ms = max(dt_seconds * 1000.0, 1e-12)
+    return max(1, int(round(float(analysis_window_ms) / dt_ms)))
+
+
+def _windowed_first_spikes(values: pd.Series, analysis_window_steps: int) -> pd.Series:
+    numeric = pd.to_numeric(values, errors="coerce").fillna(-1).astype(int)
+    in_window = (numeric >= 0) & (numeric < int(analysis_window_steps))
+    return numeric.where(in_window, -1)
+
+
+def _windowed_transition_type(first_condition: pd.Series, first_static: pd.Series) -> pd.Series:
+    out = pd.Series("unchanged", index=first_condition.index, dtype=object)
+    out[(first_condition >= 0) & (first_static >= 0) & (first_condition < first_static)] = "advance"
+    out[(first_condition >= 0) & (first_static < 0)] = "recruit"
+    out[(first_condition < 0) & (first_static >= 0)] = "loss"
+    return out
+
+
+def _bool_series(values: pd.Series) -> pd.Series:
+    if values.dtype == bool:
+        return values.fillna(False)
+    return values.astype(str).str.strip().str.lower().isin({"true", "1", "yes"})
+
+
+def _l1_stsp_mode(condition: str) -> str:
+    if condition == "attenuate_l1_stsp":
+        return "attenuate"
+    if condition == "reset_l1_stsp":
+        return "reset"
+    return "none"
 
 
 def _legacy_global_summary_as_l1_fallback(df: pd.DataFrame) -> pd.DataFrame:
@@ -872,6 +1166,10 @@ def _supplement_status(seed_dirs: list[Path], repo_root: Path) -> list[dict[str,
         "supp_perturbation_ux_audit.csv",
         "supp_layer_delay_local_competition_metrics.csv",
         "supp_trial_condition_audit.csv",
+        "supp_postprobe_l2_writeback_by_network.csv",
+        "supp_postprobe_l2_writeback_by_trial.csv",
+        "supp_postprobe_l2_writeback_memory_overlap.csv",
+        "supp_postprobe_l2_writeback_magnitude_qc.csv",
     ]
     rows = []
     for seed_dir in seed_dirs:

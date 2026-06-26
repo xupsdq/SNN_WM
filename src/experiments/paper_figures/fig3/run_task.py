@@ -733,6 +733,7 @@ def _get_cue_specificity_access(
     filenames = {
         "cue_specificity_trial_readout": "panel_c_cue_specificity_trial_readout.csv",
         "cue_specificity_metrics": "panel_c_cue_specificity_metrics.csv",
+        "cue_specificity_memory_gain": "panel_c_cue_specificity_memory_gain.csv",
         "cue_specificity_serial_summary": "panel_c_cue_specificity_serial_summary.csv",
         "cue_specificity_contrast_summary": "panel_c_cue_specificity_contrast_summary.csv",
         "cue_specificity_summary": "panel_c_cue_specificity_summary.csv",
@@ -964,6 +965,7 @@ def _write_cue_specificity_access_tables_to_bundle(ctx: ExperimentContext, table
     mapping = {
         "cue_specificity_trial_readout": ctx.raw_dir / "panel_c_cue_specificity_trial_readout.csv",
         "cue_specificity_metrics": ctx.metrics_dir / "panel_c_cue_specificity_metrics.csv",
+        "cue_specificity_memory_gain": ctx.metrics_dir / "panel_c_cue_specificity_memory_gain.csv",
         "cue_specificity_serial_summary": ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv",
         "cue_specificity_contrast_summary": ctx.metrics_dir / "panel_c_cue_specificity_contrast_summary.csv",
         "cue_specificity_summary": ctx.metrics_dir / "panel_c_cue_specificity_summary.csv",
@@ -982,10 +984,10 @@ def _validate_cue_specificity_science(ctx: ExperimentContext, tables: Mapping[st
     setattr(ctx, "cue_specificity_scientific_checks", checks)
     if bool(ctx.cfg.smoke):
         return
-    if not bool(checks.get("S_final_matched_gt_unseen_P_target")):
-        raise RuntimeError(f"Cue specificity hard gate failed: S_final matched must exceed unseen for P_target. Checks={checks}")
-    if not bool(checks.get("S_final_matched_gt_mismatched_P_target")):
-        raise RuntimeError(f"Cue specificity hard gate failed: S_final matched must exceed mismatched for P_target. Checks={checks}")
+    if not bool(checks.get("target_memory_gain_matched_gt_unseen")):
+        raise RuntimeError(f"Cue specificity hard gate failed: matched must exceed unseen for target memory gain. Checks={checks}")
+    if not bool(checks.get("target_memory_gain_matched_gt_mismatched")):
+        raise RuntimeError(f"Cue specificity hard gate failed: matched must exceed same-label mismatched foil for target memory gain. Checks={checks}")
 
 
 def _write_neutral_ping_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
@@ -1224,7 +1226,11 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
         "morphology_function_coupling": [ctx.metrics_dir / "panel_e_morphology_function_coupling.csv", ctx.metrics_dir / "panel_f_order_specificity_control.csv"],
         "boundary_summary": [ctx.metrics_dir / "panel_f_boundary_summary.csv"],
         "cue_specificity_specs": [ctx.trial_specs_dir / "cue_specificity_specs.csv"],
-        "cue_specificity_access": [ctx.raw_dir / "panel_c_cue_specificity_trial_readout.csv", ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv"],
+        "cue_specificity_access": [
+            ctx.raw_dir / "panel_c_cue_specificity_trial_readout.csv",
+            ctx.metrics_dir / "panel_c_cue_specificity_memory_gain.csv",
+            ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv",
+        ],
         "progressive_update": [ctx.metrics_dir / "panel_b_progressive_update_metrics.csv"],
         "peak_valley_landscape": [ctx.metrics_dir / "panel_c_example_landscape_summary.csv"],
         "neutral_ping": [ctx.raw_dir / "panel_d_neutral_ping_trial_readout.csv", ctx.metrics_dir / "panel_d_ping_summary.csv"],
