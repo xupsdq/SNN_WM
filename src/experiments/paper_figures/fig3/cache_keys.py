@@ -8,6 +8,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 from src.experiments.paper_figures.fig3.schemas import (
+    CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY,
     SCHEMA_NAME,
     SCHEMA_VERSION,
     TASK_ACCESS_JOB_SPECS,
@@ -255,6 +256,7 @@ def build_cue_specificity_specs_cache_key(
         "cue_types": [str(v) for v in getattr(cfg, "cue_specificity_cue_types")],
         "state_conditions": ["S_final", "S0"],
         "memory_conditions": ["sequence_state", "cue_only"],
+        "mismatched_selection_policy": CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY,
         "unseen_selection_policy": "stable_absent_label_then_stable_class_index_legacy_script_v1",
         "smoke": bool(getattr(cfg, "smoke", False)),
     }

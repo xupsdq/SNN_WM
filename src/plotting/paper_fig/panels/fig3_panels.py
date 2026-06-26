@@ -14,21 +14,21 @@ from src.plotting.common.theme_tokens import COLOR_NEUTRAL
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 
 
-MAIN = get_plot_color("true_pair")
+MAIN = "#0072B2"
 PEAK = "#D55E00"
 RANDOM = "#6A6A6A"
 VALLEY = "#0072B2"
 GRID = "0.86"
 STATE_ORDER = ("S_final", "S0", "S0_ping_null")
 ACCESS_COLORS = {
-    "cue_only": "0.62",
-    "single_item_memory": "#D55E00",
+    "cue_only": "#8A8A8A",
+    "single_item_memory": "#E69F00",
     "sequence_state": "#0072B2",
-    "singleton_access_fraction": "#D55E00",
+    "singleton_access_fraction": "#E69F00",
     "sequence_access_fraction": "#0072B2",
     "rescued_fraction": "#009E73",
     "morphology_N_eff": "#6A6A6A",
-    "single_item_access_count": "#D55E00",
+    "single_item_access_count": "#E69F00",
     "sequence_state_access_count": "#0072B2",
     "rescued_count": "#009E73",
 }
@@ -46,8 +46,8 @@ ACCESS_LABELS = {
 }
 CUE_SPECIFICITY_COLORS = {
     "matched": "#0072B2",
-    "mismatched": "#D55E00",
-    "unseen": "#6A6A6A",
+    "mismatched": "#E69F00",
+    "unseen": "#8A8A8A",
 }
 CUE_SPECIFICITY_LABELS = {
     "matched": "Matched",
@@ -501,7 +501,7 @@ def render_fig3_access_serial_profile(ax, panel_data: pd.DataFrame | None, stats
     ax.set_ylim(-0.02, 1.03)
     ax.set_xlabel("Serial position")
     ax.set_ylabel("Target readout probability")
-    ax.legend(frameon=False, fontsize=5.6, loc="upper left", ncol=3, handlelength=1.2, columnspacing=0.8, borderaxespad=0.25)
+    ax.legend(frameon=False, fontsize=5.6, loc="upper center", ncol=3, handlelength=1.2, columnspacing=0.8, borderaxespad=0.25)
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig3_access_serial_profile"
@@ -631,8 +631,10 @@ def render_fig3_rescue_fraction(ax, panel_data: pd.DataFrame | None, stats: Mapp
         ax.legend(frameon=False, fontsize=4.7, loc="upper left", handlelength=0.9, borderaxespad=0.15)
         ax.paper_fig_plot_form = "fig3_rescue_fraction"
     ax.set_xticks(xs, [str(int(v)) for v in seqs])
-    ax.set_xlabel("K")
+    ax.set_xlabel(str(spec.get("x_axis", "Sequence length (items)")))
     ax.set_ylabel("Rescued item fraction" if metrics == ["rescued_fraction"] else "Fraction")
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     ax.set_ylim(0, 1.12)
     _tidy(ax)
     _compact(ax)
@@ -661,8 +663,8 @@ def render_fig3_morphology_capacity(ax, panel_data: pd.DataFrame | None, stats: 
     ax.set_xticks(xs, [str(int(v)) for v in xs])
     ax.set_xlim(float(xs.min()) - 0.6, float(xs.max()) + 0.6)
     ax.set_ylim(0, max(float(xs.max()), float(np.nanmax(mean + sem))) * 1.08)
-    ax.set_xlabel("K")
-    ax.set_ylabel("Effective L1 items")
+    ax.set_xlabel(str(spec.get("x_axis", "Sequence length (items)")))
+    ax.set_ylabel(str(spec.get("y_axis", "Effective items")))
     ax.legend(frameon=False, fontsize=4.8, loc="upper left", handlelength=1.1, borderaxespad=0.15)
     _tidy(ax)
     _compact(ax)
@@ -801,16 +803,18 @@ def render_fig3_boundary_heatmap(ax, panel_data: pd.DataFrame | None, stats: Map
             pass
     if not np.isfinite(vmax) or vmax <= vmin:
         vmax = vmin + 1.0
-    image = ax.imshow(mat, origin="lower", aspect="auto", cmap=get_plot_cmap("sequential"), vmin=vmin, vmax=vmax, interpolation="nearest")
+    image = ax.imshow(mat, origin="lower", aspect="auto", cmap="Greens", vmin=vmin, vmax=vmax, interpolation="nearest")
     for yi in range(len(ys)):
         for xi in range(len(xs)):
             val = mat[yi, xi]
             if np.isfinite(val):
-                ax.text(xi, yi, f"{val:.2g}", ha="center", va="center", fontsize=5.0, color="white" if val > (vmin + vmax) / 2 else "0.15")
+                ax.text(xi, yi, f"{val:.2f}", ha="center", va="center", fontsize=5.0, color="white" if val > (vmin + vmax) / 2 else "0.15")
     ax.set_xticks(np.arange(len(xs)), [str(int(x)) for x in xs])
     ax.set_yticks(np.arange(len(ys)), [str(int(y)) for y in ys])
-    ax.set_xlabel("K")
-    ax.set_ylabel("Delay (ms)")
+    ax.set_xlabel(str(spec.get("x_axis", "Sequence length (items)")))
+    ax.set_ylabel(str(spec.get("y_axis", "Delay (ms)")))
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     cax = getattr(ax, "paper_fig_colorbar_ax", None)
     if cax is not None:
         cbar = ax.figure.colorbar(image, cax=cax)

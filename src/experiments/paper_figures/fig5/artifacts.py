@@ -17,6 +17,9 @@ from src.experiments.paper_figures.fig5.cache_keys import (
 )
 from src.experiments.paper_figures.fig5.schemas import (
     ARRAY_MANIFEST_COLUMNS,
+    PROBE_STSP_CONDITION_MANIFEST_COLUMNS,
+    PROBE_STSP_UPDATE_TABLE_FILES,
+    SNAPSHOT_MANIFEST_COLUMNS,
     SUPPORT_BANK_FILES,
     TABLE_MANIFEST_COLUMNS,
     TRIAL_SAMPLING_FILES,
@@ -43,6 +46,25 @@ class SupportBankArtifact:
     bank: LocalSupportCompetitionBank
     table_manifest: pd.DataFrame
     array_manifest: pd.DataFrame
+    digest: str
+
+
+@dataclass(frozen=True)
+class SupportBankMetadataArtifact:
+    root: Path
+    tables: dict[str, pd.DataFrame]
+    table_manifest: pd.DataFrame
+    array_manifest: pd.DataFrame
+    digest: str
+
+
+@dataclass(frozen=True)
+class ProbeStspUpdateArtifact:
+    root: Path
+    tables: dict[str, pd.DataFrame]
+    payloads: dict[str, dict[str, np.ndarray]]
+    table_manifest: pd.DataFrame
+    snapshot_manifest: pd.DataFrame
     digest: str
 
 
@@ -84,21 +106,47 @@ def read_cache_key(task_dir: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Artifact cache key is missing: {path}")
     payload = read_json(path)
-    if not isinstance(payload, dict) or "cache_key" not in payload or "cache_key_digest" not in payload:
+    if not isinstance(payload, dict) or set(payload) != {"cache_key", "cache_key_digest"}:
         raise ValueError(f"Malformed artifact cache key file: {path}")
+    if not isinstance(payload["cache_key"], Mapping):
+        raise ValueError(f"Malformed artifact cache key payload in: {path}")
+    stored_digest = str(payload["cache_key_digest"])
+    embedded_digest = cache_key_digest(payload["cache_key"])
+    if stored_digest != embedded_digest:
+        raise ValueError(
+            f"Artifact cache key embedded digest mismatch for {path}: "
+            f"stored={stored_digest}, embedded={embedded_digest}"
+        )
     return payload
 
 
 def cache_key_matches(task_dir: Path, expected_key: Mapping[str, Any]) -> bool:
     try:
         payload = read_cache_key(task_dir)
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError:
         return False
     return str(payload.get("cache_key_digest")) == cache_key_digest(expected_key)
 
 
 def require_cache_key_match(task_dir: Path, expected_key: Mapping[str, Any], *, task_id: str) -> None:
     payload = read_cache_key(task_dir)
+    embedded_key = payload["cache_key"]
+    expected_safe = _json_safe(expected_key)
+    found_keys = set(embedded_key)
+    expected_keys = set(expected_safe)
+    if found_keys != expected_keys:
+        missing = sorted(expected_keys.difference(found_keys))
+        extra = sorted(found_keys.difference(expected_keys))
+        raise RuntimeError(
+            f"Fig.5 {task_id} artifact cache key fields mismatch: "
+            f"missing={missing}, extra={extra}. Rebuild the producer task before using --reuse-artifacts require."
+        )
+    if _json_safe(embedded_key) != expected_safe:
+        mismatched = sorted(key for key in expected_keys if _json_safe(embedded_key.get(key)) != expected_safe.get(key))
+        raise RuntimeError(
+            f"Fig.5 {task_id} artifact cache key payload mismatch for fields {mismatched}. "
+            "Rebuild the producer task before using --reuse-artifacts require."
+        )
     expected_digest = cache_key_digest(expected_key)
     found_digest = str(payload.get("cache_key_digest"))
     if found_digest != expected_digest:
@@ -218,6 +266,211 @@ def load_support_bank_artifact(
         l1_stsp_perturbation_audit=table_bundle.tables["l1_stsp_perturbation_audit"],
     )
     return SupportBankArtifact(task_dir, bank, table_bundle.manifest, _read_array_manifest(task_dir), digest)
+
+
+def load_support_bank_metadata_artifact(
+    task_dir: Path,
+    *,
+    expected_key: Mapping[str, Any] | None = None,
+) -> SupportBankMetadataArtifact:
+    task_dir = Path(task_dir)
+    if expected_key is not None:
+        require_cache_key_match(task_dir, expected_key, task_id="preprobe_support_bank")
+    table_bundle = _load_table_bundle(task_dir, files=SUPPORT_BANK_FILES, task_id="preprobe_support_bank")
+    arrays = _read_array_manifest(task_dir)
+    _validate_support_bank_array_manifest_metadata(arrays)
+    _validate_manifest_hashes(task_dir, arrays, path_column="storage_file")
+    digest = _artifact_digest(table_bundle.digest, arrays)
+    recorded = read_json(task_dir / "artifact_digest.json").get("artifact_digest")
+    if str(recorded) != digest:
+        raise RuntimeError(f"Fig.5 support bank artifact digest mismatch: expected {recorded}, found {digest}")
+    return SupportBankMetadataArtifact(task_dir, table_bundle.tables, table_bundle.manifest, arrays, digest)
+
+
+def save_probe_stsp_update_artifact(
+    task_dir: Path,
+    *,
+    tables: Mapping[str, pd.DataFrame],
+    payloads: Mapping[str, Mapping[str, np.ndarray]],
+    snapshot_manifest: pd.DataFrame,
+    cache_key: Mapping[str, Any],
+) -> ProbeStspUpdateArtifact:
+    task_dir = Path(task_dir)
+    reset_task_artifact_dir(task_dir)
+    written_payloads = _save_probe_stsp_npz_files(task_dir, payloads)
+    manifest = snapshot_manifest.copy()
+    _require_columns(manifest, SNAPSHOT_MANIFEST_COLUMNS, task_dir / "snapshot_manifest.csv")
+    file_hashes = {filename: sha256_file(task_dir / filename) for filename in written_payloads}
+    manifest["sha256"] = manifest["storage_file"].astype(str).map(file_hashes)
+    if manifest["sha256"].isna().any():
+        missing = sorted(set(manifest.loc[manifest["sha256"].isna(), "storage_file"].astype(str)))
+        raise RuntimeError(f"Fig.5 probe STSP update snapshot manifest references unwritten files: {missing}")
+    table_inputs = {name: df.copy() for name, df in tables.items()}
+    table_inputs["snapshot_manifest"] = manifest
+    table_bundle = _save_table_bundle(
+        task_dir,
+        tables=table_inputs,
+        files=PROBE_STSP_UPDATE_TABLE_FILES,
+    )
+    digest = _probe_stsp_update_digest(table_bundle.manifest, table_bundle.tables["snapshot_manifest"])
+    write_json({"artifact_digest": digest}, task_dir / "artifact_digest.json")
+    write_cache_key(task_dir, cache_key)
+    return ProbeStspUpdateArtifact(
+        root=task_dir,
+        tables=table_bundle.tables,
+        payloads=written_payloads,
+        table_manifest=table_bundle.manifest,
+        snapshot_manifest=table_bundle.tables["snapshot_manifest"],
+        digest=digest,
+    )
+
+
+def prepare_probe_stsp_update_artifact_dir(task_dir: Path) -> None:
+    reset_task_artifact_dir(Path(task_dir))
+
+
+def write_probe_stsp_update_shard(
+    task_dir: Path,
+    filename: str,
+    payload: Mapping[str, np.ndarray],
+) -> None:
+    _save_probe_stsp_npz_files(Path(task_dir), {str(filename): payload})
+
+
+def finalize_probe_stsp_update_artifact(
+    task_dir: Path,
+    *,
+    tables: Mapping[str, pd.DataFrame],
+    snapshot_manifest: pd.DataFrame,
+    cache_key: Mapping[str, Any],
+    load_payloads: bool = False,
+) -> ProbeStspUpdateArtifact:
+    task_dir = Path(task_dir)
+    manifest = snapshot_manifest.copy()
+    _require_columns(manifest, SNAPSHOT_MANIFEST_COLUMNS, task_dir / "snapshot_manifest.csv")
+    file_hashes = {}
+    for filename in sorted(set(manifest["storage_file"].astype(str).tolist())):
+        path = task_dir / filename
+        if not path.exists():
+            raise FileNotFoundError(f"Fig.5 probe STSP update shard is missing: {path}")
+        file_hashes[filename] = sha256_file(path)
+    manifest["sha256"] = manifest["storage_file"].astype(str).map(file_hashes)
+    if manifest["sha256"].isna().any():
+        missing = sorted(set(manifest.loc[manifest["sha256"].isna(), "storage_file"].astype(str)))
+        raise RuntimeError(f"Fig.5 probe STSP update snapshot manifest references unwritten files: {missing}")
+    table_inputs = {name: df.copy() for name, df in tables.items()}
+    table_inputs["snapshot_manifest"] = manifest
+    table_bundle = _save_table_bundle(
+        task_dir,
+        tables=table_inputs,
+        files=PROBE_STSP_UPDATE_TABLE_FILES,
+    )
+    digest = _probe_stsp_update_digest(table_bundle.manifest, table_bundle.tables["snapshot_manifest"])
+    write_json({"artifact_digest": digest}, task_dir / "artifact_digest.json")
+    write_cache_key(task_dir, cache_key)
+    if load_payloads:
+        payloads = _load_probe_stsp_npz_files(task_dir, table_bundle.tables["snapshot_manifest"])
+    else:
+        for _filename, _part, _payload in iter_probe_stsp_update_shards(task_dir, table_bundle.tables["snapshot_manifest"]):
+            pass
+        payloads = {}
+    return ProbeStspUpdateArtifact(
+        root=task_dir,
+        tables=table_bundle.tables,
+        payloads=payloads,
+        table_manifest=table_bundle.manifest,
+        snapshot_manifest=table_bundle.tables["snapshot_manifest"],
+        digest=digest,
+    )
+
+
+def read_probe_stsp_update_unit_groups(task_dir: Path) -> pd.DataFrame:
+    task_dir = Path(task_dir)
+    tables = _load_table_bundle(
+        task_dir,
+        files=PROBE_STSP_UPDATE_TABLE_FILES,
+        task_id="probe_stsp_update_bank",
+    )
+    return tables.tables["unit_groups"].reset_index(drop=True).copy()
+
+
+def load_probe_stsp_update_artifact(
+    task_dir: Path,
+    *,
+    expected_key: Mapping[str, Any] | None = None,
+    expected_trials: pd.DataFrame | None = None,
+    expected_conditions: tuple[str, ...] | None = None,
+    expected_layers: tuple[str, ...] | None = None,
+    expected_variable_sets: tuple[str, ...] | None = None,
+    expected_parent_digest: str | None = None,
+    expected_trial_hash: str | None = None,
+    expected_network_seed: int | None = None,
+    expected_trial_chunk_size: int | None = None,
+    load_payloads: bool = False,
+) -> ProbeStspUpdateArtifact:
+    task_dir = Path(task_dir)
+    if expected_key is not None:
+        require_cache_key_match(task_dir, expected_key, task_id="probe_stsp_update_bank")
+    tables = _load_table_bundle(
+        task_dir,
+        files=PROBE_STSP_UPDATE_TABLE_FILES,
+        task_id="probe_stsp_update_bank",
+    )
+    snapshot_manifest = tables.tables["snapshot_manifest"].copy()
+    _require_columns(snapshot_manifest, SNAPSHOT_MANIFEST_COLUMNS, task_dir / "snapshot_manifest.csv")
+    _require_columns(tables.tables["condition_manifest"], PROBE_STSP_CONDITION_MANIFEST_COLUMNS, task_dir / "condition_manifest.csv")
+    _validate_probe_stsp_snapshot_membership(
+        snapshot_manifest,
+        expected_trials=expected_trials,
+        expected_conditions=expected_conditions,
+        expected_layers=expected_layers,
+        expected_variable_sets=expected_variable_sets,
+        expected_parent_digest=expected_parent_digest,
+        expected_trial_hash=expected_trial_hash,
+        expected_network_seed=expected_network_seed,
+        expected_trial_chunk_size=expected_trial_chunk_size,
+    )
+    if load_payloads:
+        payloads = _load_probe_stsp_npz_files(task_dir, snapshot_manifest)
+    else:
+        for _filename, _part, _payload in iter_probe_stsp_update_shards(task_dir, snapshot_manifest):
+            pass
+        payloads = {}
+    digest = _probe_stsp_update_digest(tables.manifest, snapshot_manifest)
+    recorded = read_json(task_dir / "artifact_digest.json").get("artifact_digest")
+    if str(recorded) != digest:
+        raise RuntimeError(f"Fig.5 probe STSP update artifact digest mismatch: expected {recorded}, found {digest}")
+    return ProbeStspUpdateArtifact(
+        root=task_dir,
+        tables=tables.tables,
+        payloads=payloads,
+        table_manifest=tables.manifest,
+        snapshot_manifest=snapshot_manifest,
+        digest=digest,
+    )
+
+
+def copy_probe_stsp_update_artifact_to_bundle(task_dir: Path, dst_task_dir: Path) -> None:
+    task_dir = Path(task_dir)
+    dst_task_dir = Path(dst_task_dir)
+    dst_task_dir.mkdir(parents=True, exist_ok=True)
+    for filename in (
+        "cache_key.json",
+        "artifact_digest.json",
+        "manifest.csv",
+        *tuple(PROBE_STSP_UPDATE_TABLE_FILES.values()),
+    ):
+        src = task_dir / filename
+        if not src.exists():
+            raise FileNotFoundError(f"Fig.5 probe STSP update artifact file is missing: {src}")
+        shutil.copy2(src, dst_task_dir / filename)
+    snapshot_manifest = pd.read_csv(task_dir / "snapshot_manifest.csv")
+    _require_columns(snapshot_manifest, SNAPSHOT_MANIFEST_COLUMNS, task_dir / "snapshot_manifest.csv")
+    for filename in sorted(set(snapshot_manifest["storage_file"].astype(str).tolist())):
+        src = task_dir / filename
+        if not src.exists():
+            raise FileNotFoundError(f"Fig.5 probe STSP update shard is missing: {src}")
+        shutil.copy2(src, dst_task_dir / filename)
 
 
 def copy_trial_npz_to_raw(task_dir: Path, raw_dir: Path) -> None:
@@ -340,6 +593,77 @@ def _save_npz_files(task_dir: Path, files: Mapping[str, Mapping[str, np.ndarray]
     return manifest
 
 
+def _save_probe_stsp_npz_files(
+    task_dir: Path,
+    files: Mapping[str, Mapping[str, np.ndarray]],
+) -> dict[str, dict[str, np.ndarray]]:
+    out: dict[str, dict[str, np.ndarray]] = {}
+    for filename, payload in files.items():
+        if not payload:
+            raise RuntimeError(f"Fig.5 probe STSP update shard is empty: {filename}")
+        path = Path(task_dir) / str(filename)
+        safe_payload = {str(key): np.asarray(value) for key, value in payload.items()}
+        np.savez_compressed(path, **safe_payload)
+        out[str(filename)] = safe_payload
+    return out
+
+
+def _load_probe_stsp_npz_files(
+    task_dir: Path,
+    snapshot_manifest: pd.DataFrame,
+) -> dict[str, dict[str, np.ndarray]]:
+    payloads: dict[str, dict[str, np.ndarray]] = {}
+    for filename, _part, payload in iter_probe_stsp_update_shards(task_dir, snapshot_manifest):
+        payloads[str(filename)] = payload
+    return payloads
+
+
+def iter_probe_stsp_update_shards(
+    task_dir: Path,
+    snapshot_manifest: pd.DataFrame,
+):
+    for filename, part in snapshot_manifest.groupby("storage_file", sort=False):
+        path = Path(task_dir) / str(filename)
+        if not path.exists():
+            raise FileNotFoundError(f"Fig.5 probe STSP update shard is missing: {path}")
+        found = sha256_file(path)
+        expected_hashes = {str(value) for value in part["sha256"].astype(str).tolist()}
+        if expected_hashes != {found}:
+            raise RuntimeError(f"Fig.5 probe STSP update shard hash mismatch for {path}: expected={sorted(expected_hashes)}, found={found}")
+        with np.load(path, allow_pickle=False) as payload:
+            expected_keys = set(str(value) for value in part["storage_key"].tolist())
+            if set(payload.files) != expected_keys:
+                raise RuntimeError(f"Fig.5 probe STSP update key mismatch for {filename}: expected={sorted(expected_keys)}, found={sorted(payload.files)}")
+            shard_payload: dict[str, np.ndarray] = {}
+            for row in part.to_dict("records"):
+                key = str(row["storage_key"])
+                arr = np.asarray(payload[key])
+                if _shape_text(arr.shape) != str(row["shape"]):
+                    raise RuntimeError(
+                        f"Fig.5 probe STSP update shape mismatch for {filename}/{key}: "
+                        f"expected={row['shape']}, found={_shape_text(arr.shape)}"
+                    )
+                if str(arr.dtype) != str(row["dtype"]):
+                    raise RuntimeError(
+                        f"Fig.5 probe STSP update dtype mismatch for {filename}/{key}: "
+                        f"expected={row['dtype']}, found={arr.dtype}"
+                    )
+                expected_n_units = int(row["n_units"])
+                if int(arr.size) != expected_n_units:
+                    raise RuntimeError(
+                        f"Fig.5 probe STSP update n_units mismatch for {filename}/{key}: "
+                        f"expected={expected_n_units}, found={int(arr.size)}"
+                    )
+                shape_n_units = _shape_size(str(row["shape"]))
+                if shape_n_units != expected_n_units:
+                    raise RuntimeError(
+                        f"Fig.5 probe STSP update manifest shape/n_units mismatch for {filename}/{key}: "
+                        f"shape={row['shape']} n_units={expected_n_units}"
+                    )
+                shard_payload[key] = arr
+            yield str(filename), part.reset_index(drop=True).copy(), shard_payload
+
+
 def _load_npz_files(task_dir: Path, *, task_id: str, required_files: tuple[str, ...]) -> dict[str, dict[str, np.ndarray]]:
     manifest = _read_array_manifest(task_dir)
     _validate_manifest_hashes(task_dir, manifest, path_column="storage_file")
@@ -438,9 +762,218 @@ def _validate_support_bank_payload(trials: pd.DataFrame, payloads: Mapping[str, 
         raise RuntimeError(f"Fig.5 branch trace trial mismatch: expected={sorted(trial_ids)}, found={sorted(trace_ids)}")
 
 
+def _validate_support_bank_array_manifest_metadata(manifest: pd.DataFrame) -> None:
+    found_files = {str(value) for value in manifest["storage_file"].astype(str).tolist()}
+    required_files = {"support_maps.npz", "branch_traces.npz"}
+    missing = sorted(required_files.difference(found_files))
+    if missing:
+        raise RuntimeError(f"Fig.5 support bank array manifest missing required files: {missing}")
+    for filename, part in manifest.groupby("storage_file", sort=False):
+        keys = [str(value) for value in part["storage_key"].tolist()]
+        if len(keys) != len(set(keys)):
+            raise RuntimeError(f"Fig.5 support bank array manifest has duplicate keys for {filename}")
+        hashes = {str(value) for value in part["sha256"].astype(str).tolist()}
+        if len(hashes) != 1:
+            raise RuntimeError(f"Fig.5 support bank array manifest has inconsistent hashes for {filename}: {sorted(hashes)}")
+
+
 def _artifact_digest(table_digest_value: str, array_manifest: pd.DataFrame) -> str:
     array_part = table_digest({"array_manifest": array_manifest.loc[:, list(ARRAY_MANIFEST_COLUMNS)].copy()})
     return table_digest({"digest": pd.DataFrame([{"tables": table_digest_value, "arrays": array_part}])})
+
+
+def _probe_stsp_update_digest(table_manifest: pd.DataFrame, snapshot_manifest: pd.DataFrame) -> str:
+    return table_digest(
+        {
+            "manifest": table_manifest.loc[:, list(TABLE_MANIFEST_COLUMNS)].copy(),
+            "snapshot_manifest": snapshot_manifest.loc[:, list(SNAPSHOT_MANIFEST_COLUMNS)].copy(),
+        }
+    )
+
+
+def _validate_probe_stsp_snapshot_membership(
+    snapshot_manifest: pd.DataFrame,
+    *,
+    expected_trials: pd.DataFrame | None,
+    expected_conditions: tuple[str, ...] | None,
+    expected_layers: tuple[str, ...] | None,
+    expected_variable_sets: tuple[str, ...] | None,
+    expected_parent_digest: str | None,
+    expected_trial_hash: str | None,
+    expected_network_seed: int | None,
+    expected_trial_chunk_size: int | None,
+) -> None:
+    key_columns = ["network_seed", "trial_id", "condition", "layer", "variable_set"]
+    duplicate_mask = snapshot_manifest.duplicated(subset=key_columns, keep=False)
+    if duplicate_mask.any():
+        duplicates = snapshot_manifest.loc[duplicate_mask, key_columns].drop_duplicates().to_dict("records")
+        raise RuntimeError(f"Fig.5 probe STSP update duplicate snapshot keys: {duplicates[:10]}")
+    expected_trial_ids: set[int] | None = None
+    expected_condition_set: set[str] | None = None
+    expected_layer_set: set[str] | None = None
+    expected_variable_set: set[str] | None = None
+    expected_network_seeds: set[int] | None = None
+    expected_trial_chunks: dict[int, int] | None = None
+    if expected_trials is not None:
+        ordered_trial_ids = [int(value) for value in expected_trials["trial_id"].tolist()]
+        expected_trial_ids = set(ordered_trial_ids)
+        found_trial_ids = {int(value) for value in snapshot_manifest["trial_id"].tolist()}
+        if found_trial_ids != expected_trial_ids:
+            raise RuntimeError(
+                "Fig.5 probe STSP update trial ids mismatch: "
+                f"expected={sorted(expected_trial_ids)}, found={sorted(found_trial_ids)}"
+            )
+        if expected_trial_chunk_size is not None:
+            chunk_size = int(expected_trial_chunk_size)
+            if chunk_size <= 0:
+                raise RuntimeError(f"Fig.5 probe STSP update invalid trial chunk size: {chunk_size}")
+            expected_trial_chunks = {
+                trial_id: int(index // chunk_size)
+                for index, trial_id in enumerate(ordered_trial_ids)
+            }
+    if expected_conditions is not None:
+        expected_condition_set = {str(value) for value in expected_conditions}
+        found_condition_set = {str(value) for value in snapshot_manifest["condition"].tolist()}
+        if found_condition_set != expected_condition_set:
+            raise RuntimeError(
+                "Fig.5 probe STSP update conditions mismatch: "
+                f"expected={sorted(expected_condition_set)}, found={sorted(found_condition_set)}"
+            )
+    if expected_layers is not None:
+        expected_layer_set = {str(value) for value in expected_layers}
+        found_layer_set = {str(value) for value in snapshot_manifest["layer"].tolist()}
+        if found_layer_set != expected_layer_set:
+            raise RuntimeError(
+                "Fig.5 probe STSP update layer mismatch: "
+                f"expected={sorted(expected_layer_set)}, found={sorted(found_layer_set)}"
+            )
+    if expected_variable_sets is not None:
+        expected_variable_set = {str(value) for value in expected_variable_sets}
+        found_variable_set = {str(value) for value in snapshot_manifest["variable_set"].tolist()}
+        if found_variable_set != expected_variable_set:
+            raise RuntimeError(
+                "Fig.5 probe STSP update variable set mismatch: "
+                f"expected={sorted(expected_variable_set)}, found={sorted(found_variable_set)}"
+            )
+    if expected_parent_digest is not None:
+        found_parent_digests = {str(value) for value in snapshot_manifest["parent_support_bank_digest"].astype(str).tolist()}
+        if found_parent_digests != {str(expected_parent_digest)}:
+            raise RuntimeError(
+                "Fig.5 probe STSP update parent digest mismatch: "
+                f"expected={expected_parent_digest}, found={sorted(found_parent_digests)}"
+            )
+    if expected_trial_hash is not None:
+        found_trial_hashes = {str(value) for value in snapshot_manifest["parent_trial_hash"].astype(str).tolist()}
+        if found_trial_hashes != {str(expected_trial_hash)}:
+            raise RuntimeError(
+                "Fig.5 probe STSP update parent trial hash mismatch: "
+                f"expected={expected_trial_hash}, found={sorted(found_trial_hashes)}"
+            )
+    if expected_network_seed is not None:
+        expected_network_seeds = {int(expected_network_seed)}
+        found_network_seeds = {int(value) for value in snapshot_manifest["network_seed"].tolist()}
+        if found_network_seeds != expected_network_seeds:
+            raise RuntimeError(
+                "Fig.5 probe STSP update network seed mismatch: "
+                f"expected={int(expected_network_seed)}, found={sorted(found_network_seeds)}"
+            )
+    if (
+        expected_network_seeds is not None
+        and expected_trial_ids is not None
+        and expected_condition_set is not None
+        and expected_layer_set is not None
+        and expected_variable_set is not None
+    ):
+        expected_keys = {
+            (network_seed, trial_id, condition, layer, variable_set)
+            for network_seed in expected_network_seeds
+            for trial_id in expected_trial_ids
+            for condition in expected_condition_set
+            for layer in expected_layer_set
+            for variable_set in expected_variable_set
+        }
+        found_keys = {
+            (
+                int(row.network_seed),
+                int(row.trial_id),
+                str(row.condition),
+                str(row.layer),
+                str(row.variable_set),
+            )
+            for row in snapshot_manifest.loc[:, key_columns].itertuples(index=False)
+        }
+        if len(snapshot_manifest) != len(expected_keys):
+            raise RuntimeError(
+                "Fig.5 probe STSP update snapshot row count mismatch: "
+                f"expected={len(expected_keys)}, found={len(snapshot_manifest)}"
+            )
+        if found_keys != expected_keys:
+            missing = sorted(expected_keys.difference(found_keys))[:10]
+            extra = sorted(found_keys.difference(expected_keys))[:10]
+            raise RuntimeError(
+                "Fig.5 probe STSP update exact snapshot key set mismatch: "
+                f"missing={missing}, extra={extra}"
+            )
+    if expected_trial_chunks is not None:
+        chunk_counts = (
+            snapshot_manifest.loc[:, ["trial_id", "trial_chunk_id"]]
+            .drop_duplicates()
+            .groupby("trial_id", sort=False)["trial_chunk_id"]
+            .nunique()
+        )
+        multi_chunk_trials = [int(trial_id) for trial_id, count in chunk_counts.items() if int(count) > 1]
+        if multi_chunk_trials:
+            raise RuntimeError(
+                "Fig.5 probe STSP update trial chunk membership is ambiguous; "
+                f"trial_id maps to multiple trial_chunk_id values: {multi_chunk_trials[:10]}"
+            )
+        found_trial_chunks = {
+            int(row.trial_id): int(row.trial_chunk_id)
+            for row in snapshot_manifest.loc[:, ["trial_id", "trial_chunk_id"]].drop_duplicates().itertuples(index=False)
+        }
+        if set(found_trial_chunks) != set(expected_trial_chunks):
+            missing = sorted(set(expected_trial_chunks).difference(found_trial_chunks))[:10]
+            extra = sorted(set(found_trial_chunks).difference(expected_trial_chunks))[:10]
+            raise RuntimeError(
+                "Fig.5 probe STSP update trial chunk membership trial set mismatch: "
+                f"missing={missing}, extra={extra}"
+            )
+        for row in snapshot_manifest.itertuples(index=False):
+            trial_id = int(row.trial_id)
+            found_chunk = int(row.trial_chunk_id)
+            expected_chunk = int(expected_trial_chunks[trial_id])
+            if found_chunk != expected_chunk:
+                raise RuntimeError(
+                    "Fig.5 probe STSP update per-row trial chunk mismatch: "
+                    f"trial_id={trial_id} expected_chunk={expected_chunk} found_chunk={found_chunk}"
+                )
+            expected_file = _expected_probe_stsp_storage_file(str(row.layer), found_chunk)
+            if str(row.storage_file) != expected_file:
+                raise RuntimeError(
+                    "Fig.5 probe STSP update storage_file does not match shard membership: "
+                    f"trial_id={trial_id} layer={row.layer} chunk={found_chunk} "
+                    f"expected={expected_file} found={row.storage_file}"
+                )
+        represented = {
+            (str(row.layer), int(row.trial_chunk_id))
+            for row in snapshot_manifest.loc[:, ["layer", "trial_chunk_id"]].drop_duplicates().itertuples(index=False)
+        }
+        expected_represented = {
+            (layer, chunk_id)
+            for layer in (expected_layer_set or {str(value) for value in snapshot_manifest["layer"].astype(str).tolist()})
+            for chunk_id in set(expected_trial_chunks.values())
+        }
+        if represented != expected_represented:
+            missing = sorted(expected_represented.difference(represented))[:10]
+            extra = sorted(represented.difference(expected_represented))[:10]
+            raise RuntimeError(
+                "Fig.5 probe STSP update shard coverage mismatch: "
+                f"missing={missing}, extra={extra}"
+            )
+
+
+def _expected_probe_stsp_storage_file(layer: str, trial_chunk_id: int) -> str:
+    return f"stsp_update_{str(layer)}_trialchunk{int(trial_chunk_id)}.npz"
 
 
 def _validate_manifest_hashes(task_dir: Path, manifest: pd.DataFrame, *, path_column: str) -> None:
@@ -502,6 +1035,15 @@ def _shape_text(shape: tuple[int, ...]) -> str:
     return "x".join(str(int(value)) for value in shape)
 
 
+def _shape_size(shape_text: str) -> int:
+    size = 1
+    for part in str(shape_text).split("x"):
+        if part == "":
+            raise ValueError(f"Malformed shape text: {shape_text!r}")
+        size *= int(part)
+    return int(size)
+
+
 def write_json(payload: Mapping[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(_json_safe(payload), indent=2, ensure_ascii=False, sort_keys=True), encoding="utf-8")
@@ -528,19 +1070,30 @@ def _json_safe(value: Any) -> Any:
 
 
 __all__ = [
+    "ProbeStspUpdateArtifact",
     "SupportBankArtifact",
+    "SupportBankMetadataArtifact",
     "TrialSamplingArtifact",
     "cache_key_matches",
+    "copy_probe_stsp_update_artifact_to_bundle",
     "copy_support_bank_tables_to_bundle",
     "copy_trial_npz_to_raw",
     "default_artifact_root",
+    "finalize_probe_stsp_update_artifact",
+    "iter_probe_stsp_update_shards",
     "load_support_bank_artifact",
+    "load_support_bank_metadata_artifact",
+    "load_probe_stsp_update_artifact",
     "load_trial_sampling_artifact",
+    "prepare_probe_stsp_update_artifact_dir",
     "read_cache_key",
+    "read_probe_stsp_update_unit_groups",
     "save_support_bank_artifact",
+    "save_probe_stsp_update_artifact",
     "save_trial_sampling_artifact",
     "task_artifact_dir",
     "trials_hash",
+    "write_probe_stsp_update_shard",
     "write_cache_key",
     "write_json",
 ]

@@ -10,12 +10,12 @@ from matplotlib.patches import FancyArrowPatch, Rectangle
 from src.plotting.common.colors import get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL, GRID_ALPHA_SOFT
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
+from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
 
 
 def render_fig4_reentry_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = panel_data, stats, spec, style
-    ax.set_axis_off()
-    ax.paper_fig_plot_form = "blank_reserved_slot"
+    _ = panel_data, stats, style
+    render_svg_asset_panel(ax, spec)
 
 
 def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -27,9 +27,9 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     df = df.sort_values(["similarity_bin_order", "seed_id"], kind="stable")
     summary = _mean_sem(df, ["similarity_bin_order", "similarity_bin"], "value").sort_values("similarity_bin_order")
     x = np.arange(len(summary), dtype=float)
-    y = summary["mean"].to_numpy(dtype=float)
-    sem = summary["sem"].to_numpy(dtype=float)
-    ax.errorbar(x, y, yerr=sem, fmt="o-", color=get_plot_color("true_pair"), linewidth=1.15, markersize=3.6, capsize=2.0)
+    y = summary["mean"].to_numpy(dtype=float) * 100.0
+    sem = summary["sem"].to_numpy(dtype=float) * 100.0
+    ax.errorbar(x, y, yerr=sem, fmt="o-", color="#009E73", linewidth=1.15, markersize=3.6, capsize=2.0)
     if _run_mode(stats) == "single_network_draft":
         ax.scatter(np.arange(len(df)), np.interp(df["similarity_bin_order"], summary["similarity_bin_order"], y), s=4, color=COLOR_NEUTRAL, alpha=0.18)
     ax.set_xticks(x, [""] * len(x))
@@ -37,6 +37,8 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     ax.text(0.50, -0.135, "Similarity increases", transform=ax.transAxes, ha="center", va="top", fontsize=5.9, color=COLOR_NEUTRAL, clip_on=False)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_similarity_entry"
@@ -73,9 +75,45 @@ def render_fig4_overlap_localization(ax, panel_data: pd.DataFrame | None, stats:
 
 
 def render_fig4_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    from src.plotting.paper_fig.panels.fig4_supp_panels import render_s7_overlap_excess
-
-    render_s7_overlap_excess(ax, panel_data, stats, spec, style)
+    _ = stats, style
+    df = _clean(panel_data)
+    metric = str(spec.get("plot_metric", "mean_acc_drop"))
+    df = df[df["metric"].astype(str).eq(metric)] if not df.empty and "metric" in df.columns else df
+    if df.empty or not {"iso_similarity_bin", "condition"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    work = df.copy()
+    work["iso_similarity_bin_order"] = pd.to_numeric(work.get("iso_similarity_bin_order", pd.Series(np.nan, index=work.index)), errors="coerce")
+    grouped = work.groupby(["iso_similarity_bin_order", "iso_similarity_bin", "condition"], dropna=False)["value"].mean().reset_index()
+    pivot = grouped.pivot_table(index=["iso_similarity_bin_order", "iso_similarity_bin"], columns="condition", values="value").reset_index()
+    if {"High overlap excess", "Low overlap excess"}.issubset(pivot.columns):
+        pivot = pivot.sort_values("iso_similarity_bin_order")
+        low_vals = pd.to_numeric(pivot["Low overlap excess"], errors="coerce").dropna() * 100.0
+        high_vals = pd.to_numeric(pivot["High overlap excess"], errors="coerce").dropna() * 100.0
+        means = [float(low_vals.mean()) if len(low_vals) else np.nan, float(high_vals.mean()) if len(high_vals) else np.nan]
+        sems = [float(low_vals.sem()) if len(low_vals) > 1 else 0.0, float(high_vals.sem()) if len(high_vals) > 1 else 0.0]
+        ax.bar([0, 1], means, yerr=sems, color=["#8A8A8A", "#007A5A"], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
+        ax.set_xticks([0, 1], ["Low", "High"])
+    else:
+        order = [c for c in ["Low overlap excess", "High overlap excess"] if c in set(df["condition"].astype(str))]
+        x = np.arange(len(order), dtype=float)
+        means, sems = [], []
+        for condition in order:
+            vals = pd.to_numeric(df.loc[df["condition"].astype(str).eq(condition), "value"], errors="coerce").dropna() * 100.0
+            means.append(float(vals.mean()) if len(vals) else np.nan)
+            sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
+        ax.bar(x, means, yerr=sems, color=["#8A8A8A", "#007A5A"][: len(order)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
+        ax.set_xticks(x, ["Low", "High"][: len(order)])
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+    ax.set_xlabel(str(spec.get("x_axis", "Overlap beyond similarity")))
+    ax.set_ylabel(str(spec.get("y_axis", "Probe bias (%)")), labelpad=float(spec.get("y_labelpad", 1.0)))
+    if spec.get("y_label_x") is not None:
+        ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "s7_overlap_excess"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_paired_lines = False
 
 
 def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -120,7 +158,7 @@ def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None,
     if "time_ms" not in df.columns:
         render_fig4_overlap_localization(ax, panel_data, stats, spec, style)
         return
-    colors = {"Overlap support": get_plot_color("true_pair"), "Non-overlap support": get_plot_color("shuffled_pair")}
+    colors = {"Overlap support": "#007A5A", "Non-overlap support": "#CC79A7"}
     for condition in ["Overlap support", "Non-overlap support"]:
         part = df[df["condition"].eq(condition)].dropna(subset=["time_ms", "value"])
         if part.empty:
@@ -130,7 +168,7 @@ def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None,
         y = summary["mean"].to_numpy(dtype=float)
         sem = summary["sem"].to_numpy(dtype=float)
         color = colors[condition]
-        ax.plot(x, y, color=color, linewidth=1.15, label=condition.replace(" support", ""))
+        ax.plot(x, y, color=color, linewidth=1.15, label=condition)
         ax.fill_between(x, y - sem, y + sem, color=color, alpha=0.12, linewidth=0)
     for line in spec.get("reference_lines") or []:
         ax.axhline(float(line.get("value", 0.0)), color="0.45", linestyle="--", linewidth=0.7)
@@ -213,20 +251,20 @@ def render_fig4_l3_accumulator_process(ax, panel_data: pd.DataFrame | None, stat
     _draw_process_group(ax, df[df["group"].astype(str).eq("minus")], color=minus_color, marker="^", max_individual=120)
     ax.set_xlim(-1.15, 1.15)
     ax.set_ylim(-1.15, 1.15)
-    ax.set_aspect("equal", adjustable="box")
+    ax.set_aspect("auto")
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlabel("")
     ax.set_ylabel("")
     ax.annotate("", xy=(0.82, -0.045), xytext=(0.18, -0.045), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
     ax.text(0.5, -0.098, "Dynamic-like firing", transform=ax.transAxes, ha="center", va="top", fontsize=5.8, color=COLOR_NEUTRAL, clip_on=False)
-    ax.annotate("", xy=(-0.055, 0.82), xytext=(-0.055, 0.18), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
-    ax.text(-0.108, 0.5, "Dynamic-like decision", transform=ax.transAxes, ha="right", va="center", rotation=90, fontsize=5.8, color=COLOR_NEUTRAL, clip_on=False)
+    ax.annotate("", xy=(-0.015, 0.82), xytext=(-0.015, 0.18), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
+    ax.text(-0.03, 0.5, "Dynamic-like decision", transform=ax.transAxes, ha="right", va="center", rotation=90, fontsize=5.8, color=COLOR_NEUTRAL, clip_on=False)
     handles = [
         Line2D([0], [0], color=plus_color, marker="o", markersize=5.0, linewidth=1.6, markerfacecolor=plus_color, markeredgecolor="white", label="Static to dynamic"),
         Line2D([0], [0], color=minus_color, marker="^", markersize=5.0, linewidth=1.6, markerfacecolor=minus_color, markeredgecolor="white", label="Dynamic to static"),
     ]
-    legend = ax.legend(handles=handles, frameon=False, fontsize=5.8, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2, handlelength=1.2, columnspacing=0.8, borderaxespad=0.0)
+    legend = ax.legend(handles=handles, frameon=False, fontsize=5.0, loc="upper center", bbox_to_anchor=(0.49, 0.985), ncol=2, handlelength=0.9, columnspacing=0.35, borderaxespad=0.0)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_above_plot = True
     ax.paper_fig_legend_ncols = 2
@@ -239,7 +277,8 @@ def render_fig4_l3_accumulator_process(ax, panel_data: pd.DataFrame | None, stat
     ax.paper_fig_individual_traces = True
     ax.paper_fig_axis_direction_annotations = True
     ax.paper_fig_is_two_category_paired_recovery = False
-    ax.paper_fig_forced_equal_aspect = True
+    ax.paper_fig_forced_equal_aspect = False
+    ax.paper_fig_normal_rectangular_panel = True
 
 
 def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -248,23 +287,22 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    order = ["Dynamic", "Overlap support", "Non-overlap support", "Random matched"]
-    if df["condition"].astype(str).eq("Static baseline").any():
-        order.append("Static baseline")
-    elif df["condition"].astype(str).eq("Static").any():
-        order.append("Static")
-    colors = [get_plot_color("dynamic"), get_plot_color("true_pair"), get_plot_color("shuffled_pair"), get_plot_color("other_residual"), "0.70"][: len(order)]
+    order = [c for c in ["Random matched", "Non-overlap support", "Overlap support", "Dynamic"] if c in set(df["condition"].astype(str))]
+    colors = ["#8A8A8A", "#CC79A7", "#007A5A", "#009E73"][: len(order)]
     x = np.arange(len(order), dtype=float)
     means = []
     sems = []
     for condition in order:
-        vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna()
+        vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna() * 100.0
         means.append(float(vals.mean()) if len(vals) else np.nan)
         sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
     ax.bar(x, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.7, zorder=1)
-    label_map = {"Dynamic": "Dyn", "Overlap support": "Overlap", "Non-overlap support": "Non", "Random matched": "Random", "Static": "Static", "Static baseline": "Static"}
+    label_map = {"Dynamic": "Dynamic\nSTSP", "Overlap support": "Overlap\nsupport", "Non-overlap support": "Non-\noverlap\nsupport", "Random matched": "Random\nmatched"}
     ax.set_xticks(x, [label_map.get(item, item) for item in order], rotation=0)
+    ax.tick_params(axis="x", labelsize=5.0, pad=0.4)
+    for label in ax.get_xticklabels():
+        label.set_linespacing(0.88)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop vs static")), labelpad=float(spec.get("y_labelpad", 1.0)))
     if spec.get("y_label_x") is not None:

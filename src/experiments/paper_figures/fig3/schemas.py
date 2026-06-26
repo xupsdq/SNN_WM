@@ -2,6 +2,7 @@ from __future__ import annotations
 
 SCHEMA_NAME = "fig3_runtime_artifacts"
 SCHEMA_VERSION = 4
+CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY = "same_label_different_image_excluding_sequence_v1"
 
 TASK_ALL = "all"
 TASK_SEQUENCE_TRIAL_SPECS = "sequence_trial_specs"
@@ -140,6 +141,10 @@ CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS = (
     "ordered_item_ids",
     "ordered_item_labels",
     "unseen_labels",
+    "cue_selection_policy",
+    "cue_is_sequence_member",
+    "cue_is_same_label_foil",
+    "mismatched_selection_policy",
 )
 
 CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS = (
@@ -217,6 +222,7 @@ __all__ = [
     "BOUNDARY_MANIFEST_COLUMNS",
     "FUNCTIONAL_BOUNDARY_REQUIRED_COLUMNS",
     "CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS",
+    "CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY",
     "CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS",
     "LANDSCAPE_MANIFEST_COLUMNS",
     "MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS",

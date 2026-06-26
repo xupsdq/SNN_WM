@@ -4,10 +4,10 @@ experiment_root_default: results/paper_figure_multi_seed/fig2_pair_fused_stsp_st
 run_modes: [single_network_draft, multi_network_final]
 canvas_mm:
   width: 165
-  height: 148
+  height: 152
 gutters_mm:
-  horizontal: 10
-  vertical: 7
+  horizontal: 2
+  vertical: 2
 reading_order: [A, B, C, D, E, F]
 argument_bands:
   - band_id: protocol_definition
@@ -34,7 +34,7 @@ supplementary_outputs:
 qc_requirements:
   require_claims: true
   require_source_manifest: true
-  canvas_mm: {width: 165, height: 148}
+  canvas_mm: {width: 165, height: 152}
   require_position_mm: true
   require_size_mm: true
   required_state_conditions: [S0, S_A, S_B, S_AB]
@@ -53,14 +53,16 @@ panels:
     panel_type: manual_or_programmatic_schematic
     renderer: render_fig2_episode_schematic
     data_adapter: none
-    size_mm: {width: 147.00, height: 28.00}
-    position_mm: {x: 12.00, y: 6.00, w: 147.00, h: 28.00}
-    letter_mm: {x: 6.00, y: 1.00}
+    source: results/paper_figures/outputs/distractor-enhanced.svg
+    size_mm: {w: 161.00, h: 48.00}
+    position_mm: {x: 2.00, y: 2.00, w: 161.00, h: 48.00}
+    letter_mm: {x: 2.00, y: 2.00}
     x_axis: none
     y_axis: none
     reference_lines: []
     source_mapping:
-      source_status: manual_optional_blank_placeholder
+      manual_asset: results/paper_figures/outputs/distractor-enhanced.svg
+      source_status: manual_svg_asset_required
     content:
       sequence: [Item A, delay, Item B, delay, S_AB]
       references: [S0, S_A, S_B, S_AB]
@@ -71,15 +73,15 @@ panels:
     panel_type: constituent_similarity
     renderer: render_fig2_dual_retention_constituents
     data_adapter: fig2_dual_retention_constituent_adapter
-    size_mm: {width: 42.33, height: 44.00}
-    position_mm: {x: 12.00, y: 36.00, w: 42.33, h: 44.00}
-    letter_mm: {x: 6.00, y: 30.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 2.00, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 2.00, y: 50.00}
     metric: constituent_similarity
     producer_task: morphology
     source: data/metrics/panel_b_dual_retention_metrics.csv
     conditions: [S_A, S_B]
     x_axis: Constituent reference
-    y_axis: Similarity to S_AB
+    y_axis: Similarity to fused pair
     reference_lines: []
   C:
     panel_id: C
@@ -87,9 +89,9 @@ panels:
     panel_type: pair_specificity_boxplot
     renderer: render_fig2_pair_specificity
     data_adapter: fig2_pair_specificity_adapter
-    size_mm: {width: 42.33, height: 44.00}
-    position_mm: {x: 64.33, y: 36.00, w: 42.33, h: 44.00}
-    letter_mm: {x: 58.33, y: 30.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 56.333, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 56.333, y: 50.00}
     metric: pair_specificity_score
     producer_task: morphology
     source: data/metrics/panel_c_pair_specificity_metrics.csv
@@ -103,9 +105,9 @@ panels:
     panel_type: positive_effect_bar_summary
     renderer: render_fig2_morphology_closure
     data_adapter: fig2_morphology_closure_adapter
-    size_mm: {width: 42.33, height: 44.00}
-    position_mm: {x: 116.67, y: 36.00, w: 42.33, h: 44.00}
-    letter_mm: {x: 110.67, y: 30.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 110.667, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 110.667, y: 50.00}
     metric: morphology_closure
     producer_task: [morphology, linear_mixture]
     source_priority:
@@ -126,9 +128,9 @@ panels:
     panel_type: neutral_ping_readout_composition
     renderer: render_fig2_neutral_ping_composition
     data_adapter: fig2_neutral_ping_composition_adapter
-    size_mm: {width: 42.33, height: 44.00}
-    position_mm: {x: 12.00, y: 90.00, w: 42.33, h: 44.00}
-    letter_mm: {x: 6.00, y: 84.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 2.00, y: 102.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 2.00, y: 100.00}
     metric: neutral_ping_readout_composition
     producer_task: neutral_ping
     source_priority:
@@ -136,9 +138,9 @@ panels:
       - data/metrics/panel_e_neutral_ping_metrics.csv
     conditions: [S0, S_A, S_B, S_AB]
     categories: [Other, A, B, Silent]
-    display_labels: {S0: S0, S_A: S_A, S_B: S_B, S_AB: S_AB}
+    display_labels: {S0: No memory, S_A: Item 1, S_B: Item 2, S_AB: Fused pair}
     x_axis: Restored state
-    y_axis: Ping readout (%)
+    y_axis: Ping readout composition (%)
     reference_lines: []
   F:
     panel_id: F
@@ -146,9 +148,9 @@ panels:
     panel_type: partial_cue_target_recovery_combined
     renderer: render_fig2_partial_cue_targets_combined
     data_adapter: fig2_partial_cue_target_adapter
-    size_mm: {width: 94.67, height: 44.00}
-    position_mm: {x: 64.33, y: 90.00, w: 94.67, h: 44.00}
-    letter_mm: {x: 58.33, y: 84.00}
+    size_mm: {w: 106.667, h: 48.00}
+    position_mm: {x: 56.333, y: 102.00, w: 106.667, h: 48.00}
+    letter_mm: {x: 56.333, y: 100.00}
     metric: partial_cue_target_recovery
     producer_task: partial_cue
     source_priority:

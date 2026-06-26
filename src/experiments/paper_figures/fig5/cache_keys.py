@@ -9,8 +9,10 @@ import numpy as np
 import pandas as pd
 
 from src.experiments.paper_figures.fig5.schemas import (
+    POSTPROBE_L2_WRITEBACK_SCHEMA_VERSION,
     SCHEMA_NAME,
     SCHEMA_VERSION,
+    TASK_PROBE_STSP_UPDATE_BANK,
     TASK_SUPPORT_BANK,
     TASK_TRIAL_SAMPLING,
 )
@@ -121,6 +123,50 @@ def build_support_bank_cache_key(cfg: Any, *, trial_hash: str) -> dict[str, Any]
     }
 
 
+def build_probe_stsp_update_bank_cache_key(
+    cfg: Any,
+    *,
+    trial_hash: str,
+    support_bank_digest: str,
+    support_bank_cache_key_digest: str,
+    unit_group_digest: str,
+    conditions: tuple[str, ...],
+    variable_sets: tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "l2_writeback_schema_version": int(POSTPROBE_L2_WRITEBACK_SCHEMA_VERSION),
+        "task_id": TASK_PROBE_STSP_UPDATE_BANK,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "dataset_root": str(Path(getattr(cfg, "dataset_root")).resolve()),
+        "dataset_split": str(getattr(cfg, "split")),
+        "model": model_fingerprint(getattr(cfg, "model_path")),
+        "trial_sampling_hash": str(trial_hash),
+        "parent_support_bank_digest": str(support_bank_digest),
+        "parent_support_bank_cache_key_digest": str(support_bank_cache_key_digest),
+        "unit_group_digest": str(unit_group_digest),
+        "conditions": [str(condition) for condition in conditions],
+        "snapshot_variable_sets": [str(value) for value in (variable_sets or ())],
+        "dt": float(getattr(cfg, "dt")),
+        "batch_size": int(getattr(cfg, "batch_size")),
+        "sample_ms": int(getattr(cfg, "sample_ms")),
+        "delay_ms": int(getattr(cfg, "delay_ms")),
+        "probe_ms": int(getattr(cfg, "probe_ms")),
+        "sample_steps": int(getattr(cfg, "sample_steps")),
+        "delay_steps": int(getattr(cfg, "delay_steps")),
+        "probe_steps": int(getattr(cfg, "probe_steps")),
+        "early_window_ms": int(getattr(cfg, "early_window_ms")),
+        "perturbation_mode": str(getattr(cfg, "perturbation_mode")),
+        "perturbation_attenuation_factor": float(getattr(cfg, "perturbation_attenuation_factor")),
+        "fig5d_include_balanced": bool(getattr(cfg, "fig5d_include_balanced")),
+        "enable_branch_batch": bool(getattr(cfg, "enable_branch_batch")),
+        "smoke": bool(getattr(cfg, "smoke", False)),
+        "trial_chunk_size": int(getattr(cfg, "batch_size")),
+        "snapshot_shard_strategy": "trial_chunk",
+    }
+
+
 def cache_key_digest(cache_key: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(cache_key).encode("utf-8")).hexdigest()
 
@@ -146,6 +192,7 @@ def _json_safe(value: Any) -> Any:
 
 
 __all__ = [
+    "build_probe_stsp_update_bank_cache_key",
     "build_support_bank_cache_key",
     "build_trial_sampling_cache_key",
     "cache_key_digest",

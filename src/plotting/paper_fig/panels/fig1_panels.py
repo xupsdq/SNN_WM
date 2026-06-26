@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.plotting.common.colors import get_plot_color
+from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
 from src.plotting.paper_fig.utils import paper_fig_root
 
 
@@ -21,25 +22,17 @@ STYLE = {
     "capsize": 2.0,
 }
 
-LAYER_COLORS = {"layer1": "#4C78A8", "layer2": "#F58518", "layer3": "#54A24B"}
+LAYER_COLORS = {"layer1": "#A6BDD7", "layer2": "#6C8EBF", "layer3": "#2F4B7C"}
 CONDITION_COLORS = {
-    "dynamic_intact": get_plot_color("dynamic"),
-    "ux_trial_shuffle": get_plot_color("trial_shuffled_ux"),
-    "static_frozen": get_plot_color("static_frozen"),
+    "dynamic_intact": "#009E73",
+    "ux_trial_shuffle": "#E69F00",
+    "static_frozen": "#8A8A8A",
 }
 
 
 def render_fig1_architecture_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
-    ax.set_axis_off()
-    asset = spec.get("source") or (spec.get("source_mapping") or {}).get("manual_asset")
-    asset_path = paper_fig_root() / str(asset) if asset else None
-    if asset_path and asset_path.exists():
-        ax.text(0.5, 0.5, f"Manual schematic asset\n{asset}", ha="center", va="center", fontsize=7.0, transform=ax.transAxes)
-        ax.paper_fig_plot_form = "manual_schematic_asset_slot"
-        return
-
-    ax.paper_fig_plot_form = "blank_manual_slot"
+    render_svg_asset_panel(ax, spec)
 
 
 def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -62,7 +55,7 @@ def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapp
     ax.axhline(mean, color="#2F6EA3", linewidth=0.75, zorder=2)
     _reference_lines(ax, spec)
     tick_idx = _network_tick_indices(len(values))
-    tick_labels = [str(v) for v in df["seed_id"].astype(str).tolist()]
+    tick_labels = [str(i + 1) for i in range(len(values))]
     ax.set_xticks(x[tick_idx], [tick_labels[i] for i in tick_idx])
     ax.set_xlim(-0.5, max(0.5, len(values) - 0.5))
     ax.set_xlabel(str(spec.get("x_axis", "Network")))
@@ -195,7 +188,7 @@ def render_fig1_error_composition(ax, panel_data: pd.DataFrame | None, stats: Ma
     summary = normalized.groupby(["condition", "category"], as_index=False)["value"].mean()
     x = np.arange(len(conditions), dtype=float)
     bottom = np.zeros(len(conditions), dtype=float)
-    colors = {"Original": get_plot_color("original_sample_trace", default="#4C78A8"), "Donor": get_plot_color("donor_trace", default="#F58518"), "Other": get_plot_color("other_residual", default="#BDBDBD")}
+    colors = {"Original": "#007A5A", "Donor": "#D55E00", "Other": "#D9D9D9"}
     segment_centers: dict[tuple[str, str], float] = {}
     segment_values: dict[tuple[str, str], float] = {}
     for category in categories:

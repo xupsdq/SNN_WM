@@ -1,10 +1,10 @@
 figure_id: fig3
 figure_title_draft: Multi-item sequence state rescues access beyond singleton traces
 scientific_contract: sequence_chunk_rescue_v1
-experiment_root_default: results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_1000
+experiment_root_default: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape
 canvas_mm:
   width: 165
-  height: 132
+  height: 102
 reading_order: [A, B, C, D, E]
 run_modes:
   - single_network_draft
@@ -27,7 +27,7 @@ expected_outputs:
 qc_requirements:
   require_claims: true
   require_source_manifest: true
-  canvas_mm: {width: 165, height: 132}
+  canvas_mm: {width: 165, height: 102}
   require_position_mm: true
   require_size_mm: true
   morphology_layer: layer1
@@ -44,16 +44,15 @@ panels:
     data_adapter: fig3_morphology_capacity_adapter
     renderer: render_fig3_morphology_capacity
     source: data/metrics/panel_c_morphology_boundary_metrics.csv
-    size_mm: {width: 72.00, height: 62.00}
-    position_mm: {x: 8.00, y: 8.00, w: 72.00, h: 62.00}
-    axes_mm: {x: 16.00, y: 18.00, w: 64.00, h: 42.00}
-    letter_mm: {x: 3.00, y: 5.00}
+    size_mm: {w: 79.50, h: 48.00}
+    position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
+    letter_mm: {x: 2.00, y: 2.00}
     metric: N_eff
     focus_delay_ms: 400
     morphology_layer: layer1
     state_variable: g
-    x_axis: K
-    y_axis: Effective L1 items
+    x_axis: Sequence length (items)
+    y_axis: Effective items
   B:
     panel_id: B
     claim: Full sequence state keeps early items accessible after slot-matched singleton memory has collapsed.
@@ -62,10 +61,9 @@ panels:
     data_adapter: fig3_access_serial_profile_adapter
     renderer: render_fig3_access_serial_profile
     source: data/metrics/panel_d_item_functional_gain.csv
-    size_mm: {width: 72.00, height: 62.00}
-    position_mm: {x: 88.00, y: 8.00, w: 72.00, h: 62.00}
-    axes_mm: {x: 96.00, y: 18.00, w: 64.00, h: 42.00}
-    letter_mm: {x: 83.00, y: 5.00}
+    size_mm: {w: 79.50, h: 48.00}
+    position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
+    letter_mm: {x: 83.50, y: 2.00}
     metric: target_probability
     focus_seq_len: 10
     focus_delay_ms: 400
@@ -79,10 +77,9 @@ panels:
     data_adapter: fig3_cue_specificity_target_profile_adapter
     renderer: render_fig3_cue_specificity_target_profile
     source: data/metrics/panel_c_cue_specificity_serial_summary.csv
-    size_mm: {width: 48.00, height: 52.00}
-    position_mm: {x: 8.00, y: 74.00, w: 48.00, h: 52.00}
-    axes_mm: {x: 16.00, y: 84.00, w: 40.00, h: 36.00}
-    letter_mm: {x: 3.00, y: 71.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 2.00, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 2.00, y: 50.00}
     metric: target_probability
     focus_seq_len: 7
     focus_delay_ms: 400
@@ -98,17 +95,17 @@ panels:
     data_adapter: fig3_rescue_fraction_adapter
     renderer: render_fig3_rescue_fraction
     source: data/metrics/panel_d_item_functional_gain.csv
-    size_mm: {width: 48.00, height: 52.00}
-    position_mm: {x: 61.50, y: 74.00, w: 48.00, h: 52.00}
-    axes_mm: {x: 69.50, y: 84.00, w: 40.00, h: 36.00}
-    letter_mm: {x: 56.50, y: 71.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 56.333, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 56.333, y: 50.00}
     metric: rescued_fraction
     metrics_to_plot: [rescued_fraction]
     focus_delay_ms: 400
     access_threshold: 0.0
-    annotate_counts: true
-    x_axis: K
+    annotate_counts: false
+    x_axis: Sequence length (items)
     y_axis: Rescued item fraction
+    y_label_x: -0.12
   E:
     panel_id: E
     claim: Functional rescue occupies a K x delay boundary across sequence length and retention interval.
@@ -117,12 +114,12 @@ panels:
     data_adapter: fig3_delay_boundary_heatmap_adapter
     renderer: render_fig3_boundary_heatmap
     source: data/metrics/panel_f_boundary_summary.csv
-    size_mm: {width: 48.00, height: 52.00}
-    position_mm: {x: 112.00, y: 74.00, w: 48.00, h: 52.00}
-    axes_mm: {x: 120.00, y: 84.00, w: 40.00, h: 36.00}
-    letter_mm: {x: 107.00, y: 71.00}
+    size_mm: {w: 52.333, h: 48.00}
+    position_mm: {x: 110.667, y: 52.00, w: 52.333, h: 48.00}
+    letter_mm: {x: 110.667, y: 50.00}
     metric: rescued_fraction
     vmin: 0.0
     vmax: 1.0
-    x_axis: K
-    y_axis: Delay
+    x_axis: Sequence length (items)
+    y_axis: Delay (ms)
+    y_label_x: -0.12
