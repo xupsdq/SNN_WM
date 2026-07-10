@@ -5,6 +5,14 @@
 - The project is in an experiment-engineering normalization phase: mainline experiments use unified computation runners and plot-only entrypoints, while legacy experiments and historical outputs remain for compatibility.
 - Prefer repo-local shared utilities and normalized workflows over copying patterns from archived scripts.
 
+## Paper Manuscript Thesis
+- Current manuscript revisions, especially Abstract, Introduction, and Discussion, should use this central framing: working memory can be developed around two major, intertwined problems, maintenance and capacity-related organization.
+- For maintenance, the key mechanistic issue is how information remains available after stimulus offset, especially the relation between persistent activity and activity-silent latent states. STSP-based models provide an important mechanism-level account of activity-silent maintenance by showing how recent input history can be retained in transient synaptic states.
+- For capacity-related organization, the key phenomenon is how multiple elements become organized into a limited number of effective units, with chunking as the central example. Existing chunking accounts often assign chunk formation to learning, gating, control architecture, long-term structure, or dedicated chunking populations.
+- The closest synaptic chunking work should not be framed as absent or irrelevant. Its role in the manuscript is the boundary case: even there, STP mainly serves as a substrate for maintaining or expressing chunks formed through additional chunk-control structure.
+- The unresolved question for this manuscript is therefore not whether STP/STSP can participate in chunking, but whether the maintenance mechanism itself can generate chunk-like fused states. The specific claim to test is whether STSP dynamics, without explicit chunking cues or a dedicated chunk-control circuit, can transform sequential inputs into compact, cue-addressable, structure-consistent fused states.
+- If supported, the contribution is that STSP is not only a working-memory maintenance mechanism, but a candidate shared synaptic updating mechanism linking maintenance with capacity-related organization.
+
 ## Repository Map
 - `src/core/`: SDNN network and monitoring primitives.
 - `src/data/`: data encoding and dataset loader helpers.
@@ -14,7 +22,6 @@
 - `src/experiments/runners/`: mainline computation-only entrypoints.
 - `src/plotting/experiments/`: mainline plot-only entrypoints.
 - `src/plotting/common/`: plotting style, publication helpers, figure export, and tidy CSV helpers.
-- `scripts/validate_results_layout.py`: validates normalized result bundles.
 - `configs/`: minimal YAML configs for mainline runner and plotting entrypoints.
 - `archive/`: historical scripts and outputs; do not treat this as the source of new mainline patterns.
 - `results/`, `MNIST/`, caches, checkpoints, figures, and generated CSV/JSON artifacts are local/generated data unless explicitly tracked.
@@ -129,19 +136,17 @@
 
 ## Validation
 - After changing experiment or runner behavior, run a smoke command for the affected experiment.
-- After producing a normalized result bundle, validate it:
-  `python scripts/validate_results_layout.py --input-dir results/<experiment_id>`
-- Use strict validation when checking mainline-ready bundles:
-  `python scripts/validate_results_layout.py --input-dir results/<experiment_id> --strict`
+- After producing a normalized result bundle, rerun its affected plot-only entrypoint against that bundle; it must validate required input files and columns.
+- For a mainline-ready bundle, also run the affected runner's smoke path and record both outcomes.
 - After changing a paper-figure DAG runtime path, run the figure-specific gate:
   - compile changed files with `python -m compileall`;
   - run `run_task --task all --reuse-artifacts auto` on a smoke/small validation root;
   - run at least one high-value downstream `run_task --task <task_id> --reuse-artifacts require` from the produced artifact root;
-  - compare fresh/legacy vs DAG outputs with `scripts/regression_compare_fig_outputs.py` using an explicit comparison file list and explicit tolerance;
+  - compare fresh/legacy vs DAG outputs with an explicit comparison file list, exact table/file hashes, row identities, and explicit tolerance;
   - compare standalone require vs full DAG outputs for the downstream task;
   - verify parent artifact hashes are unchanged by the require run;
   - run a broken-artifact guard and confirm `require` fails loudly;
-  - run `scripts/validate_results_layout.py` on the DAG bundle;
+  - run the affected plot-only entrypoint against the DAG bundle and confirm its input/schema validation passes;
   - run `python -m src.plotting.paper_fig.build --fig <fig_id> --check-only --experiment-root <dag_seed_root>` for affected main/supp figures.
 - If no automated tests exist for the touched area, state that explicitly and provide the smoke/layout command that was run.
 - Do not consider a change complete based only on syntax checks when a smoke path is available.

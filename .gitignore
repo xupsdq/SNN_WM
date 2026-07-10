@@ -129,6 +129,10 @@ sandbox_document.xml
 # =========================
 # 10) Local agent / scratch workspaces
 # =========================
+.codex/
+docs/
+reviews/
+tmp/
 .claude/
 !docs/archive/
 !docs/archive/**
@@ -139,9 +143,3 @@ docs/evidence/generated/
 fig/
 tools/
 scripts/
-!scripts/
-scripts/*
-!scripts/audit_paper_figure_task_map.py
-!scripts/benchmark_shared_sequence_root_batch_smoke.py
-!scripts/benchmark_shared_sequence_root_batch_sweep.py
-!scripts/fig3_k7_cue_specificity_control.py

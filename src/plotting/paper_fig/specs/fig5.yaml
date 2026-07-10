@@ -3,7 +3,7 @@ figure_title_draft: Unit-level conversion of overlap-aligned support into local 
 experiment_root: results/paper_figure_multi_seed/fig5_local_support_competition
 canvas_mm:
   width: 165
-  height: 102
+  height: 110
 reading_order: [A, B, C, D, E]
 argument_bands:
   - band_id: local_support
@@ -19,7 +19,7 @@ argument_bands:
     label: Layer2 STSP writeback
     panels: [D]
   - band_id: causal_perturbation
-    label: Causal transition composition
+    label: Causal early transition probability
     panels: [E]
 expected_outputs:
   full_figure: [pdf, svg, png]
@@ -30,6 +30,7 @@ expected_outputs:
 qc_requirements:
   require_claims: true
   require_source_manifest: true
+  canvas_mm: {width: 165, height: 110}
   require_position_mm: true
   require_size_mm: true
   required_unit_groups: [overlap_dominant, probe_only_dominant]
@@ -47,9 +48,9 @@ panels:
     data_adapter: fig5_preprobe_support_adapter
     renderer: render_fig5_preprobe_support
     source: data/metrics/panel_a_preprobe_support_metrics.csv
-    position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
+    position_mm: {x: 2.00, y: 10.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 2.00}
+    letter_mm: {x: 0.25, y: 3.00}
     metric: preprobe_support
     unit_group_order: [probe_only_dominant, balanced, overlap_dominant]
     display_labels:
@@ -67,9 +68,9 @@ panels:
     renderer: render_fig5_early_firing_headline
     source_priority:
       - data/metrics/panel_b_transition_summary_by_group.csv
-    position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
+    position_mm: {x: 83.50, y: 10.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 2.00}
+    letter_mm: {x: 80.00, y: 3.00}
     primary_metric: transition_fraction
     transition_types: [advance, recruit, loss]
     unit_group_order: [overlap_dominant, probe_only_dominant, random_matched]
@@ -83,19 +84,19 @@ panels:
     panel_id: C
     producer_task: local_events
     panel_type: event_aligned_trace
-    claim: Early winner recruitment is paired with loser voltage suppression around the winner-spike event.
+    claim: Within selected winner–loser events, event-aligned dynamic-minus-static voltage traces provide conditional descriptive evidence; no voltage-increase scalar is inferred.
     data_adapter: fig5_winner_loser_adapter
     renderer: render_fig5_winner_loser_events
     source_priority:
       - data/metrics/panel_c_event_trace_summary.csv
       - data/metrics/panel_c_winner_loser_event_metrics.csv
-    position_mm: {x: 2.00, y: 52.00, w: 52.333, h: 48.00}
+    position_mm: {x: 2.00, y: 60.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 2.00, y: 50.00}
+    letter_mm: {x: 0.25, y: 56.00}
     metrics: [winner_delta_v, loser_delta_v]
     trace_labels:
-      winner_delta_v: Winner ΔV
-      loser_delta_v: Loser ΔV
+      winner_delta_v: Winner
+      loser_delta_v: Loser
     inhibition_trace_definition: loser_unit_received_inhibition
     baseline_correction:
       enabled: true
@@ -104,7 +105,7 @@ panels:
       - x_value: 0
         label: winner spike
     x_axis: Time from winner spike (ms)
-    y_axis: Voltage difference (mV)
+    y_axis: Delta V (mV)
   D:
     panel_id: D
     producer_task: postprobe_stsp_update
@@ -114,9 +115,9 @@ panels:
     renderer: render_fig5_l2_writeback_summary
     source_priority:
       - data/metrics/panel_postprobe_l2_reupdate_history_composition.csv
-    position_mm: {x: 56.333, y: 52.00, w: 52.333, h: 48.00}
+    position_mm: {x: 56.333, y: 60.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 56.333, y: 50.00}
+    letter_mm: {x: 52.80, y: 56.00}
     primary_metric: l2_reupdate_probability_given_history
     comparison_conditions:
       - dynamic_intact
@@ -130,30 +131,30 @@ panels:
       prior_updated: Prior-updated
       not_prior_updated: Not prior-updated
     x_axis: ""
-    y_axis: Probe update probability (%)
+    y_axis: Probe update (%)
   E:
     panel_id: E
     producer_task: support_perturbation
-    panel_type: stacked_transition_composition
-    claim: Layer1 STSP state supports the dynamic transition structure observed within the first 50 ms of the probe.
+    panel_type: paired_network_contrast_dotplot
+    claim: Across 20 networks, intact dynamics exceed Layer1-STSP attenuate/reset conditions in first-50-ms P(advance OR recruit); loss is excluded from this headline endpoint.
     data_adapter: fig5_causal_perturbation_summary_adapter
     renderer: render_fig5_causal_perturbation_summary
     source_priority:
       - data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv
-      - data/metrics/panel_d_l1_stsp_perturbation_transition_summary.csv
-      - data/metrics/panel_d_l1_stsp_perturbation_audit.csv
-    position_mm: {x: 110.667, y: 52.00, w: 52.333, h: 48.00}
+    position_mm: {x: 110.667, y: 60.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 110.667, y: 50.00}
-    primary_metric: transition_fraction
+    letter_mm: {x: 107.00, y: 56.00}
+    primary_metric: P_advance_or_recruit_dynamic_minus_condition
     analysis_window_ms: 50
-    transition_types: [advance, recruit, loss]
-    perturbation_conditions:
-      - dynamic_intact
-      - attenuate_l1_stsp
-      - reset_l1_stsp
+    reference_condition: dynamic_intact
+    comparison_conditions: [attenuate_l1_stsp, reset_l1_stsp]
+    transition_types_included: [advance, recruit]
+    transition_types_excluded_from_headline: [loss]
+    display_labels:
+      "Dynamic - Attenuate L1 STSP": "Dynamic -\nL1 attenuate"
+      "Dynamic - Reset L1 STSP": "Dynamic -\nL1 reset"
     x_axis: ""
-    y_axis: Transition composition (%)
+    y_axis: Change in P (pp)
 supplement_outputs:
   - supp_event_chain_fraction_metrics.csv
   - supp_event_chain_null_baselines.csv

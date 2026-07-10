@@ -1399,7 +1399,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--main-sequence-length", type=int, default=10)
     parser.add_argument("--main-only-seq-len-10", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--boundary-sequence-lengths", default="3,5,7,10")
-    parser.add_argument("--boundary-delay-grid-ms", default="100,200,400,800")
+    parser.add_argument("--boundary-delay-grid-ms", default="100,200,300,400,600,800,1200,1500")
     parser.add_argument("--morphology-layer", default="layer1", choices=["layer1", "layer2", "layer3"])
     parser.add_argument("--morphology-variable", default="g", choices=["g", "u", "x"])
     parser.add_argument("--weak-cue-main-keep-prob", type=float, default=0.5)

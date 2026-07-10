@@ -82,7 +82,7 @@ panels:
       - data/metrics/panel_b_region_ping_readout_bias.csv
     position_mm: {x: 2.00, y: 2.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 2.00, y: 2.00}
+    letter_mm: {x: 0.25, y: 0.50}
     metric: old_middle_recent_readout_mass
     metrics: [old_mass, middle_mass, recent_mass]
     metric_labels:
@@ -104,7 +104,7 @@ panels:
       - data/metrics/panel_c_global_ping_score_spike_prediction.csv
     position_mm: {x: 56.333, y: 2.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 56.333, y: 2.00}
+    letter_mm: {x: 52.80, y: 0.50}
     metric: spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Layer 1 spike probability (%)
@@ -121,7 +121,7 @@ panels:
       - data/metrics/panel_d_real_probe_score_spike_deflection.csv
     position_mm: {x: 110.667, y: 2.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
-    letter_mm: {x: 110.667, y: 2.00}
+    letter_mm: {x: 108.80, y: 0.50}
     metric: delta_spike_probability_by_score_quantile
     x_axis: STSP score quantile
     y_axis: Layer 1 firing change (%)
@@ -139,7 +139,7 @@ panels:
       - data/metrics/panel_e_overlap_gated_stsp_interaction.csv
     position_mm: {x: 2.00, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 50.00}
+    letter_mm: {x: 0.25, y: 48.50}
     metric: overlap_gated_delta_spike_probability
     x_axis: Probe overlap
     y_axis: Layer 1 firing change (%)
@@ -157,7 +157,7 @@ panels:
       - data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv
     position_mm: {x: 83.50, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 50.00}
+    letter_mm: {x: 80.00, y: 48.50}
     metric: loss_delta_spike_probability
     x_axis: Removed input sites
     y_axis: Layer 1 recruitment loss (%)

@@ -65,7 +65,8 @@ def _finalize_true_edge_layout(fig, axes: Mapping[str, Any], spec: Mapping[str, 
         target = panel.get("position_mm") or {}
         if ax is None or not target:
             continue
-        _fit_ylabel_gap(fig, ax)
+        ylabel_gap = 0.9 if panel_id == "B" else 0.5
+        _fit_ylabel_gap(fig, ax, target_mm=ylabel_gap)
         for _ in range(4):
             fig.canvas.draw()
             measured = _measure_panel(fig, ax, include_label=False)
@@ -83,7 +84,7 @@ def _finalize_true_edge_layout(fig, axes: Mapping[str, Any], spec: Mapping[str, 
                 "h": max(12.0, float(target["h"]) - top - bottom),
             }
             _set_axes_mm(fig, ax, next_axes, canvas)
-        _fit_ylabel_gap(fig, ax)
+        _fit_ylabel_gap(fig, ax, target_mm=ylabel_gap)
     fig.canvas.draw()
 
 
@@ -96,7 +97,7 @@ def _write_true_edge_report(fig, axes: Mapping[str, Any], spec: Mapping[str, Any
         "figure_id": spec.get("figure_id"),
         "canvas_mm": canvas,
         "method": "measured full-panel bbox includes axes, tick labels, axis labels, annotations, and legends; panel labels excluded",
-        "target_y_title_tick_gap_mm": 0.5,
+        "target_y_title_tick_gap_mm": {"default": 0.5, "B": 0.9},
         "panels": {},
     }
     for panel_id in ("B", "C", "D", "E"):

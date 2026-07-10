@@ -1641,10 +1641,13 @@ def _check_fig3_sequence_chunk_rescue_contract(
 ) -> None:
     figure_id = "fig3"
     canvas = spec.get("canvas_mm") or {}
-    if float(canvas.get("width", 0)) == 165 and float(canvas.get("height", 0)) == 102:
-        passes.append("Fig.3 canvas is 165 x 102 mm")
+    expected_canvas = (spec.get("qc_requirements") or {}).get("canvas_mm") or {"width": 165, "height": 118}
+    expected_width = float(expected_canvas.get("width", 165))
+    expected_height = float(expected_canvas.get("height", 118))
+    if float(canvas.get("width", 0)) == expected_width and float(canvas.get("height", 0)) == expected_height:
+        passes.append(f"Fig.3 canvas is {expected_width:.0f} x {expected_height:.0f} mm")
     else:
-        failures.append(f"Fig.3 canvas must be 165 x 102 mm, found {canvas}")
+        failures.append(f"Fig.3 canvas must be {expected_width:.0f} x {expected_height:.0f} mm, found {canvas}")
     expected_order = ["A", "B", "C", "D", "E"]
     if list(spec.get("reading_order") or []) == expected_order and set(panels.keys()) == set(expected_order):
         passes.append("Fig.3 uses A-E reading order for two-row sequence chunk rescue layout")
@@ -1664,11 +1667,11 @@ def _check_fig3_sequence_chunk_rescue_contract(
         else:
             failures.append(f"Fig.3{panel_id}: expected renderer {renderer}, found {found}")
     expected_slots = {
-        "A": {"x": 2.0, "y": 2.0, "w": 79.5, "h": 48.0},
-        "B": {"x": 83.5, "y": 2.0, "w": 79.5, "h": 48.0},
-        "C": {"x": 2.0, "y": 52.0, "w": 52.333, "h": 48.0},
-        "D": {"x": 56.333, "y": 52.0, "w": 52.333, "h": 48.0},
-        "E": {"x": 110.667, "y": 52.0, "w": 52.333, "h": 48.0},
+        "A": {"x": 2.0, "y": 10.0, "w": 79.5, "h": 48.0},
+        "B": {"x": 83.5, "y": 10.0, "w": 79.5, "h": 48.0},
+        "C": {"x": 2.0, "y": 60.0, "w": 52.333, "h": 48.0},
+        "D": {"x": 56.333, "y": 60.0, "w": 52.333, "h": 48.0},
+        "E": {"x": 110.667, "y": 60.0, "w": 52.333, "h": 48.0},
     }
     for panel_id, expected in expected_slots.items():
         pos = (panels.get(panel_id) or {}).get("position_mm") or {}
@@ -2780,11 +2783,14 @@ def _check_fig5_specifics(
     if figure_id != "fig5":
         return
     canvas = spec.get("canvas_mm") or {}
-    if float(canvas.get("width", 0)) == 165 and float(canvas.get("height", 0)) == 102:
-        passes.append("Fig.5 canvas is 165 x 102 mm")
+    expected_canvas = (spec.get("qc_requirements") or {}).get("canvas_mm") or {"width": 165, "height": 118}
+    expected_width = float(expected_canvas.get("width", 165))
+    expected_height = float(expected_canvas.get("height", 118))
+    if float(canvas.get("width", 0)) == expected_width and float(canvas.get("height", 0)) == expected_height:
+        passes.append(f"Fig.5 canvas is {expected_width:.0f} x {expected_height:.0f} mm")
     else:
-        failures.append(f"Fig.5 canvas must be 165 x 102 mm, found {canvas}")
-    _check_fig5_geometry(panels, render_metadata, passes, failures)
+        failures.append(f"Fig.5 canvas must be {expected_width:.0f} x {expected_height:.0f} mm, found {canvas}")
+    _check_fig5_geometry(spec, panels, render_metadata, passes, failures)
 
     panel_data: dict[str, pd.DataFrame] = {}
     stats_by_panel: dict[str, Mapping[str, Any]] = {}
@@ -2823,6 +2829,8 @@ def _check_fig5_specifics(
         for df in panel_data.values():
             groups.update(str(v) for v in df.get("unit_group", pd.Series(dtype=str)).dropna().unique())
             conditions.update(str(v) for v in df.get("perturbation_condition", pd.Series(dtype=str)).dropna().unique())
+            conditions.update(str(v) for v in df.get("reference_condition", pd.Series(dtype=str)).dropna().unique())
+            conditions.update(str(v) for v in df.get("comparison_condition", pd.Series(dtype=str)).dropna().unique())
             conditions.update(str(v) for v in df.get("condition", pd.Series(dtype=str)).dropna().unique())
             metrics.update(str(v) for v in df.get("metric", pd.Series(dtype=str)).dropna().unique())
             sources_text.extend(str(v) for v in df.get("source_file", pd.Series(dtype=str)).dropna().unique())
@@ -2844,7 +2852,7 @@ def _check_fig5_specifics(
             "B": {"transition_fraction"},
             "C": {"winner_delta_v", "loser_delta_v", "loser_inhibition"},
             "D": {"l2_reupdate_probability_given_history"},
-            "E": {"transition_fraction"},
+            "E": {"P_advance_or_recruit_dynamic_minus_condition"},
         }
         for panel_id, expected_metrics in required_panel_metrics.items():
             df = panel_data.get(panel_id)
@@ -2919,29 +2927,66 @@ def _check_fig5_specifics(
 
         e_df = panel_data.get("E")
         if e_df is not None:
-            e_conditions = set(str(v) for v in e_df.get("perturbation_condition", pd.Series(dtype=str)).dropna().unique())
-            e_groups = set(str(v) for v in e_df.get("unit_group", pd.Series(dtype=str)).dropna().unique())
-            e_transitions = set(str(v) for v in e_df.get("transition_type", pd.Series(dtype=str)).dropna().unique())
-            expected = {"dynamic_intact", "attenuate_l1_stsp", "reset_l1_stsp"}
-            if expected.issubset(e_conditions):
-                passes.append("Fig.5E includes dynamic/Layer1-attenuate/Layer1-reset perturbation conditions")
+            e_stats = stats_by_panel.get("E", {})
+            e_reference_conditions = set(str(v) for v in e_df.get("reference_condition", pd.Series(dtype=str)).dropna().unique())
+            e_comparison_conditions = set(str(v) for v in e_df.get("comparison_condition", pd.Series(dtype=str)).dropna().unique())
+            expected_comparisons = {"attenuate_l1_stsp", "reset_l1_stsp"}
+            if e_reference_conditions == {"dynamic_intact"} and e_comparison_conditions == expected_comparisons:
+                passes.append("Fig.5E uses dynamic as the paired reference against Layer1-attenuate and Layer1-reset conditions")
             else:
-                failures.append(f"Fig.5E missing perturbation conditions {sorted(expected - e_conditions)}")
-            if "static_frozen" in e_conditions:
-                warnings.append("Fig.5E plots static_frozen; main E should use static only as transition reference")
-            else:
-                passes.append("Fig.5E uses static_frozen as reference without plotting a static bar")
+                failures.append(
+                    "Fig.5E must use exactly dynamic_intact as the reference and attenuate_l1_stsp/reset_l1_stsp as comparisons, "
+                    f"found references={sorted(e_reference_conditions)} comparisons={sorted(e_comparison_conditions)}"
+                )
             source_text_e = " ".join(str(v) for v in e_df.get("source_file", pd.Series(dtype=str)).dropna().unique()).lower()
             e_metrics = set(str(v) for v in e_df.get("metric", pd.Series(dtype=str)).dropna().unique())
-            if e_metrics == {"transition_fraction"} and {"advance", "recruit", "loss"}.issubset(e_transitions):
-                passes.append("Fig.5E uses stacked advance/recruit/loss transition composition")
+            headline_metric = "P_advance_or_recruit_dynamic_minus_condition"
+            if e_metrics == {headline_metric}:
+                passes.append("Fig.5E uses only the frozen advance-or-recruit paired headline metric")
             else:
-                failures.append(f"Fig.5E must use transition_fraction advance/recruit/loss rows, found metrics={sorted(e_metrics)} transitions={sorted(e_transitions)}")
+                failures.append(f"Fig.5E must use only {headline_metric}, found metrics={sorted(e_metrics)}")
+            excluded_transitions = set(str(v) for v in e_df.get("transition_types_excluded", pd.Series(dtype=str)).dropna().unique())
+            included_transitions = set(str(v) for v in e_df.get("transition_types_included", pd.Series(dtype=str)).dropna().unique())
+            if included_transitions == {"advance;recruit"} and excluded_transitions == {"loss"}:
+                passes.append("Fig.5E headline includes advance/recruit and explicitly excludes loss")
+            else:
+                failures.append(
+                    "Fig.5E headline must include advance;recruit and exclude loss, "
+                    f"found included={sorted(included_transitions)} excluded={sorted(excluded_transitions)}"
+                )
             e_labels = set(str(v) for v in e_df.get("condition", pd.Series(dtype=str)).dropna().unique())
-            if {"Dynamic", "Attenuate L1 STSP", "Reset L1 STSP"}.issubset(e_labels) and not e_groups:
-                passes.append("Fig.5E x-axis is Layer1 STSP condition, not region groups")
+            expected_labels = {"Dynamic - Attenuate L1 STSP", "Dynamic - Reset L1 STSP"}
+            if e_labels == expected_labels:
+                passes.append("Fig.5E labels the two frozen dynamic-minus-condition contrasts")
             else:
-                failures.append(f"Fig.5E must plot Dynamic/Attenuate L1 STSP/Reset L1 STSP without unit-group split, found labels={sorted(e_labels)} groups={sorted(e_groups)}")
+                failures.append(f"Fig.5E must label the two dynamic-minus-condition contrasts, found labels={sorted(e_labels)}")
+            network_counts = {
+                comparison: int(part.get("network_id", pd.Series(dtype=str)).astype(str).nunique())
+                for comparison, part in e_df.groupby("comparison_condition", dropna=False)
+            }
+            if network_counts == {comparison: 20 for comparison in expected_comparisons}:
+                passes.append("Fig.5E contains 20 independent network contrasts for each paired comparison")
+            else:
+                failures.append(f"Fig.5E must contain 20 network contrasts per comparison, found {network_counts}")
+            ci_labels = set(str(v) for v in e_df.get("confidence_interval", pd.Series(dtype=str)).dropna().unique())
+            if ci_labels == {"two-sided paired t-based 95% CI"}:
+                passes.append("Fig.5E records paired t-based 95% CI provenance")
+            else:
+                failures.append(f"Fig.5E must record paired t-based 95% CI provenance, found {sorted(ci_labels)}")
+            summaries = e_stats.get("contrast_summaries") or []
+            summary_by_comparison = {
+                str(item.get("comparison_condition")): item
+                for item in summaries
+                if isinstance(item, Mapping)
+            }
+            if all(
+                int(summary_by_comparison.get(comparison, {}).get("n_networks", 0) or 0) == 20
+                and {"ci95_lower", "ci95_upper", "p_value_two_sided"}.issubset(summary_by_comparison.get(comparison, {}))
+                for comparison in expected_comparisons
+            ):
+                passes.append("Fig.5E stats contain paired t-based 95% CI and p value for both 20-network contrasts")
+            else:
+                failures.append("Fig.5E stats must contain both 20-network paired t-based CI summaries")
             forbidden_e_metrics = {"dynamic_like_spike_similarity", "decision_deflection_score", "loser_post_winner_inh_rise", "early_recruitment", "spike_similarity", "decision_deflection"}
             if forbidden_e_metrics.isdisjoint(e_metrics) and "panel_d_support_perturbation_node_metrics.csv" not in source_text_e:
                 passes.append("Fig.5E does not use node similarity/decision summary as the main visual")
@@ -3034,11 +3079,21 @@ def _check_fig5_specifics(
             failures.append(f"Fig.5 labels/ticks/legends/panel letters clipped: {clipped_panels}")
         else:
             passes.append("Fig.5 has no clipped labels, ticks, legends, or panel letters")
-        point_panels = [panel_id for panel_id in ("A", "B", "D", "E") if bool((render_metadata.get(panel_id) or {}).get("raw_points"))]
+        point_panels = [panel_id for panel_id in ("A", "B", "D") if bool((render_metadata.get(panel_id) or {}).get("raw_points"))]
         if point_panels:
-            failures.append(f"Fig.5 A/B/D/E must not render raw point overlays, found {point_panels}")
+            failures.append(f"Fig.5 A/B/D must not render raw point overlays, found {point_panels}")
         else:
-            passes.append("Fig.5 A/B/D/E render without raw point overlays")
+            passes.append("Fig.5 A/B/D render without raw point overlays")
+        e_meta = render_metadata.get("E") or {}
+        if (
+            e_meta.get("plot_form") == "fig5_l1_stsp_advance_or_recruit_paired_contrast"
+            and bool(e_meta.get("raw_points"))
+            and int(e_meta.get("raw_point_count", 0) or 0) == 40
+            and e_meta.get("y_metric") == "P_advance_or_recruit_dynamic_minus_condition"
+        ):
+            passes.append("Fig.5E renders all 40 network-level paired contrasts with the frozen headline metric")
+        else:
+            failures.append("Fig.5E must render 40 network-level paired contrasts for the frozen advance-or-recruit headline metric")
     return
 
 def _check_fig5_supp_specifics(
@@ -3159,241 +3214,20 @@ def _check_fig5_supp_specifics(
     else:
         passes.append("Fig.5 supplement has no missing-source placeholders")
     return
-    '''
-    if False and "ux_map_pre_dynamic" in locals().get("image_types", set()):
-        warnings.append("Fig.5A appears to include only a heatmap without complete sample/probe/overlap context")
-        else:
-            warnings.append("Fig.5A support map missing; schematic placeholder may be used")
-        if "placeholder_reason" in a_df.columns and a_df["placeholder_reason"].astype(str).str.len().gt(0).any():
-            warnings.append("Fig.5A schematic placeholder used because support-map data are missing")
-        else:
-            passes.append("Fig.5A support map data available")
-        a_meta = render_metadata.get("A", {})
-        if a_meta:
-            if bool(a_meta.get("colorbar_removed", False)) and not bool(a_meta.get("has_colorbar", False)):
-                passes.append("Fig.5A has no colorbar")
-            else:
-                failures.append("Fig.5A colorbar must be removed")
-            if bool(a_meta.get("support_map_uncropped", False)):
-                passes.append("Fig.5A support map is rendered as a complete uncropped image")
-            else:
-                failures.append("Fig.5A support map must remain fully visible and uncropped")
-
-    b_path = panel_output_paths(output_dir, figure_id, "B")["panel_data"]
-    if "B" in panels and b_path.exists():
-        b_df = pd.read_csv(b_path)
-        conditions = set(b_df.get("condition", []))
-        if {"Overlap-aligned", "Probe-only"}.issubset(conditions):
-            passes.append("Fig.5B includes Overlap-aligned and Probe-only conditions")
-        else:
-            failures.append("Fig.5B must include Overlap-aligned and Probe-only conditions")
-        if "pre_probe_stsp_support" in set(b_df.get("metric", [])) or "support_region" in b_df.columns:
-            passes.append("Fig.5B includes pre-probe STSP support")
-        else:
-            failures.append("Fig.5B must include pre-probe STSP support or equivalent")
-        if _panel_n(b_df) > 0:
-            passes.append("Fig.5B paired network identifiers available")
-        else:
-            warnings.append("Fig.5B paired network identifiers unavailable")
-        units = set(b_df.get("unit", pd.Series(dtype=str)).astype(str).str.lower())
-        if units.intersection({"support", "score"}):
-            passes.append("Fig.5B support unit is explicit")
-        else:
-            warnings.append("Fig.5B support unit is ambiguous")
-        b_meta = render_metadata.get("B", {})
-        if b_meta:
-            if bool(b_meta.get("bar_connector_removed", False)) and int(b_meta.get("bar_connector_lines_remaining", 0) or 0) == 0:
-                passes.append("Fig.5B has no connecting line between bar tops")
-            else:
-                failures.append("Fig.5B must not show a connecting line between the two bars")
-            if bool(b_meta.get("value_labels", False)) and int(b_meta.get("value_label_count", 0) or 0) >= 2:
-                passes.append("Fig.5B has numeric labels above both bars")
-            else:
-                failures.append("Fig.5B must show numeric value labels above both bars")
-            rotations = [float(v) for v in b_meta.get("x_tick_rotations", [])]
-            fontstyles = [str(v).lower() for v in b_meta.get("x_tick_fontstyles", [])]
-            if rotations and all(abs(v) < 0.01 for v in rotations) and fontstyles and all(v == "normal" for v in fontstyles):
-                passes.append("Fig.5B x-axis tick labels are upright normal text")
-            else:
-                failures.append(f"Fig.5B x-axis tick labels must be upright normal text, found rotations={rotations}, fontstyles={fontstyles}")
-
-    c_path = panel_output_paths(output_dir, figure_id, "C")["panel_data"]
-    if "C" in panels and c_path.exists():
-        c_df = pd.read_csv(c_path)
-        conditions = set(c_df.get("condition", []))
-        if {"Overlap-dominant units", "Probe-only-dominant units"}.issubset(conditions):
-            passes.append("Fig.5C includes overlap/probe-only dominant unit groups")
-        else:
-            failures.append("Fig.5C must include Overlap-dominant units and Probe-only-dominant units")
-        if "advanced_plus_recruited_fraction" in c_df.columns or "advanced_plus_recruited_fraction" in set(c_df.get("metric", [])):
-            passes.append("Fig.5C preferred advanced_plus_recruited_fraction metric available")
-        else:
-            warnings.append("Fig.5C preferred metric unavailable; composition fallback may be used")
-        if "donut" in " ".join(map(str, c_df.get("source_file", []))).lower() or "composition_fallback" in " ".join(map(str, c_df.columns)).lower():
-            warnings.append("Fig.5C only donut/composition fallback may be available")
-        raw_conditions = " ".join(map(str, c_df.get("condition", []))).lower()
-        if any(token in raw_conditions for token in ("overlap_dominant", "probe_only_dominant", "advance", "recruit")):
-            warnings.append("Fig.5C final condition labels expose internal transition labels")
-        else:
-            passes.append("Fig.5C final condition labels are manuscript-friendly")
-        units = set(c_df.get("unit", pd.Series(dtype=str)).astype(str).str.lower())
-        if units.intersection({"percent", "fraction"}):
-            passes.append("Fig.5C fraction/percent unit is explicit")
-        else:
-            warnings.append("Fig.5C fraction/percent unit is ambiguous")
-        c_meta = render_metadata.get("C", {})
-        b_meta = render_metadata.get("B", {})
-        if c_meta:
-            if bool(c_meta.get("category_labels_wrapped", False)):
-                passes.append("Fig.5C category labels are wrapped instead of intruding into Panel B")
-            else:
-                failures.append("Fig.5C category labels must be wrapped or otherwise reflowed")
-            b_axes = b_meta.get("axes_bounds", []) if b_meta else []
-            c_label_boxes = c_meta.get("y_tick_bboxes", [])
-            if b_axes and c_label_boxes and not any(_boxes_overlap(box, b_axes) for box in c_label_boxes):
-                passes.append("Fig.5C category labels do not overlap Panel B")
-            else:
-                failures.append("Fig.5C category labels must not overlap Panel B")
-            if bool(c_meta.get("legend_above_plot", False)) and int(c_meta.get("legend_ncols", 0) or 0) >= 3:
-                passes.append("Fig.5C legend is a single row above the plot area")
-            else:
-                failures.append("Fig.5C legend must be arranged as a single row above the plot area")
-            c_xlim = [float(v) for v in c_meta.get("xlim", [])]
-            if len(c_xlim) == 2 and abs(c_xlim[0]) <= 0.01 and 9.5 <= c_xlim[1] <= 10.5:
-                passes.append("Fig.5C x-axis is compressed to about 0-10%")
-            else:
-                failures.append(f"Fig.5C x-axis must be displayed at about 0-10%, found xlim={c_xlim}")
-
-    panel_d = panels.get("D") or {}
-    if "D" in panels:
-        refs = panel_d.get("reference_lines") or []
-        if any(float(ref.get("x_value", 9999)) == 0 for ref in refs):
-            passes.append("Fig.5D winner-spike vertical reference line specified")
-        else:
-            failures.append("Fig.5D must include vertical reference line at winner spike time")
-    d_path = panel_output_paths(output_dir, figure_id, "D")["panel_data"]
-    if "D" in panels and d_path.exists():
-        d_df = pd.read_csv(d_path)
-        if "time_from_winner_spike" in d_df.columns or "time_ms" in d_df.columns:
-            passes.append("Fig.5D includes event-aligned time columns")
-        else:
-            warnings.append("Fig.5D only summary data are available; no event-aligned traces found")
-        has_voltage = "winner_loser_voltage_difference" in d_df.columns or "winner_loser_voltage_difference" in set(d_df.get("metric", []))
-        has_inhibition = "local_inhibition_change" in d_df.columns or "local_inhibition_change" in set(d_df.get("metric", []))
-        if has_voltage and has_inhibition:
-            passes.append("Fig.5D includes voltage-difference and inhibition-change data")
-        else:
-            failures.append("Fig.5D must include winner_loser_voltage_difference and local_inhibition_change")
-        if "fallback_summary_only" in d_df.columns and d_df["fallback_summary_only"].astype(str).str.lower().eq("true").any():
-            warnings.append("Fig.5D rendered from summary-only fallback")
-        elif "time_from_winner_spike" in d_df.columns:
-            passes.append("Fig.5D has timecourse data, not a single-bar-only fallback")
-        d_meta = render_metadata.get("D", {})
-        if d_meta:
-            if bool(d_meta.get("legend_above_plot", False)) and int(d_meta.get("legend_ncols", 0) or 0) >= 2:
-                passes.append("Fig.5D legend is a single row above the plot area")
-            else:
-                failures.append("Fig.5D legend must be a single row above the plot area")
-
-    e_path = panel_output_paths(output_dir, figure_id, "E")["panel_data"]
-    if "E" in panels and e_path.exists():
-        e_df = pd.read_csv(e_path)
-        categories = set(e_df.get("condition", []))
-        expected = {"Winner boost", "Loser suppression", "Full winner-loser sequence"}
-        if expected.issubset(categories):
-            passes.append("Fig.5E includes winner boost, loser suppression, and full sequence fractions")
-        else:
-            failures.append("Fig.5E must include Winner boost, Loser suppression, and Full winner-loser sequence")
-        if "Full winner-loser sequence" not in categories:
-            warnings.append("Fig.5E full winner-loser sequence category is missing")
-        units = set(e_df.get("unit", pd.Series(dtype=str)).astype(str).str.lower())
-        if units.intersection({"percent", "fraction"}):
-            passes.append("Fig.5E event fraction unit is explicit")
-        else:
-            warnings.append("Fig.5E event fraction unit is ambiguous")
-        e_meta = render_metadata.get("E", {})
-        if e_meta:
-            if str(e_meta.get("plot_form", "")) == "event_fraction_bar_chart":
-                passes.append("Fig.5E renders as a bar-chart summary")
-            else:
-                failures.append(f"Fig.5E must render as a bar chart, found {e_meta.get('plot_form')}")
-            if bool(e_meta.get("value_labels", False)) and int(e_meta.get("value_label_count", 0) or 0) >= 3:
-                passes.append("Fig.5E has numeric labels above bars")
-            else:
-                failures.append("Fig.5E must show numeric value labels above bars")
-
-    fig4_terms = ("similarity bin", "dynamic-probe index", "final readout recovery")
-    fig6_terms = ("peak membership", "recency", "anchor prediction", "peak flattening", "peak boosting")
-    claim_text = " ".join(str((panel or {}).get("claim", "")) for panel in panels.values()).lower()
-    leaked_fig4 = [term for term in fig4_terms if term in claim_text]
-    leaked_fig6 = [term for term in fig6_terms if term in claim_text]
-    if leaked_fig4:
-        warnings.append(f"Fig.5 claims include Fig.4-specific terms: {leaked_fig4}")
-    else:
-        passes.append("Fig.5 claims do not repeat Fig.4 similarity/DPI/readout-recovery claims")
-    if leaked_fig6:
-        warnings.append(f"Fig.5 claims include Fig.6-specific terms: {leaked_fig6}")
-    else:
-        passes.append("Fig.5 claims do not include Fig.6 peak/recency/anchor terms")
-
-    raw_label_tokens = ("overlap_dominant", "probe_only_dominant", "fig4_panel", "winner_pre_spike_boost", "full_chain_satisfied")
-    raw_label_panels: list[str] = []
-    image_sources: list[str] = []
-    for panel_id in panels:
-        data_path = panel_output_paths(output_dir, figure_id, panel_id)["panel_data"]
-        if not data_path.exists():
-            continue
-        df = pd.read_csv(data_path)
-        condition_text = " ".join(map(str, df.get("condition", []))).lower()
-        if any(token in condition_text for token in raw_label_tokens):
-            raw_label_panels.append(panel_id)
-        if "source_file" in df.columns:
-            image_sources.extend([str(v) for v in df["source_file"].dropna().unique() if str(v).lower().endswith((".png", ".pdf", ".svg"))])
-    if raw_label_panels:
-        warnings.append(f"Fig.5 final condition labels expose old/internal code names in panels {raw_label_panels}")
-    else:
-        passes.append("Fig.5 final condition labels do not expose old code names")
-    if image_sources:
-        warnings.append(f"Fig.5 panel data references old source figure images: {image_sources}")
-    else:
-        passes.append("Fig.5 panel data does not use old source figure images")
-
-    if render_metadata:
-        inside = [pid for pid, meta in render_metadata.items() if meta.get("y_tick_labels_inside_axes") or meta.get("y_label_inside_axes")]
-        if inside:
-            failures.append(f"Fig.5 y-axis tick labels/labels inside plot areas: {inside}")
-        else:
-            passes.append("Fig.5 y-axis tick labels and labels are outside plot areas")
-        legend_overlap = [pid for pid, meta in render_metadata.items() if meta.get("legend_overlaps_data")]
-        if legend_overlap:
-            failures.append(f"Fig.5 legends overlap data in panels {legend_overlap}")
-        else:
-            passes.append("Fig.5 legends do not overlap data")
-        clipped_panels = {
-            panel_id: list(meta.get("clipped_artists", []))
-            for panel_id, meta in render_metadata.items()
-            if meta.get("clipped_artists") or meta.get("panel_label_clipped")
-        }
-        if clipped_panels:
-            failures.append(f"Fig.5 labels/ticks/legends/panel letters clipped: {clipped_panels}")
-        else:
-            passes.append("Fig.5 has no clipped labels, ticks, legends, or panel letters")
-def _check_fig5_geometry(panels: Mapping[str, Any], render_metadata: Mapping[str, Mapping[str, Any]], passes: list[str], failures: list[str]) -> None:
-    '''
 
 
-def _check_fig5_geometry(panels: Mapping[str, Any], render_metadata: Mapping[str, Mapping[str, Any]], passes: list[str], failures: list[str]) -> None:
+def _check_fig5_geometry(spec: Mapping[str, Any], panels: Mapping[str, Any], render_metadata: Mapping[str, Mapping[str, Any]], passes: list[str], failures: list[str]) -> None:
     ids = ("A", "B", "C", "D", "E")
     pos = {panel_id: (panels.get(panel_id) or {}).get("position_mm") or {} for panel_id in ids}
     if any(not pos[panel_id] for panel_id in ids):
         failures.append("Fig.5 A-E must define position_mm")
         return
     expected = {
-        "A": {"x": 2.00, "y": 2.00, "w": 79.50, "h": 48.00},
-        "B": {"x": 83.50, "y": 2.00, "w": 79.50, "h": 48.00},
-        "C": {"x": 2.00, "y": 52.00, "w": 52.333, "h": 48.00},
-        "D": {"x": 56.333, "y": 52.00, "w": 52.333, "h": 48.00},
-        "E": {"x": 110.667, "y": 52.00, "w": 52.333, "h": 48.00},
+        "A": {"x": 2.00, "y": 10.00, "w": 79.50, "h": 48.00},
+        "B": {"x": 83.50, "y": 10.00, "w": 79.50, "h": 48.00},
+        "C": {"x": 2.00, "y": 60.00, "w": 52.333, "h": 48.00},
+        "D": {"x": 56.333, "y": 60.00, "w": 52.333, "h": 48.00},
+        "E": {"x": 110.667, "y": 60.00, "w": 52.333, "h": 48.00},
     }
     for panel_id, expected_pos in expected.items():
         if _fig5_box_near(pos[panel_id], expected_pos, tol=0.10):
@@ -3426,12 +3260,15 @@ def _check_fig5_geometry(panels: Mapping[str, Any], render_metadata: Mapping[str
         failures.append(f"Fig.5 gaps must be 2 mm: row={row_gap:.2f}, top_col={col_gap_top:.2f}, bottom_cols=({col_gap_bottom_cd:.2f},{col_gap_bottom_de:.2f})")
     left_margin = min(_x(pos[pid]) for pid in ids)
     top_margin = min(_y(pos[pid]) for pid in ids)
-    right_margin = 165.0 - max(_right(pos[pid]) for pid in ids)
-    bottom_margin = 102.0 - max(_bottom(pos[pid]) for pid in ids)
-    if _near(left_margin, 2.0, tol=0.15) and _near(top_margin, 2.0, tol=0.15) and _near(right_margin, 2.0, tol=0.15) and _near(bottom_margin, 2.0, tol=0.15):
+    canvas = spec.get("canvas_mm") or {}
+    canvas_w = float(canvas.get("width", 165.0))
+    canvas_h = float(canvas.get("height", 110.0))
+    right_margin = canvas_w - max(_right(pos[pid]) for pid in ids)
+    bottom_margin = canvas_h - max(_bottom(pos[pid]) for pid in ids)
+    if _near(left_margin, 2.0, tol=0.15) and _near(top_margin, 10.0, tol=0.15) and _near(right_margin, 2.0, tol=0.15) and _near(bottom_margin, 2.0, tol=0.15):
         passes.append("Fig.5 uses stable outer margins on all sides")
     else:
-        failures.append(f"Fig.5 outer margins must be 2 mm: left={left_margin:.2f}, top={top_margin:.2f}, right={right_margin:.2f}, bottom={bottom_margin:.2f}")
+        failures.append(f"Fig.5 outer margins must be left/right 2 mm, top 10 mm, and bottom 2 mm: left={left_margin:.2f}, top={top_margin:.2f}, right={right_margin:.2f}, bottom={bottom_margin:.2f}")
     axes = {pid: render_metadata.get(pid, {}).get("plot_axes_bounds", render_metadata.get(pid, {}).get("axes_bounds", [])) for pid in ids}
     if all(isinstance(axes[pid], list) and len(axes[pid]) == 4 for pid in ids):
         passes.append("Fig.5 alignment checks use actual plotting axes boxes rather than panel-label or outer-panel extents")

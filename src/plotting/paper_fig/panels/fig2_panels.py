@@ -128,9 +128,10 @@ def render_fig2_neutral_ping_composition(ax, panel_data: pd.DataFrame | None, st
     ax.set_ylim(0, 100)
     ax.set_ylabel(str(spec.get("y_axis", "Readout composition (%)")))
     ax.set_xlabel("")
-    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 0.994), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
+    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 1.04), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_ncols = 4
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax, st)
 
 

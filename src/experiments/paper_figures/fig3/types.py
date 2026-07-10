@@ -91,7 +91,7 @@ class Fig3Config:
     region_ping_use_random_matched: bool = True
     weak_probe_include_singleton: bool = True
     boundary_sequence_lengths: tuple[int, ...] = (3, 5, 7, 10)
-    boundary_delay_grid_ms: tuple[int, ...] = (100, 200, 400, 800)
+    boundary_delay_grid_ms: tuple[int, ...] = (100, 200, 300, 400, 600, 800, 1200, 1500)
     morphology_layer: str = "layer1"
     morphology_variable: str = "g"
     weak_cue_main_keep_prob: float = 0.5

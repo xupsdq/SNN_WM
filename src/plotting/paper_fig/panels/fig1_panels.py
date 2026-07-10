@@ -281,7 +281,17 @@ def _reference_lines(ax, spec: Mapping[str, Any]) -> None:
         y = float(line.get("value", 0.0))
         ax.axhline(y, color="0.45", linestyle="--", linewidth=0.65)
         if line.get("label"):
-            ax.text(0.98, y, str(line["label"]), ha="right", va="bottom", fontsize=5.0, transform=ax.get_yaxis_transform())
+            ax.text(
+                0.98,
+                y,
+                str(line["label"]),
+                ha="right",
+                va="bottom",
+                fontsize=5.0,
+                transform=ax.get_yaxis_transform(),
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.88, "pad": 0.8},
+                zorder=5,
+            )
 
 
 def _mean_sem(ax, x: np.ndarray, values: np.ndarray) -> None:

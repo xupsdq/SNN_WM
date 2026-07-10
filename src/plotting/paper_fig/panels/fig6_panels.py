@@ -156,7 +156,8 @@ def render_fig6_global_ping_score_spike_prediction(ax, panel_data: pd.DataFrame 
     _score_quantile_lines(ax, use, preferred=["Global ping"])
     ax.set_xlabel("STSP score quantile")
     ax.set_ylabel(str(spec.get("y_axis", "Layer 1 spike probability (%)")))
-    ax.set_ylim(0, 100)
+    ymax = pd.to_numeric(use.get("value", pd.Series(dtype=float)), errors="coerce").max()
+    ax.set_ylim(0, max(100.0, float(ymax) * 1.06 if pd.notna(ymax) else 100.0))
     ax.paper_fig_plot_form = "global_ping_score_quantile_spike_probability"
     ax.paper_fig_entry_type = "global_ping"
     ax.paper_fig_primary_endpoint = "Layer 1 spike recruitment"
@@ -827,6 +828,9 @@ def _wrap_label(label: str) -> str:
         str(label)
         .replace("Single old", "Single\nold")
         .replace("Single recent", "Single\nrecent")
+        .replace("Peak ping", "Peak\nping")
+        .replace("Valley ping", "Valley\nping")
+        .replace("Random ping", "Random\nping")
         .replace("Multi old", "Multi\nold")
         .replace("Multi recent", "Multi\nrecent")
         .replace("Baseline only", "Base")

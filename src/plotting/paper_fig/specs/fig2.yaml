@@ -56,7 +56,7 @@ panels:
     source: results/paper_figures/outputs/distractor-enhanced.svg
     size_mm: {w: 161.00, h: 48.00}
     position_mm: {x: 2.00, y: 2.00, w: 161.00, h: 48.00}
-    letter_mm: {x: 2.00, y: 2.00}
+    letter_mm: {x: 0.25, y: 0.50}
     x_axis: none
     y_axis: none
     reference_lines: []
@@ -75,7 +75,7 @@ panels:
     data_adapter: fig2_dual_retention_constituent_adapter
     size_mm: {w: 52.333, h: 48.00}
     position_mm: {x: 2.00, y: 52.00, w: 52.333, h: 48.00}
-    letter_mm: {x: 2.00, y: 50.00}
+    letter_mm: {x: 0.25, y: 48.50}
     metric: constituent_similarity
     producer_task: morphology
     source: data/metrics/panel_b_dual_retention_metrics.csv
@@ -91,7 +91,7 @@ panels:
     data_adapter: fig2_pair_specificity_adapter
     size_mm: {w: 52.333, h: 48.00}
     position_mm: {x: 56.333, y: 52.00, w: 52.333, h: 48.00}
-    letter_mm: {x: 56.333, y: 50.00}
+    letter_mm: {x: 56.50, y: 48.50}
     metric: pair_specificity_score
     producer_task: morphology
     source: data/metrics/panel_c_pair_specificity_metrics.csv
@@ -107,7 +107,7 @@ panels:
     data_adapter: fig2_morphology_closure_adapter
     size_mm: {w: 52.333, h: 48.00}
     position_mm: {x: 110.667, y: 52.00, w: 52.333, h: 48.00}
-    letter_mm: {x: 110.667, y: 50.00}
+    letter_mm: {x: 107.00, y: 48.50}
     metric: morphology_closure
     producer_task: [morphology, linear_mixture]
     source_priority:
@@ -130,7 +130,7 @@ panels:
     data_adapter: fig2_neutral_ping_composition_adapter
     size_mm: {w: 52.333, h: 48.00}
     position_mm: {x: 2.00, y: 102.00, w: 52.333, h: 48.00}
-    letter_mm: {x: 2.00, y: 100.00}
+    letter_mm: {x: 0.25, y: 98.50}
     metric: neutral_ping_readout_composition
     producer_task: neutral_ping
     source_priority:
@@ -138,7 +138,7 @@ panels:
       - data/metrics/panel_e_neutral_ping_metrics.csv
     conditions: [S0, S_A, S_B, S_AB]
     categories: [Other, A, B, Silent]
-    display_labels: {S0: No memory, S_A: Item 1, S_B: Item 2, S_AB: Fused pair}
+    display_labels: {S0: "No\nmemory", S_A: Item 1, S_B: Item 2, S_AB: "Fused\npair"}
     x_axis: Restored state
     y_axis: Ping readout composition (%)
     reference_lines: []
@@ -150,7 +150,7 @@ panels:
     data_adapter: fig2_partial_cue_target_adapter
     size_mm: {w: 106.667, h: 48.00}
     position_mm: {x: 56.333, y: 102.00, w: 106.667, h: 48.00}
-    letter_mm: {x: 56.333, y: 100.00}
+    letter_mm: {x: 56.50, y: 98.50}
     metric: partial_cue_target_recovery
     producer_task: partial_cue
     source_priority:

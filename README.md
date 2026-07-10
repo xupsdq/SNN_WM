@@ -64,7 +64,7 @@ useful_fig_results/         历史图产物缓存，不是主线结果规范
 - 计算入口：`python -m src.experiments.runners.<experiment_id>`
 - 绘图入口：`python -m src.plotting.experiments.<experiment_id>_plot`
 - plotting 只读取已有结果目录，不重算实验。
-- 当前主线 catalog 注册 13 个实验；入口漂移可用 `python scripts/audit_entrypoints.py` 审计。
+- 当前主线 catalog 注册 13 个实验；请用各 runner 的 smoke 与对应 plot-only `--check-only` 验证入口。
 - 第二阶段已把以下实验做成“原生规范化”样板：
   - `similarity_bias_experiment`
   - `engram_decode`
@@ -128,61 +128,15 @@ CLI > YAML > 代码默认值
 
 当前公共 runner / plotting 入口均支持可选 `--config`。`configs/experiment/*.yaml` 覆盖当前 catalog 注册的主线实验。
 
-## 校验结果目录
+## 结果验证
+
+本仓库不再追踪独立的 `scripts/` 审计工具。对受影响的实验，运行对应 runner 的 smoke 命令和 plot-only entrypoint；两者都必须验证所需结果文件和列。
+
+对于 paper figures，可使用：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment
+& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.paper_fig.build --fig fig1 --check-only
 ```
-
-严格模式：
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
-```
-
-## 校验入口一致性
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py
-```
-
-严格模式可用于提交前或 CI 检查：
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py --strict
-```
-
-该脚本会核对 `src/experiments/catalog.py`、`src/experiments/runners/`、
-`src/plotting/experiments/` 和 `configs/experiment/` 是否一致。
-
-## 校验生成物边界
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_generated_artifacts.py --strict
-```
-
-该脚本会检查 active source 中是否残留默认输出目录，并列出 `results/`、`archive/`、`fig/` 等边界外的生成物候选。
-
-## 校验 cleanup 债务
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_cleanup_debt.py --strict
-```
-
-该脚本会检查 paper-figure 相关源码中的重复函数定义，并列出仍需拆分的超大模块。
-
-## 校验实验结构边界
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_experiment_structure.py --strict
-```
-
-该脚本会检查：
-
-- active 实验是否直接 import 另一个根实验模块。
-- `src/experiments/paper_figures/` 是否直接 import 根实验模块，而不是使用 `common/shared`。
-- `src/experiments/`、`src/plotting/` 的源码分布和超大模块清单。
-- Python 文件是否能被 AST 解析。
 
 ## 论文图输出
 

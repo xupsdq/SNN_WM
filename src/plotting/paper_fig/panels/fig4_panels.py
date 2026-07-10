@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Rectangle
+from scipy.stats import t as student_t
 
 from src.plotting.common.colors import get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL, GRID_ALPHA_SOFT
@@ -33,8 +34,7 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     if _run_mode(stats) == "single_network_draft":
         ax.scatter(np.arange(len(df)), np.interp(df["similarity_bin_order"], summary["similarity_bin_order"], y), s=4, color=COLOR_NEUTRAL, alpha=0.18)
     ax.set_xticks(x, [""] * len(x))
-    ax.annotate("", xy=(0.86, -0.075), xytext=(0.14, -0.075), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.75, "color": COLOR_NEUTRAL}, annotation_clip=False)
-    ax.text(0.50, -0.135, "Similarity increases", transform=ax.transAxes, ha="center", va="top", fontsize=5.9, color=COLOR_NEUTRAL, clip_on=False)
+    ax.annotate("", xy=(0.78, -0.04), xytext=(0.22, -0.04), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.65, "color": COLOR_NEUTRAL}, annotation_clip=False)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
     if spec.get("y_label_x") is not None:
@@ -150,38 +150,71 @@ def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | N
 
 
 def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats, style
+    _ = style
     df = _clean(panel_data)
+    if "metric" in df.columns:
+        df = df[df["metric"].astype(str).eq("DPI_L3_t")]
+    if "analysis_role" in df.columns:
+        df = df[df["analysis_role"].astype(str).eq("network_time_mean")]
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     if "time_ms" not in df.columns:
         render_fig4_overlap_localization(ax, panel_data, stats, spec, style)
         return
+    max_time_ms = float((stats or {}).get("max_time_ms_used", spec.get("max_time_ms", 60)))
+    time_values = pd.to_numeric(df["time_ms"], errors="coerce")
+    df = df[(time_values >= 0.0) & (time_values <= max_time_ms)].copy()
+    if df.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
     colors = {"Overlap support": "#007A5A", "Non-overlap support": "#CC79A7"}
+    display_labels = dict(spec.get("display_labels_short") or {})
+    network_col = "network_id" if "network_id" in df.columns else "seed_id" if "seed_id" in df.columns else None
+    rendered_network_traces = 0
     for condition in ["Overlap support", "Non-overlap support"]:
         part = df[df["condition"].eq(condition)].dropna(subset=["time_ms", "value"])
         if part.empty:
             continue
-        summary = _mean_sem(part, ["time_ms"], "value").sort_values("time_ms")
+        color = colors[condition]
+        if network_col is not None:
+            for _, trace in part.groupby(network_col, dropna=False, sort=True):
+                trace = trace.sort_values("time_ms", kind="stable")
+                ax.plot(
+                    trace["time_ms"].to_numpy(dtype=float),
+                    trace["value"].to_numpy(dtype=float),
+                    color=color,
+                    linewidth=0.34,
+                    alpha=0.12,
+                    zorder=1,
+                )
+                rendered_network_traces += 1
+        summary = _mean_t_ci(part, ["time_ms"], "value").sort_values("time_ms")
         x = summary["time_ms"].to_numpy(dtype=float)
         y = summary["mean"].to_numpy(dtype=float)
-        sem = summary["sem"].to_numpy(dtype=float)
-        color = colors[condition]
-        ax.plot(x, y, color=color, linewidth=1.15, label=condition)
-        ax.fill_between(x, y - sem, y + sem, color=color, alpha=0.12, linewidth=0)
+        ci_low = summary["ci95_low"].to_numpy(dtype=float)
+        ci_high = summary["ci95_high"].to_numpy(dtype=float)
+        ax.plot(x, y, color=color, linewidth=1.15, label=display_labels.get(condition, condition), zorder=3)
+        ax.fill_between(x, ci_low, ci_high, color=color, alpha=0.16, linewidth=0, zorder=2)
     for line in spec.get("reference_lines") or []:
         ax.axhline(float(line.get("value", 0.0)), color="0.45", linestyle="--", linewidth=0.7)
-    max_time_ms = float((stats or {}).get("max_time_ms_used", spec.get("max_time_ms", 60)))
     ax.set_xlim(0.0, max_time_ms)
     ax.set_xlabel(str(spec.get("x_axis", "Probe time (ms)")))
     ax.set_ylabel(str(spec.get("y_axis", "DPI")))
-    legend = ax.legend(frameon=False, fontsize=5.8, loc="best", handlelength=1.1)
+    legend = ax.legend(frameon=False, fontsize=5.7, loc="upper right", handlelength=0.9, labelspacing=0.2, borderaxespad=0.2)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_overlaps_data = False
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_decision_spike_displacement"
+    ax.paper_fig_raw_points = True
+    ax.paper_fig_raw_point_count = int(len(df))
+    ax.paper_fig_raw_point_alpha = 0.12
+    ax.paper_fig_individual_traces = True
+    ax.paper_fig_network_trace_count = rendered_network_traces
+    ax.paper_fig_error_bar = "two_sided_t_95_ci_across_networks"
+    ax.paper_fig_inference_unit = "independently_trained_network"
+    ax.paper_fig_renderer_summarizes_row_level = False
 
 
 def render_fig4_decision_deflection(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -284,25 +317,34 @@ def render_fig4_l3_accumulator_process(ax, panel_data: pd.DataFrame | None, stat
 def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = stats, style
     df = _clean(panel_data)
+    if "metric" in df.columns:
+        df = df[df["metric"].astype(str).eq("accuracy_drop_vs_static")]
+    if "analysis_role" in df.columns:
+        df = df[df["analysis_role"].astype(str).eq("condition_mean")]
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     order = [c for c in ["Random matched", "Non-overlap support", "Overlap support", "Dynamic"] if c in set(df["condition"].astype(str))]
+    df = df[df["condition"].isin(order)].copy()
     colors = ["#8A8A8A", "#CC79A7", "#007A5A", "#009E73"][: len(order)]
     x = np.arange(len(order), dtype=float)
     means = []
-    sems = []
+    ci_half_widths = []
     for condition in order:
         vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna() * 100.0
         means.append(float(vals.mean()) if len(vals) else np.nan)
-        sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
-    ax.bar(x, means, yerr=sems, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
+        ci_half_widths.append(_t_ci_half_width(vals))
+    ax.bar(x, means, yerr=ci_half_widths, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
+    for index, (condition, color) in enumerate(zip(order, colors)):
+        vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna().to_numpy(dtype=float) * 100.0
+        if vals.size == 0:
+            continue
+        jitter = np.linspace(-0.13, 0.13, vals.size) if vals.size > 1 else np.zeros(1)
+        ax.scatter(np.full(vals.size, x[index]) + jitter, vals, s=8.0, color=color, edgecolors="white", linewidths=0.22, alpha=0.72, zorder=3)
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.7, zorder=1)
-    label_map = {"Dynamic": "Dynamic\nSTSP", "Overlap support": "Overlap\nsupport", "Non-overlap support": "Non-\noverlap\nsupport", "Random matched": "Random\nmatched"}
+    label_map = dict(spec.get("display_labels_short") or {})
     ax.set_xticks(x, [label_map.get(item, item) for item in order], rotation=0)
-    ax.tick_params(axis="x", labelsize=5.0, pad=0.4)
-    for label in ax.get_xticklabels():
-        label.set_linespacing(0.88)
+    ax.tick_params(axis="x", labelsize=5.1, pad=0.4)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop vs static")), labelpad=float(spec.get("y_labelpad", 1.0)))
     if spec.get("y_label_x") is not None:
@@ -310,8 +352,13 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_overlap_perturbation_bar"
-    ax.paper_fig_raw_points = False
-    ax.paper_fig_jitter_points = False
+    ax.paper_fig_raw_points = True
+    ax.paper_fig_raw_point_count = int(len(df))
+    ax.paper_fig_raw_point_alpha = 0.72
+    ax.paper_fig_jitter_points = True
+    ax.paper_fig_error_bar = "two_sided_t_95_ci_across_networks"
+    ax.paper_fig_inference_unit = "independently_trained_network"
+    ax.paper_fig_renderer_summarizes_row_level = False
 
 
 def _draw_process_group(ax, part: pd.DataFrame, *, color: str, marker: str, max_individual: int | None = None) -> None:
@@ -380,6 +427,31 @@ def _mean_sem(df: pd.DataFrame, group_cols: list[str], value_col: str) -> pd.Dat
     grouped = df.groupby(group_cols, dropna=False, sort=True)[value_col].agg(["mean", "count", "std"]).reset_index()
     grouped["sem"] = grouped["std"].fillna(0.0) / np.sqrt(grouped["count"].clip(lower=1))
     return grouped
+
+
+def _mean_t_ci(df: pd.DataFrame, group_cols: list[str], value_col: str) -> pd.DataFrame:
+    grouped = df.groupby(group_cols, dropna=False, sort=True)[value_col].agg(["mean", "count", "std"]).reset_index()
+    counts = grouped["count"].clip(lower=1).to_numpy(dtype=float)
+    standard_error = grouped["std"].fillna(0.0).to_numpy(dtype=float) / np.sqrt(counts)
+    degrees_of_freedom = np.maximum(counts.astype(int) - 1, 0)
+    critical = np.where(
+        degrees_of_freedom > 0,
+        student_t.ppf(0.975, degrees_of_freedom),
+        0.0,
+    )
+    ci_half_width = critical * standard_error
+    grouped["ci95_low"] = grouped["mean"].to_numpy(dtype=float) - ci_half_width
+    grouped["ci95_high"] = grouped["mean"].to_numpy(dtype=float) + ci_half_width
+    grouped["n_networks"] = counts.astype(int)
+    return grouped
+
+
+def _t_ci_half_width(values: pd.Series) -> float:
+    numeric = pd.to_numeric(values, errors="coerce").dropna().to_numpy(dtype=float)
+    if numeric.size <= 1:
+        return 0.0
+    standard_error = float(np.std(numeric, ddof=1) / np.sqrt(numeric.size))
+    return float(student_t.ppf(0.975, numeric.size - 1) * standard_error)
 
 
 def _run_mode(stats: Mapping[str, Any] | None) -> str:

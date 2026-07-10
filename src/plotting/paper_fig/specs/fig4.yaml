@@ -42,7 +42,7 @@ panels:
     source: results/paper_figures/outputs/DMS-enhanced.svg
     position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 2.00}
+    letter_mm: {x: 0.25, y: 0.50}
     x_axis: none
     y_axis: none
   B:
@@ -58,7 +58,7 @@ panels:
       - data/metrics/panel_b_similarity_entry_metrics.csv
     position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 2.00}
+    letter_mm: {x: 80.00, y: 0.50}
     x_axis: Sample-probe similarity bin
     y_axis: Probe bias (%)
     y_label_x: -0.143
@@ -77,8 +77,9 @@ panels:
     conditions: [Low overlap excess, High overlap excess]
     position_mm: {x: 2.00, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 50.00}
-    x_axis: Overlap beyond similarity
+    letter_mm: {x: 0.25, y: 48.50}
+    x_axis: Overlap excess
+    x_axis_definition: Overlap beyond similarity
     y_axis: Probe bias (%)
     y_labelpad: -2.0
     y_label_x: -0.195
@@ -92,10 +93,10 @@ panels:
     metric: accuracy_drop_vs_static
     source_priority:
       - data/metrics/panel_d_overlap_perturbation_metrics.csv
-      - data/metrics/panel_d_overlap_perturbation_summary.csv
-      - data/trial_specs/panel_d_perturbation_masks.csv
-      - data/metrics/supp_overlap_preserving_perturbation_metrics.csv
-      - data/metrics/supp_overlap_preserving_perturbation_summary.csv
+    endpoint_definition: mean_pair[probe_accuracy(full_static) - probe_accuracy(condition)]
+    aggregation: pair_to_network
+    inference_unit: independently trained network
+    interval_method: two-sided t-based 95% CI across networks
     conditions:
       - full_dynamic
       - full_static
@@ -108,11 +109,17 @@ panels:
       sample_keep_overlap_only_dynamic: Overlap support
       sample_keep_nonoverlap_only_dynamic: Non-overlap support
       sample_random_matched_dynamic: Random matched
+    display_labels_short:
+      Dynamic: Dynamic
+      Overlap support: Overlap
+      Non-overlap support: Non-overlap
+      Random matched: Random
     position_mm: {x: 83.50, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 50.00}
+    letter_mm: {x: 80.00, y: 48.50}
     x_axis: Perturbation condition
-    y_axis: Probe bias (%)
+    y_axis: Accuracy drop (%)
+    y_axis_definition: Probe-accuracy drop vs static (%)
     y_labelpad: -2.0
     y_label_x: -0.135
   E:
@@ -125,16 +132,25 @@ panels:
     metric: DPI_L3_t
     source_priority:
       - data/metrics/panel_e_time_resolved_l3_displacement.csv
-      - data/metrics/panel_e_decision_spike_displacement.csv
+    endpoint_definition: mean_pair(DPI_L3_t) at each network, condition, and time
+    aggregation: pair_to_network_to_time
+    inference_unit: independently trained network
+    interval_method: two-sided t-based 95% CI across networks
     conditions:
       - sample_keep_overlap_only_dynamic
       - sample_keep_nonoverlap_only_dynamic
+    display_labels:
+      sample_keep_overlap_only_dynamic: Overlap support
+      sample_keep_nonoverlap_only_dynamic: Non-overlap support
+    display_labels_short:
+      Overlap support: Overlap
+      Non-overlap support: Non-overlap
     max_time_ms: 60
     position_mm: {x: 2.00, y: 102.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 100.00}
+    letter_mm: {x: 0.25, y: 98.50}
     x_axis: Probe time (ms)
-    y_axis: Dynamic-pattern index
+    y_axis: Dynamic-pattern index (DPI)
     reference_lines:
       - value: 0
         label: 0
@@ -156,6 +172,6 @@ panels:
     groups: [plus, minus]
     position_mm: {x: 83.50, y: 102.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 100.00}
+    letter_mm: {x: 80.00, y: 98.50}
     x_axis: More dynamic-like firing pattern
     y_axis: More dynamic-like decision

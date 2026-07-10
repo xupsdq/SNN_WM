@@ -5,6 +5,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy.stats import t as student_t
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, summarize_values, write_adapter_outputs
 
@@ -227,9 +228,14 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
     plotted_times: list[float] = []
     for seed_dir in seeds:
         path = seed_dir / "data" / "metrics" / "panel_e_time_resolved_l3_displacement.csv"
-        summary_path = seed_dir / "data" / "metrics" / "panel_e_decision_spike_displacement.csv"
-        sources.extend([_source(path, seed_dir), _source(summary_path, seed_dir)])
+        sources.append(_source(path, seed_dir))
         if path.exists():
+            available_cols = set(pd.read_csv(path, nrows=0).columns)
+            required_cols = {"condition", "time_ms", "DPI_L3_t"}
+            missing = sorted(required_cols - available_cols)
+            if missing:
+                warnings.append(f"{_display(path, repo_root)} missing required Fig.4E columns {missing}.")
+                continue
             needed_cols = {"network_seed", "condition", "time_step", "time_ms", "DPI_L3_t", "overlap_bin", "similarity_bin"}
             df = pd.read_csv(path, usecols=lambda col: col in needed_cols)
             df = df[df["condition"].isin(keep)]
@@ -239,7 +245,8 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
                 original_time_values = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
                 if not original_time_values.empty:
                     original_times.extend([float(original_time_values.min()), float(original_time_values.max())])
-                df = df[pd.to_numeric(df["time_ms"], errors="coerce") <= max_time_ms].copy()
+                time_values = pd.to_numeric(df["time_ms"], errors="coerce")
+                df = df[(time_values >= 0.0) & (time_values <= max_time_ms)].copy()
                 plotted_time_values = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
                 if not plotted_time_values.empty:
                     plotted_times.extend([float(plotted_time_values.min()), float(plotted_time_values.max())])
@@ -272,37 +279,18 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
                         time_step=int(_num(r.get("time_step", 0))) if "time_step" in reduced.columns else "",
                         time_ms=_num(r.get("time_ms", np.nan)),
                         n_source_rows=int(_num(r.get("count", 0))),
-                        run_mode=_run_mode(seeds),
-                    )
-                )
-        elif summary_path.exists():
-            warnings.append(f"{_display(path, repo_root)} missing; using summary displacement fallback.")
-            df = pd.read_csv(summary_path)
-            before_filter += int(len(df))
-            df = df[df["condition"].isin(keep)]
-            after_filter += int(len(df))
-            for _, r in df.iterrows():
-                raw = str(r.get("condition", ""))
-                rows.append(
-                    _canonical(
-                        figure_id,
-                        panel_id,
-                        metric="mean_DPI_L3",
-                        condition=CONDITION_LABELS.get(raw, raw),
-                        layer="L3",
-                        seed_id=_seed_id(seed_dir),
-                        value=_num(r.get("mean_DPI_L3", np.nan)),
-                        unit="index",
-                        source_file=_display(summary_path, repo_root),
-                        raw_condition=raw,
-                        pair_id=int(_num(r.get("pair_id", -1))),
+                        n_source_pairs=int(_num(r.get("count", 0))),
+                        analysis_role="network_time_mean",
+                        aggregation="pair_to_network_to_time",
                         run_mode=_run_mode(seeds),
                     )
                 )
         else:
-            warnings.append(f"{_display(path, repo_root)} missing.")
+            warnings.append(f"{_display(path, repo_root)} missing; Fig.4E requires the frozen DPI_L3_t time-course source.")
     panel_df = pd.DataFrame(rows)
     stats = _stats(figure_id, panel_id, panel_df, _run_mode(seeds), seeds, "DPI_L3_t", warnings, ["condition", "time_ms"])
+    stats["summaries"] = _network_t_ci_summaries(panel_df, ["condition", "time_ms"])
+    stats["values_used_for_plotting"] = _values(panel_df)
     stats.update(
         {
             "max_time_ms_used": max_time_ms,
@@ -311,10 +299,24 @@ def build_fig4_decision_spike_displacement_adapter(spec: Mapping[str, Any], repo
             "n_rows_before_time_filter": before_filter,
             "n_rows_after_time_filter": after_filter,
             "fig4e_max_time_ms": max_time_ms,
+            "endpoint_definition": "DPI_L3_t = mean_pair(DPI_L3_t) at each network, condition, and time",
+            "aggregation": "pair_to_network_to_time",
+            "inference_unit": "independently_trained_network",
+            "interval_method": "two_sided_t_95_ci_across_networks",
+            "post_hoc_scalar_or_timewise_tests_added": False,
         }
     )
     manifest = _manifest(figure_id, panel_id, root, seeds, sources, warnings)
-    manifest.update({"fig4e_max_time_ms": max_time_ms, "main_conditions": sorted(keep)})
+    manifest.update(
+        {
+            "fig4e_max_time_ms": max_time_ms,
+            "main_conditions": sorted(keep),
+            "main_metric": "DPI_L3_t",
+            "source_family": "panel_e_time_resolved_l3_displacement",
+            "aggregation": "pair_to_network_to_time",
+            "inference_unit": "independently_trained_network",
+        }
+    )
     return _write(spec, output_dir, figure_id, panel_id, panel_df, stats, manifest)
 
 
@@ -509,68 +511,67 @@ def build_fig4_overlap_perturbation_main_adapter(spec: Mapping[str, Any], repo_r
     sources: list[dict[str, Any]] = []
     checked_candidates: list[str] = []
     used_sources: list[str] = []
-    source_levels: set[str] = set()
-    fallback_used = False
     keep_conditions = set(RAW_CONDITIONS)
     for seed_dir in seeds:
-        candidates = [
-            (seed_dir / "data" / "metrics" / "panel_d_overlap_perturbation_metrics.csv", "main_panel_d"),
-            (seed_dir / "data" / "metrics" / "panel_d_overlap_perturbation_summary.csv", "main_panel_d_summary"),
-            (seed_dir / "data" / "metrics" / "supp_overlap_preserving_perturbation_metrics.csv", "supplement_fallback"),
-            (seed_dir / "data" / "metrics" / "supp_overlap_preserving_perturbation_summary.csv", "supplement_fallback_summary"),
-        ]
+        path = seed_dir / "data" / "metrics" / "panel_d_overlap_perturbation_metrics.csv"
         companion_paths = [
             seed_dir / "data" / "trial_specs" / "panel_d_perturbation_masks.csv",
             seed_dir / "data" / "trial_specs" / "perturbation_masks.csv",
             seed_dir / "data" / "metrics" / "supp_random_mask_perturbation_controls.csv",
         ]
-        for path, _level in candidates:
-            sources.append(_source(path, seed_dir))
-            checked_candidates.append(_display(path, repo_root))
-        for path in companion_paths:
-            sources.append(_source(path, seed_dir))
-            checked_candidates.append(_display(path, repo_root))
-        selected = next(((path, level) for path, level in candidates if path.exists()), None)
-        if selected is None:
-            warnings.append(f"No overlap perturbation source found under {_display(seed_dir, repo_root)}.")
+        sources.append(_source(path, seed_dir))
+        checked_candidates.append(_display(path, repo_root))
+        for companion_path in companion_paths:
+            sources.append(_source(companion_path, seed_dir))
+            checked_candidates.append(_display(companion_path, repo_root))
+        if not path.exists():
+            warnings.append(f"{_display(path, repo_root)} missing; Fig.4D requires the frozen overlap-preserving source.")
             continue
-        path, source_level = selected
         used_sources.append(_display(path, repo_root))
         for companion in companion_paths:
             if companion.exists():
                 used_sources.append(_display(companion, repo_root))
-        source_levels.add(source_level)
-        if source_level.startswith("supplement"):
-            fallback_used = True
-            warnings.append(f"{_display(path, repo_root)} used as Fig.4D supplement fallback.")
         df = pd.read_csv(path)
         condition_col = _first_existing_col(df, ["condition", "raw_condition", "perturbation_condition", "summary_group"])
         if condition_col is None:
             warnings.append(f"{_display(path, repo_root)} has no condition column.")
             continue
         df = df[df[condition_col].astype(str).isin(keep_conditions)].copy()
-        if source_level in {"main_panel_d", "supplement_fallback"}:
-            required = {"pair_id", condition_col, "probe_accuracy"}
-            missing = sorted(col for col in required if col not in df.columns)
-            if missing:
-                warnings.append(f"{_display(path, repo_root)} missing pair-level accuracy-drop columns {missing}.")
-                continue
-            _append_pair_level_accuracy_drop_rows(rows, df, condition_col, figure_id, panel_id, seed_dir, path, repo_root, source_level, seeds, warnings)
-        else:
-            if "mean_probe_accuracy" not in df.columns:
-                warnings.append(f"{_display(path, repo_root)} missing mean_probe_accuracy for summary-level accuracy-drop plotting.")
-                continue
-            _append_summary_accuracy_drop_rows(rows, df, condition_col, figure_id, panel_id, seed_dir, path, repo_root, source_level, seeds, warnings)
+        required = {"pair_id", condition_col, "probe_accuracy"}
+        missing = sorted(col for col in required if col not in df.columns)
+        if missing:
+            warnings.append(f"{_display(path, repo_root)} missing pair-level accuracy-drop columns {missing}.")
+            continue
+        _append_pair_level_accuracy_drop_rows(
+            rows,
+            df,
+            condition_col,
+            figure_id,
+            panel_id,
+            seed_dir,
+            path,
+            repo_root,
+            "main_panel_d",
+            seeds,
+            warnings,
+        )
     panel_df = pd.DataFrame(rows)
     stats = _stats(figure_id, panel_id, panel_df, _run_mode(seeds), seeds, "accuracy_drop_vs_static", warnings, ["condition"])
-    stats["source_level"] = _source_level_label(source_levels)
+    stats["summaries"] = _network_t_ci_summaries(panel_df, ["condition"])
+    stats["contrast_summaries"] = _fig4d_predeclared_contrast_summaries(panel_df)
+    stats["values_used_for_plotting"] = _values(panel_df)
+    stats["source_level"] = "main_panel_d"
     stats.update(_accuracy_drop_condition_contrasts(panel_df))
     stats.update(
         {
             "main_metric": "accuracy_drop_vs_static",
-            "fallback_used": bool(fallback_used),
             "bcd_metric_family": "accuracy_drop",
             "fig4d_static_baseline_used": bool("probe_accuracy_static" in panel_df.columns and pd.to_numeric(panel_df["probe_accuracy_static"], errors="coerce").dropna().size),
+            "endpoint_definition": "mean_pair(probe_accuracy(full_static) - probe_accuracy(condition))",
+            "aggregation": "pair_to_network",
+            "inference_unit": "independently_trained_network",
+            "interval_method": "two_sided_t_95_ci_across_networks",
+            "fdr_family": "three_predeclared_fig4d_network_level_contrasts",
         }
     )
     manifest = _manifest(figure_id, panel_id, root, seeds, sources, warnings)
@@ -578,9 +579,11 @@ def build_fig4_overlap_perturbation_main_adapter(spec: Mapping[str, Any], repo_r
     manifest["probe_input_modified_in_core_conditions"] = False
     manifest["main_metric"] = "accuracy_drop_vs_static"
     manifest["previous_metrics_not_used_for_plotting"] = ["DPI_L3", "dynamic_like_recovery", "decision_deflection_score"]
-    manifest["fallback_used"] = bool(fallback_used)
+    manifest["source_family"] = "active_overlap_preserving"
+    manifest["fallback_used"] = False
     manifest["bcd_metric_family"] = "accuracy_drop"
     manifest["fig4d_static_baseline_used"] = stats["fig4d_static_baseline_used"]
+    manifest["fdr_family"] = "three_predeclared_fig4d_network_level_contrasts"
     manifest["random_matched_mask_diagnostics_present"] = bool(any(("random" in src.get("path", "").lower()) and src.get("exists") for src in sources))
     manifest["checked_candidates"] = checked_candidates
     manifest["source_files_used"] = sorted(set(used_sources))
@@ -680,16 +683,6 @@ def _first_existing_col(df: pd.DataFrame, names: Sequence[str]) -> str | None:
     return None
 
 
-def _source_level_label(levels: set[str]) -> str:
-    if not levels:
-        return "missing_source"
-    if any(level.startswith("main_panel_d") for level in levels) and any(level.startswith("supplement") for level in levels):
-        return "mixed_main_and_supplement_fallback"
-    if any(level.startswith("main_panel_d") for level in levels):
-        return "main_panel_d"
-    return "supplement_fallback"
-
-
 def _single_or_list(values: set[str]) -> str | list[str]:
     clean = sorted(v for v in values if v)
     if len(clean) == 1:
@@ -776,6 +769,7 @@ def _append_pair_level_accuracy_drop_rows(
         warnings.append(f"{_display(source_path, repo_root)} lacks full_static probe_accuracy rows for Fig.4D baseline.")
         return
     static_lookup = static_rows.groupby([network_col, "pair_id"], dropna=False)["_probe_accuracy"].mean().to_dict()
+    pair_rows: list[dict[str, Any]] = []
     for _, r in work.iterrows():
         raw = str(r.get(condition_col, ""))
         if raw not in RAW_CONDITIONS:
@@ -785,58 +779,26 @@ def _append_pair_level_accuracy_drop_rows(
         condition_acc = _num(r.get("probe_accuracy", np.nan))
         if not np.isfinite(static_acc) or not np.isfinite(condition_acc):
             continue
-        value = float(static_acc - condition_acc)
-        rows.append(
-            _canonical(
-                figure_id,
-                panel_id,
-                metric="accuracy_drop_vs_static",
-                condition="Static baseline" if raw == "full_static" else CONDITION_LABELS.get(raw, raw),
-                layer="readout",
-                seed_id=str(r.get(network_col, _seed_id(seed_dir))),
-                value=value,
-                unit="probability_delta",
-                source_file=_display(source_path, repo_root),
-                y_value=value,
-                raw_condition=raw,
-                condition_order=FIG4D_CONDITION_ORDER.index(raw) if raw in FIG4D_CONDITION_ORDER else 99,
-                pair_id=_maybe_int(r.get("pair_id", "")),
-                probe_accuracy_condition=condition_acc,
-                probe_accuracy_static=static_acc,
-                run_mode=_run_mode(seeds),
-                source_level=source_level,
-            )
+        pair_rows.append(
+            {
+                "network_id": str(r.get(network_col, _seed_id(seed_dir))),
+                "raw_condition": raw,
+                "pair_id": _maybe_int(r.get("pair_id", "")),
+                "accuracy_drop": float(static_acc - condition_acc),
+                "probe_accuracy_condition": condition_acc,
+                "probe_accuracy_static": static_acc,
+            }
         )
-
-
-def _append_summary_accuracy_drop_rows(
-    rows: list[dict[str, Any]],
-    df: pd.DataFrame,
-    condition_col: str,
-    figure_id: str,
-    panel_id: str,
-    seed_dir: Path,
-    source_path: Path,
-    repo_root: Path,
-    source_level: str,
-    seeds: Sequence[Path],
-    warnings: list[str],
-) -> None:
-    work = df.copy()
-    static_values = pd.to_numeric(work.loc[work[condition_col].astype(str).eq("full_static"), "mean_probe_accuracy"], errors="coerce").dropna()
-    if static_values.empty:
-        warnings.append(f"{_display(source_path, repo_root)} lacks full_static mean_probe_accuracy for Fig.4D baseline.")
+    if not pair_rows:
+        warnings.append(f"{_display(source_path, repo_root)} yielded no finite matched-pair Fig.4D accuracy drops.")
         return
-    static_acc = float(static_values.mean())
-    network_col = _first_existing_col(work, ["network_seed", "network_id", "seed_id"])
-    for _, r in work.iterrows():
-        raw = str(r.get(condition_col, ""))
-        if raw not in RAW_CONDITIONS:
+    pair_df = pd.DataFrame(pair_rows)
+    for (network_id, raw), part in pair_df.groupby(["network_id", "raw_condition"], dropna=False, sort=True):
+        values = pd.to_numeric(part["accuracy_drop"], errors="coerce").dropna()
+        if values.empty:
             continue
-        condition_acc = _num(r.get("mean_probe_accuracy", np.nan))
-        if not np.isfinite(condition_acc):
-            continue
-        value = float(static_acc - condition_acc)
+        condition_acc = pd.to_numeric(part["probe_accuracy_condition"], errors="coerce").dropna()
+        static_acc = pd.to_numeric(part["probe_accuracy_static"], errors="coerce").dropna()
         rows.append(
             _canonical(
                 figure_id,
@@ -844,21 +806,123 @@ def _append_summary_accuracy_drop_rows(
                 metric="accuracy_drop_vs_static",
                 condition="Static baseline" if raw == "full_static" else CONDITION_LABELS.get(raw, raw),
                 layer="readout",
-                seed_id=str(r.get(network_col, _seed_id(seed_dir))) if network_col else _seed_id(seed_dir),
-                value=value,
+                seed_id=str(network_id),
+                value=float(values.mean()),
                 unit="probability_delta",
                 source_file=_display(source_path, repo_root),
-                y_value=value,
+                y_value=float(values.mean()),
                 raw_condition=raw,
                 condition_order=FIG4D_CONDITION_ORDER.index(raw) if raw in FIG4D_CONDITION_ORDER else 99,
-                n_pairs=int(_num(r.get("n_pairs", 0))),
-                probe_accuracy_condition=condition_acc,
-                probe_accuracy_static=static_acc,
+                pair_id="network_mean",
+                n_source_pairs=int(part["pair_id"].replace("", pd.NA).dropna().nunique()),
+                probe_accuracy_condition=float(condition_acc.mean()) if not condition_acc.empty else np.nan,
+                probe_accuracy_static=float(static_acc.mean()) if not static_acc.empty else np.nan,
+                analysis_role="condition_mean",
+                aggregation="pair_to_network",
                 run_mode=_run_mode(seeds),
                 source_level=source_level,
-                source_level_detail="summary",
             )
         )
+
+
+def _network_t_ci_summaries(panel_df: pd.DataFrame, group_cols: list[str]) -> list[dict[str, Any]]:
+    if panel_df.empty or "value" not in panel_df.columns:
+        return []
+    existing_group_cols = [col for col in group_cols if col in panel_df.columns]
+    groups = panel_df.groupby(existing_group_cols, dropna=False, sort=True) if existing_group_cols else [((), panel_df)]
+    summaries: list[dict[str, Any]] = []
+    for key, part in groups:
+        values = pd.to_numeric(part["value"], errors="coerce").dropna()
+        if values.empty:
+            continue
+        if not isinstance(key, tuple):
+            key = (key,)
+        n = int(values.count())
+        mean = float(values.mean())
+        if n > 1:
+            standard_error = float(values.std(ddof=1) / np.sqrt(n))
+            t_critical = float(student_t.ppf(0.975, n - 1))
+            ci_half_width = float(t_critical * standard_error)
+        else:
+            standard_error = 0.0
+            t_critical = np.nan
+            ci_half_width = 0.0
+        row = {column: value for column, value in zip(existing_group_cols, key)}
+        row.update(
+            {
+                "mean": mean,
+                "n_networks": n,
+                "degrees_of_freedom": n - 1,
+                "standard_error": standard_error,
+                "t_critical_95": t_critical,
+                "ci95_low": float(mean - ci_half_width),
+                "ci95_high": float(mean + ci_half_width),
+                "ci95_half_width": ci_half_width,
+                "interval_method": "two_sided_t_95_ci_across_networks",
+            }
+        )
+        summaries.append(row)
+    return summaries
+
+
+def _fig4d_predeclared_contrast_summaries(panel_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Compute the three P14-frozen network-level Fig. 4D contrasts and their BH-FDR values."""
+    required = {"network_id", "raw_condition", "value"}
+    if panel_df.empty or not required.issubset(panel_df.columns):
+        return []
+    per_network = panel_df.pivot_table(
+        index="network_id",
+        columns="raw_condition",
+        values="value",
+        aggfunc="mean",
+    )
+    definitions = (
+        ("dynamic_minus_static", "full_dynamic", "full_static"),
+        ("overlap_minus_nonoverlap", "sample_keep_overlap_only_dynamic", "sample_keep_nonoverlap_only_dynamic"),
+        ("overlap_minus_random", "sample_keep_overlap_only_dynamic", "sample_random_matched_dynamic"),
+    )
+    summaries: list[dict[str, Any]] = []
+    for contrast, condition_a, condition_b in definitions:
+        if condition_a not in per_network.columns or condition_b not in per_network.columns:
+            continue
+        values = (per_network[condition_a] - per_network[condition_b]).dropna().to_numpy(dtype=float)
+        if len(values) < 2:
+            continue
+        mean = float(np.mean(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(len(values)))
+        critical = float(student_t.ppf(0.975, df=len(values) - 1))
+        half_width = critical * sem
+        t_statistic = float(mean / sem) if sem > 0 else (float("inf") if mean else 0.0)
+        p_value = float(2.0 * student_t.sf(abs(t_statistic), df=len(values) - 1)) if np.isfinite(t_statistic) else 0.0
+        summaries.append(
+            {
+                "contrast": contrast,
+                "condition_a": condition_a,
+                "condition_b": condition_b,
+                "mean": mean,
+                "n_networks": int(len(values)),
+                "degrees_of_freedom": int(len(values) - 1),
+                "standard_error": sem,
+                "ci95_low": float(mean - half_width),
+                "ci95_high": float(mean + half_width),
+                "t_statistic": t_statistic,
+                "p_value_two_sided": p_value,
+                "values_used_for_plotting": [float(value) for value in values.tolist()],
+            }
+        )
+    if not summaries:
+        return summaries
+    order = sorted(range(len(summaries)), key=lambda index: float(summaries[index]["p_value_two_sided"]))
+    adjusted = [1.0] * len(summaries)
+    running = 1.0
+    for rank in range(len(order), 0, -1):
+        index = order[rank - 1]
+        running = min(running, float(summaries[index]["p_value_two_sided"]) * len(order) / rank)
+        adjusted[index] = min(running, 1.0)
+    for index, p_fdr in enumerate(adjusted):
+        summaries[index]["p_value_bh_fdr"] = float(p_fdr)
+        summaries[index]["fdr_family"] = "three_predeclared_fig4d_network_level_contrasts"
+    return summaries
 
 
 def _accuracy_drop_condition_contrasts(panel_df: pd.DataFrame) -> dict[str, Any]:

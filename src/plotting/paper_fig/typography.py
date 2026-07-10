@@ -4,8 +4,8 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 
-PANEL_LABEL_SIZE_PT = 8.0
-FIGURE_TEXT_SIZE_PT = 6.0
+PANEL_LABEL_SIZE_PT = 12.0
+FIGURE_TEXT_SIZE_PT = 9.0
 FONT_FAMILY = ["Arial", "DejaVu Sans", "sans-serif"]
 VECTOR_TEXT_RCPARAMS = {
     "svg.fonttype": "none",
