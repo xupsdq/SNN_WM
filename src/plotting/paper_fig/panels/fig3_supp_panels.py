@@ -5,13 +5,107 @@ from typing import Any, Mapping
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
 
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
-from src.plotting.paper_fig.panels.fig3_panels import PEAK, RANDOM, VALLEY, _infer_seq_len, _region_ping_categories
+from src.plotting.paper_fig.panels.fig3_panels import PEAK, RANDOM, VALLEY, _infer_seq_len, _region_ping_categories, render_fig3_morphology_serial_profile
 
 
 MAIN = "#009E73"
 GRID = "0.88"
+
+
+def render_part2_fit_comparison(ax, panel_data, stats, spec, style=None):
+    _ = style
+    df = _clean(panel_data)
+    linear = df[df["metric"].astype(str).eq("linear_sse")].set_index("network_id")["value"]
+    saturating = df[df["metric"].astype(str).eq("saturating_sse")].set_index("network_id")["value"]
+    paired = pd.concat([linear.rename("Linear"), saturating.rename("Saturating")], axis=1).dropna()
+    if paired.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    for _, row in paired.iterrows():
+        ax.plot([0, 1], row.to_numpy(dtype=float), color="0.75", linewidth=0.45, alpha=0.65, zorder=1)
+    colors = ["0.55", MAIN]
+    for x, column, color in zip([0, 1], paired.columns, colors):
+        values = paired[column].to_numpy(dtype=float)
+        jitter = np.linspace(-0.045, 0.045, len(values))
+        ax.scatter(np.full(len(values), x) + jitter, values, s=8, color=color, alpha=0.45, linewidth=0, zorder=2)
+        mean, half = _part2_ci(values)
+        ax.errorbar(x, mean, yerr=half, fmt="o", color=color, markeredgecolor="white", markersize=4.2, capsize=2.0, linewidth=0.8, zorder=3)
+    delta = pd.to_numeric(df.loc[df["metric"].astype(str).eq("linear_minus_saturating_sse"), "value"], errors="coerce").dropna().to_numpy(dtype=float)
+    if len(delta):
+        mean, half = _part2_ci(delta)
+        p_value = float(scipy_stats.ttest_1samp(delta, 0.0).pvalue) if len(delta) > 1 else np.nan
+        ax.text(0.03, 0.97, f"Delta SSE {mean:.2f} [{mean-half:.2f}, {mean+half:.2f}]\np={p_value:.2g}, n={len(delta)}", transform=ax.transAxes, ha="left", va="top", fontsize=4.7, color="0.22")
+    ax.set_xticks([0, 1], ["Linear", "Saturating"])
+    ax.set_ylabel("Fit SSE")
+    _finish_axes(ax, spec)
+    ax.paper_fig_plot_form = "part2_fit_comparison"
+    ax.paper_fig_raw_points = True
+    ax.paper_fig_y_metric = "fit_sse"
+
+
+def render_part2_boundary_pair(ax, panel_data, stats, spec, style=None):
+    _ = stats, style
+    df = _clean(panel_data)
+    metrics = list(map(str, spec.get("metrics") or ["N_eff_fraction", "rescued_fraction"]))
+    if df.empty or not {"metric", "seq_len", "delay_ms"}.issubset(df.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.set_axis_off()
+    images = []
+    for index, (bounds, metric, title) in enumerate(zip(([0.03, 0.16, 0.42, 0.74], [0.55, 0.16, 0.42, 0.74]), metrics, ["Morphology", "Rescue"])):
+        inset = ax.inset_axes(bounds)
+        image = _part2_heatmap(inset, df[df["metric"].astype(str).eq(metric)], title, show_y_axis=index == 0)
+        if image is not None:
+            images.append(image)
+    if not images:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    cax = ax.inset_axes([0.35, 0.035, 0.30, 0.045])
+    cbar = ax.figure.colorbar(images[0], cax=cax, orientation="horizontal")
+    cbar.set_ticks([0, 0.5, 1.0])
+    cbar.ax.tick_params(labelsize=4.0, length=1.0, pad=0.5)
+    cbar.set_label("Fraction", fontsize=4.5, labelpad=0.5)
+    ax.paper_fig_plot_form = "part2_boundary_pair"
+    ax.paper_fig_has_colorbar = True
+    ax.paper_fig_y_metric = ";".join(metrics)
+
+
+def _part2_heatmap(ax, frame, title, *, show_y_axis=True):
+    use = frame.copy()
+    use["seq_len"] = pd.to_numeric(use["seq_len"], errors="coerce")
+    use["delay_ms"] = pd.to_numeric(use["delay_ms"], errors="coerce")
+    use = use.dropna(subset=["seq_len", "delay_ms", "value"])
+    if use.empty:
+        ax.set_axis_off()
+        return None
+    xs = np.sort(use["seq_len"].unique())
+    ys = np.sort(use["delay_ms"].unique())
+    matrix = np.full((len(ys), len(xs)), np.nan)
+    for yi, delay in enumerate(ys):
+        for xi, seq_len in enumerate(xs):
+            values = pd.to_numeric(use.loc[use["seq_len"].eq(seq_len) & use["delay_ms"].eq(delay), "value"], errors="coerce").dropna()
+            if not values.empty:
+                matrix[yi, xi] = float(values.mean())
+    image = ax.imshow(matrix, origin="lower", aspect="auto", cmap="Greens", vmin=0.0, vmax=1.0, interpolation="nearest")
+    ax.set_xticks(np.arange(len(xs)), [str(int(value)) for value in xs])
+    ax.set_yticks(np.arange(len(ys)), [str(int(value)) for value in ys] if show_y_axis else [])
+    ax.set_xlabel("K", fontsize=4.7, labelpad=0.5)
+    ax.set_ylabel("Delay" if show_y_axis else "", fontsize=4.7, labelpad=0.5)
+    ax.set_title(title, fontsize=5.0, pad=1.0)
+    ax.tick_params(labelsize=4.0, length=1.2, pad=0.5)
+    return image
+
+
+def _part2_ci(values):
+    values = np.asarray(values, dtype=float)
+    mean = float(np.mean(values))
+    if len(values) <= 1:
+        return mean, 0.0
+    sem = float(np.std(values, ddof=1) / np.sqrt(len(values)))
+    return mean, float(scipy_stats.t.ppf(0.975, len(values) - 1) * sem)
 
 
 def render_s5_peak_valley_contrast(ax, panel_data, stats, spec, style=None):

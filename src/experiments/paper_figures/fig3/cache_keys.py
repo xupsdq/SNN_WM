@@ -17,6 +17,10 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_BOUNDARY_SUMMARY,
     TASK_CUE_SPECIFICITY_ACCESS,
     TASK_CUE_SPECIFICITY_SPECS,
+    TASK_EXEMPLAR_DECODER,
+    TASK_EXEMPLAR_DECODER_SPECS,
+    TASK_EXEMPLAR_DECODER_STATE_BANK,
+    TASK_EXEMPLAR_DECODER_SUMMARY,
     TASK_MORPHOLOGY_DECOMPOSITION,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_NEUTRAL_PING_ACCESS,
@@ -292,6 +296,103 @@ def build_cue_specificity_access_cache_key(
     }
 
 
+def build_exemplar_decoder_specs_cache_key(cfg: Any) -> dict[str, Any]:
+    n_digits = 2 if bool(getattr(cfg, "smoke", False)) else 10
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "artifact_schema_version": "fig3_exemplar_decoder_v1",
+        "task_id": TASK_EXEMPLAR_DECODER_SPECS,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "dataset_root": str(Path(getattr(cfg, "dataset_root")).resolve()),
+        "dataset_split": str(getattr(cfg, "split")),
+        "sequence_length": 7,
+        "delay_ms": 400,
+        "feature": "layer1:g_minus_S0",
+        "digits": int(n_digits),
+        "exemplars_per_digit": 2,
+        "episode_ids": [0, 1, 2, 3, 4],
+        "target_positions": [1, 2, 3, 4, 5],
+        "context_policy": "paired_deterministic_non_target_fillers_v1",
+        "decoder": {"family": "logistic_regression", "penalty": "l2", "C": 1.0},
+        "fold_policy": "leave_one_episode_out_train_only_standardization_v1",
+        "statistics_policy": "two_sided_network_t_tests_alpha_0.05_no_multiplicity_adjustment_two_gate_conjunction_v1",
+        "smoke": bool(getattr(cfg, "smoke", False)),
+    }
+
+
+def build_exemplar_decoder_state_bank_cache_key(
+    cfg: Any,
+    *,
+    exemplar_decoder_specs_digest: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "artifact_schema_version": "fig3_exemplar_decoder_v1",
+        "task_id": TASK_EXEMPLAR_DECODER_STATE_BANK,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "dataset_split": str(getattr(cfg, "split")),
+        "exemplar_decoder_specs_digest": str(exemplar_decoder_specs_digest),
+        "model": model_fingerprint(getattr(cfg, "model_path")),
+        "dt": float(getattr(cfg, "dt")),
+        "sample_ms": int(getattr(cfg, "sample_ms")),
+        "delay_ms": 400,
+        "sequence_length": 7,
+        "feature": "layer1:g_minus_S0",
+        "capture_policy": "batched_terminal_and_time_matched_singleton_v1",
+        "smoke": bool(getattr(cfg, "smoke", False)),
+    }
+
+
+def build_exemplar_decoder_cache_key(
+    cfg: Any,
+    *,
+    exemplar_decoder_specs_digest: str,
+    exemplar_decoder_state_bank_digest: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "artifact_schema_version": "fig3_exemplar_decoder_v1",
+        "task_id": TASK_EXEMPLAR_DECODER,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "exemplar_decoder_specs_digest": str(exemplar_decoder_specs_digest),
+        "exemplar_decoder_state_bank_digest": str(exemplar_decoder_state_bank_digest),
+        "decoder": {"family": "logistic_regression", "penalty": "l2", "C": 1.0, "solver": "liblinear"},
+        "fold_policy": "leave_one_episode_out_train_only_standardization_v1",
+        "feature": "layer1:g_minus_S0",
+        "smoke": bool(getattr(cfg, "smoke", False)),
+    }
+
+
+def build_exemplar_decoder_summary_cache_key(
+    *,
+    metric_file_hashes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "artifact_schema_version": "fig3_exemplar_decoder_v1",
+        "task_id": TASK_EXEMPLAR_DECODER_SUMMARY,
+        "expected_network_seeds": list(range(1000, 1020)),
+        "metric_file_hashes": metric_file_hashes,
+        "single_item_gate": {
+            "reference": 0.5,
+            "test": "two_sided_one_sample_t",
+            "direction": "greater_than_reference",
+            "alpha": 0.05,
+        },
+        "fused_gate": {
+            "test": "two_sided_paired_t",
+            "contrast": "fused_minus_single_item",
+            "direction": "less_than_zero",
+            "alpha": 0.05,
+        },
+        "multiplicity": "none_predeclared_two_gate_conjunction",
+    }
+
+
 def build_neutral_ping_access_cache_key(
     cfg: Any,
     *,
@@ -379,6 +480,10 @@ __all__ = [
     "build_boundary_summary_cache_key",
     "build_cue_specificity_access_cache_key",
     "build_cue_specificity_specs_cache_key",
+    "build_exemplar_decoder_cache_key",
+    "build_exemplar_decoder_specs_cache_key",
+    "build_exemplar_decoder_state_bank_cache_key",
+    "build_exemplar_decoder_summary_cache_key",
     "build_morphology_decomposition_cache_key",
     "build_morphology_function_coupling_cache_key",
     "build_neutral_ping_access_cache_key",

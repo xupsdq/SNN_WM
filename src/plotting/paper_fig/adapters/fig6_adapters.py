@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values, write_adapter_outputs
 from src.plotting.paper_fig.utils import read_json
@@ -119,7 +121,7 @@ def build_fig6_entry_score_metadata_adapter(spec: Mapping[str, Any], repo_root: 
 
 
 def build_fig6_high_stsp_overlap_ablation_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Fig.6A: high-STSP-overlap ablation promoted from the older Fig.6F inset."""
+    """Fig.6D: aggregate high-STSP-overlap ablation to one row per network and condition."""
     figure_id, panel_id = _ids(spec)
     root, seeds, warnings = _seed_dirs(spec, repo_root)
     rows: list[dict[str, Any]] = []
@@ -135,16 +137,23 @@ def build_fig6_high_stsp_overlap_ablation_adapter(spec: Mapping[str, Any], repo_
         )
         checked.extend(candidates)
         if path is None or df is None or df.empty:
-            warnings.append(f"Missing Fig.6A high-STSP-overlap ablation summary under {_rel(seed_dir, repo_root)}.")
+            warnings.append(f"Missing Fig.6D high-STSP-overlap ablation summary under {_rel(seed_dir, repo_root)}.")
             continue
         sources.append(path)
-        for _, r in df.iterrows():
-            value_col = _first_col(pd.DataFrame([r]), ["loss_delta_spike_probability", "delta_spike_probability_loss", "loss"])
-            if value_col is None:
+        value_col = _first_col(df, ["loss_delta_spike_probability", "delta_spike_probability_loss", "loss"])
+        condition_col = _first_col(df, ["loss_condition", "condition", "ablation_condition"])
+        if value_col is None or condition_col is None:
+            warnings.append(f"Fig.6D ablation source lacks value/condition columns: {_rel(path, repo_root)}")
+            continue
+        work = df.copy()
+        work[value_col] = pd.to_numeric(work[value_col], errors="coerce")
+        work = work.dropna(subset=[value_col])
+        if work.empty:
+            continue
+        for (network_seed, condition), part in work.groupby(["network_seed", condition_col], dropna=False, sort=False):
+            values = pd.to_numeric(part[value_col], errors="coerce").dropna()
+            if values.empty:
                 continue
-            condition = str(r.get("loss_condition", r.get("condition", r.get("ablation_condition", "")))).strip()
-            if not condition:
-                condition = "high_stsp_overlap"
             rows.append(
                 _row(
                     figure_id,
@@ -153,17 +162,17 @@ def build_fig6_high_stsp_overlap_ablation_adapter(spec: Mapping[str, Any], repo_
                     condition,
                     "layer1",
                     seed_dir,
-                    r.get("network_seed", ""),
-                    _num(r.get(value_col)),
+                    network_seed,
+                    float(values.mean()),
                     "probability difference",
                     path,
                     repo_root,
-                    sequence_id=r.get("sequence_id", ""),
-                    probe_id=r.get("probe_id", ""),
-                    probe_label=r.get("probe_label", ""),
-                    early_window_ms=_num(r.get("early_window_ms")),
-                    removed_active_area=_num(r.get("removed_active_area")),
-                    removed_input_energy=_num(r.get("removed_input_energy")),
+                    early_window_ms=_num(part.get("early_window_ms", pd.Series([np.nan])).iloc[0]),
+                    removed_active_area=_num(pd.to_numeric(part.get("removed_active_area", pd.Series(dtype=float)), errors="coerce").mean()),
+                    removed_input_energy=_num(pd.to_numeric(part.get("removed_input_energy", pd.Series(dtype=float)), errors="coerce").mean()),
+                    lower_level_rows=int(len(values)),
+                    aggregation="sequence_probe_to_network_condition",
+                    analysis_role="network_condition_mean",
                     score_name=FIG6_SCORE_NAME,
                     primary_endpoint=FIG6_PRIMARY_ENDPOINT,
                     final_label_claim=False,
@@ -184,12 +193,18 @@ def build_fig6_high_stsp_overlap_ablation_adapter(spec: Mapping[str, Any], repo_
         stats_extra={
             **_fig6_score_stats("loss_delta_spike_probability", "high_stsp_overlap_ablation_vs_matched_removal"),
             "source_level": "high_stsp_overlap_ablation",
+            "adapter_performed_network_level_averaging": True,
+            "inferential_unit": "independent network",
+            "replicate_unit": "network_id",
+            "interval_definition": "two-sided 95% Student-t confidence interval across independent networks",
+            "aggregation": "sequence_probe_to_network_condition",
         },
         manifest_extra={
             **_fig6_score_manifest("high_stsp_overlap_ablation_vs_matched_removal"),
             "source_mode": "high_stsp_overlap_ablation",
             "canonical_source": "data/metrics/panel_a_high_stsp_overlap_ablation_summary.csv",
             "legacy_alias_source": "data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv",
+            "source_aggregation": "sequence_probe_to_network_condition",
         },
     )
 
@@ -2101,6 +2116,9 @@ def _finish(
     if not rows:
         return _write_missing(spec, output_dir, root, checked_paths, warnings, f"{figure_id}{panel_id} adapter found no plottable rows.")
     panel_df = pd.DataFrame(rows)
+    rows_before_network_aggregation = len(panel_df)
+    if figure_id.startswith("supp_fig_s"):
+        panel_df = _aggregate_part2_network_rows(panel_df, group_cols)
     panel_df["run_mode"] = run_mode
     panel_df["n_networks"] = len(seeds)
     proxy_flags = _bool_series(panel_df.get("proxy_mode", pd.Series(dtype=object)))
@@ -2112,13 +2130,19 @@ def _finish(
         "n_networks": len(seeds),
         "network_ids": [_seed_id(seed) for seed in seeds],
         "summaries": summarize_values(panel_df, [col for col in group_cols if col in panel_df.columns]),
+        "network_summaries": _part2_network_summaries(panel_df, group_cols) if figure_id.startswith("supp_fig_s") else [],
         "values_used_for_plotting": _values(panel_df),
         "source_files_used": int(len(set(map(str, source_paths)))),
-        "raw_rows_read": int(len(panel_df)),
+        "raw_rows_read": int(rows_before_network_aggregation),
         "rows_after_source_filtering": int(len(panel_df)),
         "rows_written_to_panel_data": int(len(panel_df)),
-        "adapter_performed_network_level_averaging": False,
+        "rows_before_network_aggregation": int(rows_before_network_aggregation),
+        "rows_after_network_aggregation": int(len(panel_df)),
+        "adapter_performed_network_level_averaging": bool(figure_id.startswith("supp_fig_s") and rows_before_network_aggregation != len(panel_df)),
         "source_appeared_preaggregated": False,
+        "inferential_unit": "independent network" if figure_id.startswith("supp_fig_s") else "legacy panel rows",
+        "replicate_unit": "network_id" if figure_id.startswith("supp_fig_s") else "legacy panel rows",
+        "interval_definition": "two-sided 95% Student-t confidence interval across independent networks" if figure_id.startswith("supp_fig_s") else "legacy",
         "any_proxy_mode": bool(proxy_flags.any()) if len(proxy_flags) else False,
         "all_proxy_mode": bool(proxy_flags.all()) if len(proxy_flags) else False,
         "n_final_scientific_rows": int(final_flags.sum()) if len(final_flags) else 0,
@@ -2146,6 +2170,65 @@ def _finish(
     }
     manifest.update(dict(manifest_extra or {}))
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(stats["warnings"]))
+
+
+def _aggregate_part2_network_rows(df: pd.DataFrame, group_cols: Sequence[str]) -> pd.DataFrame:
+    dimensions = [
+        *group_cols,
+        "metric",
+        "condition",
+        "layer",
+        "score_quantile_bin",
+        "early_window_ms",
+        "endpoint",
+        "stsp_group_quantile",
+        "overlap_threshold",
+    ]
+    keys = ["network_id", *[col for col in dict.fromkeys(dimensions) if col in df.columns and col != "network_id"]]
+    drop_cols = {"trial_id", "unit_id", "pair_id", "sequence_id", "probe_id", "event_id", "shuffle_id"}
+    work = df.drop(columns=[col for col in drop_cols if col in df.columns]).copy()
+    work["value"] = pd.to_numeric(work["value"], errors="coerce")
+    work = work.dropna(subset=["network_id", "value"])
+    aggregations = {col: ("mean" if col == "value" else "first") for col in work.columns if col not in keys}
+    grouped = work.groupby(keys, dropna=False, sort=False)
+    out = grouped.agg(aggregations).reset_index()
+    out["lower_level_rows"] = grouped.size().to_numpy()
+    assert not out.duplicated(keys).any()
+    return out
+
+
+def _part2_network_summaries(df: pd.DataFrame, group_cols: Sequence[str]) -> list[dict[str, Any]]:
+    groups = [col for col in group_cols if col in df.columns]
+    grouped = df.groupby(groups, dropna=False, sort=False) if groups else [((), df)]
+    rows: list[dict[str, Any]] = []
+    for key, part in grouped:
+        values = pd.to_numeric(part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if not len(values):
+            continue
+        if not isinstance(key, tuple):
+            key = (key,)
+        n = int(len(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+        half = float(scipy_stats.t.ppf(0.975, n - 1) * sem) if n > 1 else 0.0
+        row = {col: value for col, value in zip(groups, key)}
+        row.update({
+            "n_networks": n,
+            "mean": float(np.mean(values)),
+            "sem": sem,
+            "ci95_low": float(np.mean(values) - half),
+            "ci95_high": float(np.mean(values) + half),
+            "one_sample_p_vs_zero": _part2_one_sample_p(values),
+        })
+        rows.append(row)
+    return rows
+
+
+def _part2_one_sample_p(values: np.ndarray) -> float | None:
+    if len(values) <= 1:
+        return None
+    if float(np.std(values, ddof=1)) < 1e-15:
+        return 1.0 if abs(float(np.mean(values))) < 1e-15 else 0.0
+    return float(scipy_stats.ttest_1samp(values, 0.0).pvalue)
 
 
 def _write_missing(
@@ -2311,7 +2394,22 @@ def _rel(path: Path | str, root: Path) -> str:
 
 
 def _source_entry(path: Path, *, repo_root: Path, used: bool) -> dict[str, Any]:
-    return {"path": _rel(path, repo_root), "exists": path.exists(), "used": bool(used)}
+    exists = path.is_file()
+    return {
+        "path": _rel(path, repo_root),
+        "exists": exists,
+        "used": bool(used),
+        "size_bytes": path.stat().st_size if exists else None,
+        "sha256": _sha256(path) if exists else "",
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _metric_label(metric: str) -> str:

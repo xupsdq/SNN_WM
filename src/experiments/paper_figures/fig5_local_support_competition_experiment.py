@@ -62,6 +62,9 @@ def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
 FIGURE_ID = "fig5_local_support_competition"
 FIG5_DESIGN_VERSION = "local_support_competition_l1_stsp_perturbation"
 PRIMARY_LAYER = "layer1"
+MAX_WINNERS_PER_TRIAL = 3
+PRIMARY_PRE_WINDOW_MS = (-8.0, -1.0)
+LATE_PRE_WINDOW_MS = (-4.0, -1.0)
 UNIT_GROUPS = ("overlap_dominant", "probe_only_dominant", "balanced", "random_matched")
 MAIN_CONDITIONS = (
     "dynamic_intact",
@@ -738,7 +741,19 @@ def _write_config_files(ctx: ExperimentContext) -> None:
         },
         ctx.config_dir / "support_perturbation_spec.json",
     )
-    _write_json({"local_kernel_radius": int(ctx.cfg.local_kernel_radius), "event_align_pre_steps": int(ctx.cfg.event_align_pre_steps), "event_align_post_steps": int(ctx.cfg.event_align_post_steps)}, ctx.config_dir / "event_selection_spec.json")
+    _write_json(
+        {
+            "local_kernel_radius": int(ctx.cfg.local_kernel_radius),
+            "event_align_pre_steps": int(ctx.cfg.event_align_pre_steps),
+            "event_align_post_steps": int(ctx.cfg.event_align_post_steps),
+            "max_winners_per_trial": int(MAX_WINNERS_PER_TRIAL),
+            "require_complete_alignment_window": True,
+            "primary_pre_window_ms": list(PRIMARY_PRE_WINDOW_MS),
+            "descriptive_late_pre_window_ms": list(LATE_PRE_WINDOW_MS),
+            "aggregation": "event_to_trial_to_network",
+        },
+        ctx.config_dir / "event_selection_spec.json",
+    )
     _write_json({"null_types": list(NULL_TYPES), "n_null": int(ctx.cfg.n_null)}, ctx.config_dir / "null_baseline_spec.json")
 
 

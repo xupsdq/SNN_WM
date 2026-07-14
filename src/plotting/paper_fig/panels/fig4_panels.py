@@ -11,12 +11,44 @@ from scipy.stats import t as student_t
 from src.plotting.common.colors import get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL, GRID_ALPHA_SOFT
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
-from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
+from src.plotting.paper_fig.svg_assets import (
+    load_embedded_square_pngs,
+    schematic_arrow,
+    schematic_box,
+    schematic_digit,
+    schematic_text,
+    setup_programmatic_schematic,
+)
 
 
 def render_fig4_reentry_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
-    render_svg_asset_panel(ax, spec)
+    width, _ = setup_programmatic_schematic(ax, spec)
+    sample, probe = load_embedded_square_pngs(spec)
+    blue, orange = "#0072B2", "#D55E00"
+    neutral, ink = "#8B95A3", "#253041"
+
+    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor="#F6F7F9", edgecolor="#F6F7F9", radius=1.8, role="top_band")
+    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor="#F1F9F7", edgecolor="#F1F9F7", radius=1.8, role="bottom_band")
+
+    schematic_text(ax, 11.25, 46.6, "Sample", color=blue, role="header_sample")
+    schematic_text(ax, 68.25, 46.6, "Probe", color=orange, role="header_probe")
+    schematic_digit(ax, sample, 3.0, 27.0, 16.5, edgecolor=blue, role="digit_sample")
+    schematic_box(ax, 28.25, 29.3, 23.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay")
+    schematic_digit(ax, probe, 60.0, 27.0, 16.5, edgecolor=orange, role="digit_probe")
+    schematic_arrow(ax, (19.5, 35.25), (28.25, 35.25), color=neutral)
+    schematic_arrow(ax, (51.25, 35.25), (60.0, 35.25), color=neutral)
+
+    schematic_box(ax, 1.5, 3.0, 20.0, 17.5, facecolor="#DCEEFF", edgecolor=blue, text="Sample\nwritten", text_color="#005A8D", role="sample_written")
+    schematic_box(ax, 27.0, 3.0, 25.5, 17.5, facecolor="#EAF4FC", edgecolor="#82B5DF", text="Retained\nsample trace", text_color="#4D5C70", linestyle=(0, (3, 2)), role="retained_sample")
+    schematic_box(ax, 58.0, 3.0, 20.0, 17.5, facecolor="#FFF3DE", edgecolor=orange, text="Probe test", text_color="#8A4500", role="probe_test")
+    schematic_arrow(ax, (21.5, 11.75), (27.0, 11.75), color="#A7B0BC")
+    schematic_arrow(ax, (52.5, 11.75), (58.0, 11.75), color="#A7B0BC")
+    schematic_arrow(ax, (11.25, 27.0), (11.25, 20.5), color=blue)
+    schematic_arrow(ax, (39.75, 29.3), (39.75, 20.5), color="#82B5DF")
+    schematic_arrow(ax, (68.25, 27.0), (68.25, 20.5), color=orange)
+
+    ax.paper_fig_plot_form = "programmatic_sample_probe_schematic"
 
 
 def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -122,31 +154,29 @@ def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | N
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    rates = df[df["metric"].isin(["drop_rate_low_overlap", "drop_rate_high_overlap"])].copy()
+    rates = df[df["metric"].astype(str).eq("mean_accuracy_drop")].copy()
     order = ["low_overlap", "high_overlap"]
     label_map = {"low_overlap": "Low\noverlap", "high_overlap": "High\noverlap"}
     color_map = {"low_overlap": get_plot_color("shuffled_pair"), "high_overlap": get_plot_color("true_pair")}
     for idx, condition in enumerate(order):
-        vals = pd.to_numeric(rates.loc[rates["condition"].eq(condition), "value"], errors="coerce").dropna()
+        vals = pd.to_numeric(rates.loc[rates["condition"].eq(condition), "value"], errors="coerce").dropna() * 100.0
         if vals.empty:
             continue
         jitter = np.linspace(-0.05, 0.05, len(vals)) if len(vals) > 1 else np.array([0.0])
         ax.scatter(np.full(len(vals), idx) + jitter, vals, s=12, color=color_map[condition], alpha=0.45, zorder=3)
         ax.bar([idx], [float(vals.mean())], color=color_map[condition], alpha=0.55, edgecolor=COLOR_NEUTRAL, linewidth=0.55, zorder=2)
-        ax.errorbar([idx], [float(vals.mean())], yerr=[float(vals.sem()) if len(vals) > 1 else 0.0], fmt="none", ecolor=COLOR_NEUTRAL, capsize=2.0, linewidth=0.8, zorder=4)
-    delta = pd.to_numeric(df.loc[df["metric"].eq("delta_drop_rate"), "value"], errors="coerce").dropna()
+        ax.errorbar([idx], [float(vals.mean())], yerr=[_t_ci_half_width(vals)], fmt="none", ecolor=COLOR_NEUTRAL, capsize=2.0, linewidth=0.8, zorder=4)
+    delta = pd.to_numeric(df.loc[df["metric"].eq("high_minus_low_accuracy_drop"), "value"], errors="coerce").dropna() * 100.0
     if not delta.empty:
-        ax.text(0.03, 0.95, f"Delta drop {float(delta.mean()):.2f}", transform=ax.transAxes, ha="left", va="top", fontsize=5.4, color=COLOR_NEUTRAL)
-    balance = pd.to_numeric(df.loc[df["metric"].eq("mean_similarity_difference"), "value"], errors="coerce").dropna()
-    if not balance.empty:
-        ax.text(0.03, 0.82, f"Mean sim diff {float(balance.mean()):.3f}", transform=ax.transAxes, ha="left", va="top", fontsize=5.0, color=COLOR_NEUTRAL)
+        ax.text(0.03, 0.95, f"High - low {float(delta.mean()):.1f} pp", transform=ax.transAxes, ha="left", va="top", fontsize=5.4, color=COLOR_NEUTRAL)
     ax.set_xticks([0, 1], [label_map[k] for k in order])
-    ax.set_ylim(0, 1)
     ax.set_xlabel("")
-    ax.set_ylabel(str(spec.get("y_axis", "Drop event rate")))
+    ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop (%)")))
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_overlap_accuracy_identification"
+    ax.paper_fig_error_bar = "two_sided_t_95_ci_across_networks"
+    ax.paper_fig_inference_unit = "independently_trained_network"
 
 
 def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -324,7 +354,7 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    order = [c for c in ["Random matched", "Non-overlap support", "Overlap support", "Dynamic"] if c in set(df["condition"].astype(str))]
+    order = [c for c in ["Random-matched reset", "Non-overlap reset", "Overlap reset", "Dynamic"] if c in set(df["condition"].astype(str))]
     df = df[df["condition"].isin(order)].copy()
     colors = ["#8A8A8A", "#CC79A7", "#007A5A", "#009E73"][: len(order)]
     x = np.arange(len(order), dtype=float)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -228,12 +229,17 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
     for seed_dir in seeds:
         trace_path = seed_dir / "data" / "metrics" / "panel_c_event_trace_summary.csv"
         event_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_event_metrics.csv"
+        trial_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_trial_summary.csv"
+        network_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_network_summary.csv"
         if not trace_path.exists():
             warnings.append(f"Missing Fig.5C trace source: {trace_path}")
             continue
         sources.append(trace_path)
-        if event_path.exists():
-            sources.append(event_path)
+        for path in (event_path, trial_path, network_path):
+            if path.exists():
+                sources.append(path)
+            else:
+                warnings.append(f"Missing corrected Fig.5C source: {path}")
         df = pd.read_csv(trace_path)
         df = _baseline_correct_trace(df, value_col="mean_value", group_cols=["trace_type"], time_col="time_ms")
         for r in df.itertuples(index=False):
@@ -266,7 +272,11 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
         "baseline_window": "time_ms < 0",
         "trace_types": ["winner_delta_v", "loser_delta_v", "loser_inhibition"],
         "analysis_scope": "selected_winner_loser_events",
-        "claim_boundary": "event-aligned dynamic-minus-static traces are conditional descriptive evidence; no voltage scalar endpoint is defined",
+        "primary_statistical_metric": "winner_minus_loser_full_pre_delta_v_mean",
+        "primary_window_ms": [-8.0, -1.0],
+        "descriptive_window_ms": [-4.0, -1.0],
+        "aggregation": "event_to_trial_to_network",
+        "claim_boundary": "plotted baseline-corrected traces are descriptive; inference uses the separate network-level winner-minus-loser full-pre contrast",
         "inference_unit": "independently_trained_network",
         "confidence_interval": "two-sided t-based 95% CI across networks",
         "excluded_misinterpretation": "winner_pre_spike_boost is an event proportion, not a voltage increase",
@@ -278,7 +288,11 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
         "trace_types": ["winner_delta_v", "loser_delta_v", "loser_inhibition"],
         "inhibition_trace_note": "inhibition trace is measured at the same selected loser unit",
         "analysis_scope": "selected_winner_loser_events",
-        "claim_boundary": "trace-only conditional description; no scalar voltage endpoint or post-hoc time window",
+        "primary_statistical_metric": "winner_minus_loser_full_pre_delta_v_mean",
+        "primary_window_ms": [-8.0, -1.0],
+        "descriptive_window_ms": [-4.0, -1.0],
+        "aggregation": "event_to_trial_to_network",
+        "claim_boundary": "descriptive trace display plus a predeclared network-level winner-minus-loser scalar endpoint",
         "excluded_misinterpretation": "winner_pre_spike_boost is an event proportion, not a voltage increase",
         "point_overlay_enabled": False,
     }
@@ -803,6 +817,7 @@ def _write_result(
     seed_dirs, _ = _seed_dirs(spec, repo_root)
     run_mode = "multi_network_final" if len(seed_dirs) > 1 else "single_network_draft"
     n_networks = len(seed_dirs)
+    network_ids = [_seed_id(seed_dir, seed_dir.name) for seed_dir in seed_dirs]
     if not panel_df.empty:
         panel_df = panel_df.copy()
         panel_df["run_mode"] = run_mode
@@ -817,6 +832,7 @@ def _write_result(
         "panel_id": panel_id,
         "run_mode": run_mode,
         "n_networks": int(n_networks),
+        "network_ids": network_ids,
         "summaries": summarize_values(panel_df, group_cols),
         "values_used_for_plotting": _values(panel_df),
         "warning": "Single-network result. Use for pipeline validation only, not final manuscript statistics." if run_mode == "single_network_draft" else "",
@@ -828,8 +844,9 @@ def _write_result(
         "status": "ok",
         "run_mode": run_mode,
         "n_networks": int(n_networks),
+        "network_ids": network_ids,
         "source_files_used": [_rel(path, repo_root) for path in source_paths],
-        "sources": [{"path": _rel(path, repo_root), "exists": path.exists()} for path in source_paths],
+        "sources": [_source_entry(path, repo_root) for path in source_paths],
         "experiment_root": str(spec.get("experiment_root") or DEFAULT_EXPERIMENT_ROOT),
         "conditions": sorted(set(map(str, panel_df.get("perturbation_condition", panel_df.get("condition", pd.Series(dtype=str))).dropna().unique()))),
         "unit_groups": sorted(set(map(str, panel_df.get("unit_group", pd.Series(dtype=str)).dropna().unique()))),
@@ -1408,7 +1425,21 @@ def _effect_metric_to_node(metric: str) -> str:
 
 
 def _source_entry(path: Path, repo_root: Path) -> dict[str, Any]:
-    return {"path": _rel(path, repo_root), "exists": path.exists()}
+    exists = path.is_file()
+    return {
+        "path": _rel(path, repo_root),
+        "exists": exists,
+        "size_bytes": path.stat().st_size if exists else None,
+        "sha256": _sha256(path) if exists else "",
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _num(value: Any) -> float:

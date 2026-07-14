@@ -56,6 +56,8 @@ panels:
     source: results/paper_figures/outputs/distractor-enhanced.svg
     size_mm: {w: 161.00, h: 48.00}
     position_mm: {x: 2.00, y: 2.00, w: 161.00, h: 48.00}
+    png_dpi: 600
+    schematic_content_insets_mm: {left: 0.50, right: 0.50, top: 1.00, bottom: 1.00}
     letter_mm: {x: 0.25, y: 0.50}
     x_axis: none
     y_axis: none

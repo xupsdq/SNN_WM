@@ -1,0 +1,100 @@
+figure_id: supp_fig_s4
+implementation_id: fig4_supp
+figure_title_draft: "Supplementary Fig. S4: Overlap rather than similarity explains later processing"
+experiment_root: results/paper_figure_multi_seed/fig4_overlap_reentry
+canvas_mm: {width: 165, height: 124}
+individual_axes: {left: 0.27, right: 0.97, bottom: 0.36, top: 0.88}
+reading_order: [A, B, C, D]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: supp_fig_s4_resolved_spec.yaml
+  source_manifest: supp_fig_s4_source_manifest.json
+  qc_report: supp_fig_s4_qc_report.md
+  panel_data: panel_data/*.csv
+  stats: stats/*.json
+  source_manifests: source_manifests/*.json
+qc_requirements:
+  strict_part2: true
+  expected_panel_count: 4
+  minimum_networks: 20
+  allowed_network_counts: [20]
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  forbid_single_network: true
+  forbid_fallback: true
+group_labels:
+  - {label: "Supplementary Fig. S4 - Overlap controls and matched-confound diagnostics", x_mm: 12, y_mm: 7}
+panels:
+  A:
+    panel_id: A
+    legacy_panel_id: fig4_supp:S5A
+    panel_type: similarity_overlap_2x2
+    producer_task: overlap_localization
+    claim: Overlap separates high- and low-effect cases within similarity strata.
+    data_adapter: s7_similarity_overlap_2x2_adapter
+    renderer: render_s7_similarity_overlap_2x2
+    source_priority: [data/metrics/supp_overlap_similarity_2x2.csv]
+    source_mapping: {source_package: fig4_supp, source_panel: S5A, panel_data: results/paper_figures/outputs/fig4_supp/panel_data/fig4_suppS5A_panel_data.csv}
+    plot_metric: acc_drop
+    position_mm: {x: 12, y: 20, w: 70.5, h: 34}
+    axes_mm: {x: 22, y: 22, w: 60, h: 28}
+    panel_label_mm: {x: 8.5, y: 15}
+    size_mm: {w: 70.5, h: 50}
+    x_axis: Similarity group
+    y_axis: Accuracy drop
+    expected_networks: 20
+  B:
+    panel_id: B
+    legacy_panel_id: fig4_supp:S5B
+    panel_type: overlap_excess_iso_similarity
+    producer_task: [overlap_accuracy_identification, overlap_localization]
+    claim: Matched overlap-excess bins retain larger accuracy loss after similarity stratification.
+    data_adapter: s7_overlap_excess_adapter
+    renderer: render_s7_overlap_excess
+    source_priority: [data/metrics/supp_overlap_excess_accuracy_metrics.csv, data/metrics/supp_overlap_matching_diagnostics.csv]
+    source_mapping: {source_package: fig4_supp, source_panel: S5B, panel_data: results/paper_figures/outputs/fig4_supp/panel_data/fig4_suppS5B_panel_data.csv}
+    plot_metric: mean_acc_drop
+    position_mm: {x: 88.5, y: 20, w: 70.5, h: 34}
+    axes_mm: {x: 101, y: 22, w: 58, h: 28}
+    panel_label_mm: {x: 85, y: 15}
+    size_mm: {w: 70.5, h: 50}
+    x_axis: Overlap-excess group
+    y_axis: Accuracy drop
+    expected_networks: 20
+  C:
+    panel_id: C
+    legacy_panel_id: fig4_supp:S5C
+    panel_type: overlap_regression_controls
+    producer_task: overlap_localization
+    claim: Overlap remains the dominant positive predictor after controlling for similarity and input energy.
+    data_adapter: s7_overlap_regression_adapter
+    renderer: render_s7_overlap_regression
+    source_priority: [data/metrics/supp_overlap_similarity_regression.csv, data/metrics/panel_c_overlap_localization_metrics.csv]
+    source_mapping: {source_package: fig4_supp, source_panel: S5C, panel_data: results/paper_figures/outputs/fig4_supp/panel_data/fig4_suppS5C_panel_data.csv}
+    plotted_outcomes: [DPI_L3, acc_drop]
+    position_mm: {x: 12, y: 70, w: 70.5, h: 34}
+    axes_mm: {x: 22, y: 74, w: 60, h: 28}
+    panel_label_mm: {x: 8.5, y: 65}
+    size_mm: {w: 70.5, h: 55}
+    x_axis: Regression term
+    y_axis: Standardized coefficient
+    expected_networks: 20
+  D:
+    panel_id: D
+    panel_type: matching_diagnostics
+    producer_task: overlap_localization
+    claim: Matching holds similarity and input-energy differences near zero while preserving an overlap contrast.
+    data_adapter: s7_matching_diagnostics_adapter
+    renderer: render_s7_matching_diagnostics
+    source: data/metrics/panel_d_matching_balance_diagnostics.csv
+    source_mapping: {source_package: fig4_supp, source_panel: matching_diagnostics, canonical_root: results/paper_figure_multi_seed/fig4_overlap_reentry}
+    position_mm: {x: 88.5, y: 70, w: 70.5, h: 34}
+    axes_mm: {x: 101, y: 74, w: 58, h: 28}
+    panel_label_mm: {x: 85, y: 65}
+    size_mm: {w: 70.5, h: 55}
+    x_axis: Matching diagnostic
+    y_axis: Matched-set difference
+    expected_networks: 20

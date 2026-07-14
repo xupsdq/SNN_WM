@@ -414,6 +414,9 @@ def _artist_boxes(renderer, ax, *, include_legend: bool = True) -> list[Bbox]:
         artists.extend([ax.xaxis.label, ax.yaxis.label, ax.title])
     artists.extend(ax.texts)
     artists.extend(ax.images)
+    for artist in getattr(ax, "paper_fig_schematic_artists", []):
+        if not any(existing is artist for existing in artists):
+            artists.append(artist)
     legend = ax.get_legend()
     if include_legend and legend is not None:
         artists.append(legend)

@@ -24,6 +24,7 @@ from src.experiments.paper_figures.fig1.artifacts import (
     load_delay_feature_bank,
     load_dms_boundary_bank,
     load_trial_specs_artifact,
+    read_json,
     reset_task_artifact_dir,
     save_boundary_shard,
     save_trial_specs_artifact,
@@ -563,6 +564,21 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
     for name, paths in checks.items():
         if all(path.exists() for path in paths):
             ctx.completed_modules[name] = True
+    summary_path = ctx.seed_dir / "summary.json"
+    if ctx.completed_modules.get("dms_shuffle") and summary_path.exists():
+        existing = read_json(summary_path)
+        donor_keys = (
+            "donor_constraint_audit_available",
+            "strict_all_three_distinct_donor",
+            "n_donor_sample_conflict",
+            "n_donor_probe_conflict",
+            "n_sample_probe_conflict",
+            "n_all_three_distinct_fail",
+            "n_self_swap",
+            "used_relaxed_rule",
+            "donor_constraint_status",
+        )
+        ctx.donor_constraint_summary = {key: existing[key] for key in donor_keys if key in existing}
     ctx.cfg = replace(
         ctx.cfg,
         run_baseline=bool(ctx.completed_modules.get("baseline", False)),

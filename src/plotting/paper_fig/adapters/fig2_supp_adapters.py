@@ -108,6 +108,8 @@ def build_s3_linear_model_comparison_adapter(spec: Mapping[str, Any], repo_root:
         return missing_adapter_result(spec, repo_root, output_dir, "Missing S3C linear model comparison source.")
     raw_panel_df = _sort_by_order(pd.DataFrame(rows), "condition", model_order)
     panel_df = _seed_level_summary(raw_panel_df, ["condition", "model_name"])
+    if figure_id == "supp_fig_s2":
+        panel_df = panel_df.drop(columns=["pair_id"], errors="ignore")
     stats = _stats_payload(figure_id, panel_id, panel_df, "linear_model_comparison", _run_mode(seeds), ["model_name"])
     stats["model_order"] = model_order
     stats["models"] = _unique(panel_df, "model_name")
@@ -317,6 +319,8 @@ def _build_layerwise_metric(
         return missing_adapter_result(spec, repo_root, output_dir, f"Missing {panel_id} layerwise source.")
     raw_panel_df = _sort_by_order(pd.DataFrame(rows), "layer", LAYER_ORDER)
     panel_df = _seed_level_summary(raw_panel_df, ["layer", "condition"])
+    if figure_id == "supp_fig_s2":
+        panel_df = panel_df.drop(columns=["pair_id"], errors="ignore")
     stats = _stats_payload(figure_id, panel_id, panel_df, metric_name, _run_mode(seeds), ["layer"])
     stats["layers"] = _unique(panel_df, "layer")
     _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)

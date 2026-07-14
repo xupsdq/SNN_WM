@@ -65,6 +65,10 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_BOUNDARY_SUMMARY,
     TASK_CUE_SPECIFICITY_ACCESS,
     TASK_CUE_SPECIFICITY_SPECS,
+    TASK_EXEMPLAR_DECODER,
+    TASK_EXEMPLAR_DECODER_SPECS,
+    TASK_EXEMPLAR_DECODER_STATE_BANK,
+    TASK_EXEMPLAR_DECODER_SUMMARY,
     TASK_MORPHOLOGY_DECOMPOSITION,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_IDS,
@@ -88,8 +92,16 @@ from src.experiments.paper_figures.fig3.subexperiments.cue_specificity import (
     cue_specificity_scientific_checks,
     run_cue_specificity_readout,
 )
+from src.experiments.paper_figures.fig3.subexperiments.exemplar_decoder import (
+    DELAY_MS as EXEMPLAR_DECODER_DELAY_MS,
+    SEQUENCE_LENGTH as EXEMPLAR_DECODER_SEQUENCE_LENGTH,
+    get_exemplar_decoder_results,
+    get_exemplar_decoder_specs,
+    get_exemplar_decoder_state_bank,
+    run_exemplar_decoder_summary,
+)
 from src.experiments.paper_figures.fig3.subexperiments.functional_access import run_neutral_ping_access, run_weak_cue_access
-from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition
+from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition, write_morphology_fit_outputs
 from src.experiments.paper_figures.fig3.subexperiments.neutral_ping import run_neutral_ping_readout_distribution
 from src.experiments.paper_figures.fig3.subexperiments.peak_valley_landscape import compute_final_support_landscape
 from src.experiments.paper_figures.fig3.subexperiments.progressive_update import compute_progressive_update_metrics
@@ -113,11 +125,21 @@ from src.experiments.paper_figures.run_paper_figures import (
 
 FIGURE_ID = legacy.FIGURE_ID
 NUM_CLASSES = legacy.NUM_CLASSES
+EXEMPLAR_DECODER_SEED_TASK_IDS = frozenset(
+    {
+        TASK_EXEMPLAR_DECODER_SPECS,
+        TASK_EXEMPLAR_DECODER_STATE_BANK,
+        TASK_EXEMPLAR_DECODER,
+    }
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
+    if args.task == TASK_EXEMPLAR_DECODER_SUMMARY:
+        run_exemplar_decoder_summary(_output_root_from_args(args), mode=mode)
+        return 0
     cfg = _config_from_args(args)
     ctx = _build_context(cfg)
     artifact_root = _artifact_root_from_args(args, ctx.seed_dir)
@@ -142,30 +164,49 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
         legacy._write_config_files(ctx)
-        seq_trials, singleton_trials, partial_trials = _get_sequence_specs(
-            ctx,
-            task_id=str(args.task),
-            mode=mode,
-            artifact_root=artifact_root,
-            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
-        )
-        spec_hash = sequence_specs_hash(seq_trials, singleton_trials, partial_trials)
-        run_info["sequence_specs_hash"] = spec_hash
-        _run_task(
-            ctx,
-            seq_trials,
-            task_id=str(args.task),
-            mode=mode,
-            artifact_root=artifact_root,
-            specs_hash=spec_hash,
-            shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
-        )
+        if str(args.task) in EXEMPLAR_DECODER_SEED_TASK_IDS:
+            _run_exemplar_decoder_task(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
+        else:
+            seq_trials, singleton_trials, partial_trials = _get_sequence_specs(
+                ctx,
+                task_id=str(args.task),
+                mode=mode,
+                artifact_root=artifact_root,
+                shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
+            )
+            spec_hash = sequence_specs_hash(seq_trials, singleton_trials, partial_trials)
+            run_info["sequence_specs_hash"] = spec_hash
+            _run_task(
+                ctx,
+                seq_trials,
+                task_id=str(args.task),
+                mode=mode,
+                artifact_root=artifact_root,
+                specs_hash=spec_hash,
+                shared_sequence_root=Path(args.shared_sequence_root) if args.shared_sequence_root else None,
+            )
         _finalize_bundle(ctx, artifact_root=artifact_root, mode=mode)
         finalize_run_info(ctx.seed_dir / "meta", run_info, status="success")
         return 0
     except Exception:
         finalize_run_info(ctx.seed_dir / "meta", run_info, status="failed")
         raise
+
+
+def _run_exemplar_decoder_task(
+    ctx: ExperimentContext,
+    *,
+    task_id: str,
+    mode: str,
+    artifact_root: Path,
+) -> None:
+    specs = get_exemplar_decoder_specs(ctx, mode=mode, artifact_root=artifact_root)
+    if task_id == TASK_EXEMPLAR_DECODER_SPECS:
+        return
+    state_bank = get_exemplar_decoder_state_bank(ctx, specs, mode=mode, artifact_root=artifact_root)
+    if task_id == TASK_EXEMPLAR_DECODER_STATE_BANK:
+        return
+    get_exemplar_decoder_results(ctx, specs, state_bank, mode=mode, artifact_root=artifact_root)
 
 
 def _get_sequence_specs(
@@ -364,7 +405,17 @@ def _run_task(
         compute_progressive_update_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
         return
     if task_id == TASK_PEAK_VALLEY_LANDSCAPE:
-        compute_final_support_landscape(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
+        condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
+        boundary_artifact = _get_boundary_state_bank(
+            ctx,
+            sequence_trials,
+            condition_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        compute_final_support_landscape(ctx, boundary_artifact.bank)
         return
     if task_id == TASK_NEUTRAL_PING:
         run_neutral_ping_readout_distribution(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
@@ -940,6 +991,7 @@ def _write_morphology_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[s
     for name, path in mapping.items():
         if name in tables:
             legacy._save_csv(ctx, tables[name], path)
+    write_morphology_fit_outputs(ctx, tables["morphology_boundary_metrics"])
     ctx.completed_modules["morphology_decomposition"] = True
 
 
@@ -1271,6 +1323,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
     smoke = bool(args.smoke)
     task = str(args.task)
     run_all = task == TASK_ALL
+    exemplar_decoder_task = task in EXEMPLAR_DECODER_SEED_TASK_IDS
     seq_lengths = tuple(int(v) for v in str(args.sequence_lengths).split(",") if str(v).strip())
     boundary_sequence_lengths = tuple(int(v) for v in str(args.boundary_sequence_lengths).split(",") if str(v).strip())
     boundary_delay_grid_ms = tuple(int(v) for v in str(args.boundary_delay_grid_ms).split(",") if str(v).strip())
@@ -1287,6 +1340,10 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         weak_cue_keep = (peak_cue_main_keep,)
         boundary_sequence_lengths = seq_lengths
         boundary_delay_grid_ms = (int(args.delay_ms),)
+    if exemplar_decoder_task:
+        seq_lengths = (EXEMPLAR_DECODER_SEQUENCE_LENGTH,)
+        boundary_sequence_lengths = seq_lengths
+        boundary_delay_grid_ms = (EXEMPLAR_DECODER_DELAY_MS,)
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
     return Fig3Config(
         model_path=str(model_path),
@@ -1296,11 +1353,11 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         device=str(args.device),
         split=str(args.split),
         sequence_lengths=seq_lengths,
-        primary_sequence_length=int(args.primary_sequence_length),
-        main_sequence_length=int(args.main_sequence_length),
-        main_only_seq_len_10=bool(args.main_only_seq_len_10),
+        primary_sequence_length=EXEMPLAR_DECODER_SEQUENCE_LENGTH if exemplar_decoder_task else int(args.primary_sequence_length),
+        main_sequence_length=EXEMPLAR_DECODER_SEQUENCE_LENGTH if exemplar_decoder_task else int(args.main_sequence_length),
+        main_only_seq_len_10=False if exemplar_decoder_task else bool(args.main_only_seq_len_10),
         sample_ms=int(args.sample_ms),
-        delay_ms=int(args.delay_ms),
+        delay_ms=EXEMPLAR_DECODER_DELAY_MS if exemplar_decoder_task else int(args.delay_ms),
         ping_ms=int(args.ping_ms),
         ping_amp=float(args.ping_amp),
         ping_repeats=1 if smoke else int(args.ping_repeats),
@@ -1378,7 +1435,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--dataset-root", default=DEFAULT_DATASET_ROOT)
     parser.add_argument("--output-root", default=str(Path(DEFAULT_OUTPUT_ROOT) / FIGURE_ID))
     parser.add_argument("--output-dir", default=None, help="Batch output root; the Fig.3 experiment id is appended unless a seed or figure root is supplied.")
-    parser.add_argument("--network-seed", type=int, required=True)
+    parser.add_argument("--network-seed", type=int, default=None)
     parser.add_argument("--device", default=DEFAULT_PROJECT_DEFAULTS.runtime.device, choices=["auto", "cpu", "cuda"])
     parser.add_argument("--split", default="test", choices=["train", "test"])
     parser.add_argument("--save-debug-figures", action="store_true")
@@ -1449,7 +1506,12 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--partial-cue-keep-fraction-sweep", default="0.05,0.1,0.2,0.3")
     parser.add_argument("--partial-cue-repeats", type=int, default=20)
     parser.add_argument("--target-position", default="K-1")
-    return parser.parse_args(list(argv) if argv is not None else None)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.task != TASK_EXEMPLAR_DECODER_SUMMARY and args.network_seed is None:
+        parser.error("--network-seed is required unless --task exemplar_decoder_summary is selected.")
+    if args.task in EXEMPLAR_DECODER_SEED_TASK_IDS and args.device != "cuda":
+        parser.error("Fig.3 exemplar decoder state acquisition requires --device cuda; CPU and auto are not permitted.")
+    return args
 
 
 if __name__ == "__main__":

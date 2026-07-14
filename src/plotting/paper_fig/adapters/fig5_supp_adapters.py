@@ -5,6 +5,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values, write_adapter_outputs
 from src.plotting.paper_fig.adapters.fig5_adapters import CONDITION_LABELS, DEFAULT_EXPERIMENT_ROOT, UNIT_LABELS
@@ -350,7 +351,7 @@ def build_s10_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_roo
                 if metric not in df.columns:
                     continue
                 rows.append(_row(figure_id, panel_id, metric, CONDITION_LABELS.get(raw, raw), _num(r.get(metric)), "probability", seed_dir, path, repo_root, unit_group=group, unit_group_label=UNIT_LABELS.get(group, group), raw_condition=raw, perturbation_condition=raw, n_dynamic_winners=r.get("n_dynamic_winners", ""), n_units=r.get("n_units", "")))
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
+    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition", "unit_group"])
 
 
 def build_s9_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -501,6 +502,9 @@ def _finish(
         warnings.append("Single-network result. Use for pipeline validation only, not final manuscript statistics.")
     if rows:
         panel_df = pd.DataFrame(rows)
+        rows_before_network_aggregation = len(panel_df)
+        if figure_id.startswith("supp_fig_s"):
+            panel_df = _aggregate_network_rows(panel_df, group_cols)
         panel_df["run_mode"] = run_mode
         panel_df["n_networks"] = len(seeds)
     else:
@@ -529,7 +533,14 @@ def _finish(
         "n_networks": len(seeds),
         "network_ids": [_seed_id(seed) for seed in seeds],
         "summaries": summarize_values(panel_df, [col for col in group_cols if col in panel_df.columns]),
+        "network_summaries": _network_summaries(panel_df, group_cols) if rows and figure_id.startswith("supp_fig_s") else [],
         "values_used_for_plotting": _values(panel_df),
+        "inferential_unit": "independent network" if figure_id.startswith("supp_fig_s") else "legacy panel rows",
+        "replicate_unit": "network_id" if figure_id.startswith("supp_fig_s") else "legacy panel rows",
+        "interval_definition": "two-sided 95% Student-t confidence interval across independent networks" if figure_id.startswith("supp_fig_s") else "legacy",
+        "rows_before_network_aggregation": rows_before_network_aggregation if rows else 0,
+        "rows_after_network_aggregation": len(panel_df) if rows else 0,
+        "adapter_performed_network_level_averaging": bool(figure_id.startswith("supp_fig_s") and rows_before_network_aggregation != len(panel_df)) if rows else False,
         "warnings": list(warnings),
     }
     manifest = {
@@ -555,6 +566,65 @@ def _finish(
     if str(panel_id).startswith("S10") or str(spec.get("panel_type", "")) in perturbation_panel_types:
         manifest.update({"intervention_timing": "pre_probe_boundary", "probe_input_changed": False, "perturbed_unit_scope": "overlap_high_support"})
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(warnings))
+
+
+def _aggregate_network_rows(df: pd.DataFrame, group_cols: Sequence[str]) -> pd.DataFrame:
+    """Collapse lower-level Part II rows to one row per network/comparison cell."""
+    dimensions = [
+        *group_cols,
+        "metric",
+        "condition",
+        "layer",
+        "control_group",
+        "unit_group",
+        "early_window_ms",
+        "perturbation_condition",
+    ]
+    keys = ["network_id", *[col for col in dict.fromkeys(dimensions) if col in df.columns and col != "network_id"]]
+    drop_cols = {"trial_id", "unit_id", "pair_id", "sequence_id", "probe_id", "event_id", "shuffle_id"}
+    work = df.drop(columns=[col for col in drop_cols if col in df.columns]).copy()
+    work["value"] = pd.to_numeric(work["value"], errors="coerce")
+    work = work.dropna(subset=["network_id", "value"])
+    aggregations = {col: ("mean" if col == "value" else "first") for col in work.columns if col not in keys}
+    grouped = work.groupby(keys, dropna=False, sort=False)
+    out = grouped.agg(aggregations).reset_index()
+    out["lower_level_rows"] = grouped.size().to_numpy()
+    assert not out.duplicated(keys).any()
+    return out
+
+
+def _network_summaries(df: pd.DataFrame, group_cols: Sequence[str]) -> list[dict[str, Any]]:
+    groups = [col for col in group_cols if col in df.columns]
+    grouped = df.groupby(groups, dropna=False, sort=False) if groups else [((), df)]
+    rows: list[dict[str, Any]] = []
+    for key, part in grouped:
+        values = pd.to_numeric(part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if not len(values):
+            continue
+        if not isinstance(key, tuple):
+            key = (key,)
+        n = int(len(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+        half = float(scipy_stats.t.ppf(0.975, n - 1) * sem) if n > 1 else 0.0
+        row = {col: value for col, value in zip(groups, key)}
+        row.update({
+            "n_networks": n,
+            "mean": float(np.mean(values)),
+            "sem": sem,
+            "ci95_low": float(np.mean(values) - half),
+            "ci95_high": float(np.mean(values) + half),
+            "one_sample_p_vs_zero": _one_sample_p(values),
+        })
+        rows.append(row)
+    return rows
+
+
+def _one_sample_p(values: np.ndarray) -> float | None:
+    if len(values) <= 1:
+        return None
+    if float(np.std(values, ddof=1)) < 1e-15:
+        return 1.0 if abs(float(np.mean(values))) < 1e-15 else 0.0
+    return float(scipy_stats.ttest_1samp(values, 0.0).pvalue)
 
 
 def _ids(spec: Mapping[str, Any]) -> tuple[str, str]:

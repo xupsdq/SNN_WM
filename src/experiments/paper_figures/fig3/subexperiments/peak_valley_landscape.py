@@ -9,9 +9,6 @@ for _name, _value in vars(_legacy).items():
 
 def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     _save_csv(ctx, _example_landscape_summary(ctx, bank), ctx.metrics_dir / "panel_c_example_landscape_summary.csv")
-    if not (ctx.cfg.run_population_morphology_supplement or ctx.cfg.run_supplement):
-        ctx.completed_modules["peak_valley_landscape"] = True
-        return
     contrast_rows: list[dict[str, Any]] = []
     nonflat_rows: list[dict[str, Any]] = []
     prevalence_rows: list[dict[str, Any]] = []
@@ -19,6 +16,8 @@ def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSeque
     for _, meta in _progress(bank.sequence_meta.iterrows(), total=len(bank.sequence_meta), desc="fig3 landscape sequences", enabled=ctx.cfg.show_progress):
         seq_id = int(meta["sequence_id"])
         seq_len = int(meta["seq_len"])
+        condition_id = str(meta.get("condition_id", ""))
+        delay_ms = int(meta.get("delay_ms", ctx.cfg.delay_ms))
         landscape = bank.landscapes[seq_id]
         g_final = landscape["G_final"]
         peak = landscape["peak_mask"].astype(bool)
@@ -31,8 +30,10 @@ def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSeque
         contrast_rows.append(
             {
                 "network_seed": int(ctx.cfg.network_seed),
+                "condition_id": condition_id,
                 "sequence_id": seq_id,
                 "seq_len": seq_len,
+                "delay_ms": delay_ms,
                 "layer": PRIMARY_LAYER,
                 "state_variable": PRIMARY_STATE_VARIABLE,
                 "peak_mean_support": peak_mean,
@@ -49,8 +50,10 @@ def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSeque
         nonflat_rows.append(
             {
                 "network_seed": int(ctx.cfg.network_seed),
+                "condition_id": condition_id,
                 "sequence_id": seq_id,
                 "seq_len": seq_len,
+                "delay_ms": delay_ms,
                 "layer": PRIMARY_LAYER,
                 "state_variable": PRIMARY_STATE_VARIABLE,
                 "support_std": float(g_final.std()),
@@ -76,8 +79,10 @@ def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSeque
         prevalence_rows.append(
             {
                 "network_seed": int(ctx.cfg.network_seed),
+                "condition_id": condition_id,
                 "sequence_id": seq_id,
                 "seq_len": seq_len,
+                "delay_ms": delay_ms,
                 "layer": PRIMARY_LAYER,
                 "state_variable": PRIMARY_STATE_VARIABLE,
                 "observed_peak_valley_delta": delta,
@@ -94,5 +99,34 @@ def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSeque
     _save_csv(ctx, contrast, ctx.metrics_dir / "supp_peak_valley_contrast.csv")
     _save_csv(ctx, nonflat, ctx.metrics_dir / "supp_landscape_nonflatness.csv")
     _save_csv(ctx, prevalence, ctx.metrics_dir / "supp_peak_valley_prevalence.csv")
-    _save_csv(ctx, _network_peak_summary(ctx.cfg.network_seed, contrast, nonflat, prevalence), ctx.metrics_dir / "supp_network_peak_valley_summary.csv")
+    _save_csv(ctx, _network_peak_summary_current(ctx.cfg.network_seed, contrast, nonflat, prevalence), ctx.metrics_dir / "supp_network_peak_valley_summary.csv")
     ctx.completed_modules["peak_valley_landscape"] = True
+
+
+def _network_peak_summary_current(
+    network_seed: int,
+    contrast: pd.DataFrame,
+    nonflat: pd.DataFrame,
+    prevalence: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for seq_len, part in contrast.groupby("seq_len", sort=True):
+        nf = nonflat[nonflat["seq_len"].astype(int).eq(int(seq_len))]
+        pv = prevalence[prevalence["seq_len"].astype(int).eq(int(seq_len))]
+        values = pd.to_numeric(part["peak_valley_delta"], errors="coerce").dropna().to_numpy(dtype=float)
+        null_p95 = pd.to_numeric(pv["null_peak_valley_delta_p95"], errors="coerce").dropna().to_numpy(dtype=float)
+        rows.append(
+            {
+                "network_seed": int(network_seed),
+                "seq_len": int(seq_len),
+                "mean_peak_valley_delta": float(values.mean()) if values.size else float("nan"),
+                "mean_null_peak_valley_delta_p95": float(null_p95.mean()) if null_p95.size else float("nan"),
+                "fraction_structured_sequences": float(pd.to_numeric(pv["is_structured"], errors="coerce").mean()) if not pv.empty else float("nan"),
+                "mean_top_q_mass_fraction": float(pd.to_numeric(nf["top_q_mass_fraction"], errors="coerce").mean()) if not nf.empty else float("nan"),
+                "mean_support_gini": float(pd.to_numeric(nf["support_gini"], errors="coerce").mean()) if not nf.empty else float("nan"),
+                "n_sequences": int(len(part)),
+                "n_delay_conditions": int(part["delay_ms"].nunique()),
+                "aggregation": "sequence_condition_to_network_by_sequence_length",
+            }
+        )
+    return pd.DataFrame(rows)

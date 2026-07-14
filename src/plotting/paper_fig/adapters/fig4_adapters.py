@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -35,6 +36,14 @@ CONDITION_LABELS = {
     "high_overlap": "High overlap",
     "low_overlap": "Low overlap",
 }
+L1_RESET_CONDITION_LABELS = {
+    "full_dynamic_intact": "Dynamic",
+    "full_static": "Static baseline",
+    "l1_overlap_reset": "Overlap reset",
+    "l1_nonoverlap_reset": "Non-overlap reset",
+    "l1_random_matched_reset": "Random-matched reset",
+}
+L1_RESET_CONDITION_ORDER = tuple(L1_RESET_CONDITION_LABELS)
 
 
 def build_fig4_similarity_entry_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -328,90 +337,77 @@ def build_fig4_overlap_accuracy_identification_adapter(spec: Mapping[str, Any], 
     rows: list[dict[str, Any]] = []
     sources: list[dict[str, Any]] = []
     for seed_dir in seeds:
-        contrast_path = seed_dir / "data" / "metrics" / "panel_d_overlap_accuracy_contrast_by_network.csv"
-        matches_path = seed_dir / "data" / "metrics" / "panel_d_iso_similarity_matched_pairs.csv"
-        balance_path = seed_dir / "data" / "metrics" / "panel_d_matching_balance_diagnostics.csv"
-        sources.extend([_source(contrast_path, seed_dir), _source(matches_path, seed_dir), _source(balance_path, seed_dir)])
-        if contrast_path.exists():
-            contrast = pd.read_csv(contrast_path)
-            for _, r in contrast.iterrows():
-                for metric, unit in (("delta_drop_rate", "probability_delta"), ("drop_rate_high_overlap", "probability"), ("drop_rate_low_overlap", "probability"), ("delta_acc_drop", "accuracy_delta")):
-                    value = _num(r.get(metric, np.nan))
-                    if np.isfinite(value):
-                        rows.append(
-                            _canonical(
-                                figure_id,
-                                panel_id,
-                                metric=metric,
-                                condition="matched_high_minus_low" if metric.startswith("delta") else metric.replace("drop_rate_", ""),
-                                layer="readout",
-                                seed_id=_seed_id(seed_dir),
-                                value=value,
-                                unit=unit,
-                                source_file=_display(contrast_path, repo_root),
-                                n_matched_sets=int(_num(r.get("n_matched_sets", 0))),
-                                permutation_p_one_sided=_num(r.get("permutation_p_one_sided", np.nan)),
-                                permutation_p_two_sided=_num(r.get("permutation_p_two_sided", np.nan)),
-                                run_mode=_run_mode(seeds),
-                            )
-                        )
-        else:
-            warnings.append(f"{_display(contrast_path, repo_root)} missing.")
-        if matches_path.exists():
-            matches = pd.read_csv(matches_path)
-            for _, r in matches.iterrows():
-                value = _num(r.get("paired_delta_drop_event", np.nan))
-                rows.append(
-                    _canonical(
-                        figure_id,
-                        panel_id,
-                        metric="paired_delta_drop_event",
-                        condition="matched_pair",
-                        layer="readout",
-                        seed_id=_seed_id(seed_dir),
-                        value=value,
-                        unit="probability_delta",
-                        source_file=_display(matches_path, repo_root),
-                        match_id=int(_num(r.get("match_id", -1))),
-                        high_pair_id=int(_num(r.get("high_pair_id", -1))),
-                        low_pair_id=int(_num(r.get("low_pair_id", -1))),
-                        pixel_similarity_high=_num(r.get("pixel_similarity_high", np.nan)),
-                        pixel_similarity_low=_num(r.get("pixel_similarity_low", np.nan)),
-                        similarity_difference=_num(r.get("similarity_difference", np.nan)),
-                        dice_overlap_high=_num(r.get("dice_overlap_high", np.nan)),
-                        dice_overlap_low=_num(r.get("dice_overlap_low", np.nan)),
-                        sample_energy_rel_difference=_num(r.get("sample_energy_rel_difference", np.nan)),
-                        probe_energy_rel_difference=_num(r.get("probe_energy_rel_difference", np.nan)),
-                        drop_event_high=_num(r.get("drop_event_high", np.nan)),
-                        drop_event_low=_num(r.get("drop_event_low", np.nan)),
-                        paired_delta_drop_event=value,
-                        n_matched_sets=len(matches),
-                        run_mode=_run_mode(seeds),
-                    )
+        summary_path = seed_dir / "data" / "metrics" / "panel_c_high_similarity_overlap_accuracy_drop_summary.csv"
+        contrast_path = seed_dir / "data" / "metrics" / "panel_c_high_similarity_overlap_accuracy_drop_contrast.csv"
+        pair_path = seed_dir / "data" / "metrics" / "panel_c_high_similarity_overlap_accuracy_drop.csv"
+        sources.extend([_source(summary_path, seed_dir), _source(contrast_path, seed_dir), _source(pair_path, seed_dir)])
+        if not summary_path.exists() or not contrast_path.exists():
+            warnings.append(f"Fig.4C natural-split sources missing under {_display(seed_dir, repo_root)}.")
+            continue
+        summary = pd.read_csv(summary_path)
+        contrast = pd.read_csv(contrast_path)
+        for _, r in summary.iterrows():
+            group = str(r.get("overlap_group", ""))
+            value = _num(r.get("mean_accuracy_drop", np.nan))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="mean_accuracy_drop",
+                    condition=group,
+                    layer="readout",
+                    seed_id=str(r.get("network_seed", _seed_id(seed_dir))),
+                    value=value,
+                    unit="probability_delta",
+                    source_file=_display(summary_path, repo_root),
+                    y_value=value,
+                    overlap_group=group,
+                    n_source_pairs=int(_num(r.get("n_pairs", 0))),
+                    analysis_role="condition_mean",
+                    aggregation="pair_to_network",
                 )
-        if balance_path.exists():
-            balance = pd.read_csv(balance_path)
-            for _, r in balance.iterrows():
-                for metric in ("mean_similarity_difference", "max_similarity_difference", "mean_sample_energy_rel_difference", "mean_probe_energy_rel_difference"):
-                    value = _num(r.get(metric, np.nan))
-                    if np.isfinite(value):
-                        rows.append(
-                            _canonical(
-                                figure_id,
-                                panel_id,
-                                metric=metric,
-                                condition="matching_balance",
-                                layer="metadata",
-                                seed_id=_seed_id(seed_dir),
-                                value=value,
-                                unit="difference",
-                                source_file=_display(balance_path, repo_root),
-                                n_matched_sets=int(_num(r.get("n_matched_sets", 0))),
-                                run_mode=_run_mode(seeds),
-                            )
-                        )
+            )
+        for _, r in contrast.iterrows():
+            value = _num(r.get("high_minus_low_acc_drop", np.nan))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="high_minus_low_accuracy_drop",
+                    condition="high_overlap_minus_low_overlap",
+                    layer="readout",
+                    seed_id=str(r.get("network_seed", _seed_id(seed_dir))),
+                    value=value,
+                    unit="probability_delta",
+                    source_file=_display(contrast_path, repo_root),
+                    n_pairs_high=int(_num(r.get("n_pairs_high", 0))),
+                    n_pairs_low=int(_num(r.get("n_pairs_low", 0))),
+                    highest_similarity_bin=str(r.get("highest_similarity_bin", "")),
+                    median_overlap_threshold=_num(r.get("median_overlap_threshold", np.nan)),
+                    analysis_role="network_contrast",
+                    aggregation="pair_to_network",
+                )
+            )
     panel_df = pd.DataFrame(rows)
-    return _write(spec, output_dir, figure_id, panel_id, panel_df, _stats(figure_id, panel_id, panel_df, _run_mode(seeds), seeds, "delta_drop_rate", warnings, ["condition"]), _manifest(figure_id, panel_id, root, seeds, sources, warnings))
+    roles = panel_df.get("analysis_role", pd.Series("", index=panel_df.index)).astype(str)
+    stats = _stats(figure_id, panel_id, panel_df, _run_mode(seeds), seeds, "mean_accuracy_drop", warnings, ["metric", "condition"])
+    stats.update(
+        {
+            "condition_summaries": _network_t_ci_summaries(panel_df[roles.eq("condition_mean")], ["condition"]),
+            "contrast_summaries": _network_t_ci_summaries(panel_df[roles.eq("network_contrast")], ["condition"]),
+            "endpoint_definition": "highest-similarity-bin natural high-minus-low overlap accuracy drop",
+            "aggregation": "pair_to_network",
+            "inference_unit": "independently_trained_network",
+            "causal_interpretation": False,
+        }
+    )
+    manifest = _manifest(figure_id, panel_id, root, seeds, sources, warnings)
+    manifest.update({"source_family": "panel_c_high_similarity_natural_overlap_split", "fallback_used": False, "causal_interpretation": False})
+    return _write(spec, output_dir, figure_id, panel_id, panel_df, stats, manifest)
 
 
 def build_fig4_decision_deflection_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -511,80 +507,111 @@ def build_fig4_overlap_perturbation_main_adapter(spec: Mapping[str, Any], repo_r
     sources: list[dict[str, Any]] = []
     checked_candidates: list[str] = []
     used_sources: list[str] = []
-    keep_conditions = set(RAW_CONDITIONS)
     for seed_dir in seeds:
-        path = seed_dir / "data" / "metrics" / "panel_d_overlap_perturbation_metrics.csv"
-        companion_paths = [
-            seed_dir / "data" / "trial_specs" / "panel_d_perturbation_masks.csv",
-            seed_dir / "data" / "trial_specs" / "perturbation_masks.csv",
-            seed_dir / "data" / "metrics" / "supp_random_mask_perturbation_controls.csv",
-        ]
-        sources.append(_source(path, seed_dir))
-        checked_candidates.append(_display(path, repo_root))
-        for companion_path in companion_paths:
-            sources.append(_source(companion_path, seed_dir))
-            checked_candidates.append(_display(companion_path, repo_root))
-        if not path.exists():
-            warnings.append(f"{_display(path, repo_root)} missing; Fig.4D requires the frozen overlap-preserving source.")
+        summary_path = seed_dir / "data" / "metrics" / "panel_d_l1_stsp_overlap_perturbation_summary.csv"
+        contrast_path = seed_dir / "data" / "metrics" / "panel_d_l1_stsp_overlap_perturbation_contrast.csv"
+        audit_path = seed_dir / "data" / "metrics" / "panel_d_l1_stsp_overlap_perturbation_audit.csv"
+        trial_path = seed_dir / "data" / "raw" / "panel_d_l1_stsp_overlap_perturbation_trial_readout.csv"
+        candidates = [summary_path, contrast_path, audit_path, trial_path]
+        sources.extend(_source(path, seed_dir) for path in candidates)
+        checked_candidates.extend(_display(path, repo_root) for path in candidates)
+        if not summary_path.exists() or not contrast_path.exists() or not audit_path.exists():
+            warnings.append(f"Fig.4D Layer1-reset sources missing under {_display(seed_dir, repo_root)}.")
             continue
-        used_sources.append(_display(path, repo_root))
-        for companion in companion_paths:
-            if companion.exists():
-                used_sources.append(_display(companion, repo_root))
-        df = pd.read_csv(path)
-        condition_col = _first_existing_col(df, ["condition", "raw_condition", "perturbation_condition", "summary_group"])
-        if condition_col is None:
-            warnings.append(f"{_display(path, repo_root)} has no condition column.")
-            continue
-        df = df[df[condition_col].astype(str).isin(keep_conditions)].copy()
-        required = {"pair_id", condition_col, "probe_accuracy"}
-        missing = sorted(col for col in required if col not in df.columns)
-        if missing:
-            warnings.append(f"{_display(path, repo_root)} missing pair-level accuracy-drop columns {missing}.")
-            continue
-        _append_pair_level_accuracy_drop_rows(
-            rows,
-            df,
-            condition_col,
-            figure_id,
-            panel_id,
-            seed_dir,
-            path,
-            repo_root,
-            "main_panel_d",
-            seeds,
-            warnings,
+        used_sources.extend(_display(path, repo_root) for path in candidates if path.exists())
+        audit = pd.read_csv(audit_path)
+        for column in ("probe_input_unchanged", "sample_input_complete", "l2_stsp_frozen", "l3_stsp_frozen"):
+            if column not in audit.columns or not audit[column].astype(str).str.lower().isin({"true", "1"}).all():
+                warnings.append(f"Fig.4D audit check failed for {column}: {_display(audit_path, repo_root)}")
+        summary = pd.read_csv(summary_path)
+        for _, r in summary.iterrows():
+            raw = str(r.get("condition", ""))
+            if raw not in L1_RESET_CONDITION_LABELS:
+                continue
+            value = _num(r.get("mean_accuracy_drop_vs_static", np.nan))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="accuracy_drop_vs_static",
+                    condition=L1_RESET_CONDITION_LABELS[raw],
+                    layer="layer1",
+                    seed_id=str(r.get("network_seed", _seed_id(seed_dir))),
+                    value=value,
+                    unit="probability_delta",
+                    source_file=_display(summary_path, repo_root),
+                    y_value=value,
+                    raw_condition=raw,
+                    condition_order=L1_RESET_CONDITION_ORDER.index(raw),
+                    n_source_pairs=int(_num(r.get("n_valid_pairs", r.get("n_pairs", 0)))),
+                    probe_accuracy_condition=_num(r.get("mean_probe_accuracy", np.nan)),
+                    analysis_role="condition_mean",
+                    aggregation="pair_to_network",
+                    source_level="l1_stsp_reset_summary",
+                )
+            )
+        contrast = pd.read_csv(contrast_path)
+        contrast_columns = (
+            ("dynamic_minus_overlap_reset", "dynamic_minus_overlap_reset"),
+            ("random_reset_minus_overlap_reset", "random_matched_reset_minus_overlap_reset"),
         )
+        for _, r in contrast.iterrows():
+            for source_col, contrast_name in contrast_columns:
+                value = _num(r.get(source_col, np.nan))
+                if not np.isfinite(value):
+                    continue
+                rows.append(
+                    _canonical(
+                        figure_id,
+                        panel_id,
+                        metric="accuracy_drop_contrast",
+                        condition=contrast_name,
+                        layer="layer1",
+                        seed_id=str(r.get("network_seed", _seed_id(seed_dir))),
+                        value=value,
+                        unit="probability_delta",
+                        source_file=_display(contrast_path, repo_root),
+                        contrast=contrast_name,
+                        n_source_pairs=int(_num(r.get("n_valid_pairs", r.get("n_pairs", 0)))),
+                        analysis_role="network_contrast",
+                        aggregation="pair_to_network",
+                        source_level="l1_stsp_reset_contrast",
+                    )
+                )
     panel_df = pd.DataFrame(rows)
-    stats = _stats(figure_id, panel_id, panel_df, _run_mode(seeds), seeds, "accuracy_drop_vs_static", warnings, ["condition"])
-    stats["summaries"] = _network_t_ci_summaries(panel_df, ["condition"])
-    stats["contrast_summaries"] = _fig4d_predeclared_contrast_summaries(panel_df)
+    roles = panel_df.get("analysis_role", pd.Series("", index=panel_df.index)).astype(str)
+    condition_rows = panel_df[roles.eq("condition_mean")].copy()
+    contrast_rows = panel_df[roles.eq("network_contrast")].copy()
+    stats = _stats(figure_id, panel_id, condition_rows, _run_mode(seeds), seeds, "accuracy_drop_vs_static", warnings, ["condition"])
+    stats["summaries"] = _network_t_ci_summaries(condition_rows, ["condition"])
+    stats["contrast_summaries"] = _l1_reset_contrast_summaries(contrast_rows)
     stats["values_used_for_plotting"] = _values(panel_df)
-    stats["source_level"] = "main_panel_d"
-    stats.update(_accuracy_drop_condition_contrasts(panel_df))
+    stats["source_level"] = "l1_stsp_reset"
     stats.update(
         {
             "main_metric": "accuracy_drop_vs_static",
             "bcd_metric_family": "accuracy_drop",
-            "fig4d_static_baseline_used": bool("probe_accuracy_static" in panel_df.columns and pd.to_numeric(panel_df["probe_accuracy_static"], errors="coerce").dropna().size),
-            "endpoint_definition": "mean_pair(probe_accuracy(full_static) - probe_accuracy(condition))",
+            "fig4d_static_baseline_used": True,
+            "endpoint_definition": "mean_pair accuracy drop vs full static after pre-probe Layer1 STSP reset",
             "aggregation": "pair_to_network",
             "inference_unit": "independently_trained_network",
             "interval_method": "two_sided_t_95_ci_across_networks",
-            "fdr_family": "three_predeclared_fig4d_network_level_contrasts",
+            "fdr_family": "two_predeclared_fig4d_l1_reset_network_level_contrasts",
         }
     )
     manifest = _manifest(figure_id, panel_id, root, seeds, sources, warnings)
-    manifest["perturbation_scope"] = "sample_side_prior_support"
+    manifest["perturbation_scope"] = "preprobe_layer1_stsp_reset"
     manifest["probe_input_modified_in_core_conditions"] = False
     manifest["main_metric"] = "accuracy_drop_vs_static"
     manifest["previous_metrics_not_used_for_plotting"] = ["DPI_L3", "dynamic_like_recovery", "decision_deflection_score"]
-    manifest["source_family"] = "active_overlap_preserving"
+    manifest["source_family"] = "panel_d_l1_stsp_overlap_reset"
     manifest["fallback_used"] = False
     manifest["bcd_metric_family"] = "accuracy_drop"
     manifest["fig4d_static_baseline_used"] = stats["fig4d_static_baseline_used"]
-    manifest["fdr_family"] = "three_predeclared_fig4d_network_level_contrasts"
-    manifest["random_matched_mask_diagnostics_present"] = bool(any(("random" in src.get("path", "").lower()) and src.get("exists") for src in sources))
+    manifest["fdr_family"] = "two_predeclared_fig4d_l1_reset_network_level_contrasts"
+    manifest["random_matched_mask_diagnostics_present"] = True
     manifest["checked_candidates"] = checked_candidates
     manifest["source_files_used"] = sorted(set(used_sources))
     manifest["source_level"] = stats["source_level"]
@@ -608,7 +635,8 @@ def build_fig4_l3_accumulator_process_adapter(spec: Mapping[str, Any], repo_root
         checked_candidates.extend(checked)
         for raw in checked:
             path = Path(raw)
-            sources.append({"path": raw.replace("\\", "/"), "seed_id": _seed_id(seed_dir), "exists": path.exists()})
+            check_path = path if path.is_absolute() else repo_root / path
+            sources.append({"path": raw.replace("\\", "/"), "seed_id": _seed_id(seed_dir), "exists": check_path.exists()})
         if result_path is None or vector_path is None:
             fallback = seed_dir / "data" / "metrics" / "panel_f_decision_deflection_metrics.csv"
             sources.append(_source(fallback, seed_dir))
@@ -925,6 +953,46 @@ def _fig4d_predeclared_contrast_summaries(panel_df: pd.DataFrame) -> list[dict[s
     return summaries
 
 
+def _l1_reset_contrast_summaries(panel_df: pd.DataFrame) -> list[dict[str, Any]]:
+    if panel_df.empty or not {"network_id", "contrast", "value"}.issubset(panel_df.columns):
+        return []
+    summaries: list[dict[str, Any]] = []
+    for contrast, part in panel_df.groupby("contrast", sort=False):
+        values = pd.to_numeric(part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if values.size < 2:
+            continue
+        mean = float(values.mean())
+        sem = float(values.std(ddof=1) / np.sqrt(values.size))
+        critical = float(student_t.ppf(0.975, values.size - 1))
+        t_statistic = float(mean / sem) if sem > 0 else (float("inf") if mean else 0.0)
+        p_value = float(2.0 * student_t.sf(abs(t_statistic), values.size - 1)) if np.isfinite(t_statistic) else 0.0
+        summaries.append(
+            {
+                "contrast": str(contrast),
+                "mean": mean,
+                "n_networks": int(values.size),
+                "ci95_low": float(mean - critical * sem),
+                "ci95_high": float(mean + critical * sem),
+                "t_statistic": t_statistic,
+                "p_value_two_sided": p_value,
+                "values": values.tolist(),
+            }
+        )
+    if len(summaries) != 2:
+        return summaries
+    ordered = sorted(range(2), key=lambda index: summaries[index]["p_value_two_sided"])
+    adjusted = [1.0, 1.0]
+    running = 1.0
+    for rank in (2, 1):
+        index = ordered[rank - 1]
+        running = min(running, float(summaries[index]["p_value_two_sided"]) * 2.0 / rank)
+        adjusted[index] = min(running, 1.0)
+    for index, p_value in enumerate(adjusted):
+        summaries[index]["p_value_bh_fdr"] = float(p_value)
+        summaries[index]["fdr_family"] = "two_predeclared_fig4d_l1_reset_network_level_contrasts"
+    return summaries
+
+
 def _accuracy_drop_condition_contrasts(panel_df: pd.DataFrame) -> dict[str, Any]:
     out: dict[str, Any] = {
         "static_probe_accuracy": np.nan,
@@ -1228,7 +1296,22 @@ def _manifest(figure_id: str, panel_id: str, root: Path, seeds: Sequence[Path], 
 
 
 def _source(path: Path, seed_dir: Path) -> dict[str, Any]:
-    return {"path": str(path).replace("\\", "/"), "seed_id": _seed_id(seed_dir), "exists": path.exists()}
+    exists = path.is_file()
+    return {
+        "path": str(path).replace("\\", "/"),
+        "seed_id": _seed_id(seed_dir),
+        "exists": exists,
+        "size_bytes": path.stat().st_size if exists else None,
+        "sha256": _sha256(path) if exists else "",
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _canonical(

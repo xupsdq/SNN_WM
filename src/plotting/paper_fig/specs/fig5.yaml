@@ -84,12 +84,14 @@ panels:
     panel_id: C
     producer_task: local_events
     panel_type: event_aligned_trace
-    claim: Within selected winner–loser events, event-aligned dynamic-minus-static voltage traces provide conditional descriptive evidence; no voltage-increase scalar is inferred.
+    claim: Within selected winner–loser events, the predeclared network-level winner-minus-loser dynamic-minus-static delta-V contrast is the inferential endpoint; plotted traces remain descriptive.
     data_adapter: fig5_winner_loser_adapter
     renderer: render_fig5_winner_loser_events
     source_priority:
       - data/metrics/panel_c_event_trace_summary.csv
       - data/metrics/panel_c_winner_loser_event_metrics.csv
+      - data/metrics/panel_c_winner_loser_trial_summary.csv
+      - data/metrics/panel_c_winner_loser_network_summary.csv
     position_mm: {x: 2.00, y: 60.00, w: 52.333, h: 48.00}
     size_mm: {w: 52.333, h: 48.00}
     letter_mm: {x: 0.25, y: 56.00}
@@ -101,6 +103,12 @@ panels:
     baseline_correction:
       enabled: true
       window: time_ms < 0
+      role: descriptive_plot_only
+    primary_statistical_metric: winner_minus_loser_delta_v
+    primary_window_ms: [-8, -1]
+    descriptive_window_ms: [-4, -1]
+    aggregation: event_to_trial_to_network
+    inference_unit: independently trained network
     reference_lines:
       - x_value: 0
         label: winner spike

@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy import optimize
 
 from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
 from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
@@ -126,4 +127,61 @@ def _nnls(design: np.ndarray, target: np.ndarray) -> np.ndarray:
         return np.maximum(np.asarray(beta, dtype=float), 0.0)
 
 
-__all__ = ["compute_morphology_decomposition"]
+def write_morphology_fit_outputs(ctx: ExperimentContext, boundary_metrics: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    keys = ["network_seed", "condition_id", "sequence_id", "seq_len", "delay_ms"]
+    dedup = boundary_metrics.drop_duplicates([column for column in keys if column in boundary_metrics.columns]).copy()
+    curve = dedup.groupby("seq_len", as_index=False)["N_eff"].mean().sort_values("seq_len")
+    x = curve["seq_len"].to_numpy(dtype=float)
+    y = curve["N_eff"].to_numpy(dtype=float)
+    if len(x) < 3:
+        raise RuntimeError(f"Morphology fit requires at least 3 sequence lengths, found {len(x)}")
+
+    slope, intercept = np.polyfit(x, y, 1)
+    linear_pred = slope * x + intercept
+    params, _ = optimize.curve_fit(
+        _saturating_model,
+        x,
+        y,
+        p0=(max(float(np.max(y)), 1e-6), 0.2),
+        bounds=([0.0, 0.0], [np.inf, np.inf]),
+        maxfev=10000,
+    )
+    asymptote, rate = (float(params[0]), float(params[1]))
+    saturating_pred = _saturating_model(x, asymptote, rate)
+    linear_sse = float(np.sum((y - linear_pred) ** 2))
+    saturating_sse = float(np.sum((y - saturating_pred) ** 2))
+    fit = pd.DataFrame(
+        [
+            {
+                "network_seed": int(ctx.cfg.network_seed),
+                "linear_slope": float(slope),
+                "linear_intercept": float(intercept),
+                "linear_sse": linear_sse,
+                "saturating_asymptote": asymptote,
+                "saturating_rate": rate,
+                "saturating_sse": saturating_sse,
+                "linear_minus_saturating_sse": float(linear_sse - saturating_sse),
+                "n_curve_points": int(len(x)),
+                "fit_scope": "mean_N_eff_by_sequence_length_across_delays_and_sequences",
+            }
+        ]
+    )
+    curve_points = pd.DataFrame(
+        {
+            "network_seed": int(ctx.cfg.network_seed),
+            "seq_len": x.astype(int),
+            "observed_mean_N_eff": y,
+            "linear_fit_N_eff": linear_pred,
+            "saturating_fit_N_eff": saturating_pred,
+        }
+    )
+    legacy._save_csv(ctx, fit, ctx.metrics_dir / "supp_s3a_morphology_fit_comparison.csv")
+    legacy._save_csv(ctx, curve_points, ctx.metrics_dir / "supp_s3a_morphology_fit_curve_points.csv")
+    return fit, curve_points
+
+
+def _saturating_model(x: np.ndarray, asymptote: float, rate: float) -> np.ndarray:
+    return asymptote * (1.0 - np.exp(-rate * np.asarray(x, dtype=float)))
+
+
+__all__ = ["compute_morphology_decomposition", "write_morphology_fit_outputs"]

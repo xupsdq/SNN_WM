@@ -15,6 +15,10 @@ TASK_NEUTRAL_PING_ACCESS = "neutral_ping_access"
 TASK_WEAK_CUE_ACCESS = "weak_cue_access"
 TASK_CUE_SPECIFICITY_SPECS = "cue_specificity_specs"
 TASK_CUE_SPECIFICITY_ACCESS = "cue_specificity_access"
+TASK_EXEMPLAR_DECODER_SPECS = "exemplar_decoder_specs"
+TASK_EXEMPLAR_DECODER_STATE_BANK = "exemplar_decoder_state_bank"
+TASK_EXEMPLAR_DECODER = "exemplar_decoder"
+TASK_EXEMPLAR_DECODER_SUMMARY = "exemplar_decoder_summary"
 TASK_MORPHOLOGY_FUNCTION_COUPLING = "morphology_function_coupling"
 TASK_BOUNDARY_SUMMARY = "boundary_summary"
 TASK_PROGRESSIVE_UPDATE = "progressive_update"
@@ -35,6 +39,10 @@ TASK_IDS = (
     TASK_WEAK_CUE_ACCESS,
     TASK_CUE_SPECIFICITY_SPECS,
     TASK_CUE_SPECIFICITY_ACCESS,
+    TASK_EXEMPLAR_DECODER_SPECS,
+    TASK_EXEMPLAR_DECODER_STATE_BANK,
+    TASK_EXEMPLAR_DECODER,
+    TASK_EXEMPLAR_DECODER_SUMMARY,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_BOUNDARY_SUMMARY,
     TASK_PROGRESSIVE_UPDATE,
@@ -167,6 +175,72 @@ CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS = (
     "P_silent",
 )
 
+EXEMPLAR_DECODER_EPISODE_SPECS_REQUIRED_COLUMNS = (
+    "network_seed",
+    "sequence_id",
+    "digit_label",
+    "exemplar_index",
+    "target_image_id",
+    "episode_id",
+    "target_position",
+    "seq_len",
+    "context_seed",
+)
+
+EXEMPLAR_DECODER_SEQUENCE_SPECS_REQUIRED_COLUMNS = (
+    *EXEMPLAR_DECODER_EPISODE_SPECS_REQUIRED_COLUMNS,
+    "stage_k",
+    "item_image_id",
+    "item_label",
+)
+
+EXEMPLAR_DECODER_STATE_MANIFEST_REQUIRED_COLUMNS = (
+    "network_seed",
+    "sequence_id",
+    "digit_label",
+    "exemplar_index",
+    "target_image_id",
+    "episode_id",
+    "target_position",
+    "condition",
+    "feature_name",
+    "feature_shape",
+    "storage_file",
+    "storage_key",
+    "storage_sha256",
+    "state_hash",
+)
+
+EXEMPLAR_DECODER_METRICS_REQUIRED_COLUMNS = (
+    "network_seed",
+    "condition",
+    "balanced_accuracy",
+    "n_predictions",
+    "n_folds",
+    "n_digit_labels",
+    "hash_validation_pass",
+)
+
+EXEMPLAR_DECODER_HASH_VALIDATION_REQUIRED_COLUMNS = (
+    "network_seed",
+    "condition",
+    "digit_label",
+    "fold_id",
+    "train_episode_ids",
+    "test_episode_id",
+    "train_n",
+    "test_n",
+    "state_hash_overlap_count",
+    "state_hash_overlap",
+    "scaler_fit_scope",
+    "model_fit_scope",
+    "decoder_family",
+    "decoder_penalty",
+    "decoder_C",
+    "decoder_solver",
+    "passed",
+)
+
 STATE_BANK_MANIFEST_COLUMNS = (
     "artifact_kind",
     "network_seed",
@@ -224,6 +298,11 @@ __all__ = [
     "CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS",
     "CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY",
     "CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS",
+    "EXEMPLAR_DECODER_EPISODE_SPECS_REQUIRED_COLUMNS",
+    "EXEMPLAR_DECODER_HASH_VALIDATION_REQUIRED_COLUMNS",
+    "EXEMPLAR_DECODER_METRICS_REQUIRED_COLUMNS",
+    "EXEMPLAR_DECODER_SEQUENCE_SPECS_REQUIRED_COLUMNS",
+    "EXEMPLAR_DECODER_STATE_MANIFEST_REQUIRED_COLUMNS",
     "LANDSCAPE_MANIFEST_COLUMNS",
     "MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS",
     "REUSE_MODES",
@@ -241,6 +320,10 @@ __all__ = [
     "TASK_BOUNDARY_SUMMARY",
     "TASK_CUE_SPECIFICITY_ACCESS",
     "TASK_CUE_SPECIFICITY_SPECS",
+    "TASK_EXEMPLAR_DECODER",
+    "TASK_EXEMPLAR_DECODER_SPECS",
+    "TASK_EXEMPLAR_DECODER_STATE_BANK",
+    "TASK_EXEMPLAR_DECODER_SUMMARY",
     "TASK_MORPHOLOGY_DECOMPOSITION",
     "TASK_MORPHOLOGY_FUNCTION_COUPLING",
     "TASK_IDS",
