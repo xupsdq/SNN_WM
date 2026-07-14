@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
 import hashlib
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,17 +10,8 @@ from scipy import stats as scipy_stats
 from src.plotting.paper_fig.adapters.fig4_adapters import _source as fig4_source
 from src.plotting.paper_fig.adapters.fig5_adapters import _source_entry as fig5_source
 from src.plotting.paper_fig.adapters.fig6_adapters import _source_entry as fig6_source
+from src.plotting.paper_fig import manuscript_statistics as STATS
 from src.plotting.paper_fig.panels.fig6_panels import _sem, _t95_half_width
-
-
-ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    "compute_manuscript_statistics", ROOT / "scripts" / "compute_manuscript_statistics.py"
-)
-assert SPEC and SPEC.loader
-STATS = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = STATS
-SPEC.loader.exec_module(STATS)
 
 
 def test_predeclared_correction_families() -> None:
