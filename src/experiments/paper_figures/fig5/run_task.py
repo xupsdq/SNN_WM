@@ -707,6 +707,8 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
         ],
         "local_events": [
             ctx.metrics_dir / "panel_c_winner_loser_event_metrics.csv",
+            ctx.metrics_dir / "panel_c_winner_loser_trial_summary.csv",
+            ctx.metrics_dir / "panel_c_winner_loser_network_summary.csv",
             ctx.metrics_dir / "panel_c_event_trace_summary.csv",
             ctx.metrics_dir / "supp_event_selection_audit.csv",
             ctx.metrics_dir / "supp_neighborhood_radius_robustness.csv",

@@ -5,6 +5,7 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import FuncFormatter, MaxNLocator
+from scipy.stats import t as student_t
 
 from src.plotting.common.colors import get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
@@ -141,13 +142,14 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         if part.empty:
             continue
         plotted_metrics.append(metric)
-        grouped = part.groupby("time_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
+        grouped = _network_t95_by_time(part)
         x = grouped["time_ms"].to_numpy(dtype=float)
         y = grouped["mean"].to_numpy(dtype=float) * 1000.0
-        sem = grouped["sem"].fillna(0).to_numpy(dtype=float) * 1000.0
+        ci_lower = grouped["ci95_lower"].to_numpy(dtype=float) * 1000.0
+        ci_upper = grouped["ci95_upper"].to_numpy(dtype=float) * 1000.0
         ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=str(trace_labels.get(metric, _trace_label(metric))))
-        if part["seed_id"].nunique() > 1:
-            ax.fill_between(x, y - sem, y + sem, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
+        if int(grouped["n_networks"].max()) > 1:
+            ax.fill_between(x, ci_lower, ci_upper, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
     ax.axvline(0, color="0.25", linewidth=0.6)
     ax.axhline(0, color="0.82", linewidth=0.5)
     times = pd.to_numeric(df["time_ms"], errors="coerce").dropna()
@@ -157,7 +159,17 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
     ax.set_xlabel(str(spec.get("x_axis", "Time from winner spike (ms)")))
     default_ylabel = "Dynamic minus static (baseline-corrected)" if bool((stats or {}).get("baseline_corrected")) else "Dynamic minus static"
     ax.set_ylabel(str(spec.get("y_axis", default_ylabel)))
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper left", bbox_to_anchor=(0.01, 0.99), ncols=1, handlelength=1.0, columnspacing=0.7)
+    ax.legend(
+        frameon=False,
+        fontsize=max(4.2, st["legend_fontsize"] - 0.5),
+        loc="upper left",
+        bbox_to_anchor=(0.01, 0.99),
+        ncols=1,
+        handlelength=0.8,
+        columnspacing=0.45,
+        labelspacing=0.2,
+        borderaxespad=0.0,
+    )
     ax.yaxis.set_major_locator(MaxNLocator(nbins=4, prune="both"))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:g}"))
     ax.paper_fig_legend_above_plot = False
@@ -165,7 +177,11 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
     ax.paper_fig_trace_metrics = plotted_metrics
     ax.paper_fig_raw_points = False
     ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_inference_unit = "independently trained network"
+    ax.paper_fig_confidence_interval = "two-sided t-based 95% CI"
     _tidy(ax, st)
+    ax.xaxis.label.set_size(max(4.8, st["axis_labelsize"] - 0.7))
+    ax.yaxis.label.set_size(max(4.8, st["axis_labelsize"] - 1.0))
     ax.tick_params(axis="y", pad=0.8)
     for label in ax.get_yticklabels():
         label.set_fontsize(max(4.0, st["tick_labelsize"] - 1.1))
@@ -198,36 +214,67 @@ def render_fig5_support_perturbation(ax, panel_data: pd.DataFrame | None, stats:
 
 
 def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats
     st = _style(style)
     df = _clean(panel_data)
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    df = df[df["metric"].astype(str).eq("transition_fraction")].copy()
+    primary_metric = str(spec.get("primary_metric", "P_advance_or_recruit_dynamic_minus_condition"))
+    df = df[df["metric"].astype(str).eq(primary_metric)].copy()
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    ax.paper_fig_plot_form = "fig5_l1_stsp_transition_composition"
-    df = _scaled_copy(df, 100.0, extra_cols=("total_transition_mass",))
-    conditions = [c for c in ("Dynamic", "Attenuate L1 STSP", "Reset L1 STSP") if c in set(df["condition"].astype(str))]
-    x_positions = np.arange(len(conditions), dtype=float)
-    _draw_stacked_transition_bars(ax, df, "condition", conditions, x_positions, st=st, width=0.62, hatch_by_condition=False)
-    ax.set_xticks(x_positions, [_wrap(c) for c in conditions], rotation=0)
-    ymax = max(8.0, min(105.0, _finite_max(df.get("total_transition_mass", df["value"])) * 1.34))
-    ax.set_ylim(0, ymax)
-    ax.set_ylabel(str(spec.get("y_axis", "Transition proportion")))
+    ax.paper_fig_plot_form = "fig5_l1_stsp_advance_or_recruit_paired_contrast"
+    df = _scaled_copy(df, 100.0)
+    contrast_order = _fig5_contrast_order(df)
+    x_positions = np.arange(len(contrast_order), dtype=float)
+    colors = ["#8A8A8A", "#6C7A89"]
+    all_values: list[float] = []
+    max_networks = 0
+    for index, (xpos, condition) in enumerate(zip(x_positions, contrast_order)):
+        subset = df[df["condition"].astype(str).eq(condition)].copy()
+        values = pd.to_numeric(subset["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if not len(values):
+            continue
+        max_networks = max(max_networks, len(values))
+        offsets = np.linspace(-0.12, 0.12, len(values)) if len(values) > 1 else np.asarray([0.0])
+        color = colors[index % len(colors)]
+        ax.scatter(np.full(len(values), xpos) + offsets, values, s=st["marker_size"] * 0.7, color=color, edgecolors="white", linewidths=0.28, alpha=0.9, zorder=3, label="Networks" if index == 0 else None)
+        mean, ci_lower, ci_upper = _t95(values)
+        ax.errorbar(xpos, mean, yerr=[[mean - ci_lower], [ci_upper - mean]], fmt="D", markersize=3.4, color="black", ecolor="black", elinewidth=0.7, capsize=1.8, capthick=0.7, zorder=5, label="Mean ± 95% CI" if index == 0 else None)
+        all_values.extend(values.tolist())
+    if not all_values:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    ax.axhline(0.0, color="0.35", linewidth=0.55, zorder=1)
+    ax.set_xticks(x_positions, [_wrap(_display_label(spec, condition)) for condition in contrast_order], rotation=0)
+    lower = min(0.0, float(np.min(all_values)))
+    upper = max(0.0, float(np.max(all_values)))
+    padding = max(2.0, (upper - lower) * 0.18)
+    ax.set_ylim(lower - padding * 0.25, upper + padding)
+    ax.set_ylabel(str(spec.get("y_axis", "ΔP(advance OR recruit), Dynamic − condition (pp)")))
     ax.set_xlabel(str(spec.get("x_axis", "")))
-    title = str(spec.get("title", "")).strip()
-    if title:
-        ax.set_title(title, fontsize=st["axis_labelsize"], pad=2.0)
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="upper center", bbox_to_anchor=(0.5, 0.995), ncols=3, handlelength=0.9, columnspacing=0.65)
+    ax.legend(
+        frameon=False,
+        fontsize=max(3.0, st["legend_fontsize"] - 2.0),
+        loc="upper left",
+        bbox_to_anchor=(0.02, 0.99),
+        ncols=1,
+        handlelength=0.65,
+        columnspacing=0.35,
+        labelspacing=0.2,
+        borderaxespad=0.0,
+    )
     ax.paper_fig_legend_above_plot = False
-    ax.paper_fig_legend_ncols = 3
-    ax.paper_fig_raw_points = False
-    ax.paper_fig_raw_point_count = 0
-    ax.paper_fig_y_metric = "transition_fraction"
+    ax.paper_fig_legend_ncols = 1
+    ax.paper_fig_raw_points = True
+    ax.paper_fig_raw_point_count = int(len(all_values))
+    ax.paper_fig_y_metric = primary_metric
+    ax.paper_fig_inference_unit = "independently trained network"
+    ax.paper_fig_confidence_interval = "two-sided paired t-based 95% CI"
     _tidy(ax, st)
+    ax.yaxis.label.set_size(max(4.6, st["axis_labelsize"] - 1.3))
+    ax.tick_params(axis="x", labelsize=max(4.2, st["tick_labelsize"] - 0.6))
     ax.yaxis.labelpad = 0.0
     ax.tick_params(axis="y", pad=0.8)
 
@@ -479,6 +526,62 @@ def _group_means(df: pd.DataFrame, group_col: str, order: list[str]) -> tuple[np
     return np.asarray(means, dtype=float), np.asarray(sems, dtype=float)
 
 
+def _network_t95_by_time(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse each time point to independent networks, then calculate a t-based 95% CI."""
+    rows: list[dict[str, float]] = []
+    if df.empty:
+        return pd.DataFrame(columns=["time_ms", "mean", "ci95_lower", "ci95_upper", "n_networks"])
+    network_col = "network_id" if "network_id" in df.columns else "seed_id"
+    for time_ms, time_part in df.groupby("time_ms", sort=True):
+        per_network = (
+            time_part.groupby(network_col, dropna=False)["value"].mean()
+            if network_col in time_part.columns
+            else time_part["value"]
+        )
+        values = pd.to_numeric(per_network, errors="coerce").dropna().to_numpy(dtype=float)
+        if not len(values):
+            continue
+        mean, ci_lower, ci_upper = _t95(values)
+        rows.append(
+            {
+                "time_ms": float(time_ms),
+                "mean": mean,
+                "ci95_lower": ci_lower,
+                "ci95_upper": ci_upper,
+                "n_networks": int(len(values)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _t95(values: np.ndarray) -> tuple[float, float, float]:
+    values = np.asarray(values, dtype=float)
+    values = values[np.isfinite(values)]
+    if not len(values):
+        return float("nan"), float("nan"), float("nan")
+    mean = float(np.mean(values))
+    if len(values) < 2:
+        return mean, mean, mean
+    sem = float(np.std(values, ddof=1) / np.sqrt(len(values)))
+    half_width = float(student_t.ppf(0.975, df=len(values) - 1)) * sem
+    return mean, mean - half_width, mean + half_width
+
+
+def _fig5_contrast_order(df: pd.DataFrame) -> list[str]:
+    if "contrast_order" in df.columns:
+        ordered = (
+            df[["condition", "contrast_order"]]
+            .dropna(subset=["condition"])
+            .drop_duplicates("condition")
+            .assign(contrast_order=lambda part: pd.to_numeric(part["contrast_order"], errors="coerce"))
+            .sort_values("contrast_order", kind="mergesort")
+        )
+        labels = ordered["condition"].astype(str).tolist()
+        if labels:
+            return labels
+    return list(dict.fromkeys(df["condition"].astype(str).tolist()))
+
+
 def _fig5_history_probability_delta(df: pd.DataFrame, condition: str) -> float | None:
     required = {"condition", "history_status", "value"}
     if df.empty or not required.issubset(df.columns):
@@ -549,8 +652,8 @@ def _scaled_copy(df: pd.DataFrame, factor: float, *, extra_cols: tuple[str, ...]
 
 def _clean_trace_labels(labels: Mapping[str, Any]) -> dict[str, str]:
     out = {str(key): str(value) for key, value in labels.items()}
-    out["winner_delta_v"] = "Winner"
-    out["loser_delta_v"] = "Loser"
+    out.setdefault("winner_delta_v", "Winner")
+    out.setdefault("loser_delta_v", "Loser")
     return out
 
 

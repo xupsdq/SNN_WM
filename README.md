@@ -6,19 +6,13 @@
 
 ## 推荐运行环境
 
-在本机优先使用 `torch_env`：
+使用已安装项目依赖的 Python 环境：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' --version
+python --version
 ```
 
-后续示例均可把 `python` 替换为：
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe'
-```
-
-如果默认 `python` 缺少 PyTorch，不应修改项目代码，应改用上述解释器。
+如果默认 `python` 缺少 PyTorch，请激活已有环境或显式设置 `PYTHON`；不要修改项目代码或依赖机器专属盘符。
 
 ## 目录结构
 
@@ -64,7 +58,7 @@ useful_fig_results/         历史图产物缓存，不是主线结果规范
 - 计算入口：`python -m src.experiments.runners.<experiment_id>`
 - 绘图入口：`python -m src.plotting.experiments.<experiment_id>_plot`
 - plotting 只读取已有结果目录，不重算实验。
-- 当前主线 catalog 注册 13 个实验；入口漂移可用 `python scripts/audit_entrypoints.py` 审计。
+- 当前主线 catalog 注册 13 个实验；请用各 runner 的 smoke 与对应 plot-only `--check-only` 验证入口。
 - 第二阶段已把以下实验做成“原生规范化”样板：
   - `similarity_bias_experiment`
   - `engram_decode`
@@ -75,25 +69,25 @@ useful_fig_results/         历史图产物缓存，不是主线结果规范
 直接运行：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
+python -m src.experiments.runners.similarity_bias_experiment --output-dir results/similarity_bias_experiment
 ```
 
 使用配置文件：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
+python -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --output-dir results/similarity_bias_experiment
 ```
 
 smoke 运行：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --smoke
+python -m src.experiments.runners.similarity_bias_experiment --config configs/experiment/similarity_bias_experiment.yaml --smoke
 ```
 
 单独重绘：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
+python -m src.plotting.experiments.similarity_bias_experiment_plot --input-dir results/similarity_bias_experiment
 ```
 
 ## 结果目录规范
@@ -128,68 +122,22 @@ CLI > YAML > 代码默认值
 
 当前公共 runner / plotting 入口均支持可选 `--config`。`configs/experiment/*.yaml` 覆盖当前 catalog 注册的主线实验。
 
-## 校验结果目录
+## 结果验证
+
+本仓库不再追踪独立的 `scripts/` 审计工具。对受影响的实验，运行对应 runner 的 smoke 命令和 plot-only entrypoint；两者都必须验证所需结果文件和列。
+
+对于 paper figures，可使用：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment
+python -m src.plotting.paper_fig.build --fig fig1 --check-only
 ```
-
-严格模式：
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\validate_results_layout.py --input-dir results/similarity_bias_experiment --strict
-```
-
-## 校验入口一致性
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py
-```
-
-严格模式可用于提交前或 CI 检查：
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_entrypoints.py --strict
-```
-
-该脚本会核对 `src/experiments/catalog.py`、`src/experiments/runners/`、
-`src/plotting/experiments/` 和 `configs/experiment/` 是否一致。
-
-## 校验生成物边界
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_generated_artifacts.py --strict
-```
-
-该脚本会检查 active source 中是否残留默认输出目录，并列出 `results/`、`archive/`、`fig/` 等边界外的生成物候选。
-
-## 校验 cleanup 债务
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_cleanup_debt.py --strict
-```
-
-该脚本会检查 paper-figure 相关源码中的重复函数定义，并列出仍需拆分的超大模块。
-
-## 校验实验结构边界
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' scripts\audit_experiment_structure.py --strict
-```
-
-该脚本会检查：
-
-- active 实验是否直接 import 另一个根实验模块。
-- `src/experiments/paper_figures/` 是否直接 import 根实验模块，而不是使用 `common/shared`。
-- `src/experiments/`、`src/plotting/` 的源码分布和超大模块清单。
-- Python 文件是否能被 AST 解析。
 
 ## 论文图输出
 
 论文图构建入口：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.paper_fig.build --fig fig1
+python -m src.plotting.paper_fig.build --fig fig1
 ```
 
 默认生成物写入：
@@ -202,45 +150,48 @@ results/paper_figures/outputs/<figure_id>/
 
 ## 论文图实验入口
 
-论文图实验按 figure 提供新的包级入口，同时保留现有大脚本作为兼容实现。
+Fig.1-Fig.6 使用 figure-local DAG 入口；不要直接运行 legacy 大脚本或 subexperiment。
 
-运行单个整图实验：
+每个 seed 的 parent artifact 写入：
 
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.fig6.run --output-root results/paper_experiments --seeds 1000 --scope both
+```text
+results/multi_seed_rollout/figX/<experiment_id>/seed_<seed>/data/intermediates/<task_id>/
 ```
 
-运行单个 sub-experiment：
+最终 bundle 写入：
 
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.fig6.subexperiments.peak_perturbation --output-dir results/paper_experiments/fig6_peak_amplified_reentry/seed_1000 --model-path results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_1000/net_final.pth
+```text
+results/paper_figure_multi_seed/<experiment_id>/seed_<seed>/
 ```
 
-批量运行选定 figures：
+运行 producer task（以 Fig.1 为例）：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs fig1,fig6 --output-root results/paper_experiments --seeds 1000 --scope both
+python -m src.experiments.paper_figures.fig1.run_task --task dms_boundary_bank --reuse-artifacts auto --output-dir results/multi_seed_rollout/fig1 --network-seed 1000 --device auto
 ```
 
-只重建 manuscript figure，不重跑实验：
+运行只读 downstream task：
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.plotting.paper_fig.build --fig fig6 --experiment-root results/paper_experiments/fig6_peak_amplified_reentry
+python -m src.experiments.paper_figures.fig1.run_task --task firing_rate_control --reuse-artifacts require --artifact-root results/multi_seed_rollout/fig1/fig1_functional_stsp_substrate/seed_1000/data/intermediates --output-dir results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate --network-seed 1000 --device auto
+```
+
+`require` 缺少、损坏或 cache-key 不匹配时必须失败，不会重建 parent。
+
+只检查 manuscript figure，不重跑实验：
+
+```powershell
+python -m src.plotting.paper_fig.build --fig fig1 --check-only --experiment-root results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate
 ```
 
 ## Fig.1-Fig.6 main-only 验收
 
-默认整理验收只要求 Fig.1-Fig.6 的 main figure 实验和绘制，不跑 supplement。先跑 smoke，再跑单 seed 完整 main-only：
+对修改过的 figure，至少执行 compile、producer `auto`、一个 downstream `require`、parent hash immutability、broken-artifact guard 和 plot-only check。Smoke 只验证结构，不是 manuscript-final evidence。
 
 ```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs all --scope main --seeds 1000 --smoke --check-only-build
+python -m compileall -q src/experiments/paper_figures/figX
+python -m src.plotting.paper_fig.build --fig figX --check-only --experiment-root results/paper_figure_multi_seed/<experiment_id>
 ```
-
-```powershell
-& 'S:\pycharm\Anaconda\envs\torch_env\python.exe' -m src.experiments.paper_figures.run_paper_figures --figs all --scope main --seeds 1000
-```
-
-若需要覆盖全部网络，可显式使用 `--all-seeds`，但这不是默认整理验收范围。
 
 Fig.1-Fig.6 可做计算效率优化，但只能减少重复加载、重复编码、重复 rollout、重复聚合、无关 debug/supplement-only 工作等计算组织问题。不能通过改变采样、条件集合、seed 语义、统计口径、时间窗口、干预定义或输出契约来提速。
 

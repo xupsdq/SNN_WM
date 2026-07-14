@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
+from scipy.stats import t as student_t
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, summarize_values, write_adapter_outputs
 from src.plotting.paper_fig.utils import read_json
@@ -57,6 +59,9 @@ MAIN_TRANSITION_COLUMNS = {
 }
 FIG5D_CAUSAL_ANALYSIS_WINDOW_MS = 50.0
 FIG5D_CAUSAL_WINDOW_SOURCE_NAME = "panel_d_l1_stsp_perturbation_unit_transitions.csv"
+FIG5E_HEADLINE_METRIC = "P_advance_or_recruit_dynamic_minus_condition"
+FIG5E_HEADLINE_REFERENCE_CONDITION = "dynamic_intact"
+FIG5E_HEADLINE_COMPARISON_CONDITIONS = ("attenuate_l1_stsp", "reset_l1_stsp")
 FIG5_L2_WRITEBACK_SOURCE_NAME = "panel_postprobe_l2_reupdate_history_composition.csv"
 FIG5_L2_WRITEBACK_LEGACY_SOURCE_NAME = "panel_postprobe_l2_stsp_writeback_summary.csv"
 
@@ -224,12 +229,17 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
     for seed_dir in seeds:
         trace_path = seed_dir / "data" / "metrics" / "panel_c_event_trace_summary.csv"
         event_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_event_metrics.csv"
+        trial_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_trial_summary.csv"
+        network_path = seed_dir / "data" / "metrics" / "panel_c_winner_loser_network_summary.csv"
         if not trace_path.exists():
             warnings.append(f"Missing Fig.5C trace source: {trace_path}")
             continue
         sources.append(trace_path)
-        if event_path.exists():
-            sources.append(event_path)
+        for path in (event_path, trial_path, network_path):
+            if path.exists():
+                sources.append(path)
+            else:
+                warnings.append(f"Missing corrected Fig.5C source: {path}")
         df = pd.read_csv(trace_path)
         df = _baseline_correct_trace(df, value_col="mean_value", group_cols=["trace_type"], time_col="time_ms")
         for r in df.itertuples(index=False):
@@ -261,6 +271,15 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
         "baseline_corrected": baseline_corrected,
         "baseline_window": "time_ms < 0",
         "trace_types": ["winner_delta_v", "loser_delta_v", "loser_inhibition"],
+        "analysis_scope": "selected_winner_loser_events",
+        "primary_statistical_metric": "winner_minus_loser_full_pre_delta_v_mean",
+        "primary_window_ms": [-8.0, -1.0],
+        "descriptive_window_ms": [-4.0, -1.0],
+        "aggregation": "event_to_trial_to_network",
+        "claim_boundary": "plotted baseline-corrected traces are descriptive; inference uses the separate network-level winner-minus-loser full-pre contrast",
+        "inference_unit": "independently_trained_network",
+        "confidence_interval": "two-sided t-based 95% CI across networks",
+        "excluded_misinterpretation": "winner_pre_spike_boost is an event proportion, not a voltage increase",
     }
     extra_manifest = {
         "inhibition_trace_definition": "loser_unit_received_inhibition",
@@ -268,6 +287,13 @@ def build_fig5_winner_loser_adapter(spec: Mapping[str, Any], repo_root: Path, ou
         "baseline_window": "time_ms < 0",
         "trace_types": ["winner_delta_v", "loser_delta_v", "loser_inhibition"],
         "inhibition_trace_note": "inhibition trace is measured at the same selected loser unit",
+        "analysis_scope": "selected_winner_loser_events",
+        "primary_statistical_metric": "winner_minus_loser_full_pre_delta_v_mean",
+        "primary_window_ms": [-8.0, -1.0],
+        "descriptive_window_ms": [-4.0, -1.0],
+        "aggregation": "event_to_trial_to_network",
+        "claim_boundary": "descriptive trace display plus a predeclared network-level winner-minus-loser scalar endpoint",
+        "excluded_misinterpretation": "winner_pre_spike_boost is an event proportion, not a voltage increase",
         "point_overlay_enabled": False,
     }
     return _write_result(
@@ -337,14 +363,9 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
     rows: list[dict[str, Any]] = []
     sources: list[Path] = []
     source_records: list[dict[str, Any]] = []
-    plotted_conditions = ["dynamic_intact", "attenuate_l1_stsp", "reset_l1_stsp"]
+    plotted_conditions = [FIG5E_HEADLINE_REFERENCE_CONDITION, *FIG5E_HEADLINE_COMPARISON_CONDITIONS]
     analysis_window_ms = float(spec.get("analysis_window_ms", FIG5D_CAUSAL_ANALYSIS_WINDOW_MS))
     unit_source_name = FIG5D_CAUSAL_WINDOW_SOURCE_NAME
-    source_name = "panel_d_l1_stsp_perturbation_transition_summary.csv"
-    audit_name = "panel_d_l1_stsp_perturbation_audit.csv"
-    legacy_global_source_name = "panel_d_global_stsp_perturbation_transition_summary.csv"
-    legacy_region_source_name = "panel_d_perturbation_transition_summary_by_group.csv"
-    required_cols = {"condition", *MAIN_TRANSITION_COLUMNS.values()}
     unit_required_cols = {
         "network_seed",
         "trial_id",
@@ -358,131 +379,138 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
         "perturbed_layer",
         "perturbed_variables",
     }
-    windowed_unit_source_used = False
-    legacy_global_used = False
-    legacy_region_used = False
     for seed_dir in seeds:
         unit_path = seed_dir / "data" / "metrics" / unit_source_name
-        path = seed_dir / "data" / "metrics" / source_name
-        audit_path = seed_dir / "data" / "metrics" / audit_name
         source_records.append(_source_entry(unit_path, repo_root))
-        source_records.append(_source_entry(path, repo_root))
-        source_records.append(_source_entry(audit_path, repo_root))
-        if unit_path.exists():
-            unit_cols = set(pd.read_csv(unit_path, nrows=0).columns)
-            unit_missing = sorted(unit_required_cols.difference(unit_cols))
-            if unit_missing:
-                warnings.append(f"{_rel(unit_path, repo_root)} lacks Layer1 STSP unit transition columns {unit_missing}; falling back to summary source.")
-            else:
-                unit_df = pd.read_csv(unit_path, usecols=[col for col in unit_required_cols if col in unit_cols])
-                window_steps = _analysis_window_steps(seed_dir, analysis_window_ms)
-                df = _l1_stsp_windowed_summary_from_unit_transitions(
-                    unit_df,
-                    plotted_conditions=plotted_conditions,
-                    analysis_window_ms=analysis_window_ms,
-                    analysis_window_steps=window_steps,
-                )
-                path = unit_path
-                windowed_unit_source_used = True
-        if path != unit_path and not path.exists():
-            legacy_global_path = seed_dir / "data" / "metrics" / legacy_global_source_name
-            legacy_region_path = seed_dir / "data" / "metrics" / legacy_region_source_name
-            source_records.append(_source_entry(legacy_global_path, repo_root))
-            source_records.append(_source_entry(legacy_region_path, repo_root))
-            if legacy_global_path.exists():
-                warnings.append(
-                    f"Fig.5D Layer1 STSP source missing; using legacy global STSP fallback: {_rel(legacy_global_path, repo_root)}"
-                )
-                legacy_global_used = True
-                path = legacy_global_path
-            elif legacy_region_path.exists():
-                warnings.append(
-                    f"Fig.5D Layer1 STSP source missing; using legacy region perturbation fallback: {_rel(legacy_region_path, repo_root)}"
-                )
-                legacy_region_used = True
-                path = legacy_region_path
-            else:
-                warnings.append(f"Missing Fig.5D Layer1 STSP source: {path}")
-                continue
-        if path != unit_path:
-            df = pd.read_csv(path)
-        missing = sorted(required_cols.difference(df.columns))
-        if missing:
-            warnings.append(f"{_rel(path, repo_root)} lacks Layer1 STSP transition columns {missing}.")
+        if not unit_path.exists():
+            warnings.append(f"Missing Fig.5E canonical 50-ms unit-transition source: {_rel(unit_path, repo_root)}")
             continue
-        if path.name == legacy_global_source_name:
-            df = _legacy_global_summary_as_l1_fallback(df)
-        elif path.name == legacy_region_source_name:
-            df = _legacy_region_summary_as_l1_fallback(df)
-        df = df[df["condition"].astype(str).isin(plotted_conditions)].copy()
-        sources.append(path)
-        if audit_path.exists():
-            sources.append(audit_path)
+        unit_cols = set(pd.read_csv(unit_path, nrows=0).columns)
+        unit_missing = sorted(unit_required_cols.difference(unit_cols))
+        if unit_missing:
+            warnings.append(f"{_rel(unit_path, repo_root)} lacks canonical Layer1 STSP unit-transition columns {unit_missing}.")
+            continue
+        unit_df = pd.read_csv(unit_path, usecols=[col for col in unit_required_cols if col in unit_cols])
+        window_steps = _analysis_window_steps(seed_dir, analysis_window_ms)
+        df = _l1_stsp_windowed_summary_from_unit_transitions(
+            unit_df,
+            plotted_conditions=plotted_conditions,
+            analysis_window_ms=analysis_window_ms,
+            analysis_window_steps=window_steps,
+        )
+        if df.empty:
+            warnings.append(f"{_rel(unit_path, repo_root)} produced no canonical 50-ms Layer1 STSP transitions.")
+            continue
+        sources.append(unit_path)
         rows.extend(
             _l1_stsp_transition_longform(
                 df,
                 figure_id,
                 panel_id,
                 seed_dir,
-                path,
+                unit_path,
                 repo_root,
-                legacy_global_used=path.name == legacy_global_source_name,
-                legacy_region_used=path.name == legacy_region_source_name,
+                legacy_global_used=False,
+                legacy_region_used=False,
             )
         )
-    panel_df = pd.DataFrame(rows)
-    available_conditions = sorted(set(panel_df.get("perturbation_condition", pd.Series(dtype=str)).dropna().astype(str))) if not panel_df.empty else []
-    missing_plotted_conditions = [condition for condition in plotted_conditions if condition not in set(available_conditions)]
-    source_level = (
-        "l1_stsp_perturbation_unit_transition_windowed"
-        if windowed_unit_source_used and not (legacy_global_used or legacy_region_used)
-        else "l1_stsp_perturbation_transition_summary"
-        if sources and not (legacy_global_used or legacy_region_used)
-        else "legacy_global_perturbation_fallback"
-        if legacy_global_used
-        else "legacy_region_perturbation_fallback"
-        if legacy_region_used
-        else "missing"
+    transition_df = pd.DataFrame(rows)
+    panel_df, headline_warnings = _l1_stsp_advance_or_recruit_headline_rows(
+        transition_df,
+        figure_id=figure_id,
+        panel_id=panel_id,
+        repo_root=repo_root,
+        analysis_window_ms=analysis_window_ms,
     )
+    warnings.extend(headline_warnings)
+    expected_network_ids = {_network_id(seed_dir) for seed_dir in seeds}
+    observed_network_ids = set(panel_df.get("network_id", pd.Series(dtype=str)).dropna().astype(str)) if not panel_df.empty else set()
+    if observed_network_ids != expected_network_ids:
+        missing_network_ids = sorted(expected_network_ids.difference(observed_network_ids))
+        return missing_adapter_result(
+            spec,
+            repo_root,
+            output_dir,
+            "Fig.5E headline endpoint requires paired 50-ms advance-or-recruit values for every canonical network; "
+            f"missing={missing_network_ids or 'none'}, unexpected={sorted(observed_network_ids.difference(expected_network_ids)) or 'none'}.",
+        )
+    incomplete_contrasts = {
+        comparison: sorted(
+            expected_network_ids.difference(
+                set(
+                    panel_df.loc[
+                        panel_df.get("comparison_condition", pd.Series(dtype=str)).astype(str).eq(comparison),
+                        "network_id",
+                    ].dropna().astype(str)
+                )
+            )
+        )
+        for comparison in FIG5E_HEADLINE_COMPARISON_CONDITIONS
+    }
+    incomplete_contrasts = {comparison: missing for comparison, missing in incomplete_contrasts.items() if missing}
+    if incomplete_contrasts:
+        return missing_adapter_result(
+            spec,
+            repo_root,
+            output_dir,
+            f"Fig.5E headline endpoint requires 20 paired networks for each comparison; missing={incomplete_contrasts}.",
+        )
+    contrast_summaries = _paired_t95_summaries(panel_df, group_cols=["condition", "comparison_condition"])
+    available_conditions = sorted(set(panel_df.get("comparison_condition", pd.Series(dtype=str)).dropna().astype(str))) if not panel_df.empty else []
+    missing_plotted_conditions = [condition for condition in FIG5E_HEADLINE_COMPARISON_CONDITIONS if condition not in set(available_conditions)]
     extra_stats = {
-        "main_metric": "transition_composition",
-        "plot_type": "stacked_bar",
-        "primary_plot_type": "stacked_bar",
-        "source_file": unit_source_name if windowed_unit_source_used else source_name,
-        "source_level": source_level,
-        "analysis_window_ms": analysis_window_ms if windowed_unit_source_used else None,
-        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike" if windowed_unit_source_used else "",
-        "conditions": plotted_conditions,
-        "transition_types": ["advance", "recruit", "loss"],
-        "included_unit_groups": _split_unique(panel_df.get("included_unit_groups", pd.Series(dtype=str))) if not panel_df.empty else [],
+        "main_metric": FIG5E_HEADLINE_METRIC,
+        "plot_type": "paired_network_contrast_dotplot",
+        "primary_plot_type": "paired_network_contrast_dotplot",
+        "headline_endpoint": "P(advance OR recruit | dynamic_intact, first 50 ms) minus P(advance OR recruit | comparison condition, first 50 ms)",
+        "headline_formula": "P_advance + P_recruit; loss is excluded",
+        "source_file": unit_source_name,
+        "source_level": "l1_stsp_perturbation_unit_transition_windowed",
+        "analysis_window_ms": analysis_window_ms,
+        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike",
+        "reference_condition": FIG5E_HEADLINE_REFERENCE_CONDITION,
+        "comparison_conditions": list(FIG5E_HEADLINE_COMPARISON_CONDITIONS),
+        "transition_types_included": ["advance", "recruit"],
+        "transition_types_excluded_from_headline": ["loss"],
+        "included_unit_groups": _split_unique(transition_df.get("included_unit_groups", pd.Series(dtype=str))) if not transition_df.empty else [],
         "perturbed_layer": "layer1",
         "perturbed_variables": ["u_pre", "x_pre"],
-        "legacy_global_perturbation_used": bool(legacy_global_used),
-        "legacy_region_perturbation_used": bool(legacy_region_used),
-        "point_overlay_enabled": False,
+        "legacy_global_perturbation_used": False,
+        "legacy_region_perturbation_used": False,
+        "point_overlay_enabled": True,
+        "point_overlay_count": int(len(panel_df)),
+        "inference_unit": "independently_trained_network",
+        "confidence_interval": "two-sided paired t-based 95% CI",
+        "contrast_summaries": contrast_summaries,
         "neutral_reset_restore_policy": False,
         "boundary_policy": "restore_preprobe_boundary",
-        "error_bar_enabled": _has_total_mass_replicates(panel_df, ["perturbation_condition"]) if not panel_df.empty else False,
+        "error_bar_enabled": bool(contrast_summaries),
         "available_conditions": available_conditions,
         "missing_plotted_conditions": missing_plotted_conditions,
-        "total_transition_mass": _total_mass_summary(panel_df, ["perturbation_condition"]) if not panel_df.empty else [],
     }
     extra_manifest = {
-        "primary_plot_type": "stacked_bar",
-        "main_metric": "transition_composition",
-        "source_file": unit_source_name if windowed_unit_source_used else source_name,
-        "source_level": source_level,
-        "analysis_window_ms": analysis_window_ms if windowed_unit_source_used else None,
-        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike" if windowed_unit_source_used else "",
+        "primary_plot_type": "paired_network_contrast_dotplot",
+        "main_metric": FIG5E_HEADLINE_METRIC,
+        "headline_endpoint": extra_stats["headline_endpoint"],
+        "headline_formula": extra_stats["headline_formula"],
+        "source_file": unit_source_name,
+        "source_level": "l1_stsp_perturbation_unit_transition_windowed",
+        "analysis_window_ms": analysis_window_ms,
+        "analysis_window_policy": "first_spikes_at_or_after_window_are_treated_as_no_spike",
         "checked_candidates": [record["path"] for record in source_records],
-        "plotted_transition_types": ["advance", "recruit", "loss"],
-        "plotted_conditions": plotted_conditions,
+        "reference_condition": FIG5E_HEADLINE_REFERENCE_CONDITION,
+        "comparison_conditions": list(FIG5E_HEADLINE_COMPARISON_CONDITIONS),
+        "transition_types_included": ["advance", "recruit"],
+        "transition_types_excluded_from_headline": ["loss"],
         "included_unit_groups": extra_stats["included_unit_groups"],
         "perturbed_layer": "layer1",
         "perturbed_variables": ["u_pre", "x_pre"],
-        "legacy_global_perturbation_used": bool(legacy_global_used),
-        "legacy_region_perturbation_used": bool(legacy_region_used),
-        "point_overlay_enabled": False,
+        "legacy_global_perturbation_used": False,
+        "legacy_region_perturbation_used": False,
+        "point_overlay_enabled": True,
+        "point_overlay_count": int(len(panel_df)),
+        "inference_unit": "independently_trained_network",
+        "confidence_interval": "two-sided paired t-based 95% CI",
         "error_bar_enabled": bool(extra_stats["error_bar_enabled"]),
         "available_conditions": available_conditions,
         "missing_plotted_conditions": missing_plotted_conditions,
@@ -500,7 +528,7 @@ def build_fig5_causal_perturbation_summary_adapter(spec: Mapping[str, Any], repo
         panel_df,
         sources,
         warnings,
-        group_cols=["condition", "perturbation_condition", "transition_type"],
+        group_cols=["metric", "condition", "comparison_condition"],
         extra_stats=extra_stats,
         extra_manifest=extra_manifest,
         source_records=source_records,
@@ -789,6 +817,7 @@ def _write_result(
     seed_dirs, _ = _seed_dirs(spec, repo_root)
     run_mode = "multi_network_final" if len(seed_dirs) > 1 else "single_network_draft"
     n_networks = len(seed_dirs)
+    network_ids = [_seed_id(seed_dir, seed_dir.name) for seed_dir in seed_dirs]
     if not panel_df.empty:
         panel_df = panel_df.copy()
         panel_df["run_mode"] = run_mode
@@ -803,6 +832,7 @@ def _write_result(
         "panel_id": panel_id,
         "run_mode": run_mode,
         "n_networks": int(n_networks),
+        "network_ids": network_ids,
         "summaries": summarize_values(panel_df, group_cols),
         "values_used_for_plotting": _values(panel_df),
         "warning": "Single-network result. Use for pipeline validation only, not final manuscript statistics." if run_mode == "single_network_draft" else "",
@@ -814,8 +844,9 @@ def _write_result(
         "status": "ok",
         "run_mode": run_mode,
         "n_networks": int(n_networks),
+        "network_ids": network_ids,
         "source_files_used": [_rel(path, repo_root) for path in source_paths],
-        "sources": [{"path": _rel(path, repo_root), "exists": path.exists()} for path in source_paths],
+        "sources": [_source_entry(path, repo_root) for path in source_paths],
         "experiment_root": str(spec.get("experiment_root") or DEFAULT_EXPERIMENT_ROOT),
         "conditions": sorted(set(map(str, panel_df.get("perturbation_condition", panel_df.get("condition", pd.Series(dtype=str))).dropna().unique()))),
         "unit_groups": sorted(set(map(str, panel_df.get("unit_group", pd.Series(dtype=str)).dropna().unique()))),
@@ -949,6 +980,142 @@ def _l1_stsp_transition_longform(
                 )
             )
     return rows
+
+
+def _l1_stsp_advance_or_recruit_headline_rows(
+    transition_df: pd.DataFrame,
+    *,
+    figure_id: str,
+    panel_id: str,
+    repo_root: Path,
+    analysis_window_ms: float,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Derive the pre-registered Fig. 5E paired headline from canonical 50-ms rows."""
+    warnings: list[str] = []
+    required = {"network_id", "seed_id", "perturbation_condition", "transition_type", "value", "source_file"}
+    if transition_df.empty or not required.issubset(transition_df.columns):
+        return pd.DataFrame(), ["Fig.5E canonical transition rows are missing fields needed for the headline paired contrast."]
+
+    use = transition_df[
+        transition_df["metric"].astype(str).eq("transition_fraction")
+        & transition_df["perturbation_condition"].astype(str).isin(
+            [FIG5E_HEADLINE_REFERENCE_CONDITION, *FIG5E_HEADLINE_COMPARISON_CONDITIONS]
+        )
+        & transition_df["transition_type"].astype(str).isin(["advance", "recruit"])
+    ].copy()
+    if use.empty:
+        return pd.DataFrame(), ["Fig.5E has no canonical 50-ms advance/recruit rows for the frozen headline endpoint."]
+
+    per_condition = (
+        use.groupby(["network_id", "seed_id", "perturbation_condition"], as_index=False)
+        .agg(
+            advance_or_recruit=("value", "sum"),
+            source_file=("source_file", "first"),
+            analysis_window_steps=("analysis_window_steps", "first"),
+            analysis_window_policy=("analysis_window_policy", "first"),
+            included_unit_groups=("included_unit_groups", "first"),
+            n_units=("n_units", "first"),
+        )
+    )
+    values = per_condition.pivot(
+        index=["network_id", "seed_id"],
+        columns="perturbation_condition",
+        values="advance_or_recruit",
+    )
+    source_paths = per_condition[per_condition["perturbation_condition"].eq(FIG5E_HEADLINE_REFERENCE_CONDITION)].set_index(
+        ["network_id", "seed_id"]
+    )
+    rows: list[dict[str, Any]] = []
+    for contrast_order, comparison in enumerate(FIG5E_HEADLINE_COMPARISON_CONDITIONS):
+        missing_conditions = [
+            condition
+            for condition in (FIG5E_HEADLINE_REFERENCE_CONDITION, comparison)
+            if condition not in values.columns
+        ]
+        if missing_conditions:
+            warnings.append(f"Fig.5E cannot form {comparison} paired contrast; missing conditions={missing_conditions}.")
+            continue
+        paired = values[[FIG5E_HEADLINE_REFERENCE_CONDITION, comparison]].dropna()
+        comparison_label = MAIN_CONDITION_LABELS.get(comparison, comparison)
+        condition_label = f"Dynamic - {comparison_label}"
+        for (network_id, seed_id), value_row in paired.iterrows():
+            metadata = source_paths.loc[(network_id, seed_id)]
+            source_path = repo_root / str(metadata["source_file"])
+            dynamic_value = float(value_row[FIG5E_HEADLINE_REFERENCE_CONDITION])
+            comparison_value = float(value_row[comparison])
+            rows.append(
+                _row(
+                    figure_id,
+                    panel_id,
+                    FIG5E_HEADLINE_METRIC,
+                    condition_label,
+                    "layer1",
+                    network_id,
+                    seed_id,
+                    dynamic_value - comparison_value,
+                    "probability difference",
+                    source_path,
+                    repo_root,
+                    contrast_order=contrast_order,
+                    reference_condition=FIG5E_HEADLINE_REFERENCE_CONDITION,
+                    comparison_condition=comparison,
+                    comparison_condition_label=comparison_label,
+                    p_dynamic_advance_or_recruit=dynamic_value,
+                    p_condition_advance_or_recruit=comparison_value,
+                    headline_endpoint="P(advance OR recruit | dynamic, first 50 ms) minus P(advance OR recruit | condition, first 50 ms)",
+                    transition_types_included="advance;recruit",
+                    transition_types_excluded="loss",
+                    analysis_window_ms=float(analysis_window_ms),
+                    analysis_window_steps=metadata.get("analysis_window_steps", ""),
+                    analysis_window_policy=metadata.get("analysis_window_policy", ""),
+                    included_unit_groups=metadata.get("included_unit_groups", ""),
+                    n_units_dynamic=metadata.get("n_units", ""),
+                    n_units_condition=per_condition.loc[
+                        (per_condition["network_id"].astype(str).eq(str(network_id)))
+                        & (per_condition["seed_id"].astype(str).eq(str(seed_id)))
+                        & (per_condition["perturbation_condition"].astype(str).eq(comparison)),
+                        "n_units",
+                    ].iloc[0],
+                    inference_unit="independently_trained_network",
+                    confidence_interval="two-sided paired t-based 95% CI",
+                    run_mode="",
+                )
+            )
+    return pd.DataFrame(rows), warnings
+
+
+def _paired_t95_summaries(df: pd.DataFrame, *, group_cols: list[str]) -> list[dict[str, Any]]:
+    """Summarize already paired network-level contrasts with two-sided t-based 95% CIs."""
+    if df.empty:
+        return []
+    summaries: list[dict[str, Any]] = []
+    for keys, part in df.groupby(group_cols, dropna=False, sort=False):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        values = pd.to_numeric(part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if len(values) < 2:
+            continue
+        mean = float(np.mean(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(len(values)))
+        critical = float(student_t.ppf(0.975, df=len(values) - 1))
+        ci_half_width = critical * sem
+        t_statistic = float(mean / sem) if sem > 0 else (float("inf") if mean != 0 else 0.0)
+        p_value = float(2.0 * student_t.sf(abs(t_statistic), df=len(values) - 1)) if np.isfinite(t_statistic) else 0.0
+        row = {column: value for column, value in zip(group_cols, keys)}
+        row.update(
+            {
+                "mean": mean,
+                "sem": sem,
+                "ci95_lower": mean - ci_half_width,
+                "ci95_upper": mean + ci_half_width,
+                "t_statistic": t_statistic,
+                "p_value_two_sided": p_value,
+                "n_networks": int(len(values)),
+                "values_used_for_plotting": [float(value) for value in values.tolist()],
+            }
+        )
+        summaries.append(row)
+    return summaries
 
 
 def _l1_stsp_windowed_summary_from_unit_transitions(
@@ -1258,7 +1425,21 @@ def _effect_metric_to_node(metric: str) -> str:
 
 
 def _source_entry(path: Path, repo_root: Path) -> dict[str, Any]:
-    return {"path": _rel(path, repo_root), "exists": path.exists()}
+    exists = path.is_file()
+    return {
+        "path": _rel(path, repo_root),
+        "exists": exists,
+        "size_bytes": path.stat().st_size if exists else None,
+        "sha256": _sha256(path) if exists else "",
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _num(value: Any) -> float:

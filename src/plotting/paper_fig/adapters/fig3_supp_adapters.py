@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
 
-from src.plotting.paper_fig.data_resolver import AdapterResult
+from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values, write_adapter_outputs
 from src.plotting.paper_fig.adapters.fig3_adapters import (
     MEMORY_DISPLAY,
     MEMORY_ORDER,
@@ -35,6 +37,248 @@ from src.plotting.paper_fig.adapters.fig3_adapters import (
 
 READOUT_CLASS_ORDER = ("latest", "recent", "earlier", "silent")
 TARGET_POSITION_BIN_ORDER = ("early", "middle", "recent", "latest")
+
+
+def build_part2_fit_comparison_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    _root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    source_rel = str(spec.get("source", "data/metrics/supp_s3a_morphology_fit_comparison.csv"))
+    curve_rel = str(spec.get("curve_source", "data/metrics/supp_s3a_morphology_fit_curve_points.csv"))
+    sources: list[Path] = []
+    required = {"network_seed", "linear_sse", "saturating_sse", "linear_minus_saturating_sse", "saturating_asymptote"}
+    rows: list[dict[str, Any]] = []
+    metrics = (
+        ("linear_sse", "Linear SSE", "sse"),
+        ("saturating_sse", "Saturating SSE", "sse"),
+        ("linear_minus_saturating_sse", "Linear - saturating SSE", "delta_sse"),
+        ("saturating_asymptote", "Saturating asymptote", "items"),
+    )
+    for seed_dir in seeds:
+        fit_path = seed_dir / source_rel
+        curve_path = seed_dir / curve_rel
+        sources.extend([fit_path, curve_path])
+        if not fit_path.is_file():
+            warnings.append(f"Missing Fig.3 fit comparison source: {_display(fit_path, repo_root)}")
+            continue
+        fit = pd.read_csv(fit_path)
+        if not required.issubset(fit.columns):
+            warnings.append(f"Fit comparison source lacks {sorted(required - set(fit.columns))}: {_display(fit_path, repo_root)}")
+            continue
+        if not curve_path.is_file():
+            warnings.append(f"Missing Fig.3 fit curve source: {_display(curve_path, repo_root)}")
+        for _, row in fit.iterrows():
+            for metric, condition, unit in metrics:
+                value = _float(row.get(metric))
+                if np.isfinite(value):
+                    rows.append(_canonical(figure_id, panel_id, metric=metric, condition=condition, layer="layer1", seed_id=row.get("network_seed", _seed_id(seed_dir)), value=value, unit=unit, source_file=_display(fit_path, repo_root), lower_level_rows=row.get("n_curve_points", "")))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["metric"])
+
+
+def build_part2_peak_valley_null_network_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    _root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    source_rel = str(spec.get("source", "data/metrics/supp_network_peak_valley_summary.csv"))
+    sources: list[Path] = []
+    rows: list[dict[str, Any]] = []
+    metrics = (
+        ("mean_peak_valley_delta", "observed_peak_valley_delta"),
+        ("mean_null_peak_valley_delta_p95", "null_peak_valley_delta_p95"),
+        ("fraction_structured_sequences", "fraction_structured_sequences"),
+    )
+    for seed_dir in seeds:
+        path = seed_dir / source_rel
+        sources.append(path)
+        if not path.is_file():
+            warnings.append(f"Missing Fig.3 peak-valley network summary: {_display(path, repo_root)}")
+            continue
+        frame = pd.read_csv(path)
+        if not {"network_seed", "n_sequences"}.issubset(frame.columns):
+            warnings.append(f"Peak-valley summary lacks network_seed/n_sequences: {_display(path, repo_root)}")
+            continue
+        weights = pd.to_numeric(frame["n_sequences"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+        for source_col, metric in metrics:
+            if source_col not in frame.columns:
+                warnings.append(f"Peak-valley summary lacks {source_col}: {_display(path, repo_root)}")
+                continue
+            values = pd.to_numeric(frame[source_col], errors="coerce").to_numpy(dtype=float)
+            value = _weighted_mean(values, weights)
+            if np.isfinite(value):
+                rows.append(_canonical(figure_id, panel_id, metric=metric, condition=metric, layer="layer1", seed_id=frame["network_seed"].iloc[0], value=value, unit="fraction" if metric == "fraction_structured_sequences" else "value", source_file=_display(path, repo_root), lower_level_rows=int(np.nansum(weights)), aggregation="sequence_condition_to_network"))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["metric"])
+
+
+def build_part2_existing_network_panel_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    panel_type = str(spec.get("panel_type", ""))
+    if panel_type == "ping_recency_decomposition":
+        return _build_part2_current_ping_recency_adapter(spec, repo_root, output_dir)
+    if panel_type == "weak_probe_recency_gain":
+        return _build_part2_current_weak_cue_adapter(spec, repo_root, output_dir)
+    source_path = _resolve_repo_path(repo_root, spec.get("source"))
+    sources = [source_path] if source_path is not None else []
+    if source_path is None or not source_path.is_file():
+        return _part2_missing(spec, output_dir, sources, ["Existing twenty-network panel data is missing."])
+    panel_df = pd.read_csv(source_path)
+    if not {"network_id", "metric", "value"}.issubset(panel_df.columns):
+        return _part2_missing(spec, output_dir, sources, ["Existing panel data lacks network_id/metric/value."])
+    panel_df = panel_df.copy()
+    panel_df["figure_id"] = str(spec.get("figure_id"))
+    panel_df["panel_id"] = str(spec.get("panel_id"))
+    panel_df["source_file"] = _display(source_path, repo_root)
+    group_cols = [col for col in ("metric", "readout_class", "target_position_bin", "condition") if col in panel_df.columns]
+    return _part2_finish(spec, repo_root, output_dir, panel_df, sources, [], group_cols)
+
+
+def _build_part2_current_ping_recency_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    _root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    position_rel = str(spec.get("source", "data/metrics/panel_c_neutral_ping_position_distribution.csv"))
+    summary_rel = str(spec.get("summary_source", "data/metrics/panel_c_neutral_ping_access_summary.csv"))
+    sources: list[Path] = []
+    rows: list[dict[str, Any]] = []
+    key_cols = ["network_seed", "condition_id", "sequence_id", "seq_len", "delay_ms", "state_condition"]
+    for seed_dir in seeds:
+        position_path = seed_dir / position_rel
+        summary_path = seed_dir / summary_rel
+        sources.extend([position_path, summary_path])
+        if not position_path.is_file() or not summary_path.is_file():
+            warnings.append(f"Missing current neutral-ping sources under {_display(seed_dir, repo_root)}")
+            continue
+        position = pd.read_csv(position_path)
+        summary = pd.read_csv(summary_path)
+        required_position = set(key_cols) | {"serial_position", "readout_mass", "n_trials"}
+        required_summary = set(key_cols) | {"P_silent", "n_trials"}
+        if not required_position.issubset(position.columns) or not required_summary.issubset(summary.columns):
+            warnings.append(f"Neutral-ping source schema mismatch under {_display(seed_dir, repo_root)}")
+            continue
+        position = position[position["state_condition"].astype(str).eq("S_final")].copy()
+        summary = summary[summary["state_condition"].astype(str).eq("S_final")].copy()
+        summary_index = summary.set_index(key_cols)
+        sequence_rows: list[dict[str, Any]] = []
+        for key, part in position.groupby(key_cols, dropna=False, sort=False):
+            seq_len = int(key[key_cols.index("seq_len")])
+            serial_position = pd.to_numeric(part["serial_position"], errors="coerce")
+            mass = pd.to_numeric(part["readout_mass"], errors="coerce").fillna(0.0)
+            latest = float(mass[serial_position.eq(seq_len)].sum())
+            recent = float(mass[serial_position.ge(max(1, seq_len - 2)) & serial_position.lt(seq_len)].sum())
+            earlier = float(mass[serial_position.lt(max(1, seq_len - 2))].sum())
+            silent = float("nan")
+            try:
+                match = summary_index.loc[key]
+                if isinstance(match, pd.DataFrame):
+                    match = match.iloc[0]
+                silent = _float(match.get("P_silent"))
+            except KeyError:
+                pass
+            if not np.isfinite(silent):
+                silent = max(0.0, 1.0 - latest - recent - earlier)
+            sequence_rows.append({"latest": latest, "recent": recent, "earlier": earlier, "silent": silent, "n_trials": _max_numeric(part["n_trials"])})
+        sequence = pd.DataFrame(sequence_rows)
+        if sequence.empty:
+            continue
+        weights = pd.to_numeric(sequence["n_trials"], errors="coerce").fillna(1.0).to_numpy(dtype=float)
+        seed = int(pd.to_numeric(position["network_seed"], errors="coerce").dropna().iloc[0])
+        for readout_class in READOUT_CLASS_ORDER:
+            value = _weighted_mean(pd.to_numeric(sequence[readout_class], errors="coerce").to_numpy(dtype=float), weights)
+            rows.append(_canonical(figure_id, panel_id, metric="readout_mass", condition=readout_class, layer="layer3", seed_id=seed, value=value, unit="probability", source_file=_display(position_path, repo_root), readout_class=readout_class, readout_class_order=_readout_class_order(readout_class), state_condition="S_final", lower_level_rows=int(len(sequence)), n_trials=float(weights.sum()), aggregation="sequence_condition_to_network", x_value=_readout_class_order(readout_class), y_value=value))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["readout_class"])
+
+
+def _build_part2_current_weak_cue_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    _root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    source_rel = str(spec.get("source", "data/metrics/panel_d_weak_cue_item_metrics.csv"))
+    sources: list[Path] = []
+    rows: list[dict[str, Any]] = []
+    required = {"network_seed", "seq_len", "target_position", "memory_condition", "P_target", "n_trials"}
+    for seed_dir in seeds:
+        path = seed_dir / source_rel
+        sources.append(path)
+        if not path.is_file():
+            warnings.append(f"Missing current weak-cue source: {_display(path, repo_root)}")
+            continue
+        frame = pd.read_csv(path)
+        if not required.issubset(frame.columns):
+            warnings.append(f"Weak-cue source lacks {sorted(required - set(frame.columns))}: {_display(path, repo_root)}")
+            continue
+        frame = frame.copy()
+        frame["target_position_bin"] = [
+            _current_target_position_bin(position, seq_len)
+            for position, seq_len in zip(frame["target_position"], frame["seq_len"])
+        ]
+        frame["P_target"] = pd.to_numeric(frame["P_target"], errors="coerce")
+        frame["n_trials"] = pd.to_numeric(frame["n_trials"], errors="coerce").fillna(0.0)
+        seed = int(pd.to_numeric(frame["network_seed"], errors="coerce").dropna().iloc[0])
+        for target_bin, part in frame.groupby("target_position_bin", sort=False):
+            means: dict[str, float] = {}
+            counts: dict[str, float] = {}
+            for memory, memory_part in part.groupby("memory_condition", sort=False):
+                values = memory_part["P_target"].to_numpy(dtype=float)
+                weights = memory_part["n_trials"].to_numpy(dtype=float)
+                means[str(memory)] = _weighted_mean(values, weights)
+                counts[str(memory)] = float(np.nansum(weights))
+            if not {"sequence_state", "single_item_memory"}.issubset(means):
+                warnings.append(f"Weak-cue memory conditions incomplete for {target_bin}: {_display(path, repo_root)}")
+                continue
+            gain = 100.0 * (means["sequence_state"] - means["single_item_memory"])
+            rows.append(_canonical(figure_id, panel_id, metric="target_recovery_gain", condition=str(target_bin), layer="layer3", seed_id=seed, value=gain, unit="percent_delta", source_file=_display(path, repo_root), target_position_bin=str(target_bin), target_position_bin_order=_target_position_bin_order(str(target_bin)), memory_condition="sequence_state_minus_single_item_memory", baseline_condition="single_item_memory", sequence_state_P_target=100.0 * means["sequence_state"], baseline_P_target=100.0 * means["single_item_memory"], lower_level_rows=int(len(part)), n_trials_sequence_state=counts["sequence_state"], n_trials_baseline=counts["single_item_memory"], aggregation="trial_weighted_rows_to_network", x_value=_target_position_bin_order(str(target_bin)), y_value=gain))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["target_position_bin"])
+
+
+def _current_target_position_bin(target_position: Any, seq_len: Any) -> str:
+    position = int(target_position)
+    length = int(seq_len)
+    if position == length:
+        return "latest"
+    if position >= length - 2:
+        return "recent"
+    if position <= 2:
+        return "early"
+    return "middle"
+
+
+def build_part2_morphology_serial_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    focus_k = int(spec.get("focus_seq_len", 10))
+    focus_delay = int(spec.get("focus_delay_ms", 400))
+    sources: list[Path] = []
+    rows: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data/metrics/panel_b_morphology_serial_profile.csv"
+        sources.append(path)
+        if not path.is_file():
+            warnings.append(f"Missing morphology serial source: {_display(path, repo_root)}")
+            continue
+        frame = pd.read_csv(path)
+        use = frame[(pd.to_numeric(frame.get("seq_len"), errors="coerce") == focus_k) & (pd.to_numeric(frame.get("delay_ms"), errors="coerce") == focus_delay)].copy()
+        use["p_i"] = pd.to_numeric(use.get("p_i"), errors="coerce")
+        grouped = use.dropna(subset=["p_i"]).groupby("serial_position", dropna=False, sort=True)["p_i"].agg(["mean", "size"]).reset_index()
+        for _, row in grouped.iterrows():
+            value = float(row["mean"])
+            rows.append(_canonical(figure_id, panel_id, metric="morphology_support_mass", condition=f"K{focus_k}_D{focus_delay}", layer="layer1", seed_id=_seed_id(seed_dir), value=value, unit="mass", source_file=_display(path, repo_root), seq_len=focus_k, delay_ms=focus_delay, serial_position=int(row["serial_position"]), x_value=int(row["serial_position"]), y_value=value, lower_level_rows=int(row["size"])))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["serial_position"])
+
+
+def build_part2_boundary_pair_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    metrics = tuple(map(str, spec.get("metrics") or ["N_eff_fraction", "rescued_fraction"]))
+    sources: list[Path] = []
+    rows: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = seed_dir / "data/metrics/panel_f_boundary_summary.csv"
+        sources.append(path)
+        if not path.is_file():
+            warnings.append(f"Missing boundary summary: {_display(path, repo_root)}")
+            continue
+        frame = pd.read_csv(path)
+        for _, row in frame.iterrows():
+            for metric in metrics:
+                value = _float(row.get(metric))
+                if not np.isfinite(value):
+                    continue
+                rows.append(_canonical(figure_id, panel_id, metric=metric, condition=str(row.get("condition_id", "")), layer="layer1", seed_id=row.get("network_seed", _seed_id(seed_dir)), value=value, unit="fraction", source_file=_display(path, repo_root), seq_len=int(row.get("seq_len")), delay_ms=int(row.get("delay_ms")), x_value=int(row.get("seq_len")), y_value=int(row.get("delay_ms")), z_value=value))
+    return _part2_finish(spec, repo_root, output_dir, pd.DataFrame(rows), sources, warnings, ["metric", "seq_len", "delay_ms"])
 
 
 def build_s5_peak_valley_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -757,6 +1001,136 @@ def _readout_class_order(readout_class: str) -> int:
 
 def _target_position_bin_order(target_bin: str) -> int:
     return {name: idx for idx, name in enumerate(TARGET_POSITION_BIN_ORDER, start=1)}.get(str(target_bin), 99)
+
+
+def _part2_finish(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+    panel_df: pd.DataFrame,
+    source_paths: Sequence[Path],
+    warnings: Sequence[str],
+    group_cols: Sequence[str],
+) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    if panel_df.empty:
+        return _part2_missing(spec, output_dir, source_paths, list(warnings) + [f"{figure_id}{panel_id}: no usable existing rows."])
+    panel_df = panel_df.copy()
+    panel_df["network_id"] = panel_df["network_id"].astype(str)
+    panel_df["seed_id"] = panel_df.get("seed_id", panel_df["network_id"]).astype(str)
+    network_ids = sorted(panel_df["network_id"].dropna().unique().tolist())
+    panel_df["run_mode"] = "multi_network_final" if len(network_ids) > 1 else "single_network_draft"
+    panel_df["n_networks"] = len(network_ids)
+    keys = ["network_id", *[col for col in group_cols if col in panel_df.columns]]
+    assert not panel_df.duplicated(keys).any()
+    warning_list = list(dict.fromkeys(map(str, warnings)))
+    expected = int(spec.get("expected_networks", len(network_ids)))
+    if len(network_ids) != expected:
+        warning_list.append(f"Expected {expected} networks, observed {len(network_ids)}.")
+    stats = {
+        "figure_id": figure_id,
+        "panel_id": panel_id,
+        "metric": ";".join(map(str, panel_df["metric"].dropna().unique())),
+        "run_mode": "multi_network_final" if len(network_ids) > 1 else "single_network_draft",
+        "n_networks": len(network_ids),
+        "n_networks_observed": len(network_ids),
+        "network_ids": network_ids,
+        "inferential_unit": "independent network",
+        "replicate_unit": "network_id",
+        "interval_definition": "two-sided 95% Student-t confidence interval across independent networks",
+        "rows_before_network_aggregation": int(pd.to_numeric(panel_df.get("lower_level_rows", pd.Series([1] * len(panel_df))), errors="coerce").fillna(1).sum()),
+        "rows_after_network_aggregation": len(panel_df),
+        "adapter_performed_network_level_averaging": bool(pd.to_numeric(panel_df.get("lower_level_rows", pd.Series([1])), errors="coerce").fillna(1).max() > 1),
+        "summaries": summarize_values(panel_df, [col for col in group_cols if col in panel_df.columns]),
+        "network_summaries": _part2_network_summaries(panel_df, group_cols),
+        "values_used_for_plotting": [float(value) for value in pd.to_numeric(panel_df["value"], errors="coerce").dropna()],
+        "warnings": warning_list,
+    }
+    source_entries = [_part2_source(path, repo_root) for path in source_paths]
+    manifest = {
+        "figure_id": figure_id,
+        "panel_id": panel_id,
+        "status": "ok",
+        "run_mode": stats["run_mode"],
+        "n_networks": len(network_ids),
+        "network_ids": network_ids,
+        "inferential_unit": "independent network",
+        "source_files_used": [entry["path"] for entry in source_entries if entry["exists"]],
+        "sources": source_entries,
+        "checked_candidates": [entry["path"] for entry in source_entries],
+        "warnings": warning_list,
+    }
+    return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warning_list)
+
+
+def _part2_missing(spec: Mapping[str, Any], output_dir: Path, source_paths: Sequence[Path], warnings: Sequence[str]) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    reason = str(warnings[-1]) if warnings else "Missing source"
+    panel_df = pd.DataFrame([_canonical(figure_id, panel_id, metric="missing_source", condition="missing", layer="", seed_id="", value=np.nan, unit="", source_file="", placeholder_reason=reason)])
+    stats = {"figure_id": figure_id, "panel_id": panel_id, "status": "missing_source", "values_used_for_plotting": [], "warnings": list(warnings)}
+    manifest = {"figure_id": figure_id, "panel_id": panel_id, "status": "missing_source", "source_files_used": [], "sources": [{"path": str(path), "exists": path.exists()} for path in source_paths], "warnings": list(warnings)}
+    return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, list(warnings))
+
+
+def _part2_network_summaries(df: pd.DataFrame, group_cols: Sequence[str]) -> list[dict[str, Any]]:
+    groups = [col for col in group_cols if col in df.columns]
+    grouped = df.groupby(groups, dropna=False, sort=False) if groups else [((), df)]
+    rows: list[dict[str, Any]] = []
+    for key, part in grouped:
+        values = pd.to_numeric(part["value"], errors="coerce").dropna().to_numpy(dtype=float)
+        if not len(values):
+            continue
+        if not isinstance(key, tuple):
+            key = (key,)
+        n = int(len(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
+        half = float(scipy_stats.t.ppf(0.975, n - 1) * sem) if n > 1 else 0.0
+        row = {col: value for col, value in zip(groups, key)}
+        row.update({
+            "n_networks": n,
+            "mean": float(np.mean(values)),
+            "sem": sem,
+            "ci95_low": float(np.mean(values) - half),
+            "ci95_high": float(np.mean(values) + half),
+            "one_sample_p_vs_zero": _one_sample_p(values),
+        })
+        rows.append(row)
+    return rows
+
+
+def _resolve_repo_path(repo_root: Path, value: Any) -> Path | None:
+    if value in (None, ""):
+        return None
+    path = Path(str(value))
+    return path if path.is_absolute() else repo_root / path
+
+
+def _part2_source(path: Path, repo_root: Path) -> dict[str, Any]:
+    exists = path.is_file()
+    size_bytes = path.stat().st_size if exists else 0
+    return {
+        "path": _display(path, repo_root),
+        "exists": exists,
+        "size_bytes": size_bytes,
+        "bytes": size_bytes,
+        "sha256": _sha256(path) if exists else "",
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _one_sample_p(values: np.ndarray) -> float | None:
+    if len(values) <= 1:
+        return None
+    if float(np.std(values, ddof=1)) < 1e-15:
+        return 1.0 if abs(float(np.mean(values))) < 1e-15 else 0.0
+    return float(scipy_stats.ttest_1samp(values, 0.0).pvalue)
 
 
 def _build_region_support(spec: Mapping[str, Any], repo_root: Path, output_dir: Path, names: Sequence[str]) -> AdapterResult:

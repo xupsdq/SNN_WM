@@ -64,3 +64,27 @@ figures:
     spec: fig6_supp.yaml
     title: Supplementary Fig. S7 overlap-gated STSP recruitment controls
     status: implemented_skeleton
+  supp_fig_s1:
+    spec: supp_fig_s1.yaml
+    title: Supplementary Fig. S1 activity-silent maintenance and substrate specificity
+    status: part2_final
+  supp_fig_s2:
+    spec: supp_fig_s2.yaml
+    title: Supplementary Fig. S2 pair fusion robustness and accessibility
+    status: part2_final
+  supp_fig_s3:
+    spec: supp_fig_s3.yaml
+    title: Supplementary Fig. S3 multi-item compactness, serial structure and boundaries
+    status: part2_final
+  supp_fig_s4:
+    spec: supp_fig_s4.yaml
+    title: Supplementary Fig. S4 overlap and matched-confound controls
+    status: part2_final
+  supp_fig_s5:
+    spec: supp_fig_s5.yaml
+    title: Supplementary Fig. S5 local perturbation and write-back controls
+    status: part2_final
+  supp_fig_s6:
+    spec: supp_fig_s6.yaml
+    title: Supplementary Fig. S6 multi-input recruitment robustness
+    status: part2_final

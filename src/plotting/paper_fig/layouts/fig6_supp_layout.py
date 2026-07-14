@@ -25,7 +25,7 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
     for panel_id, panel in (spec.get("panels") or {}).items():
         if selected_panels is not None and panel_id not in selected_panels:
             continue
-        pos = panel.get("position_mm") or {}
+        pos = panel.get("axes_mm") or panel.get("position_mm") or {}
         ax = add_axes_mm(
             fig,
             pos["x"],

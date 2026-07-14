@@ -7,12 +7,14 @@ from typing import Any, Mapping
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.transforms import Bbox
 
 from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, panel_stem
 from src.plotting.paper_fig.export import (
     export_full_figure,
     export_individual_panels,
     export_resolved_spec,
+    export_selected_panel,
     export_source_manifest,
 )
 from src.plotting.paper_fig.qc import run_qc
@@ -100,8 +102,13 @@ def build_figure(
         write_layout_report = getattr(fig, "paper_fig_write_layout_report", None)
         if callable(write_layout_report):
             write_layout_report(fig, axes, spec, output_dir)
-        full_export_paths = export_full_figure(fig, output_dir, fig_id, panel_id=panel_id)
-        export_individual_panels(render_jobs, output_dir, fig_id, renderer_style={})
+        export_dpi = int(spec.get("png_dpi", 300))
+        if panel_id is None:
+            full_export_paths = export_full_figure(fig, output_dir, fig_id, dpi=export_dpi)
+        else:
+            selected_id = panel_id.upper()
+            full_export_paths = export_selected_panel(render_jobs[selected_id], output_dir, fig_id, selected_id, renderer_style={}, dpi=export_dpi)
+        export_individual_panels(render_jobs, output_dir, fig_id, renderer_style={}, dpi=export_dpi)
         plt.close(fig)
 
     qc_report = run_qc(
@@ -172,6 +179,10 @@ def _panel_spec(spec: Mapping[str, Any], panel_id: str, panel: Mapping[str, Any]
     panel_spec = dict(panel)
     panel_spec.setdefault("figure_id", spec.get("figure_id"))
     panel_spec.setdefault("panel_id", panel_id)
+    if spec.get("individual_axes") is not None:
+        panel_spec.setdefault("individual_axes", spec.get("individual_axes"))
+    if spec.get("png_dpi") is not None:
+        panel_spec.setdefault("png_dpi", spec.get("png_dpi"))
     if spec.get("experiment_root") is not None:
         panel_spec.setdefault("experiment_root", spec.get("experiment_root"))
     if spec.get("experiment_root_default") is not None:
@@ -336,6 +347,9 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "svg_aspect_ratio": float(getattr(ax, "paper_fig_svg_aspect_ratio", 0.0) or 0.0),
         "svg_rendered_size_mm": getattr(ax, "paper_fig_svg_rendered_size_mm", {}),
         "svg_raster_cache": str(getattr(ax, "paper_fig_svg_raster_cache", "")),
+        "schematic_content_box_mm": getattr(ax, "paper_fig_schematic_content_box_mm", {}),
+        "schematic_content_bbox": [],
+        "schematic_artist_count": len(getattr(ax, "paper_fig_schematic_artists", [])),
     }
     legend = ax.get_legend()
     if legend is not None:
@@ -351,6 +365,20 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         artists.extend((f"y_tick:{label.get_text()}", label) for label in ax.get_yticklabels())
         artists.extend([("x_label", ax.xaxis.label), ("y_label", ax.yaxis.label)])
         artists.extend((f"text:{text.get_text()[:24]}", text) for text in ax.texts)
+    schematic_artists = list(getattr(ax, "paper_fig_schematic_artists", []))
+    artists.extend((f"schematic:{index}", artist) for index, artist in enumerate(schematic_artists))
+    schematic_boxes = []
+    for artist in schematic_artists:
+        if not artist.get_visible():
+            continue
+        try:
+            bbox = artist.get_window_extent(renderer)
+        except Exception:
+            continue
+        if bbox.width > 0 and bbox.height > 0:
+            schematic_boxes.append(bbox)
+    if schematic_boxes:
+        metadata["schematic_content_bbox"] = _bbox_fig_bounds(fig, Bbox.union(schematic_boxes))
     if legend is not None:
         legend_bbox = legend.get_window_extent(renderer)
         metadata["legend_overlaps_axes_bbox"] = bool(legend_bbox.overlaps(ax.bbox))

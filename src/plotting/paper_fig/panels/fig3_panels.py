@@ -558,7 +558,9 @@ def render_fig3_cue_specificity_target_profile(ax, panel_data: pd.DataFrame | No
     ax.set_ylim(-0.02, 1.03)
     ax.set_xlabel("Serial position")
     ax.set_ylabel("Target readout probability")
-    ax.legend(frameon=False, fontsize=5.6, loc="upper left", ncol=3, handlelength=1.2, columnspacing=0.8, borderaxespad=0.25)
+    legend = ax.legend(frameon=False, fontsize=5.6, loc="upper left", ncol=2, handlelength=1.0, columnspacing=0.45, borderaxespad=0.2)
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_ncols = 2
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig3_cue_specificity_target_profile"

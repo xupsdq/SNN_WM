@@ -42,7 +42,9 @@ panels:
     source: results/paper_figures/outputs/DMS-enhanced.svg
     position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 2.00}
+    png_dpi: 600
+    schematic_content_insets_mm: {left: 0.50, right: 0.50, top: 1.00, bottom: 1.00}
+    letter_mm: {x: 0.25, y: 0.50}
     x_axis: none
     y_axis: none
   B:
@@ -58,61 +60,76 @@ panels:
       - data/metrics/panel_b_similarity_entry_metrics.csv
     position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 2.00}
+    letter_mm: {x: 80.00, y: 0.50}
     x_axis: Sample-probe similarity bin
     y_axis: Probe bias (%)
     y_label_x: -0.143
   C:
     panel_id: C
-    panel_type: overlap_excess_iso_similarity
-    producer_task: [overlap_accuracy_identification, overlap_localization]
-    claim: Within similarity strata, high overlap-excess pairs show larger accuracy-drop than low overlap-excess pairs.
-    data_adapter: fig4_overlap_excess_adapter
-    renderer: render_fig4_overlap_excess
-    metric: mean_acc_drop
+    panel_type: high_similarity_overlap_accuracy_drop
+    producer_task: overlap_accuracy_identification
+    claim: In the highest-similarity bin, the natural high-versus-low overlap split provides a descriptive, non-causal accuracy-drop comparison.
+    data_adapter: fig4_overlap_accuracy_identification_adapter
+    renderer: render_fig4_overlap_accuracy_identification
+    metric: mean_accuracy_drop
     source_priority:
-      - data/metrics/supp_overlap_excess_accuracy_metrics.csv
-      - data/metrics/supp_overlap_matching_diagnostics.csv
-    plot_metric: mean_acc_drop
-    conditions: [Low overlap excess, High overlap excess]
+      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop_summary.csv
+      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop_contrast.csv
+      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop.csv
+    plot_metric: mean_accuracy_drop
+    conditions: [low_overlap, high_overlap]
+    endpoint_definition: mean_pair[accuracy_drop] within the highest similarity bin and natural overlap split
+    aggregation: pair_to_network
+    inference_unit: independently trained network
+    interval_method: two-sided t-based 95% CI across networks
     position_mm: {x: 2.00, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 50.00}
-    x_axis: Overlap beyond similarity
+    letter_mm: {x: 0.25, y: 48.50}
+    x_axis: Sample-probe overlap
+    x_axis_definition: Natural low/high overlap split within the highest similarity bin
     y_axis: Probe bias (%)
     y_labelpad: -2.0
     y_label_x: -0.195
   D:
     panel_id: D
-    panel_type: overlap_preserving_causal_perturbation
+    panel_type: l1_stsp_overlap_reset_ablation
     producer_task: overlap_perturbation
-    claim: Sample-side overlap support preserves the probe accuracy drop more strongly than non-overlap or random-matched support.
+    claim: Resetting overlap-aligned Layer 1 STSP removes the dynamic accuracy drop, supporting its necessity for the overlap-linked bias.
     data_adapter: fig4_overlap_perturbation_main_adapter
     renderer: render_fig4_overlap_perturbation
     metric: accuracy_drop_vs_static
     source_priority:
-      - data/metrics/panel_d_overlap_perturbation_metrics.csv
-      - data/metrics/panel_d_overlap_perturbation_summary.csv
-      - data/trial_specs/panel_d_perturbation_masks.csv
-      - data/metrics/supp_overlap_preserving_perturbation_metrics.csv
-      - data/metrics/supp_overlap_preserving_perturbation_summary.csv
+      - data/raw/panel_d_l1_stsp_overlap_perturbation_trial_readout.csv
+      - data/metrics/panel_d_l1_stsp_overlap_perturbation_summary.csv
+      - data/metrics/panel_d_l1_stsp_overlap_perturbation_contrast.csv
+      - data/metrics/panel_d_l1_stsp_overlap_perturbation_audit.csv
+    endpoint_definition: mean_pair[accuracy_drop_vs_static] after pre-probe Layer 1 STSP reset
+    aggregation: pair_to_network
+    inference_unit: independently trained network
+    interval_method: two-sided t-based 95% CI across networks
     conditions:
-      - full_dynamic
+      - full_dynamic_intact
       - full_static
-      - sample_keep_overlap_only_dynamic
-      - sample_keep_nonoverlap_only_dynamic
-      - sample_random_matched_dynamic
+      - l1_overlap_reset
+      - l1_nonoverlap_reset
+      - l1_random_matched_reset
     display_labels:
-      full_dynamic: Dynamic STSP
+      full_dynamic_intact: Dynamic STSP
       full_static: Static baseline
-      sample_keep_overlap_only_dynamic: Overlap support
-      sample_keep_nonoverlap_only_dynamic: Non-overlap support
-      sample_random_matched_dynamic: Random matched
+      l1_overlap_reset: Overlap reset
+      l1_nonoverlap_reset: Non-overlap reset
+      l1_random_matched_reset: Random-matched reset
+    display_labels_short:
+      Dynamic: Dynamic
+      Overlap reset: "Overlap\nreset"
+      Non-overlap reset: "Non-overlap\nreset"
+      Random-matched reset: "Random\nreset"
     position_mm: {x: 83.50, y: 52.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 50.00}
+    letter_mm: {x: 80.00, y: 48.50}
     x_axis: Perturbation condition
-    y_axis: Probe bias (%)
+    y_axis: Accuracy drop (%)
+    y_axis_definition: Probe-accuracy drop vs static (%)
     y_labelpad: -2.0
     y_label_x: -0.135
   E:
@@ -125,16 +142,25 @@ panels:
     metric: DPI_L3_t
     source_priority:
       - data/metrics/panel_e_time_resolved_l3_displacement.csv
-      - data/metrics/panel_e_decision_spike_displacement.csv
+    endpoint_definition: mean_pair(DPI_L3_t) at each network, condition, and time
+    aggregation: pair_to_network_to_time
+    inference_unit: independently trained network
+    interval_method: two-sided t-based 95% CI across networks
     conditions:
       - sample_keep_overlap_only_dynamic
       - sample_keep_nonoverlap_only_dynamic
+    display_labels:
+      sample_keep_overlap_only_dynamic: Overlap support
+      sample_keep_nonoverlap_only_dynamic: Non-overlap support
+    display_labels_short:
+      Overlap support: Overlap
+      Non-overlap support: Non-overlap
     max_time_ms: 60
     position_mm: {x: 2.00, y: 102.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 2.00, y: 100.00}
+    letter_mm: {x: 0.25, y: 98.50}
     x_axis: Probe time (ms)
-    y_axis: Dynamic-pattern index
+    y_axis: Dynamic-pattern index (DPI)
     reference_lines:
       - value: 0
         label: 0
@@ -156,6 +182,6 @@ panels:
     groups: [plus, minus]
     position_mm: {x: 83.50, y: 102.00, w: 79.50, h: 48.00}
     size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 83.50, y: 100.00}
+    letter_mm: {x: 80.00, y: 98.50}
     x_axis: More dynamic-like firing pattern
     y_axis: More dynamic-like decision

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.ticker import MaxNLocator
+from scipy import stats as scipy_stats
 
 from src.plotting.common.colors import get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
@@ -57,13 +58,14 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
         if vals.size == 0:
             continue
         ax.bar([xs[idx]], [float(vals.mean())], width=0.62, color=colors.get(condition, "#4c78a8"), edgecolor="0.25", linewidth=0.5)
-        ax.errorbar([xs[idx]], [float(vals.mean())], yerr=[_sem(vals)], fmt="none", color="0.15", linewidth=0.7, capsize=2.0)
+        ax.errorbar([xs[idx]], [float(vals.mean())], yerr=[_t95_half_width(vals)], fmt="none", color="0.15", linewidth=0.7, capsize=2.0)
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xticks(xs, [labels.get(cond, cond.replace("_", "\n")) for cond in order])
     ax.set_ylabel(str(spec.get("y_axis", "Layer 1 recruitment loss (%)")))
     ax.set_xlabel("Removed sites")
     ax.paper_fig_plot_form = "high_stsp_overlap_ablation_bar"
     ax.paper_fig_primary_metric = "loss_delta_spike_probability"
+    ax.paper_fig_interval_definition = "two-sided 95% Student-t CI across independent networks"
     ax.paper_fig_final_label_claim = False
     ax.paper_fig_high_stsp_alone_sufficient = False
     _tidy(ax)
@@ -156,7 +158,8 @@ def render_fig6_global_ping_score_spike_prediction(ax, panel_data: pd.DataFrame 
     _score_quantile_lines(ax, use, preferred=["Global ping"])
     ax.set_xlabel("STSP score quantile")
     ax.set_ylabel(str(spec.get("y_axis", "Layer 1 spike probability (%)")))
-    ax.set_ylim(0, 100)
+    ymax = pd.to_numeric(use.get("value", pd.Series(dtype=float)), errors="coerce").max()
+    ax.set_ylim(0, max(100.0, float(ymax) * 1.06 if pd.notna(ymax) else 100.0))
     ax.paper_fig_plot_form = "global_ping_score_quantile_spike_probability"
     ax.paper_fig_entry_type = "global_ping"
     ax.paper_fig_primary_endpoint = "Layer 1 spike recruitment"
@@ -822,11 +825,20 @@ def _sem(values: np.ndarray) -> float:
     return float(np.std(clean, ddof=1) / np.sqrt(clean.size))
 
 
+def _t95_half_width(values: np.ndarray) -> float:
+    clean = np.asarray(values, dtype=float)
+    clean = clean[np.isfinite(clean)]
+    return float(scipy_stats.t.ppf(0.975, clean.size - 1) * _sem(clean)) if clean.size > 1 else 0.0
+
+
 def _wrap_label(label: str) -> str:
     return (
         str(label)
         .replace("Single old", "Single\nold")
         .replace("Single recent", "Single\nrecent")
+        .replace("Peak ping", "Peak\nping")
+        .replace("Valley ping", "Valley\nping")
+        .replace("Random ping", "Random\nping")
         .replace("Multi old", "Multi\nold")
         .replace("Multi recent", "Multi\nrecent")
         .replace("Baseline only", "Base")

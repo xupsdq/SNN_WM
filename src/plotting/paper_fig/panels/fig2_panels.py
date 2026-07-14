@@ -5,7 +5,14 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
+from src.plotting.paper_fig.svg_assets import (
+    load_embedded_square_pngs,
+    schematic_arrow,
+    schematic_box,
+    schematic_digit,
+    schematic_text,
+    setup_programmatic_schematic,
+)
 
 
 STYLE = {
@@ -27,7 +34,41 @@ COMPOSITION_LABELS = {"Other": "Other", "A": "Item 1", "B": "Item 2", "Silent": 
 
 def render_fig2_episode_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
-    render_svg_asset_panel(ax, spec)
+    width, _ = setup_programmatic_schematic(ax, spec)
+    item_a, item_b = load_embedded_square_pngs(spec)
+    blue, orange, gold, pink = "#0072B2", "#D55E00", "#E69F00", "#CC79A7"
+    neutral, ink = "#8B95A3", "#253041"
+
+    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor="#F6F7F9", edgecolor="#F6F7F9", radius=1.8, role="top_band")
+    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor="#F1F9F7", edgecolor="#F1F9F7", radius=1.8, role="bottom_band")
+
+    schematic_text(ax, 11.25, 46.6, "Item A", color=blue, role="header_item_a")
+    schematic_text(ax, 74.25, 46.6, "Item B", color=orange, role="header_item_b")
+    schematic_digit(ax, item_a, 3.0, 27.0, 16.5, edgecolor=blue, role="digit_item_a")
+    schematic_box(ax, 31.0, 29.3, 24.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_a")
+    schematic_digit(ax, item_b, 66.0, 27.0, 16.5, edgecolor=orange, role="digit_item_b")
+    schematic_box(ax, 94.0, 29.3, 24.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_b")
+    schematic_box(ax, 130.5, 28.2, 29.0, 14.0, facecolor="#F9E9F3", edgecolor=pink, text="Capture", text_color="#5F2850", linewidth=0.9, role="capture")
+    for start, end in (((19.5, 35.25), (31.0, 35.25)), ((55.0, 35.25), (66.0, 35.25)), ((82.5, 35.25), (94.0, 35.25)), ((118.0, 35.25), (130.5, 35.25))):
+        schematic_arrow(ax, start, end, color=neutral)
+
+    schematic_box(ax, 1.5, 3.0, 21.0, 17.5, facecolor="#DCEEFF", edgecolor=blue, text="A written", text_color="#005A8D", role="a_written")
+    schematic_box(ax, 29.0, 3.0, 27.0, 17.5, facecolor="#EAF4FC", edgecolor="#82B5DF", text="Retained A trace", text_color="#4D5C70", linestyle=(0, (3, 2)), role="retained_a")
+    schematic_box(ax, 63.0, 3.0, 21.0, 17.5, facecolor="#FFE4BD", edgecolor=orange, text="B written", text_color="#8A4500", role="b_written")
+    schematic_box(ax, 91.0, 3.0, 27.0, 17.5, facecolor="#FFF3DE", edgecolor=gold, text="Fused state\nevolves", text_color="#8A4B00", linestyle=(0, (3, 2)), role="fused_state")
+    schematic_box(ax, 129.5, 3.0, 30.0, 17.5, facecolor="#F9E9F3", edgecolor=pink, text="Captured\nfused trace", text_color="#7A2F66", linewidth=0.9, role="captured_trace")
+    for start, end in (((22.5, 11.75), (29.0, 11.75)), ((56.0, 11.75), (63.0, 11.75)), ((84.0, 11.75), (91.0, 11.75)), ((118.0, 11.75), (129.5, 11.75))):
+        schematic_arrow(ax, start, end, color="#A7B0BC")
+    for start, end, color in (
+        ((11.25, 27.0), (11.25, 20.5), blue),
+        ((43.0, 29.3), (43.0, 20.5), "#82B5DF"),
+        ((74.25, 27.0), (74.25, 20.5), orange),
+        ((106.0, 29.3), (106.0, 20.5), gold),
+        ((145.0, 28.2), (145.0, 20.5), pink),
+    ):
+        schematic_arrow(ax, start, end, color=color)
+
+    ax.paper_fig_plot_form = "programmatic_two_item_episode_schematic"
 
 
 def render_fig2_dual_retention_constituents(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -128,9 +169,10 @@ def render_fig2_neutral_ping_composition(ax, panel_data: pd.DataFrame | None, st
     ax.set_ylim(0, 100)
     ax.set_ylabel(str(spec.get("y_axis", "Readout composition (%)")))
     ax.set_xlabel("")
-    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 0.994), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
+    legend = ax.legend(frameon=False, fontsize=st["legend_fontsize"], ncol=4, loc="lower center", bbox_to_anchor=(0.5, 1.04), handlelength=0.8, handletextpad=0.28, columnspacing=0.55, borderaxespad=0.0)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     ax.paper_fig_legend_ncols = 4
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax, st)
 
 

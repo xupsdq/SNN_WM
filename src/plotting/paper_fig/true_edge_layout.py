@@ -414,6 +414,9 @@ def _artist_boxes(renderer, ax, *, include_legend: bool = True) -> list[Bbox]:
         artists.extend([ax.xaxis.label, ax.yaxis.label, ax.title])
     artists.extend(ax.texts)
     artists.extend(ax.images)
+    for artist in getattr(ax, "paper_fig_schematic_artists", []):
+        if not any(existing is artist for existing in artists):
+            artists.append(artist)
     legend = ax.get_legend()
     if include_legend and legend is not None:
         artists.append(legend)
@@ -438,11 +441,12 @@ def _finalize_fig2_semantic_boxes(fig, axes: Mapping[str, Any], panels: Mapping[
             continue
         target = target_bbox_bottom_left(panel.get("position_mm") or {}, canvas)
         axes_box = bbox_to_mm(fig, ax.bbox)
+        bottom_stack = 6.3 if panel_id in {"C", "D"} else 5.5
         next_box = {
             "x": axes_box["x"],
             "y": float(panel.get("position_mm", {}).get("y", 0.0)),
             "w": axes_box["w"],
-            "h": target["top"] - (target["bottom"] + 5.5),
+            "h": target["top"] - (target["bottom"] + bottom_stack),
         }
         _set_axes_mm(fig, ax, next_box, canvas)
         _fit_xtick_bottom(fig, ax, target["bottom"])
