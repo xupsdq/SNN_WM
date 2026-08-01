@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -30,16 +32,76 @@ MODEL_ORDER = ("A_only", "B_only", "mean_AB", "sum_AB", "unconstrained_AB", "con
 EXPECTED_COMPLETION_DELAY_MS = (100, 200, 300, 400, 800, 1200)
 
 
+_S2_PERSISTED_ROOT = Path("results/paper_figures/outputs/supplementary_part2/supp_fig_s2")
+_S2_EXPECTED_NETWORK_IDS = tuple(str(seed) for seed in range(1000, 1020))
+_S2_PERSISTED_INPUTS: dict[str, dict[str, Any]] = {
+    "A": {
+        "panel_data": "panel_data/supp_fig_s2a_panel_data.csv",
+        "panel_data_sha256": "6866ea1d75d22937a3e2f461b94acd772c526e9e42b6540dd76396bd839b0b6d",
+        "stats": "stats/supp_fig_s2a_stats.json",
+        "stats_sha256": "de5a1feeea1ab172afb0e01cb71c8794a7620ca09f52c2e90e764b544caa1c63",
+        "manifest": "source_manifests/supp_fig_s2a_sources.json",
+        "manifest_sha256": "7ba648190db36a1f6b26f5cceda7e3bdf99832e6edd5ee5231d85517307b3517",
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "state_variable", "run_mode", "seed_level_n", "seed_level_sem", "replicate_unit",
+        ),
+        "condition_order": ("layer1", "layer2", "layer3"),
+        "metric_order": ("WPRI",),
+        "identity_columns": ("network_id", "layer"),
+        "summary_key": "layer",
+    },
+    "B": {
+        "panel_data": "panel_data/supp_fig_s2b_panel_data.csv",
+        "panel_data_sha256": "cf553a0cf578039d8196d8d5c00a40a27702e9ec3c276691aadd1c077f25bbcb",
+        "stats": "stats/supp_fig_s2b_stats.json",
+        "stats_sha256": "04fc7aa1c90145f7ef0f78c969aed5d2e90c852f3f6bde4c9c18b4fc658e98f2",
+        "manifest": "source_manifests/supp_fig_s2b_sources.json",
+        "manifest_sha256": "7eb04f4615cb73feac90dcd848e3d1ec59f77918907949286cbdc480eca5b61f",
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value", "unit",
+            "source_file", "state_variable", "n_pairs", "n_features", "n_folds", "analysis_status", "run_mode",
+        ),
+        "condition_order": ("Linear additive", "Quadratic marginals", "Bounded saturation"),
+        "metric_order": (
+            "delta_r2_linear_interaction",
+            "delta_r2_interaction_beyond_marginal_nonlinearity",
+            "delta_r2_interaction_beyond_bounded_saturation",
+        ),
+        "identity_columns": ("network_id", "condition", "metric"),
+        "summary_key": "condition",
+    },
+    "C": {
+        "panel_data": "panel_data/supp_fig_s2c_panel_data.csv",
+        "panel_data_sha256": "f3c6626bdd8b510bda1b4fc0577128f4a327239e98851d6ad8b1bce2e1515fe4",
+        "stats": "stats/supp_fig_s2c_stats.json",
+        "stats_sha256": "48d2fdb70abb57a4258f372c30736bc6a4fd85c5a8bc033dbfcb2576744fa10c",
+        "manifest": "source_manifests/supp_fig_s2c_sources.json",
+        "manifest_sha256": "f3309865bf0d1231f17428c3b24327340bcc7da24175abeeb34910aed905f020",
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value", "unit",
+            "source_file", "state_variable", "null_model", "replicate", "endpoint", "calibration_role",
+            "aggregation_level", "observed_reference_delta_r2", "feature_count", "noise_scale_ratio", "permutation_rule",
+            "run_mode", "n_null_replicates",
+        ),
+        "condition_order": ("Linear + noise", "Bounded saturation", "Sequence/marginal matched"),
+        "metric_order": ("null_delta_r2",),
+        "identity_columns": ("network_id", "null_model", "condition"),
+        "summary_key": "condition",
+    },
+}
+
+
+def build_s3_crossfit_interaction_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return _load_fixed_s2_panel(spec, repo_root, output_dir, expected_panel_id="B")
+
+
+def build_s3_crossfit_null_calibration_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    return _load_fixed_s2_panel(spec, repo_root, output_dir, expected_panel_id="C")
+
+
 def build_s3_wpri_across_layers_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return _build_layerwise_metric(
-        spec,
-        repo_root,
-        output_dir,
-        metric_name="WPRI",
-        value_candidates=("WPRI", "wpri"),
-        default_sources=("supp_layerwise_morphology_metrics.csv", "panel_d_pair_level_organization_metrics.csv"),
-        y_unit="score",
-    )
+    return _load_fixed_s2_panel(spec, repo_root, output_dir, expected_panel_id="A")
 
 
 def build_s3_residual_across_layers_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -256,6 +318,222 @@ def build_s4_completion_delay_adapter(spec: Mapping[str, Any], repo_root: Path, 
     manifest["missing_expected_delay_ms"] = missing_delay_ms
     _add_output_manifest_fields(manifest, panel_df)
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
+
+
+def _load_fixed_s2_panel(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+    *,
+    expected_panel_id: str,
+) -> AdapterResult:
+    """Load one immutable S2 plotting payload without scientific recomputation.
+
+    The three active S2 adapters intentionally terminate here.  They read the
+    hash-frozen panel rows, statistics, and source manifest already audited by
+    the data-lineage module.  Missing, stale, duplicate, extra, reordered, or
+    fallback content is a hard error; there is no experiment-source fallback.
+    """
+    figure_id, panel_id = _ids(spec)
+    if figure_id != "supp_fig_s2" or panel_id != expected_panel_id:
+        raise RuntimeError(
+            f"Fixed S2 adapter identity mismatch: expected supp_fig_s2/{expected_panel_id}, "
+            f"received {figure_id}/{panel_id}."
+        )
+    contract = _S2_PERSISTED_INPUTS[panel_id]
+    paths = {
+        kind: repo_root / _S2_PERSISTED_ROOT / str(contract[kind])
+        for kind in ("panel_data", "stats", "manifest")
+    }
+    for kind, path in paths.items():
+        expected_sha = str(contract[f"{kind}_sha256"])
+        if not path.is_file():
+            raise RuntimeError(f"Fixed S2{panel_id} {kind} input is missing: {path}")
+        actual_sha = _sha256_file(path)
+        if actual_sha != expected_sha:
+            raise RuntimeError(
+                f"Fixed S2{panel_id} {kind} SHA-256 mismatch: expected {expected_sha}, got {actual_sha}: {path}"
+            )
+
+    panel_df = pd.read_csv(paths["panel_data"], float_precision="round_trip")
+    expected_columns = list(contract["columns"])
+    if list(panel_df.columns) != expected_columns:
+        raise RuntimeError(
+            f"Fixed S2{panel_id} schema mismatch: expected {expected_columns}, got {list(panel_df.columns)}"
+        )
+    if len(panel_df) != 60:
+        raise RuntimeError(f"Fixed S2{panel_id} row-count mismatch: expected 60, got {len(panel_df)}")
+    if panel_df[list(contract["identity_columns"])].isna().any().any():
+        raise RuntimeError(f"Fixed S2{panel_id} has missing row-identity fields.")
+    if panel_df.duplicated(subset=list(contract["identity_columns"]), keep=False).any():
+        raise RuntimeError(f"Fixed S2{panel_id} has duplicate row identities.")
+    if panel_df["value"].isna().any() or not np.isfinite(panel_df["value"].to_numpy(dtype=float)).all():
+        raise RuntimeError(f"Fixed S2{panel_id} contains missing or non-finite values.")
+    if set(panel_df["figure_id"].astype(str)) != {"supp_fig_s2"}:
+        raise RuntimeError(f"Fixed S2{panel_id} contains extra figure identities.")
+    if set(panel_df["panel_id"].astype(str)) != {panel_id}:
+        raise RuntimeError(f"Fixed S2{panel_id} contains extra panel identities.")
+
+    observed_network_ids = tuple(
+        dict.fromkeys(pd.to_numeric(panel_df["network_id"], errors="raise").astype(int).astype(str).tolist())
+    )
+    if observed_network_ids != _S2_EXPECTED_NETWORK_IDS:
+        raise RuntimeError(
+            f"Fixed S2{panel_id} network identity/order mismatch: "
+            f"expected {_S2_EXPECTED_NETWORK_IDS}, got {observed_network_ids}"
+        )
+    network_counts = panel_df["network_id"].value_counts(sort=False)
+    if len(network_counts) != 20 or set(int(value) for value in network_counts.tolist()) != {3}:
+        raise RuntimeError(f"Fixed S2{panel_id} network membership is missing or extra: {network_counts.to_dict()}")
+
+    condition_order = tuple(dict.fromkeys(panel_df["condition"].astype(str).tolist()))
+    if condition_order != tuple(contract["condition_order"]):
+        raise RuntimeError(
+            f"Fixed S2{panel_id} condition order mismatch: expected {contract['condition_order']}, got {condition_order}"
+        )
+    metric_order = tuple(dict.fromkeys(panel_df["metric"].astype(str).tolist()))
+    if metric_order != tuple(contract["metric_order"]):
+        raise RuntimeError(
+            f"Fixed S2{panel_id} metric order mismatch: expected {contract['metric_order']}, got {metric_order}"
+        )
+    for condition in condition_order:
+        part = panel_df.loc[panel_df["condition"].astype(str).eq(condition)]
+        condition_networks = tuple(
+            pd.to_numeric(part["network_id"], errors="raise").astype(int).astype(str).tolist()
+        )
+        if condition_networks != _S2_EXPECTED_NETWORK_IDS:
+            raise RuntimeError(f"Fixed S2{panel_id}/{condition} row order is missing, extra, or reordered.")
+
+    if panel_id == "A" and not panel_df["layer"].astype(str).eq(panel_df["condition"].astype(str)).all():
+        raise RuntimeError("Fixed S2A layer/condition identity mismatch.")
+    if panel_id == "B":
+        expected_pairs = {
+            "Linear additive": "delta_r2_linear_interaction",
+            "Quadratic marginals": "delta_r2_interaction_beyond_marginal_nonlinearity",
+            "Bounded saturation": "delta_r2_interaction_beyond_bounded_saturation",
+        }
+        if any(
+            set(panel_df.loc[panel_df["condition"].astype(str).eq(condition), "metric"].astype(str)) != {metric}
+            for condition, metric in expected_pairs.items()
+        ):
+            raise RuntimeError("Fixed S2B condition/metric identity mismatch.")
+    if panel_id == "C":
+        expected_null_models = {
+            "Linear + noise": "strict_linear_iid_noise",
+            "Bounded saturation": "bounded_separable_saturation",
+            "Sequence/marginal matched": "sequence_marginal_matched_interaction_permutation",
+        }
+        if any(
+            set(panel_df.loc[panel_df["condition"].astype(str).eq(condition), "null_model"].astype(str)) != {null_model}
+            for condition, null_model in expected_null_models.items()
+        ):
+            raise RuntimeError("Fixed S2C condition/null-model identity mismatch.")
+        if set(panel_df["aggregation_level"].astype(str)) != {"network_null_mean"}:
+            raise RuntimeError("Fixed S2C includes an undeclared aggregation level.")
+        if set(pd.to_numeric(panel_df["n_null_replicates"], errors="raise").astype(int)) != {100}:
+            raise RuntimeError("Fixed S2C null-replicate identity mismatch.")
+
+    stats_payload = json.loads(paths["stats"].read_text(encoding="utf-8"))
+    if stats_payload.get("figure_id") != "supp_fig_s2" or stats_payload.get("panel_id") != panel_id:
+        raise RuntimeError(f"Fixed S2{panel_id} statistics identity mismatch.")
+    if stats_payload.get("n_networks") != 20 or stats_payload.get("n_networks_observed") != 20:
+        raise RuntimeError(f"Fixed S2{panel_id} statistics network count mismatch.")
+    summaries = list(stats_payload.get("summaries") or [])
+    summary_key = str(contract["summary_key"])
+    summary_by_condition = {str(item.get(summary_key)): item for item in summaries}
+    if len(summary_by_condition) != len(summaries) or set(summary_by_condition) != set(condition_order):
+        raise RuntimeError(f"Fixed S2{panel_id} statistics summaries are missing, duplicate, or extra.")
+    for condition in condition_order:
+        persisted_values = panel_df.loc[
+            panel_df["condition"].astype(str).eq(condition), "value"
+        ].astype(float).tolist()
+        frozen_values = list(summary_by_condition[condition].get("values_used_for_plotting") or [])
+        if persisted_values != frozen_values:
+            raise RuntimeError(f"Fixed S2{panel_id}/{condition} row/value identity mismatch against frozen statistics.")
+        if summary_by_condition[condition].get("n") != 20:
+            raise RuntimeError(f"Fixed S2{panel_id}/{condition} frozen summary n mismatch.")
+    if panel_df["value"].astype(float).tolist() != list(stats_payload.get("values_used_for_plotting") or []):
+        raise RuntimeError(f"Fixed S2{panel_id} global value order mismatch against frozen statistics.")
+    if panel_id == "C":
+        _validate_fixed_s2c_statistics(stats_payload)
+
+    manifest = json.loads(paths["manifest"].read_text(encoding="utf-8"))
+    if manifest.get("figure_id") != "supp_fig_s2" or manifest.get("panel_id") != panel_id:
+        raise RuntimeError(f"Fixed S2{panel_id} source-manifest identity mismatch.")
+    if manifest.get("status") != "ok" or manifest.get("n_networks") != 20:
+        raise RuntimeError(f"Fixed S2{panel_id} source manifest is not an exact 20-network ok payload.")
+    if list(manifest.get("warnings") or []):
+        raise RuntimeError(f"Fixed S2{panel_id} source manifest contains fallback/warning paths.")
+    sources = list(manifest.get("sources") or [])
+    if len(sources) not in ({20} if panel_id == "A" else {40}):
+        raise RuntimeError(f"Fixed S2{panel_id} source manifest has missing or extra source entries.")
+    if any(not bool(source.get("exists")) for source in sources):
+        raise RuntimeError(f"Fixed S2{panel_id} source manifest contains a missing source.")
+    if len({str(source.get("path")) for source in sources}) != len(sources):
+        raise RuntimeError(f"Fixed S2{panel_id} source manifest contains duplicate source entries.")
+
+    manifest["fixed_persisted_input_gate"] = {
+        "status": "pass",
+        "panel_data_sha256": contract["panel_data_sha256"],
+        "stats_sha256": contract["stats_sha256"],
+        "source_manifest_sha256": contract["manifest_sha256"],
+        "row_count": 60,
+        "network_count": 20,
+        "condition_order": list(condition_order),
+        "scientific_recomputation": False,
+        "fallback": False,
+    }
+    return write_adapter_outputs(
+        output_dir,
+        figure_id,
+        panel_id,
+        panel_df,
+        stats_payload,
+        manifest,
+        [],
+    )
+
+
+def _validate_fixed_s2c_statistics(stats_payload: Mapping[str, Any]) -> None:
+    if stats_payload.get("condition_order") != [
+        "Linear + noise",
+        "Bounded saturation",
+        "Sequence/marginal matched",
+    ]:
+        raise RuntimeError("Fixed S2C statistics condition order mismatch.")
+    if stats_payload.get("calibration_gate_passed") is not True:
+        raise RuntimeError("Fixed S2C calibration gate is not the frozen passing value.")
+    calibration = dict(stats_payload.get("calibration_summary") or {})
+    expected_models = {
+        "strict_linear_iid_noise",
+        "bounded_separable_saturation",
+        "sequence_marginal_matched_interaction_permutation",
+    }
+    if set(calibration) != expected_models:
+        raise RuntimeError("Fixed S2C calibration summaries are missing, duplicate, or extra.")
+    for key in ("strict_linear_iid_noise", "bounded_separable_saturation"):
+        payload = dict(calibration[key])
+        if payload.get("false_positive_count_one_sided_alpha_0_05") != 0:
+            raise RuntimeError(f"Fixed S2C {key} false-positive count mismatch.")
+        if payload.get("n_dataset_replicates") != 100:
+            raise RuntimeError(f"Fixed S2C {key} calibration replicate count mismatch.")
+        if payload.get("false_positive_rate_exact_95_ci") != [0.0, 0.03621669264517641]:
+            raise RuntimeError(f"Fixed S2C {key} exact confidence interval mismatch.")
+    matched = dict(calibration["sequence_marginal_matched_interaction_permutation"])
+    if matched.get("empirical_p_observed_vs_null") != 0.009900990099009901:
+        raise RuntimeError("Fixed S2C empirical P mismatch.")
+    if stats_payload.get("dataset_null_replicates_used_for_calibration") != 100:
+        raise RuntimeError("Fixed S2C dataset null-replicate count mismatch.")
+    if stats_payload.get("network_null_replicate_rows_used_for_calibration") != 6000:
+        raise RuntimeError("Fixed S2C source-row count mismatch.")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _build_layerwise_metric(

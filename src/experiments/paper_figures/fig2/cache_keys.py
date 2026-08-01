@@ -12,9 +12,14 @@ from src.experiments.paper_figures.fig2.schemas import (
     SCHEMA_VERSION,
     TASK_COMPLETION_DELAY_BOUNDARY_BANK,
     TASK_COMPLETION_DELAY_MASK_SPECS,
+    TASK_CROSSFIT_SPLIT_SPECS,
+    TASK_CROSSFIT_NULL_SPECS,
     TASK_PAIR_TRIAL_SPECS,
     TASK_PARTIAL_CUE_MASK_SPECS,
     TASK_STATE_BANK,
+)
+from src.experiments.paper_figures.fig2.subexperiments.fixed_b_specs import (
+    FIXED_B_SCHEMA_VERSION,
 )
 
 
@@ -105,6 +110,54 @@ def build_state_bank_cache_key(cfg: Any, *, pair_hash: str) -> dict[str, Any]:
     )
 
 
+def build_crossfit_split_cache_key(
+    cfg: Any,
+    *,
+    pair_hash: str,
+    parent_pair_cache_digest: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "task_id": TASK_CROSSFIT_SPLIT_SPECS,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "dataset_split": str(getattr(cfg, "split")),
+        "pair_specs_hash": str(pair_hash),
+        "parent_pair_cache_digest": str(parent_pair_cache_digest),
+        "n_folds": int(getattr(cfg, "crossfit_folds")),
+        "split_seed": int(getattr(cfg, "network_seed")) + 1703,
+        "grouping_rule": "pair_image_connected_components",
+        "assignment_rule": "largest_component_first_balanced_then_fold_id",
+    }
+
+
+def build_crossfit_null_specs_cache_key(
+    cfg: Any,
+    *,
+    pair_hash: str,
+    split_specs_hash: str,
+    parent_split_cache_digest: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "task_id": TASK_CROSSFIT_NULL_SPECS,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "dataset_split": str(getattr(cfg, "split")),
+        "pair_specs_hash": str(pair_hash),
+        "crossfit_split_specs_hash": str(split_specs_hash),
+        "parent_split_cache_digest": str(parent_split_cache_digest),
+        "n_replicates_per_null": int(getattr(cfg, "crossfit_null_replicates")),
+        "feature_count": int(getattr(cfg, "crossfit_null_feature_count")),
+        "noise_scale_ratio": float(getattr(cfg, "crossfit_null_noise_scale_ratio")),
+        "null_models": (
+            "strict_linear_iid_noise",
+            "bounded_separable_saturation",
+            "sequence_marginal_matched_interaction_permutation",
+        ),
+    }
+
+
 def build_partial_cue_mask_cache_key(cfg: Any, *, pair_hash: str) -> dict[str, Any]:
     return _base_config_key(
         cfg,
@@ -185,6 +238,57 @@ def _base_config_key(cfg: Any, *, task_id: str, pair_hash: str, extra: Mapping[s
     }
 
 
+def build_fixed_b_cache_key(
+    cfg: Any,
+    *,
+    task_id: str,
+    parent_digests: Mapping[str, str] | None = None,
+    model_dependent: bool = True,
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "fixed_b_schema_version": FIXED_B_SCHEMA_VERSION,
+        "task_id": str(task_id),
+        "protocol_seed": int(getattr(cfg, "fixed_b_protocol_seed", 20260724)),
+        "dataset_root": str(Path(getattr(cfg, "dataset_root")).resolve()),
+        "dataset_split": str(getattr(cfg, "split")),
+        "dt": float(getattr(cfg, "dt")),
+        "smoke": bool(getattr(cfg, "smoke", False)),
+        "fixed_b_candidate_families": int(getattr(cfg, "fixed_b_candidate_families", 50)),
+        "fixed_b_history_families": int(getattr(cfg, "fixed_b_history_families")),
+        "fixed_b_anchors": int(getattr(cfg, "fixed_b_anchors")),
+        "fixed_b_prefix_depths": [int(v) for v in getattr(cfg, "fixed_b_prefix_depths")],
+        "fixed_b_item_ms": int(getattr(cfg, "fixed_b_item_ms")),
+        "fixed_b_inter_delay_ms": int(getattr(cfg, "fixed_b_inter_delay_ms")),
+        "fixed_b_stimulus_ms": int(getattr(cfg, "fixed_b_stimulus_ms")),
+        "fixed_b_post_ms": int(getattr(cfg, "fixed_b_post_ms")),
+        "fixed_b_folds": int(getattr(cfg, "fixed_b_folds")),
+        "fixed_b_early_window_ms": int(getattr(cfg, "fixed_b_early_window_ms")),
+        "fixed_b_trace_window_ms": int(
+            getattr(cfg, "fixed_b_trace_window_ms", getattr(cfg, "fixed_b_stimulus_ms"))
+        ),
+        "fixed_b_ridge_alphas": [float(v) for v in getattr(cfg, "fixed_b_ridge_alphas")],
+        "fixed_b_target_components": int(getattr(cfg, "fixed_b_target_components")),
+        "fixed_b_b_fold_mode": str(getattr(cfg, "fixed_b_b_fold_mode", "stratified_within_class")),
+        "fixed_b_crossfit_axes": [
+            str(value) for value in getattr(cfg, "fixed_b_crossfit_axes", ("both",))
+        ],
+        "fixed_b_diagnostic_alpha": float(getattr(cfg, "fixed_b_diagnostic_alpha", 10.0)),
+        "fixed_b_null_replicates": int(getattr(cfg, "fixed_b_null_replicates", 19)),
+        "fixed_b_source_match_max_smd": float(getattr(cfg, "fixed_b_source_match_max_smd", 0.10)),
+        "parent_cache_digests": dict(sorted((parent_digests or {}).items())),
+        "extra": _json_safe(dict(extra or {})),
+    }
+    if model_dependent:
+        payload["network_seed"] = int(getattr(cfg, "network_seed"))
+        payload["model"] = model_fingerprint(getattr(cfg, "model_path"))
+    else:
+        payload["source_identity"] = "portable_protocol_seed"
+    return payload
+
+
 def cache_key_digest(cache_key: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(cache_key).encode("utf-8")).hexdigest()
 
@@ -208,6 +312,9 @@ def _json_safe(value: Any) -> Any:
 __all__ = [
     "build_completion_boundary_cache_key",
     "build_completion_mask_cache_key",
+    "build_crossfit_split_cache_key",
+    "build_crossfit_null_specs_cache_key",
+    "build_fixed_b_cache_key",
     "build_pair_specs_cache_key",
     "build_partial_cue_mask_cache_key",
     "build_state_bank_cache_key",

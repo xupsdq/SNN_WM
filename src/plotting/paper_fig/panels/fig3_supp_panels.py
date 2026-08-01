@@ -5,14 +5,299 @@ from typing import Any, Mapping
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color, get_plot_cmap
 from scipy import stats as scipy_stats
 
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 from src.plotting.paper_fig.panels.fig3_panels import PEAK, RANDOM, VALLEY, _infer_seq_len, _region_ping_categories, render_fig3_morphology_serial_profile
 
 
-MAIN = "#009E73"
+MAIN = get_plot_color("dynamic")
 GRID = "0.88"
+_S3A_FROZEN_P_DISPLAY = r"$\mathrm{P} = 1.12 \times 10^{−16}$"
+
+
+def render_s3_frozen_fit_comparison(ax, panel_data, stats, spec, style=None):
+    """Render S3A from persisted observations and frozen summaries only."""
+    _ = style
+    summary = _s3_frozen_summary_map(stats, spec)
+    df = _clean(panel_data)
+    required = {"linear_sse", "saturating_sse"}
+    if df.empty or set(df["metric"].astype(str)) != required:
+        raise ValueError("supp_fig_s3A: frozen paired observations are incomplete")
+    linear = df[df["metric"].astype(str).eq("linear_sse")].set_index("network_id")["value"]
+    saturating = df[df["metric"].astype(str).eq("saturating_sse")].set_index("network_id")["value"]
+    paired = pd.concat([linear.rename("Linear"), saturating.rename("Saturating")], axis=1).dropna()
+    if len(paired) != int(stats["n_networks"]):
+        raise ValueError("supp_fig_s3A: frozen observations do not form 20 exact pairs")
+    for _, row in paired.iterrows():
+        ax.plot([0, 1], row.to_numpy(dtype=float), color="0.72", linewidth=1.15, alpha=0.55, zorder=1)
+    colors = [get_plot_color("other_residual"), get_plot_color("sequence_state")]
+    for x, metric, color in zip((0, 1), ("linear_sse", "saturating_sse"), colors):
+        values = pd.to_numeric(df.loc[df["metric"].astype(str).eq(metric), "value"], errors="raise").to_numpy(dtype=float)
+        jitter = np.linspace(-0.055, 0.055, len(values))
+        ax.scatter(np.full(len(values), x) + jitter, values, s=10, color=color, alpha=0.48, linewidth=0, zorder=2)
+        frozen = summary[(metric,)]
+        center = frozen["mean"]
+        yerr = np.asarray([[center - frozen["ci95_low"]], [frozen["ci95_high"] - center]])
+        ax.errorbar(
+            x,
+            center,
+            yerr=yerr,
+            fmt="o",
+            color=color,
+            markeredgecolor="white",
+            markeredgewidth=1.15,
+            markersize=5.0,
+            capsize=2.4,
+            linewidth=1.15,
+            zorder=3,
+        )
+    delta = summary[("linear_minus_saturating_sse",)]
+    ax.text(
+        0.0,
+        1.035,
+        "Linear − saturating SSE = "
+        f"{delta['mean']:.3f}; n = {int(delta['n_networks'])}\n"
+        f"95% CI [{delta['ci95_low']:.3f}, {delta['ci95_high']:.3f}]; {_S3A_FROZEN_P_DISPLAY}",
+        transform=ax.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=5.6,
+        linespacing=1.05,
+        color="0.18",
+    )
+    ax.set_xticks([0, 1], ["Linear", "Saturating"])
+    ax.set_xlabel("Fit model")
+    ax.set_ylabel("Fit SSE")
+    ax.set_ylim(0.0, 2.45)
+    _finish_s3_axes(ax)
+    ax.paper_fig_plot_form = "s3_frozen_fit_comparison"
+    ax.paper_fig_raw_points = True
+    ax.paper_fig_no_recompute = True
+
+
+def render_s3_frozen_peak_valley_null(ax, panel_data, stats, spec, style=None):
+    """Render S3B on two explicit scales from three frozen summary rows."""
+    _ = panel_data, style
+    summary = _s3_frozen_summary_map(stats, spec)
+    ax.set_axis_off()
+    statistic_ax = ax.inset_axes([0.0, 0.0, 34.0 / 60.0, 1.0])
+    fraction_ax = ax.inset_axes([40.0 / 60.0, 0.0, 20.0 / 60.0, 1.0])
+    statistic_metrics = ("observed_peak_valley_delta", "null_peak_valley_delta_p95")
+    statistic_colors = [get_plot_color("sequence_state"), get_plot_color("random_control")]
+    for x, metric, color in zip((0, 1), statistic_metrics, statistic_colors):
+        frozen = summary[(metric,)]
+        center = frozen["mean"]
+        yerr = np.asarray([[center - frozen["ci95_low"]], [frozen["ci95_high"] - center]])
+        statistic_ax.bar(x, center, width=0.62, color=color, edgecolor="white", linewidth=1.15)
+        statistic_ax.errorbar(x, center, yerr=yerr, fmt="none", ecolor="0.15", capsize=2.2, linewidth=1.15)
+    statistic_ax.set_xticks([0, 1], ["Observed", "Null p95"], rotation=18, ha="right")
+    statistic_ax.set_ylabel("Peak-valley statistic")
+    statistic_ax.set_ylim(0.0, 0.30)
+    statistic_ax.set_title("Structure vs null", fontsize=6.8, pad=2.0)
+    structured = summary[("is_structured",)]
+    fraction_ax.bar(0, structured["mean"], width=0.58, color=get_plot_color("mechanism_teal"), edgecolor="white", linewidth=1.15)
+    fraction_ax.errorbar(0, structured["mean"], yerr=structured["sem"], fmt="none", ecolor="0.15", capsize=2.2, linewidth=1.15)
+    fraction_ax.set_xticks([0], ["Structured"], rotation=18, ha="right")
+    fraction_ax.set_ylabel("Structured fraction")
+    fraction_ax.set_ylim(0.0, 1.05)
+    fraction_ax.set_yticks([0.0, 0.5, 1.0])
+    fraction_ax.set_title("Sequence fraction", fontsize=6.8, pad=2.0)
+    _finish_s3_axes(statistic_ax)
+    _finish_s3_axes(fraction_ax)
+    ax.paper_fig_plot_form = "s3_frozen_peak_valley_null_two_scale"
+    ax.paper_fig_no_recompute = True
+
+
+def render_s3_frozen_morphology_serial_profile(ax, panel_data, stats, spec, style=None):
+    """Render S3C in the declared serial-position order from frozen rows."""
+    _ = panel_data, style
+    summary = _s3_frozen_summary_map(stats, spec)
+    positions = list(range(1, 11))
+    centers = [summary[(position,)]["mean"] for position in positions]
+    sems = [summary[(position,)]["sem"] for position in positions]
+    ax.errorbar(
+        positions,
+        centers,
+        yerr=sems,
+        color=get_plot_color("sequence_state"),
+        marker="o",
+        markersize=3.8,
+        markeredgecolor="white",
+        markeredgewidth=1.15,
+        linewidth=1.3,
+        elinewidth=1.15,
+        capsize=2.0,
+    )
+    ax.set_xticks([1, 2, 4, 6, 8, 10])
+    ax.set_xlabel("Serial position")
+    ax.set_ylabel("Layer 1 STSP support mass\n(proportion)")
+    ax.set_xlim(0.6, 10.4)
+    ax.set_ylim(0.0, 0.35)
+    _finish_s3_axes(ax)
+    ax.paper_fig_plot_form = "s3_frozen_morphology_serial_profile"
+    ax.paper_fig_no_recompute = True
+
+
+def render_s3_frozen_ping_recency(ax, panel_data, stats, spec, style=None):
+    """Render S3D from four frozen readout-class summaries."""
+    _ = panel_data, style
+    summary = _s3_frozen_summary_map(stats, spec)
+    classes = ["latest", "recent", "earlier", "silent"]
+    labels = ["Latest", "Recent", "Earlier", "Silent"]
+    colors = [
+        get_plot_color("recent_input"),
+        get_plot_color("middle_input"),
+        get_plot_color("old_input"),
+        get_plot_color("silent_state"),
+    ]
+    centers = [summary[(name, "readout_mass", name)]["mean"] for name in classes]
+    sems = [summary[(name, "readout_mass", name)]["sem"] for name in classes]
+    xs = np.arange(4)
+    ax.bar(xs, centers, yerr=sems, width=0.64, color=colors, edgecolor="white", linewidth=1.15, error_kw={"elinewidth": 1.15, "capsize": 2.2})
+    ax.set_xticks(xs, labels, rotation=15, ha="right")
+    ax.set_xlabel("Readout class")
+    ax.set_ylabel("Readout mass (proportion)")
+    ax.set_ylim(0.0, 0.60)
+    _finish_s3_axes(ax)
+    ax.paper_fig_plot_form = "s3_frozen_ping_recency"
+    ax.paper_fig_no_recompute = True
+
+
+def render_s3_frozen_weak_probe_recency(ax, panel_data, stats, spec, style=None):
+    """Render S3E from four frozen target-position summaries."""
+    _ = panel_data, style
+    summary = _s3_frozen_summary_map(stats, spec)
+    bins = ["early", "middle", "recent", "latest"]
+    labels = ["Early", "Middle", "Recent", "Latest"]
+    colors = [
+        get_plot_color("old_input"),
+        get_plot_color("middle_input"),
+        get_plot_color("middle_input"),
+        get_plot_color("recent_input"),
+    ]
+    centers = [summary[(name, "target_recovery_gain", name)]["mean"] for name in bins]
+    sems = [summary[(name, "target_recovery_gain", name)]["sem"] for name in bins]
+    xs = np.arange(4)
+    ax.axhline(0.0, color="0.35", linestyle="--", linewidth=1.15, zorder=0)
+    ax.bar(xs, centers, yerr=sems, width=0.64, color=colors, edgecolor="white", linewidth=1.15, error_kw={"elinewidth": 1.15, "capsize": 2.2})
+    ax.set_xticks(xs, labels, rotation=15, ha="right")
+    ax.set_xlabel("Target-position bin")
+    ax.set_ylabel("Recovery gain\n(percentage points)")
+    ax.set_ylim(-4.0, 31.0)
+    _finish_s3_axes(ax)
+    ax.paper_fig_plot_form = "s3_frozen_weak_probe_recency"
+    ax.paper_fig_no_recompute = True
+
+
+def render_s3_frozen_boundary_pair(ax, panel_data, stats, spec, style=None):
+    """Render S3F by placing one frozen row in each declared matrix cell."""
+    _ = panel_data, style
+    summary = _s3_frozen_summary_map(stats, spec)
+    sequence_order = [3, 5, 7, 10]
+    delay_order = [100, 200, 400, 800]
+    metrics = ["N_eff_fraction", "rescued_fraction"]
+    titles = ["Morphology", "Rescue"]
+    ax.set_axis_off()
+    heatmap_axes = [
+        ax.inset_axes([0.0, 7.833333 / 31.5, 25.0 / 60.0, 23.0 / 31.5]),
+        ax.inset_axes([29.0 / 60.0, 7.833333 / 31.5, 25.0 / 60.0, 23.0 / 31.5]),
+    ]
+    for index, (heatmap_ax, metric, title) in enumerate(zip(heatmap_axes, metrics, titles)):
+        matrix = np.zeros((4, 4), dtype=float)
+        for row_index, delay in enumerate(delay_order):
+            for column_index, sequence_length in enumerate(sequence_order):
+                matrix[row_index, column_index] = summary[(delay, metric, sequence_length)]["mean"]
+        image = heatmap_ax.pcolormesh(
+            np.arange(5, dtype=float) - 0.5,
+            np.arange(5, dtype=float) - 0.5,
+            matrix,
+            cmap=get_plot_cmap("stsp_support"),
+            vmin=0.0,
+            vmax=1.0,
+            shading="flat",
+            edgecolors="none",
+        )
+        heatmap_ax.set_xlim(-0.5, 3.5)
+        heatmap_ax.set_ylim(-0.5, 3.5)
+        heatmap_ax.set_xticks(np.arange(4), [str(value) for value in sequence_order])
+        heatmap_ax.set_yticks(np.arange(4), [str(value) for value in delay_order] if index == 0 else [])
+        heatmap_ax.set_xlabel("Sequence length K")
+        heatmap_ax.set_ylabel("Delay (ms)" if index == 0 else "")
+        heatmap_ax.set_title(title, fontsize=6.8, pad=2.0)
+        _finish_s3_heatmap_axes(heatmap_ax)
+    colorbar_ax = ax.inset_axes([57.0 / 60.0, 7.833333 / 31.5, 2.5 / 60.0, 23.0 / 31.5])
+    color_steps = np.linspace(0.0, 1.0, 65)
+    color_values = 0.5 * (color_steps[:-1] + color_steps[1:])
+    colorbar_ax.pcolormesh(
+        [0.0, 1.0],
+        color_steps,
+        color_values[:, np.newaxis],
+        cmap=get_plot_cmap("stsp_support"),
+        vmin=0.0,
+        vmax=1.0,
+        shading="flat",
+        edgecolors="none",
+    )
+    colorbar_ax.set_xlim(0.0, 1.0)
+    colorbar_ax.set_ylim(0.0, 1.0)
+    colorbar_ax.set_xticks([])
+    colorbar_ax.set_yticks([0.0, 0.5, 1.0])
+    colorbar_ax.yaxis.tick_right()
+    colorbar_ax.yaxis.set_label_position("right")
+    colorbar_ax.set_ylabel("Fraction", fontsize=6.4, labelpad=1.5)
+    colorbar_ax.tick_params(axis="y", labelsize=5.8, length=2.0, width=1.15, pad=1.0)
+    for spine in colorbar_ax.spines.values():
+        spine.set_linewidth(1.15)
+    ax.paper_fig_plot_form = "s3_frozen_boundary_pair"
+    ax.paper_fig_has_colorbar = True
+    ax.paper_fig_no_recompute = True
+
+
+def _s3_frozen_summary_map(stats, spec):
+    if not isinstance(stats, Mapping) or stats.get("plot_only_no_recompute") is not True:
+        raise ValueError("supp_fig_s3: renderer requires a validated frozen statistic payload")
+    contract = spec.get("frozen_statistics")
+    if not isinstance(contract, Mapping):
+        raise ValueError("supp_fig_s3: frozen_statistics contract is missing")
+    if stats.get("frozen_source_sha256") != contract.get("sha256"):
+        raise ValueError("supp_fig_s3: renderer/source hash contract mismatch")
+    fields = tuple(map(str, contract.get("identity_fields") or ()))
+    rows = stats.get("network_summaries")
+    if not fields or not isinstance(rows, list) or len(rows) != int(contract.get("rows", -1)):
+        raise ValueError("supp_fig_s3: frozen summary schema mismatch")
+    summary = {tuple(row[field] for field in fields): row for row in rows}
+    if len(summary) != len(rows):
+        raise ValueError("supp_fig_s3: frozen summary identities are duplicated")
+    expected_order = [tuple(item) for item in contract.get("network_summary_identity_order") or ()]
+    observed_order = [tuple(row[field] for field in fields) for row in rows]
+    if observed_order != expected_order:
+        raise ValueError("supp_fig_s3: frozen summary identity/order changed after adapter validation")
+    return summary
+
+
+def _finish_s3_axes(ax):
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    for spine in ("left", "bottom"):
+        ax.spines[spine].set_linewidth(1.15)
+    ax.grid(False)
+    ax.tick_params(axis="both", labelsize=6.0, pad=1.1, length=2.2, width=1.15)
+    ax.xaxis.label.set_size(6.8)
+    ax.yaxis.label.set_size(6.8)
+    ax.xaxis.labelpad = 1.4
+    ax.yaxis.labelpad = 1.6
+
+
+def _finish_s3_heatmap_axes(ax):
+    for spine in ax.spines.values():
+        spine.set_linewidth(1.15)
+    ax.tick_params(axis="both", labelsize=5.8, pad=1.0, length=2.0, width=1.15)
+    ax.xaxis.label.set_size(6.2)
+    ax.yaxis.label.set_size(6.2)
+    ax.xaxis.labelpad = 1.2
+    ax.yaxis.labelpad = 1.2
 
 
 def render_part2_fit_comparison(ax, panel_data, stats, spec, style=None):
@@ -89,7 +374,7 @@ def _part2_heatmap(ax, frame, title, *, show_y_axis=True):
             values = pd.to_numeric(use.loc[use["seq_len"].eq(seq_len) & use["delay_ms"].eq(delay), "value"], errors="coerce").dropna()
             if not values.empty:
                 matrix[yi, xi] = float(values.mean())
-    image = ax.imshow(matrix, origin="lower", aspect="auto", cmap="Greens", vmin=0.0, vmax=1.0, interpolation="nearest")
+    image = ax.imshow(matrix, origin="lower", aspect="auto", cmap=get_plot_cmap("stsp_support"), vmin=0.0, vmax=1.0, interpolation="nearest")
     ax.set_xticks(np.arange(len(xs)), [str(int(value)) for value in xs])
     ax.set_yticks(np.arange(len(ys)), [str(int(value)) for value in ys] if show_y_axis else [])
     ax.set_xlabel("K", fontsize=4.7, labelpad=0.5)
@@ -159,7 +444,7 @@ def render_s5_ping_recency_decomposition(ax, panel_data, stats, spec, style=None
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     order = [name for name in ["latest", "recent", "earlier", "silent"] if name in set(use["readout_class"].astype(str))]
-    colors = {"latest": PEAK, "recent": "#E69F00", "earlier": MAIN, "silent": "0.78"}
+    colors = {"latest": get_plot_color("recent_input"), "recent": get_plot_color("middle_input"), "earlier": get_plot_color("old_input"), "silent": get_plot_color("silent_state")}
     xs = np.arange(len(order))
     means = []
     sems = []
@@ -238,7 +523,7 @@ def render_s6_peak_cue_matching(ax, panel_data, stats, spec, style=None):
             part = df[df["metric"].astype(str).eq(metric) & df["cue_condition"].astype(str).eq(cue)]
             vals.append(float(part["value"].mean()) if not part.empty else np.nan)
         norm = np.nanmax(np.abs(vals)) or 1.0
-        ax.bar(xs + (idx - 1) * width, np.asarray(vals, dtype=float) / norm, width=width, label=metric.replace("_", " "), color=["#9CC9E2", "0.68", "#F0A37A"][idx])
+        ax.bar(xs + (idx - 1) * width, np.asarray(vals, dtype=float) / norm, width=width, label=metric.replace("_", " "), color=[PALETTE["primary_pale"], "0.68", PALETTE["comparison_salmon"]][idx])
     ax.set_xticks(xs, ["Valley", "Random", "Peak"])
     ax.set_ylabel("Normalized")
     ax.legend(frameon=False, fontsize=4.8, loc="upper right", handlelength=0.8)
@@ -297,7 +582,7 @@ def render_s6_weak_probe_position_stratified(ax, panel_data, stats, spec, style=
         return
     bins = [b for b in ["early", "middle", "recent", "latest"] if b in set(use.get("target_position_bin", pd.Series(dtype=str)).astype(str))]
     memories = [m for m in ["cue_only", "single_item_memory", "sequence_state"] if m in set(use.get("memory_condition", pd.Series(dtype=str)).astype(str))]
-    colors = {"cue_only": "0.45", "single_item_memory": "#CC79A7", "sequence_state": MAIN}
+    colors = {"cue_only": get_plot_color("cue_only"), "single_item_memory": get_plot_color("single_item_memory"), "sequence_state": MAIN}
     labels = {"cue_only": "No memory", "single_item_memory": "Single item", "sequence_state": "Sequence"}
     xs = np.arange(len(bins))
     width = 0.22 if len(memories) > 1 else 0.5
@@ -330,7 +615,7 @@ def render_s6_region_ping_current_matching(ax, panel_data, stats, spec, style=No
             part = df[df["region_condition"].astype(str).eq(region) & df["metric"].astype(str).eq(metric)]
             vals.append(float(part["value"].mean()) if not part.empty else np.nan)
         norm = np.nanmax(np.abs(vals)) or 1.0
-        ax.bar(xs + (idx - 0.5) * width, np.asarray(vals, dtype=float) / norm, width=width, label=metric.replace("_mean", "").replace("_", " "), color=["#8FBBD9", "#E7B66B"][idx])
+        ax.bar(xs + (idx - 0.5) * width, np.asarray(vals, dtype=float) / norm, width=width, label=metric.replace("_mean", "").replace("_", " "), color=[PALETTE["primary_cyan"], PALETTE["comparison_salmon"]][idx])
     ax.set_xticks(xs, [r.title() for r in regions])
     ax.set_ylabel("Normalized")
     ax.legend(frameon=False, fontsize=4.5, loc="upper right", handlelength=0.8)
@@ -347,7 +632,7 @@ def render_s6_region_ping_s0_control(ax, panel_data, stats, spec, style=None):
         use = df[df["metric"].astype(str).eq("readout_mass")].copy()
         regions = [r for r in ["peak", "valley", "random"] if r in set(use["region_condition"].astype(str))]
         cats = ["latest", "recent", "earlier", "other", "silent"]
-        colors = {"latest": PEAK, "recent": "#E69F00", "earlier": MAIN, "other": "0.68", "silent": "0.86"}
+        colors = {"latest": get_plot_color("recent_input"), "recent": get_plot_color("middle_input"), "earlier": get_plot_color("old_input"), "other": get_plot_color("other_residual"), "silent": get_plot_color("silent_state")}
         agg = _region_ping_categories(use, regions, _infer_seq_len(use))
         xs = np.arange(len(regions))
         bottom = np.zeros(len(regions), dtype=float)
@@ -472,7 +757,7 @@ def _finish_axes(ax, spec):
         ax.set_title(title, fontsize=6.4, pad=1.5)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.grid(axis="y", color=GRID, linewidth=0.35, alpha=0.65)
+    ax.grid(False)
     ax.tick_params(axis="both", labelsize=5.0, pad=0.8, length=1.8, width=0.5)
     ax.xaxis.label.set_size(5.7)
     ax.yaxis.label.set_size(5.7)

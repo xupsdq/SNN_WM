@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -20,26 +22,125 @@ CONDITION_ORDER = (
     "static_frozen",
 )
 
+_FROZEN_S5_INPUTS: dict[str, dict[str, Any]] = {
+    "A": {
+        "panel_data": "results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6A_panel_data.csv",
+        "panel_data_sha256": "9a8b277d54e2c800ac09ecf20a15b26fbc7ccbc72061f41acc53680c43e8713f",
+        "stats": "results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5a_stats.json",
+        "stats_sha256": "85fa034536b84c9da84bdd0e81166d3ba91fdb7545ca2d19021aa4684348862c",
+        "legacy_panel_id": "S6A",
+        "rows_before": 400,
+        "rows_after": 400,
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "run_mode", "unit_group", "early_window_ms", "n_units", "n_networks",
+        ),
+        "summary_identity": ("early_window_ms", "unit_group"),
+    },
+    "B": {
+        "panel_data": "results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6B_panel_data.csv",
+        "panel_data_sha256": "1cd2272134bc9530d3eb02eaaf9cc2a0c4672001cf8354afef83f20c3bb71ed8",
+        "stats": "results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5b_stats.json",
+        "stats_sha256": "c773ab136ddfaf6e539ceecad0b37bb1fcce0ced6d2c4d7ee0a15d6fc0ae5fed",
+        "legacy_panel_id": "S6B",
+        "rows_before": 30000,
+        "rows_after": 60,
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "run_mode", "control_group", "control_group_label", "comparison_label",
+            "source_level", "trial_id", "fraction_positive", "n_trials", "n_networks",
+        ),
+        "summary_identity": ("condition", "control_group", "metric"),
+    },
+    "C": {
+        "panel_data": "results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6D_panel_data.csv",
+        "panel_data_sha256": "5d2b9041d5c9e27075063e3b5d4a79b5a6e8d42b32ae2e1f58950a6893691a97",
+        "stats": "results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5c_stats.json",
+        "stats_sha256": "078760fab72fdb994ee154fb5a15ed6895e38428c7eeeea1bcb8bc41aaf6f4db",
+        "legacy_panel_id": "S6D",
+        "rows_before": 40000,
+        "rows_after": 80,
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "run_mode", "raw_condition", "perturbation_condition", "unit_id", "trial_id",
+            "perturbed_layer", "n_networks",
+        ),
+        "summary_identity": ("condition", "metric"),
+    },
+    "D": {
+        "panel_data": "results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6E_panel_data.csv",
+        "panel_data_sha256": "dfae1121c4fe7a77063065f88218d33cc0cf41332f966af268700f5603896911",
+        "stats": "results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5d_stats.json",
+        "stats_sha256": "2a1379d54a7225940ac0c9cfc2b6e3fc9d1c80ed88c58d0eb4ba6c78a0f21648",
+        "legacy_panel_id": "S6E",
+        "rows_before": 120000,
+        "rows_after": 240,
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "run_mode", "unit_group", "unit_group_label", "raw_condition",
+            "perturbation_condition", "trial_id", "n_units", "n_networks",
+        ),
+        "summary_identity": ("condition", "metric", "unit_group"),
+    },
+    "E": {
+        "panel_data": "results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6F_panel_data.csv",
+        "panel_data_sha256": "dc4ac85684da04acf2af15252b6ba16af19b1e854a0a012e9d6a867be2e73352",
+        "stats": "results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5e_stats.json",
+        "stats_sha256": "5b5dfbd25277942acb2f2d239ca4e5b9ec376539b9d5b909a38c4d201af74dbd",
+        "legacy_panel_id": "S6F",
+        "rows_before": 480,
+        "rows_after": 480,
+        "columns": (
+            "figure_id", "panel_id", "metric", "condition", "layer", "network_id", "seed_id", "value",
+            "unit", "source_file", "run_mode", "unit_group", "unit_group_label", "raw_condition",
+            "perturbation_condition", "n_dynamic_winners", "n_units", "n_networks",
+        ),
+        "summary_identity": ("condition", "metric", "unit_group"),
+    },
+}
+
+_FROZEN_SUMMARY_ORDER: dict[str, tuple[tuple[Any, ...], ...]] = {
+    "A": tuple(
+        (window, group)
+        for window in (5.0, 10.0, 15.0, 20.0, 30.0)
+        for group in ("balanced", "overlap_dominant", "probe_only_dominant", "random_matched")
+    ),
+    "B": (
+        ("vs balanced", "balanced", "delta_P_advance_plus_recruit"),
+        ("vs probe-only", "probe_only_dominant", "delta_P_advance_plus_recruit"),
+        ("vs random", "random_matched", "delta_P_advance_plus_recruit"),
+    ),
+    "C": tuple(
+        (condition, metric)
+        for metric in ("u_delta_mean", "x_delta_mean")
+        for condition in ("Attenuate L1 STSP", "Reset L1 STSP")
+    ),
+    "D": tuple(
+        (condition, metric, group)
+        for metric in (
+            "delta_P_advance_plus_recruit",
+            "delta_P_loss",
+            "delta_P_same_winner_lost_or_delayed",
+        )
+        for condition in ("Attenuate overlap support", "Reset overlap support")
+        for group in ("overlap_dominant", "probe_only_dominant")
+    ),
+    "E": tuple(
+        (condition, metric, group)
+        for metric in (
+            "P_same_winner_delayed",
+            "P_same_winner_lost",
+            "P_same_winner_lost_or_delayed",
+            "P_same_winner_preserved",
+        )
+        for condition in ("Attenuate overlap support", "Dynamic", "Reset overlap support")
+        for group in ("overlap_dominant", "probe_only_dominant")
+    ),
+}
+
 
 def build_s9_early_window_robustness_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    for seed_dir in seeds:
-        path = seed_dir / "data" / "metrics" / "supp_early_window_robustness.csv"
-        sources.append(_source(path, repo_root))
-        if not path.exists():
-            warnings.append(f"{_display(path, repo_root)} missing.")
-            continue
-        df = pd.read_csv(path)
-        if not {"early_window_ms", "unit_group", "P_advance_plus_recruit"}.issubset(df.columns):
-            warnings.append(f"{_display(path, repo_root)} lacks early-window headline columns.")
-            continue
-        for _, r in df.iterrows():
-            group = str(r.get("unit_group", ""))
-            rows.append(_row(figure_id, panel_id, "P_advance_plus_recruit", UNIT_LABELS.get(group, group), _num(r.get("P_advance_plus_recruit")), "probability", seed_dir, path, repo_root, unit_group=group, early_window_ms=_num(r.get("early_window_ms")), n_units=r.get("n_units", "")))
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["early_window_ms", "unit_group"])
+    return _load_frozen_s5_panel("A", spec, repo_root, output_dir)
 
 
 def build_s9_transition_composition_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -67,97 +168,7 @@ def build_s9_transition_composition_adapter(spec: Mapping[str, Any], repo_root: 
 
 
 def build_s9_trialwise_transition_advantage_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    comparisons = (
-        ("probe_only_dominant", "vs probe-only"),
-        ("random_matched", "vs random"),
-        ("balanced", "vs balanced"),
-    )
-    for seed_dir in seeds:
-        candidates = [
-            seed_dir / "data" / "metrics" / "panel_b_transition_summary_by_group.csv",
-            seed_dir / "data" / "metrics" / "supp_s9_transition_composition_by_group.csv",
-        ]
-        sources.extend(_source(path, repo_root) for path in candidates)
-        path, df = _first_readable(candidates, warnings, repo_root, required=("unit_group", "P_advance_plus_recruit"))
-        if path is None:
-            warnings.append(f"Missing S6B trialwise transition summary source under {_display(seed_dir, repo_root)}.")
-            continue
-        if {"trial_id", "P_advance_plus_recruit"}.issubset(df.columns):
-            index_cols = [col for col in ("network_seed", "trial_id") if col in df.columns]
-            if not index_cols:
-                index_cols = ["trial_id"]
-            wide = df.pivot_table(index=index_cols, columns="unit_group", values="P_advance_plus_recruit", aggfunc="mean")
-            if "overlap_dominant" not in wide.columns:
-                warnings.append(f"{_display(path, repo_root)} lacks overlap_dominant rows for S6B trialwise advantage.")
-                continue
-            wide = wide.reset_index()
-            for control_group, label in comparisons:
-                if control_group not in wide.columns:
-                    warnings.append(f"{_display(path, repo_root)} lacks {control_group} rows for S6B trialwise advantage.")
-                    continue
-                values = pd.to_numeric(wide["overlap_dominant"], errors="coerce") - pd.to_numeric(wide[control_group], errors="coerce")
-                valid = values.dropna()
-                frac_positive = float((valid > 0).mean()) if len(valid) else float("nan")
-                for i, value in values.items():
-                    if pd.isna(value):
-                        continue
-                    r = wide.loc[i]
-                    rows.append(
-                        _row(
-                            figure_id,
-                            panel_id,
-                            "delta_P_advance_plus_recruit",
-                            label,
-                            float(value),
-                            "delta_probability",
-                            seed_dir,
-                            path,
-                            repo_root,
-                            control_group=control_group,
-                            control_group_label=UNIT_LABELS.get(control_group, control_group),
-                            comparison_label=label,
-                            source_level="trialwise",
-                            trial_id=r.get("trial_id", ""),
-                            network_seed=r.get("network_seed", _seed_id(seed_dir)),
-                            fraction_positive=frac_positive,
-                            n_trials=len(valid),
-                        )
-                    )
-        else:
-            warnings.append(f"{_display(path, repo_root)} lacks trial_id; S6B uses aggregate fallback.")
-            grouped = df.groupby("unit_group", dropna=False)["P_advance_plus_recruit"].mean()
-            if "overlap_dominant" not in grouped.index:
-                warnings.append(f"{_display(path, repo_root)} lacks overlap_dominant rows for S6B aggregate fallback.")
-                continue
-            for control_group, label in comparisons:
-                if control_group not in grouped.index:
-                    warnings.append(f"{_display(path, repo_root)} lacks {control_group} rows for S6B aggregate fallback.")
-                    continue
-                value = float(grouped.loc["overlap_dominant"] - grouped.loc[control_group])
-                rows.append(
-                    _row(
-                        figure_id,
-                        panel_id,
-                        "delta_P_advance_plus_recruit",
-                        label,
-                        value,
-                        "delta_probability",
-                        seed_dir,
-                        path,
-                        repo_root,
-                        control_group=control_group,
-                        control_group_label=UNIT_LABELS.get(control_group, control_group),
-                        comparison_label=label,
-                        source_level="aggregate_fallback",
-                        fraction_positive=float(value > 0),
-                        n_trials="",
-                    )
-                )
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition", "control_group"])
+    return _load_frozen_s5_panel("B", spec, repo_root, output_dir)
 
 
 def build_s9_event_trace_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -287,7 +298,7 @@ def build_s10_perturbation_ux_audit_adapter(spec: Mapping[str, Any], repo_root: 
 
 
 def build_s9_perturbation_ux_audit_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return build_s10_perturbation_ux_audit_adapter(spec, repo_root, output_dir)
+    return _load_frozen_s5_panel("C", spec, repo_root, output_dir)
 
 
 def build_s10_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -323,7 +334,7 @@ def build_s10_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], 
 
 
 def build_s9_perturbation_transition_contrast_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return build_s10_perturbation_transition_contrast_adapter(spec, repo_root, output_dir)
+    return _load_frozen_s5_panel("D", spec, repo_root, output_dir)
 
 
 def build_s10_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -355,7 +366,7 @@ def build_s10_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_roo
 
 
 def build_s9_same_winner_lost_delayed_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return build_s10_same_winner_lost_delayed_adapter(spec, repo_root, output_dir)
+    return _load_frozen_s5_panel("E", spec, repo_root, output_dir)
 
 
 def build_s10_dynamic_like_recovery_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -422,6 +433,197 @@ def build_s10_sham_matching_controls_adapter(spec: Mapping[str, Any], repo_root:
         if not controls.exists() and not matching.exists() and not node.exists():
             warnings.append(f"Missing optional S10E control sources under {_display(seed_dir, repo_root)}.")
     return _finish(spec, output_dir, root, seeds, rows, sources, warnings, ["metric", "condition"])
+
+
+def _load_frozen_s5_panel(
+    expected_panel_id: str,
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+) -> AdapterResult:
+    """Load one immutable S5 panel-data/statistics pair without recomputation."""
+    figure_id, panel_id = _ids(spec)
+    if figure_id != "supp_fig_s5" or panel_id != expected_panel_id:
+        raise RuntimeError(
+            f"Frozen S5 adapter identity mismatch: expected supp_fig_s5/{expected_panel_id}, "
+            f"received {figure_id}/{panel_id}."
+        )
+
+    frozen = _FROZEN_S5_INPUTS[expected_panel_id]
+    panel_data_path = repo_root / str(frozen["panel_data"])
+    stats_path = repo_root / str(frozen["stats"])
+    _require_frozen_sha256(panel_data_path, str(frozen["panel_data_sha256"]), "panel data")
+    _require_frozen_sha256(stats_path, str(frozen["stats_sha256"]), "statistics")
+
+    persisted_df = pd.read_csv(panel_data_path)
+    expected_columns = tuple(str(value) for value in frozen["columns"])
+    if tuple(persisted_df.columns) != expected_columns:
+        raise RuntimeError(
+            f"Frozen S5{expected_panel_id} panel-data schema mismatch: "
+            f"expected {expected_columns}, received {tuple(persisted_df.columns)}."
+        )
+    if len(persisted_df) != int(frozen["rows_before"]):
+        raise RuntimeError(
+            f"Frozen S5{expected_panel_id} row-count mismatch: "
+            f"expected {frozen['rows_before']}, received {len(persisted_df)}."
+        )
+    _require_single_identity(persisted_df, "figure_id", "fig5_supp", expected_panel_id)
+    _require_single_identity(persisted_df, "panel_id", str(frozen["legacy_panel_id"]), expected_panel_id)
+    _require_single_identity(persisted_df, "run_mode", "multi_network_final", expected_panel_id)
+    _require_single_identity(persisted_df, "n_networks", 20, expected_panel_id)
+
+    with stats_path.open("r", encoding="utf-8") as handle:
+        stats = json.load(handle)
+    if stats.get("figure_id") != figure_id or stats.get("panel_id") != panel_id or stats.get("status") != "ok":
+        raise RuntimeError(f"Frozen S5{expected_panel_id} statistics identity/status mismatch.")
+    if stats.get("run_mode") != "multi_network_final" or int(stats.get("n_networks", -1)) != 20:
+        raise RuntimeError(f"Frozen S5{expected_panel_id} statistics network/run-mode mismatch.")
+    if tuple(str(value) for value in stats.get("network_ids", [])) != tuple(str(value) for value in range(1000, 1020)):
+        raise RuntimeError(f"Frozen S5{expected_panel_id} network identity/order mismatch.")
+    if int(stats.get("rows_before_network_aggregation", -1)) != int(frozen["rows_before"]):
+        raise RuntimeError(f"Frozen S5{expected_panel_id} pre-aggregation row identity mismatch.")
+    if int(stats.get("rows_after_network_aggregation", -1)) != int(frozen["rows_after"]):
+        raise RuntimeError(f"Frozen S5{expected_panel_id} frozen plotting-row count mismatch.")
+    if len(stats.get("values_used_for_plotting", [])) != int(frozen["rows_after"]):
+        raise RuntimeError(f"Frozen S5{expected_panel_id} plotting-value count mismatch.")
+
+    identity_keys = tuple(str(value) for value in frozen["summary_identity"])
+    summary_order = tuple(
+        tuple(row.get(key) for key in identity_keys)
+        for row in stats.get("summaries", [])
+    )
+    if summary_order != _FROZEN_SUMMARY_ORDER[expected_panel_id]:
+        raise RuntimeError(f"Frozen S5{expected_panel_id} summary identity/order mismatch.")
+    if len(summary_order) != len(set(summary_order)):
+        raise RuntimeError(f"Frozen S5{expected_panel_id} contains duplicate summary identities.")
+
+    panel_df = _expand_frozen_plotting_rows(expected_panel_id, stats, frozen)
+    if len(panel_df) != int(frozen["rows_after"]):
+        raise RuntimeError(
+            f"Frozen S5{expected_panel_id} expanded plotting-row count mismatch: "
+            f"expected {frozen['rows_after']}, received {len(panel_df)}."
+        )
+
+    sources = [
+        {
+            "path": str(frozen["panel_data"]),
+            "exists": True,
+            "sha256": str(frozen["panel_data_sha256"]),
+            "role": "persisted_panel_rows",
+            "rows": int(frozen["rows_before"]),
+        },
+        {
+            "path": str(frozen["stats"]),
+            "exists": True,
+            "sha256": str(frozen["stats_sha256"]),
+            "role": "fixed_statistics_payload",
+            "summary_rows": len(summary_order),
+        },
+    ]
+    manifest = {
+        "figure_id": figure_id,
+        "panel_id": panel_id,
+        "status": "ok",
+        "experiment_root": "frozen_persisted_inputs",
+        "run_mode": "multi_network_final",
+        "n_networks": 20,
+        "network_ids": [str(value) for value in range(1000, 1020)],
+        "source_files_used": [str(frozen["panel_data"]), str(frozen["stats"])],
+        "sources": sources,
+        "checked_candidates": [str(frozen["panel_data"]), str(frozen["stats"])],
+        "warnings": [],
+        "fixed_statistics_consumed": True,
+        "persisted_panel_rows_consumed": True,
+        "identity_and_order_validated": True,
+        "no_recompute": True,
+        "fallback_allowed": False,
+    }
+    if expected_panel_id in {"C", "D", "E"}:
+        manifest.update(
+            {
+                "intervention_timing": "pre_probe_boundary",
+                "probe_input_changed": False,
+                "perturbed_unit_scope": "overlap_high_support",
+            }
+        )
+    return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, [])
+
+
+def _require_frozen_sha256(path: Path, expected: str, role: str) -> None:
+    if not path.is_file():
+        raise FileNotFoundError(f"Required frozen S5 {role} is missing: {path}")
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise RuntimeError(f"Frozen S5 {role} SHA-256 mismatch for {path}: expected {expected}, received {actual}.")
+
+
+def _require_single_identity(df: pd.DataFrame, column: str, expected: Any, panel_id: str) -> None:
+    values = tuple(pd.unique(df[column].dropna()))
+    if len(values) != 1 or str(values[0]) != str(expected):
+        raise RuntimeError(
+            f"Frozen S5{panel_id} {column} identity mismatch: expected {expected!r}, received {values!r}."
+        )
+
+
+def _expand_frozen_plotting_rows(
+    panel_id: str,
+    stats: Mapping[str, Any],
+    frozen: Mapping[str, Any],
+) -> pd.DataFrame:
+    """Purely reshape already-persisted plotting values; calculate no statistics."""
+    network_ids = [str(value) for value in stats["network_ids"]]
+    group_labels = {
+        "balanced": "Balanced",
+        "overlap_dominant": "Overlap-dominant",
+        "probe_only_dominant": "Probe-only-dominant",
+        "random_matched": "Random matched",
+    }
+    default_metrics = {
+        "A": "P_advance_plus_recruit",
+        "B": "delta_P_advance_plus_recruit",
+    }
+    units = {
+        "A": "probability",
+        "B": "delta_probability",
+        "C": "dimensionless",
+        "D": "delta_probability",
+        "E": "probability",
+    }
+    rows: list[dict[str, Any]] = []
+    for summary in stats["summaries"]:
+        values = summary.get("values_used_for_plotting")
+        if not isinstance(values, list) or len(values) != len(network_ids):
+            raise RuntimeError(f"Frozen S5{panel_id} summary row does not contain one value per network.")
+        identity = {
+            key: summary[key]
+            for key in frozen["summary_identity"]
+        }
+        for network_id, value in zip(network_ids, values):
+            row = {
+                "figure_id": "supp_fig_s5",
+                "panel_id": panel_id,
+                "metric": identity.get("metric", default_metrics.get(panel_id, "")),
+                "condition": identity.get(
+                    "condition",
+                    group_labels.get(str(identity.get("unit_group", "")), str(identity.get("unit_group", ""))),
+                ),
+                "layer": "layer1",
+                "network_id": network_id,
+                "seed_id": network_id,
+                "value": value,
+                "unit": units[panel_id],
+                "source_file": str(frozen["panel_data"]),
+                "run_mode": "multi_network_final",
+                "n_networks": 20,
+            }
+            row.update(identity)
+            if "unit_group" in identity:
+                row["unit_group_label"] = group_labels.get(str(identity["unit_group"]), str(identity["unit_group"]))
+            if "control_group" in identity:
+                row["control_group_label"] = group_labels.get(str(identity["control_group"]), str(identity["control_group"]))
+                row["comparison_label"] = identity.get("condition", "")
+            rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def _roots(spec: Mapping[str, Any], repo_root: Path) -> tuple[Path, list[Path], list[str]]:

@@ -391,6 +391,17 @@ def _declared_right_stack_mm(fig, ax, axis_box: Mapping[str, float], renderer) -
     if stack > 0.0:
         extras.append("declared_right")
 
+    if bool(getattr(ax, "paper_fig_measure_right_stack", False)):
+        boxes: list[Bbox] = []
+        for owned_ax in _owned_axes(fig, ax):
+            if owned_ax is ax:
+                continue
+            boxes.extend(_artist_boxes(renderer, owned_ax, include_legend=False))
+        if boxes:
+            measured = bbox_to_mm(fig, Bbox.union(boxes))
+            stack = max(stack, max(0.0, float(measured["right"]) - float(axis_box["right"])))
+            extras.append("measured_right_axis")
+
     cbar = getattr(ax, "paper_fig_colorbar_ax", None)
     if cbar is not None:
         boxes = [cbar.bbox, *_artist_boxes(renderer, cbar, include_legend=True)]
@@ -585,6 +596,8 @@ def _fit_semantic_gaps(fig, ax, layout: Mapping[str, Any] | None = None) -> None
     y_tick_gap = float(layout.get("y_tick_axis_gap_mm", Y_TICK_AXIS_GAP_MM))
     y_label_gap = float(layout.get("y_label_gap_mm", Y_LABEL_GAP_MM))
     for owned in _owned_axes(fig, ax):
+        if bool(getattr(owned, "paper_fig_skip_semantic_gap_fit", False)):
+            continue
         for _ in range(4):
             fig.canvas.draw()
             changed = False

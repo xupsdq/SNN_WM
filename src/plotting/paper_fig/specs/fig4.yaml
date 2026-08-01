@@ -1,187 +1,95 @@
 figure_id: fig4
-figure_title_draft: Overlap-gated re-entry from prior STSP history into later probe processing
-experiment_root: results/paper_figure_multi_seed/fig4_overlap_reentry
-canvas_mm:
-  width: 165
-  height: 152
-reading_order: [A, B, C, D, E, F]
-argument_bands:
-  - band_id: reentry_assay
-    label: Re-entry assay
-    panels: [A]
-  - band_id: mechanism_entry
-    label: Mechanism entry
-    panels: [B, C, D]
-  - band_id: downstream_dynamics
-    label: Downstream dynamics
-    panels: [E, F]
+figure_title_draft: Successive inputs rewrite inherited STSP state under accumulated history
+experiment_root: results/paper_figure_multi_seed/fig4_accumulated_history_statistics
+canvas_mm: {width: 165, height: 102}
+reading_order: [a, b, c, d, e]
+scientific_question: >-
+  Do successive inputs keep rewriting inherited STSP state, and how does
+  accumulated history alter behavior while the transition machinery persists?
+terminal_inference: >-
+  Successive inputs repeatedly rewrite inherited STSP state beyond equal-time
+  passive evolution; K5 lowers relation-balanced rescue and raises
+  relation-balanced loss while transition components, event linkage, and
+  downstream donor transfer remain detectable.
+forbidden_inferences:
+  - K5 rescue has a confirmed aligned-versus-mismatched reversal
+  - K5 loss is equivalent to zero relation effect
+  - K5 is progressive stage five
+  - full-sequence organization or long-term memory
+  - every progressive stage has a behavioral or donor-swap replication
 expected_outputs:
   full_figure: [pdf, svg, png]
-  resolved_spec: fig4_resolved_spec.yaml
-  source_manifest: fig4_source_manifest.json
-  qc_report: fig4_qc_report.md
+  individual_panels: [svg, png]
+  resolved_spec: final_plot_spec.json
+  source_manifest: source_manifest.csv
+  visual_qa: visual_qa.json
 qc_requirements:
-  require_claims: true
-  require_source_manifest: true
-  require_position_mm: true
-  require_size_mm: true
-  required_main_conditions:
-    - full_dynamic
-    - full_static
-    - sample_keep_overlap_only_dynamic
-    - sample_keep_nonoverlap_only_dynamic
-    - sample_random_matched_dynamic
+  network_seeds: [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019]
+  independent_unit: network_seed
+  bootstrap_draws: 20000
+  require_editable_vector_text: true
+  require_plot_inside_slot: true
+  forbid_dual_axis: true
+  forbid_micro_subpanels: true
+slots:
+  a: [2.0, 2.0, 79.5, 48.0]
+  b: [83.5, 2.0, 79.5, 48.0]
+  c: [2.0, 52.0, 52.333, 48.0]
+  d: [56.333, 52.0, 52.334, 48.0]
+  e: [110.667, 52.0, 52.333, 48.0]
+plot_bboxes_mm:
+  a: [15.0, 9.0, 63.5, 31.0]
+  b: [96.5, 9.0, 63.5, 31.0]
+  c: [15.0, 59.0, 36.333, 30.0]
+  d: [69.333, 59.0, 36.334, 30.0]
+  e: [123.667, 59.0, 36.333, 30.0]
 panels:
-  A:
-    panel_id: A
-    panel_type: programmatic_or_manual_schematic
-    claim: Sample-induced STSP support can re-enter later probe processing through sample-probe overlap.
-    data_adapter: none
-    renderer: render_fig4_reentry_schematic
-    metric: none
-    source: results/paper_figures/outputs/DMS-enhanced.svg
-    position_mm: {x: 2.00, y: 2.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    png_dpi: 600
-    schematic_content_insets_mm: {left: 0.50, right: 0.50, top: 1.00, bottom: 1.00}
-    letter_mm: {x: 0.25, y: 0.50}
-    x_axis: none
-    y_axis: none
-  B:
-    panel_id: B
-    panel_type: similarity_entry
-    producer_task: similarity_entry
-    claim: Prior-history effect increases with sample-probe similarity, identifying a shared-structure regime.
-    data_adapter: fig4_similarity_entry_adapter
-    renderer: render_fig4_similarity_entry
-    metric: accuracy_drop
-    source_priority:
-      - data/metrics/panel_b_similarity_bin_summary.csv
-      - data/metrics/panel_b_similarity_entry_metrics.csv
-    position_mm: {x: 83.50, y: 2.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 80.00, y: 0.50}
-    x_axis: Sample-probe similarity bin
-    y_axis: Probe bias (%)
-    y_label_x: -0.143
-  C:
-    panel_id: C
-    panel_type: high_similarity_overlap_accuracy_drop
-    producer_task: overlap_accuracy_identification
-    claim: In the highest-similarity bin, the natural high-versus-low overlap split provides a descriptive, non-causal accuracy-drop comparison.
-    data_adapter: fig4_overlap_accuracy_identification_adapter
-    renderer: render_fig4_overlap_accuracy_identification
-    metric: mean_accuracy_drop
-    source_priority:
-      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop_summary.csv
-      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop_contrast.csv
-      - data/metrics/panel_c_high_similarity_overlap_accuracy_drop.csv
-    plot_metric: mean_accuracy_drop
-    conditions: [low_overlap, high_overlap]
-    endpoint_definition: mean_pair[accuracy_drop] within the highest similarity bin and natural overlap split
-    aggregation: pair_to_network
-    inference_unit: independently trained network
-    interval_method: two-sided t-based 95% CI across networks
-    position_mm: {x: 2.00, y: 52.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 0.25, y: 48.50}
-    x_axis: Sample-probe overlap
-    x_axis_definition: Natural low/high overlap split within the highest similarity bin
-    y_axis: Probe bias (%)
-    y_labelpad: -2.0
-    y_label_x: -0.195
-  D:
-    panel_id: D
-    panel_type: l1_stsp_overlap_reset_ablation
-    producer_task: overlap_perturbation
-    claim: Resetting overlap-aligned Layer 1 STSP removes the dynamic accuracy drop, supporting its necessity for the overlap-linked bias.
-    data_adapter: fig4_overlap_perturbation_main_adapter
-    renderer: render_fig4_overlap_perturbation
-    metric: accuracy_drop_vs_static
-    source_priority:
-      - data/raw/panel_d_l1_stsp_overlap_perturbation_trial_readout.csv
-      - data/metrics/panel_d_l1_stsp_overlap_perturbation_summary.csv
-      - data/metrics/panel_d_l1_stsp_overlap_perturbation_contrast.csv
-      - data/metrics/panel_d_l1_stsp_overlap_perturbation_audit.csv
-    endpoint_definition: mean_pair[accuracy_drop_vs_static] after pre-probe Layer 1 STSP reset
-    aggregation: pair_to_network
-    inference_unit: independently trained network
-    interval_method: two-sided t-based 95% CI across networks
-    conditions:
-      - full_dynamic_intact
-      - full_static
-      - l1_overlap_reset
-      - l1_nonoverlap_reset
-      - l1_random_matched_reset
-    display_labels:
-      full_dynamic_intact: Dynamic STSP
-      full_static: Static baseline
-      l1_overlap_reset: Overlap reset
-      l1_nonoverlap_reset: Non-overlap reset
-      l1_random_matched_reset: Random-matched reset
-    display_labels_short:
-      Dynamic: Dynamic
-      Overlap reset: "Overlap\nreset"
-      Non-overlap reset: "Non-overlap\nreset"
-      Random-matched reset: "Random\nreset"
-    position_mm: {x: 83.50, y: 52.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 80.00, y: 48.50}
-    x_axis: Perturbation condition
-    y_axis: Accuracy drop (%)
-    y_axis_definition: Probe-accuracy drop vs static (%)
-    y_labelpad: -2.0
-    y_label_x: -0.135
-  E:
-    panel_id: E
-    panel_type: time_resolved_l3_displacement
-    producer_task: decision_spike_displacement
-    claim: Overlap-aligned support changes probe-period L3 dynamics over time.
-    data_adapter: fig4_decision_spike_displacement_adapter
-    renderer: render_fig4_decision_spike_displacement
-    metric: DPI_L3_t
-    source_priority:
-      - data/metrics/panel_e_time_resolved_l3_displacement.csv
-    endpoint_definition: mean_pair(DPI_L3_t) at each network, condition, and time
-    aggregation: pair_to_network_to_time
-    inference_unit: independently trained network
-    interval_method: two-sided t-based 95% CI across networks
-    conditions:
-      - sample_keep_overlap_only_dynamic
-      - sample_keep_nonoverlap_only_dynamic
-    display_labels:
-      sample_keep_overlap_only_dynamic: Overlap support
-      sample_keep_nonoverlap_only_dynamic: Non-overlap support
-    display_labels_short:
-      Overlap support: Overlap
-      Non-overlap support: Non-overlap
-    max_time_ms: 60
-    position_mm: {x: 2.00, y: 102.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 0.25, y: 98.50}
-    x_axis: Probe time (ms)
-    y_axis: Dynamic-pattern index (DPI)
-    reference_lines:
-      - value: 0
-        label: 0
-  F:
-    panel_id: F
-    panel_type: l3_accumulator_process_trajectory
-    producer_task: decision_deflection
-    claim: L3 accumulator manipulations produce bidirectional before-to-after shifts along firing-pattern and decision-projection axes.
-    data_adapter: fig4_l3_accumulator_process_adapter
-    renderer: render_fig4_l3_accumulator_process
-    metric: accumulator_process_shift
-    source_priority:
-      - data/metrics/panel_f_l3_accumulator_region_replay_metrics.csv
-      - data/metrics/panel_f_l3_accumulator_summary.csv
-      - data/raw/panel_f_l3_accumulator_pair_vectors.npz
-      - pair_results.csv
-      - pair_vectors.npz
-      - data/metrics/panel_f_decision_deflection_metrics.csv
-    groups: [plus, minus]
-    position_mm: {x: 83.50, y: 102.00, w: 79.50, h: 48.00}
-    size_mm: {w: 79.50, h: 48.00}
-    letter_mm: {x: 80.00, y: 98.50}
-    x_axis: More dynamic-like firing pattern
-    y_axis: More dynamic-like decision
+  a:
+    chart: ordered_lines
+    claim: Successive inputs repeatedly displace joint STSP state beyond equal-time passive evolution.
+    source: data/panel_a_plot_data.csv
+    x_axis: Stage
+    x_values: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    y_axis: State displacement
+    y_limits: [0.0, 0.65]
+    conditions: [observed, passive]
+    legend: direct_labels
+  b:
+    chart: grouped_bars
+    claim: Accumulated K5 history lowers rescue and raises loss.
+    source: data/panel_b_plot_data.csv
+    x_axis: History depth
+    x_values: [K1, K5]
+    y_axis: Rate (%)
+    y_limits: [0.0, 70.0]
+    conditions: [rescue, loss]
+    comparison_rule: compare K1 to K5 within each outcome only
+  c:
+    chart: threshold_margin_bars
+    claim: K5 retains both a common update and a history residual.
+    source: data/panel_c_plot_data.csv
+    x_values: [same_B_common_update_cosine, processing_residual_gamma_energy_fraction]
+    y_axis: Value − threshold
+    y_limits: [-0.05, 0.45]
+    thresholds: {same_B_common_update_cosine: 0.5, processing_residual_gamma_energy_fraction: 0.05}
+  d:
+    chart: ordered_bars
+    claim: K5 history residual remains concentrated at changed spike events.
+    source: data/panel_d_plot_data.csv
+    x_values: [matched_random, changed_events]
+    y_axis: Residual magnitude
+    y_limits: [0.0, 0.05]
+  e:
+    chart: category_points
+    claim: Inherited L1 state still enters downstream updating and early output at K5.
+    source: data/panel_e_plot_data.csv
+    x_values: [layer1_only_layer2_update_donor_transfer, layer1_only_early_class_score_donor_transfer]
+    y_axis: Donor-transfer index
+    y_limits: [0.0, 1.0]
+    raw_points: independent_networks_only
+excluded_from_artwork:
+  - K5_rescue_aligned_minus_mismatched
+  - K5_loss_aligned_minus_mismatched
+statistics_only_not_artwork:
+  - rescue_depth_by_relation_interaction_K5_minus_K1
+  - loss_depth_by_relation_interaction_K5_minus_K1

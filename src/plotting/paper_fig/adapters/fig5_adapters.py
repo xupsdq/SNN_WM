@@ -12,7 +12,9 @@ from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_
 from src.plotting.paper_fig.utils import read_json
 
 
-DEFAULT_EXPERIMENT_ROOT = "results/paper_experiments/fig5_local_support_competition"
+DEFAULT_EXPERIMENT_ROOT = (
+    "results/paper_figure_multi_seed/fig5_local_support_competition"
+)
 UNIT_LABELS = {
     "overlap_dominant": "Overlap-dominant",
     "probe_only_dominant": "Probe-only-dominant",

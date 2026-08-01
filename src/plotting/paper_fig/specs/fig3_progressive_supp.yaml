@@ -1,0 +1,103 @@
+figure_id: fig3_progressive_supp
+implementation_id: fig3
+figure_title_draft: Progressive formation of a multi-item STSP state
+scientific_contract: progressive_prefix_transition_v1
+experiment_root_default: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape
+canvas_mm: {width: 165, height: 155}
+reading_order: [A, B, C, D, E]
+semantic_layout:
+  row_groups: [[B, C], [D, E]]
+  column_groups: [[B, D], [C, E]]
+expected_outputs:
+  full_figure: [pdf, svg, png]
+  individual_panels: [svg, png]
+  resolved_spec: fig3_progressive_supp_resolved_spec.yaml
+  source_manifest: fig3_progressive_supp_source_manifest.json
+  qc_report: fig3_progressive_supp_qc_report.md
+  panel_data: panel_data/*.csv
+  stats: stats/*.json
+  source_manifests: source_manifests/*.json
+qc_requirements:
+  expected_panel_count: 5
+  minimum_networks: 20
+  allowed_network_counts: [20]
+  require_claims: true
+  require_source_manifest: true
+  require_position_mm: true
+  require_size_mm: true
+  forbid_single_network: true
+panels:
+  A:
+    panel_id: A
+    claim: Each observed prefix state is compared with a zero-input continuation from the identical preceding boundary and over the identical elapsed time.
+    panel_type: multi_item_sequence_schematic
+    producer_task: progressive_update
+    data_adapter: none
+    renderer: render_fig3_prefix_schematic
+    x_axis: not applicable
+    y_axis: not applicable
+    size_mm: {w: 161, h: 24}
+    position_mm: {x: 2, y: 7, w: 161, h: 24}
+    letter_mm: {x: 0.25, y: 3}
+  B:
+    panel_id: B
+    claim: Effective constituent count grows progressively across successive inputs while remaining below the independent-item bound.
+    panel_type: prefix_network_trajectory
+    producer_task: progressive_update
+    data_adapter: fig3_prefix_trajectory_adapter
+    renderer: render_fig3_prefix_trajectory
+    source: data/metrics/panel_b_prefix_trajectory_metrics.csv
+    metric: N_eff
+    metrics_to_plot: [N_eff]
+    x_axis: Sequence stage
+    y_axis: Effective items
+    size_mm: {w: 79, h: 45}
+    position_mm: {x: 2, y: 37, w: 79, h: 45}
+    letter_mm: {x: 0.25, y: 34}
+  C:
+    panel_id: C
+    claim: Successive inputs move the STSP state substantially more than matched passive decay from the preceding boundary.
+    panel_type: prefix_network_trajectory
+    producer_task: progressive_update
+    data_adapter: fig3_prefix_trajectory_adapter
+    renderer: render_fig3_prefix_trajectory
+    source: data/metrics/panel_b_prefix_trajectory_metrics.csv
+    metric: state_displacement
+    metrics_to_plot: [state_displacement, natural_decay_displacement]
+    min_stage: 2
+    x_axis: Sequence stage
+    y_axis: State displacement from S(k-1)
+    legend_location: upper right
+    size_mm: {w: 79, h: 45}
+    position_mm: {x: 84, y: 37, w: 79, h: 45}
+    letter_mm: {x: 82.25, y: 31.5}
+  D:
+    panel_id: D
+    claim: Constituent weighting develops a bounded recency bias rather than collapsing to the latest item.
+    panel_type: prefix_network_trajectory
+    producer_task: progressive_update
+    data_adapter: fig3_prefix_trajectory_adapter
+    renderer: render_fig3_prefix_trajectory
+    source: data/metrics/panel_b_prefix_trajectory_metrics.csv
+    metric: recency_bias
+    metrics_to_plot: [recency_bias]
+    x_axis: Sequence stage
+    y_axis: Normalized recency bias
+    size_mm: {w: 79, h: 45}
+    position_mm: {x: 2, y: 101, w: 79, h: 45}
+    letter_mm: {x: 0.25, y: 98}
+  E:
+    panel_id: E
+    claim: The fitted constituent weights remain distributed across serial positions throughout the ten-item sequence.
+    panel_type: prefix_item_weight_heatmap
+    producer_task: progressive_update
+    data_adapter: fig3_prefix_item_weight_adapter
+    renderer: render_fig3_prefix_item_weight_heatmap
+    source: data/metrics/panel_b_prefix_item_weights.csv
+    metric: item_weight
+    vmax: 0.4
+    x_axis: Item position
+    y_axis: Sequence stage
+    size_mm: {w: 79, h: 45}
+    position_mm: {x: 84, y: 101, w: 79, h: 45}
+    letter_mm: {x: 82.25, y: 98}

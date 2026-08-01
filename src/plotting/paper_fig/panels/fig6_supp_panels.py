@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 from src.plotting.paper_fig.panels.fig6_panels import (
     _clean,
@@ -17,6 +17,11 @@ from src.plotting.paper_fig.panels.fig6_panels import (
     _paired_low_high,
     _tidy,
 )
+from src.plotting.paper_fig.typography import mark_relative_text_size
+
+
+_FROZEN_D_TEXT_PT = 9.1
+_FROZEN_D_TEXT_RATIO = _FROZEN_D_TEXT_PT / 9.0
 
 
 def render_s11_score_input_ping_audit(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -51,23 +56,51 @@ def render_s11_score_input_ping_audit(ax, panel_data: pd.DataFrame | None, stats
 
 
 def render_s11_global_ping_count_endpoint(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    df = _clean(panel_data)
-    use = df[df["metric"].astype(str).eq("mean_early_spike_count")] if not df.empty else df
-    if use.empty:
-        render_generic_placeholder(ax, panel_data, stats, spec, style)
-        return
-    _line_by_x(ax, use, "x_value", "Early spike count", show_points=False)
-    ax.set_xlabel("STSP score quantile")
+    rows = _persisted_summary_rows(stats, "score_quantile_bin", ["Q1", "Q2", "Q3", "Q4", "Q5"])
+    _summary_line(
+        ax,
+        rows,
+        x_values=[1, 2, 3, 4, 5],
+        color=get_plot_color("high_stsp", context="fig6"),
+    )
+    ax.set_xticks([1, 2, 3, 4, 5], ["Q1", "Q2", "Q3", "Q4", "Q5"])
+    ax.set_xlabel(str(spec.get("x_axis", "STSP-score quintile")))
+    ax.set_ylabel(str(spec.get("y_axis", "Early spike count, first 50 ms (spikes)")))
     ax.paper_fig_plot_form = "s11_global_ping_count_endpoint"
+    ax.paper_fig_persisted_summaries_only = True
     _tidy(ax)
 
 
 def render_s11_real_probe_window_robustness(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _window_line_panel(ax, panel_data, stats, spec, style, "q5_minus_q1_delta_spike_probability", "Q5 - Q1 deflection", "s11_real_probe_window_robustness")
+    rows = _persisted_summary_rows(stats, "early_window_ms", ["5.0", "10.0", "15.0", "20.0"])
+    ax.axhline(0, color="0.42", linestyle="--", linewidth=1.15, zorder=1)
+    _summary_line(
+        ax,
+        rows,
+        x_values=[5.0, 10.0, 15.0, 20.0],
+        color=get_plot_color("high_stsp", context="fig6"),
+    )
+    ax.set_xlabel(str(spec.get("x_axis", "Early window (ms)")))
+    ax.set_ylabel(str(spec.get("y_axis", "Q5 − Q1 spike-probability difference (proportion)")))
+    ax.paper_fig_plot_form = "s11_real_probe_window_robustness"
+    ax.paper_fig_persisted_summaries_only = True
+    _tidy(ax)
 
 
 def render_s11_overlap_interaction_window_robustness(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _window_line_panel(ax, panel_data, stats, spec, style, "interaction_delta", "Interaction", "s11_overlap_interaction_window_robustness")
+    rows = _persisted_summary_rows(stats, "early_window_ms", ["5.0", "10.0", "15.0", "20.0"])
+    ax.axhline(0, color="0.42", linestyle="--", linewidth=1.15, zorder=1)
+    _summary_line(
+        ax,
+        rows,
+        x_values=[5.0, 10.0, 15.0, 20.0],
+        color=get_plot_color("sample_probe_overlap", context="fig6"),
+    )
+    ax.set_xlabel(str(spec.get("x_axis", "Early window (ms)")))
+    ax.set_ylabel(str(spec.get("y_axis", "Overlap × STSP interaction (probability difference)")))
+    ax.paper_fig_plot_form = "s11_overlap_interaction_window_robustness"
+    ax.paper_fig_persisted_summaries_only = True
+    _tidy(ax)
 
 
 def render_s11_overlap_site_availability(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -128,38 +161,165 @@ def render_s11_high_stsp_ablation_paired_difference(ax, panel_data: pd.DataFrame
 
 
 def render_s11_score_shuffle_null(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _optional_extension_panel(ax, panel_data, stats, spec, style, "score-shuffle\nnot run", "s11_score_shuffle_null")
+    rows = _persisted_summary_rows(stats, "condition", ["C", "D", "E"])
+    endpoint_specs = list(spec.get("endpoint_rows") or [])
+    if [str(row.get("condition")) for row in endpoint_specs] != ["C", "D", "E"]:
+        raise ValueError("S6D endpoint-row identity/order must be exactly C, D, E.")
+    parent = ax
+    parent.set_axis_off()
+    row_tops = (0.995, 0.665, 0.335)
+    inset_rects = ([0.0, 0.765, 1.0, 0.035], [0.0, 0.435, 1.0, 0.035], [0.0, 0.105, 1.0, 0.035])
+    children = []
+    for row, endpoint, row_top, rect in zip(rows, endpoint_specs, row_tops, inset_rects):
+        child = parent.inset_axes(rect)
+        children.append(child)
+        mean = float(row["mean"])
+        sem = float(row["sem"])
+        color = get_plot_color(str(endpoint["color"]), context="fig6")
+        child.axvline(0.0, color="0.42", linestyle="--", linewidth=1.15, zorder=1)
+        child.errorbar(
+            [mean],
+            [0.0],
+            xerr=[sem],
+            fmt=str(endpoint.get("marker", "o")),
+            color=color,
+            ecolor=color,
+            markersize=3.4,
+            markeredgecolor="white",
+            markeredgewidth=0.45,
+            elinewidth=1.15,
+            capsize=2.0,
+            capthick=1.15,
+            zorder=3,
+        )
+        child.set_xlim([float(value) for value in endpoint["x_limits"]])
+        child.set_ylim(-0.5, 0.5)
+        child.set_yticks([])
+        display_label = str(endpoint["label"])
+        if " (Q5 − Q1)" in display_label:
+            display_label = display_label.replace(" (Q5 − Q1)", "\n(Q5 − Q1)")
+        elif display_label == "Overlap-by-STSP interaction":
+            display_label = "Overlap-by-STSP\ninteraction"
+        title_artist = parent.text(0.0, row_top, display_label, transform=parent.transAxes, ha="left", va="top", fontsize=_FROZEN_D_TEXT_PT, linespacing=0.78)
+        mark_relative_text_size(title_artist, _FROZEN_D_TEXT_RATIO)
+        unit_artist = parent.text(0.0, row_top - 0.135, str(endpoint["unit"]), transform=parent.transAxes, ha="left", va="top", fontsize=_FROZEN_D_TEXT_PT, color="0.32")
+        mark_relative_text_size(unit_artist, _FROZEN_D_TEXT_RATIO)
+        child.tick_params(axis="x", labelsize=_FROZEN_D_TEXT_PT, length=2.0, width=0.65, pad=1.0)
+        child.xaxis.set_major_locator(MaxNLocator(nbins=3))
+        for tick_label in child.get_xticklabels():
+            mark_relative_text_size(tick_label, _FROZEN_D_TEXT_RATIO)
+        child.spines["top"].set_visible(False)
+        child.spines["right"].set_visible(False)
+        child.spines["left"].set_visible(False)
+        child.spines["bottom"].set_linewidth(0.65)
+        child.paper_fig_independent_scale = True
+        child.paper_fig_persisted_summaries_only = True
+    parent.paper_fig_internal_axes = children
+    parent.paper_fig_plot_form = "s11_score_shuffle_null_split_scales"
+    parent.paper_fig_persisted_summaries_only = True
 
 
 def render_s11_threshold_sensitivity(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    df = _clean(panel_data)
-    if _is_optional_placeholder(df):
-        _optional_extension_panel(ax, panel_data, stats, spec, style, "threshold sweep\nnot run", "s11_threshold_sensitivity")
-        return
-    if not df.empty and {"stsp_group_quantile", "overlap_threshold"}.issubset(df.columns):
-        q = sorted(pd.to_numeric(df["stsp_group_quantile"], errors="coerce").dropna().unique())
-        t = sorted(pd.to_numeric(df["overlap_threshold"], errors="coerce").dropna().unique())
-        if q and t:
-            matrix = np.full((len(q), len(t)), np.nan)
-            for i, qv in enumerate(q):
-                for j, tv in enumerate(t):
-                    part = df[np.isclose(pd.to_numeric(df["stsp_group_quantile"], errors="coerce"), qv) & np.isclose(pd.to_numeric(df["overlap_threshold"], errors="coerce"), tv)]
-                    if not part.empty:
-                        matrix[i, j] = float(pd.to_numeric(part["value"], errors="coerce").mean())
-            vmax = float(np.nanmax(np.abs(matrix))) if np.isfinite(matrix).any() else 1.0
-            ax.imshow(matrix, cmap="RdBu_r", vmin=-vmax, vmax=vmax, aspect="auto")
-            for i in range(matrix.shape[0]):
-                for j in range(matrix.shape[1]):
-                    if np.isfinite(matrix[i, j]):
-                        ax.text(j, i, f"{matrix[i, j]:.2f}", ha="center", va="center", fontsize=5.0)
-            ax.set_xticks(np.arange(len(t)), [f"{v:.2f}" for v in t])
-            ax.set_yticks(np.arange(len(q)), [f"{v:.2f}" for v in q])
-            ax.set_xlabel("Overlap threshold")
-            ax.set_ylabel("STSP quantile")
-            ax.paper_fig_plot_form = "s11_threshold_sensitivity"
-            _tidy(ax)
-            return
-    _generic_dot(ax, panel_data, stats, spec, "s11_threshold_sensitivity", "Effect")
+    condition_order = [
+        "q=0.20;overlap=0.02", "q=0.20;overlap=0.05", "q=0.20;overlap=0.10",
+        "q=0.30;overlap=0.02", "q=0.30;overlap=0.05", "q=0.30;overlap=0.10",
+        "q=0.40;overlap=0.02", "q=0.40;overlap=0.05", "q=0.40;overlap=0.10",
+        "q=0.50;overlap=0.02", "q=0.50;overlap=0.05", "q=0.50;overlap=0.10",
+    ]
+    rows = _persisted_summary_rows(stats, "condition", condition_order)
+    matrix = np.asarray([float(row["mean"]) for row in rows], dtype=float).reshape(4, 3)
+    if not bool(np.all((matrix >= 0.0) & (matrix <= 1.0))):
+        raise ValueError("S6E persisted recruitment-effect matrix must remain in [0, 1].")
+
+    parent = ax
+    parent.set_axis_off()
+    heat_ax = parent.inset_axes([0.0, 0.2058824, 0.8831169, 0.7941176])
+    cax = parent.inset_axes([0.9220779, 0.2058824, 0.0519481, 0.7941176])
+    mesh = heat_ax.pcolormesh(
+        np.arange(4) - 0.5,
+        np.arange(5) - 0.5,
+        matrix,
+        cmap=str(spec.get("colormap", "viridis")),
+        vmin=float((spec.get("color_domain") or [0.0, 1.0])[0]),
+        vmax=float((spec.get("color_domain") or [0.0, 1.0])[1]),
+        shading="flat",
+        edgecolors="white",
+        linewidth=0.55,
+        rasterized=False,
+    )
+    for row_index in range(matrix.shape[0]):
+        for column_index in range(matrix.shape[1]):
+            value_artist = heat_ax.text(column_index, row_index, f"{matrix[row_index, column_index]:.2f}", ha="center", va="center", fontsize=_FROZEN_D_TEXT_PT, color="white")
+            mark_relative_text_size(value_artist, _FROZEN_D_TEXT_RATIO)
+    heat_ax.set_xlim(-0.5, 2.5)
+    heat_ax.set_ylim(3.5, -0.5)
+    heat_ax.set_xticks([0, 1, 2], ["0.02", "0.05", "0.10"])
+    heat_ax.set_yticks([0, 1, 2, 3], ["0.20", "0.30", "0.40", "0.50"])
+    heat_ax.set_xlabel(str(spec.get("x_axis", "Overlap threshold")), fontsize=_FROZEN_D_TEXT_PT, labelpad=1.5)
+    heat_ax.set_ylabel(str(spec.get("y_axis", "STSP-group threshold quantile")), fontsize=_FROZEN_D_TEXT_PT, labelpad=1.5)
+    mark_relative_text_size(heat_ax.xaxis.label, _FROZEN_D_TEXT_RATIO)
+    mark_relative_text_size(heat_ax.yaxis.label, _FROZEN_D_TEXT_RATIO)
+    heat_ax.tick_params(labelsize=_FROZEN_D_TEXT_PT, length=2.0, width=0.65, pad=1.0)
+    for tick_label in [*heat_ax.get_xticklabels(), *heat_ax.get_yticklabels()]:
+        mark_relative_text_size(tick_label, _FROZEN_D_TEXT_RATIO)
+    for spine in heat_ax.spines.values():
+        spine.set_linewidth(0.65)
+    colorbar = parent.figure.colorbar(mesh, cax=cax, orientation="vertical", ticks=[0.0, 0.5, 1.0])
+    if colorbar.solids is not None:
+        colorbar.solids.set_rasterized(False)
+    colorbar_title = colorbar.ax.set_title("Recruitment\neffect", fontsize=_FROZEN_D_TEXT_PT, linespacing=0.92, pad=1.5)
+    mark_relative_text_size(colorbar_title, _FROZEN_D_TEXT_RATIO)
+    colorbar.ax.tick_params(labelsize=_FROZEN_D_TEXT_PT, length=1.8, width=0.65, pad=1.0)
+    for tick_label in colorbar.ax.get_yticklabels():
+        mark_relative_text_size(tick_label, _FROZEN_D_TEXT_RATIO)
+    colorbar.outline.set_linewidth(0.65)
+    parent.paper_fig_internal_axes = [heat_ax, cax]
+    parent.paper_fig_plot_form = "s11_threshold_sensitivity_positive_sequential"
+    parent.paper_fig_colormap = str(spec.get("colormap", "viridis"))
+    parent.paper_fig_color_domain = tuple(float(value) for value in spec.get("color_domain", [0.0, 1.0]))
+    parent.paper_fig_colorbar_present = True
+    parent.paper_fig_persisted_summaries_only = True
+
+
+def _persisted_summary_rows(
+    stats: Mapping[str, Any] | None,
+    identity_key: str,
+    expected_order: Sequence[str],
+) -> list[Mapping[str, Any]]:
+    if not isinstance(stats, Mapping):
+        raise ValueError("S6 renderers require the hash-validated persisted statistics payload.")
+    rows = stats.get("summaries")
+    if not isinstance(rows, list):
+        raise ValueError("S6 persisted statistics payload lacks summaries.")
+    if [str(row.get(identity_key)) for row in rows] != list(expected_order):
+        raise ValueError(f"S6 persisted summary identity/order mismatch for {identity_key}.")
+    for row in rows:
+        if int(row.get("n", -1)) != 20:
+            raise ValueError("S6 persisted summary has an unexpected network count.")
+        if not np.isfinite(float(row.get("mean", np.nan))) or not np.isfinite(float(row.get("sem", np.nan))):
+            raise ValueError("S6 persisted summary contains a non-finite mean or SEM.")
+    return rows
+
+
+def _summary_line(ax, rows: Sequence[Mapping[str, Any]], *, x_values: Sequence[float], color: str) -> None:
+    means = [float(row["mean"]) for row in rows]
+    sems = [float(row["sem"]) for row in rows]
+    ax.errorbar(
+        list(x_values),
+        means,
+        yerr=sems,
+        fmt="o-",
+        color=color,
+        ecolor=color,
+        linewidth=1.15,
+        elinewidth=1.15,
+        capsize=2.0,
+        capthick=1.15,
+        markersize=3.4,
+        markeredgecolor="white",
+        markeredgewidth=0.45,
+        zorder=3,
+    )
 
 
 def render_s11_peak_update_history(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:

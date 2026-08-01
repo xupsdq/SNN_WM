@@ -54,7 +54,15 @@ def _subexperiment_parser(fig_id: str, name: str, registry: Any) -> argparse.Arg
         description=f"Run paper-figure sub-experiment {fig_id}.{name}. Unknown options are forwarded to the figure implementation.",
         allow_abbrev=False,
     )
-    parser.add_argument("--output-dir", type=str, default=None, help="Exact seed directory, e.g. results/paper_experiments/<figure>/seed_1000.")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help=(
+            "Exact seed directory, e.g. "
+            "results/paper_figure_multi_seed/<figure>/seed_1000."
+        ),
+    )
     parser.add_argument("--output-root", type=str, default=DEFAULT_OUTPUT_ROOT, help="Batch output root used when --output-dir/--figure-root are omitted.")
     parser.add_argument("--figure-root", type=str, default=None, help="Exact figure root passed to the legacy figure implementation.")
     parser.add_argument("--network-seed", type=int, default=None)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
+import shutil
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -62,54 +64,15 @@ def build_s11_score_input_ping_audit_adapter(spec: Mapping[str, Any], repo_root:
 
 
 def build_s11_global_ping_count_endpoint_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _seed_dirs(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[Path] = []
-    checked: list[Path] = []
-    for seed_dir in seeds:
-        path, df, candidates = _first_existing(seed_dir, ["data/metrics/supp_s11b_global_ping_count_endpoint.csv", "data/metrics/panel_c_global_ping_score_spike_prediction.csv"])
-        checked.extend(candidates)
-        if path is None or df is None or df.empty:
-            warnings.append(f"Missing S7B global-ping count endpoint source under {_rel(seed_dir, repo_root)}.")
-            continue
-        sources.append(path)
-        if {"metric", "value", "score_quantile_bin"}.issubset(df.columns):
-            use = df[df["metric"].astype(str).eq("mean_early_spike_count")]
-            for _, r in use.iterrows():
-                rows.append(_row(figure_id, panel_id, "mean_early_spike_count", str(r.get("score_quantile_bin", r.get("condition", ""))), "layer1", seed_dir, r.get("network_seed", ""), _num(r.get("value")), "spike count", path, repo_root, score_quantile_bin=r.get("score_quantile_bin", r.get("condition", "")), x_value=_score_x(r.get("score_quantile_bin", r.get("condition", "")))))
-            continue
-        for quantile, part in df.groupby("score_quantile_bin", dropna=False):
-            rows.append(_row(figure_id, panel_id, "mean_early_spike_count", str(quantile), "layer1", seed_dir, _seed_from_frames(df), float(pd.to_numeric(part.get("mean_early_spike_count"), errors="coerce").mean()), "spike count", path, repo_root, score_quantile_bin=str(quantile), x_value=_score_x(quantile)))
-    return _finish(spec, output_dir, root, seeds, rows, sources, checked, warnings, ["score_quantile_bin"], manifest_extra={"source_mode": "s11_global_ping_count_endpoint"})
+    return _frozen_panel_adapter(spec, repo_root, output_dir)
 
 
 def build_s11_real_probe_window_robustness_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return _window_delta_adapter(spec, repo_root, output_dir, ["data/metrics/supp_s11c_real_probe_window_robustness.csv", "data/metrics/panel_d_real_probe_score_spike_deflection.csv"], source_mode="s11_real_probe_window_robustness")
+    return _frozen_panel_adapter(spec, repo_root, output_dir)
 
 
 def build_s11_overlap_interaction_window_robustness_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _seed_dirs(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[Path] = []
-    checked: list[Path] = []
-    for seed_dir in seeds:
-        path, df, candidates = _first_existing(seed_dir, ["data/metrics/supp_s11d_overlap_interaction_window_robustness.csv", "data/metrics/panel_e_overlap_gated_stsp_interaction.csv"])
-        checked.extend(candidates)
-        if path is None or df is None or df.empty:
-            warnings.append(f"Missing S7D overlap interaction source under {_rel(seed_dir, repo_root)}.")
-            continue
-        sources.append(path)
-        if {"metric", "value", "early_window_ms"}.issubset(df.columns):
-            use = df[df["metric"].astype(str).eq("interaction_delta")]
-            for _, r in use.iterrows():
-                rows.append(_row(figure_id, panel_id, "interaction_delta", str(r.get("early_window_ms", r.get("condition", ""))), "layer1", seed_dir, r.get("network_seed", ""), _num(r.get("value")), "probability difference", path, repo_root, early_window_ms=_num(r.get("early_window_ms")), x_value=_num(r.get("early_window_ms")), n_valid=_num(r.get("n_valid")), fraction_positive=_num(r.get("fraction_positive"))))
-            continue
-        for window, part in df.groupby("early_window_ms", dropna=False):
-            vals = pd.to_numeric(part.get("interaction_delta"), errors="coerce").dropna()
-            rows.append(_row(figure_id, panel_id, "interaction_delta", str(window), "layer1", seed_dir, _seed_from_frames(df), float(vals.mean()) if len(vals) else np.nan, "probability difference", path, repo_root, early_window_ms=_num(window), x_value=_num(window), n_valid=float(len(vals)), fraction_positive=float((vals > 0).mean()) if len(vals) else np.nan))
-    return _finish(spec, output_dir, root, seeds, rows, sources, checked, warnings, ["early_window_ms"], manifest_extra={"source_mode": "s11_overlap_interaction_window_robustness"})
+    return _frozen_panel_adapter(spec, repo_root, output_dir)
 
 
 def build_s11_overlap_site_availability_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -162,11 +125,162 @@ def build_s11_high_stsp_ablation_paired_difference_adapter(spec: Mapping[str, An
 
 
 def build_s11_score_shuffle_null_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return _optional_extension_adapter(spec, repo_root, output_dir, "data/metrics/supp_s11g_score_shuffle_null.csv", "score_shuffle_null")
+    return _frozen_panel_adapter(spec, repo_root, output_dir)
 
 
 def build_s11_threshold_sensitivity_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    return _optional_extension_adapter(spec, repo_root, output_dir, "data/metrics/supp_s11h_threshold_sensitivity.csv", "threshold_sensitivity")
+    return _frozen_panel_adapter(spec, repo_root, output_dir)
+
+
+def _frozen_panel_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Copy one hash-locked persisted S6 panel bundle after exhaustive identity checks."""
+    figure_id, panel_id = _ids(spec)
+    panel_df, stats, manifest = _load_validated_frozen_panel(spec, repo_root)
+    result = write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, [])
+    frozen = spec["persisted_input"]
+    source_panel_path = _validated_frozen_path(repo_root, frozen, "panel_data")
+    shutil.copyfile(source_panel_path, result.panel_data_path)
+    if _sha256_file(result.panel_data_path) != str(frozen["panel_data"]["sha256"]).lower():
+        raise ValueError(f"{figure_id}{panel_id}: byte-exact persisted panel copy failed.")
+    return result
+
+
+def _load_validated_frozen_panel(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+) -> tuple[pd.DataFrame, Mapping[str, Any], Mapping[str, Any]]:
+    """Read and validate one frozen panel without writing or aggregating anything."""
+    figure_id, panel_id = _ids(spec)
+    frozen = spec.get("persisted_input")
+    if not isinstance(frozen, Mapping):
+        raise ValueError(f"{figure_id}{panel_id}: missing persisted_input contract.")
+
+    panel_path = _validated_frozen_path(repo_root, frozen, "panel_data")
+    stats_path = _validated_frozen_path(repo_root, frozen, "stats")
+    manifest_path = _validated_frozen_path(repo_root, frozen, "source_manifest")
+    panel_df = pd.read_csv(panel_path)
+    stats = read_json(stats_path)
+    manifest = read_json(manifest_path)
+
+    expected_columns = list(frozen.get("columns") or [])
+    if list(panel_df.columns) != expected_columns:
+        raise ValueError(f"{figure_id}{panel_id}: persisted column identity/order mismatch.")
+    if len(panel_df) != int(frozen.get("row_count", -1)):
+        raise ValueError(f"{figure_id}{panel_id}: persisted row-count mismatch.")
+    _require_constant(panel_df, "figure_id", figure_id, figure_id, panel_id)
+    _require_constant(panel_df, "panel_id", panel_id, figure_id, panel_id)
+    _require_constant(panel_df, "run_mode", "multi_network_final", figure_id, panel_id)
+    _require_constant(panel_df, "n_networks", 20, figure_id, panel_id)
+
+    expected_networks = [f"seed_{seed}" for seed in range(1000, 1020)]
+    observed_networks = list(dict.fromkeys(panel_df["network_id"].astype(str).tolist()))
+    if observed_networks != expected_networks:
+        raise ValueError(f"{figure_id}{panel_id}: network identity/order mismatch.")
+    rows_per_network = int(frozen.get("rows_per_network", -1))
+    counts = panel_df.groupby("network_id", sort=False, dropna=False).size().to_dict()
+    if counts != {network: rows_per_network for network in expected_networks}:
+        raise ValueError(f"{figure_id}{panel_id}: per-network row identity mismatch.")
+
+    identity_columns = list(frozen.get("identity_columns") or [])
+    if not identity_columns or panel_df.duplicated(identity_columns).any():
+        raise ValueError(f"{figure_id}{panel_id}: duplicate or undeclared row identity.")
+    expected_conditions = [str(value) for value in frozen.get("condition_order") or []]
+    observed_conditions = list(dict.fromkeys(panel_df["condition"].astype(str).tolist()))
+    if observed_conditions != expected_conditions:
+        raise ValueError(f"{figure_id}{panel_id}: condition identity/order mismatch.")
+    for network in expected_networks:
+        network_conditions = set(panel_df.loc[panel_df["network_id"].astype(str).eq(network), "condition"].astype(str))
+        if network_conditions != set(expected_conditions):
+            raise ValueError(f"{figure_id}{panel_id}: condition membership mismatch for {network}.")
+
+    endpoint_order = [str(value) for value in frozen.get("endpoint_order") or []]
+    if endpoint_order:
+        observed_endpoints = list(dict.fromkeys(panel_df["endpoint"].astype(str).tolist()))
+        if observed_endpoints != endpoint_order:
+            raise ValueError(f"{figure_id}{panel_id}: endpoint identity/order mismatch.")
+    if bool(frozen.get("positive_unit_interval", False)):
+        values = pd.to_numeric(panel_df["value"], errors="raise")
+        if bool((values < 0.0).any()) or bool((values > 1.0).any()):
+            raise ValueError(f"{figure_id}{panel_id}: persisted positive-matrix domain violation.")
+
+    if not isinstance(stats, Mapping) or not isinstance(manifest, Mapping):
+        raise ValueError(f"{figure_id}{panel_id}: persisted JSON payload is not an object.")
+    for payload_name, payload in (("stats", stats), ("source manifest", manifest)):
+        if str(payload.get("figure_id")) != figure_id or str(payload.get("panel_id")) != panel_id:
+            raise ValueError(f"{figure_id}{panel_id}: {payload_name} identity mismatch.")
+        if int(payload.get("n_networks", -1)) != 20:
+            raise ValueError(f"{figure_id}{panel_id}: {payload_name} network-count mismatch.")
+        if list(payload.get("warnings") or []):
+            raise ValueError(f"{figure_id}{panel_id}: {payload_name} contains warnings.")
+    if str(manifest.get("status")) != "ok" or str(manifest.get("source_mode")) != str(frozen.get("source_mode")):
+        raise ValueError(f"{figure_id}{panel_id}: source-manifest mode/status mismatch.")
+    if [str(value) for value in manifest.get("network_ids") or []] != [str(seed) for seed in range(1000, 1020)]:
+        raise ValueError(f"{figure_id}{panel_id}: source-manifest network identity/order mismatch.")
+
+    summaries = list(stats.get("summaries") or [])
+    summary_key = str(frozen.get("summary_key"))
+    summary_order = [str(value) for value in frozen.get("summary_order") or []]
+    if [str(row.get(summary_key)) for row in summaries] != summary_order:
+        raise ValueError(f"{figure_id}{panel_id}: persisted summary identity/order mismatch.")
+    if len(list(stats.get("values_used_for_plotting") or [])) != len(panel_df):
+        raise ValueError(f"{figure_id}{panel_id}: stats-to-panel row-cardinality mismatch.")
+
+    _validate_source_manifest(repo_root, manifest, figure_id, panel_id)
+    return panel_df, stats, manifest
+
+
+def _validated_frozen_path(repo_root: Path, frozen: Mapping[str, Any], key: str) -> Path:
+    payload = frozen.get(key)
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"persisted_input.{key} must be a mapping.")
+    path = repo_root / str(payload.get("path", ""))
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing persisted S6 input: {path}")
+    expected_hash = str(payload.get("sha256", "")).lower()
+    actual_hash = _sha256_file(path)
+    if actual_hash != expected_hash:
+        raise ValueError(f"Persisted S6 input hash mismatch for {path}: {actual_hash} != {expected_hash}")
+    return path
+
+
+def _validate_source_manifest(repo_root: Path, manifest: Mapping[str, Any], figure_id: str, panel_id: str) -> None:
+    experiment_root = Path(str(manifest.get("experiment_root", "")))
+    if not experiment_root.is_absolute():
+        experiment_root = repo_root / experiment_root
+    source_entries = list(manifest.get("sources") or [])
+    if len({str(entry.get("path")) for entry in source_entries}) != len(source_entries):
+        raise ValueError(f"{figure_id}{panel_id}: duplicate source-manifest paths.")
+    used_paths: list[str] = []
+    for entry in source_entries:
+        rel_path = str(entry.get("path", ""))
+        source_path = experiment_root / rel_path
+        exists = source_path.is_file()
+        if exists != bool(entry.get("exists")):
+            raise ValueError(f"{figure_id}{panel_id}: source existence drift for {rel_path}.")
+        if exists:
+            if source_path.stat().st_size != int(entry.get("size_bytes", -1)):
+                raise ValueError(f"{figure_id}{panel_id}: source size drift for {rel_path}.")
+            if _sha256_file(source_path) != str(entry.get("sha256", "")).lower():
+                raise ValueError(f"{figure_id}{panel_id}: source hash drift for {rel_path}.")
+        if bool(entry.get("used")):
+            used_paths.append(rel_path)
+    declared_used = [str(path) for path in manifest.get("source_files_used") or []]
+    if used_paths != declared_used or len(used_paths) != 20:
+        raise ValueError(f"{figure_id}{panel_id}: used-source identity/order mismatch.")
+
+
+def _require_constant(df: pd.DataFrame, column: str, expected: Any, figure_id: str, panel_id: str) -> None:
+    values = list(dict.fromkeys(df[column].tolist()))
+    if values != [expected]:
+        raise ValueError(f"{figure_id}{panel_id}: {column} must be constant {expected!r}; observed {values!r}.")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def build_s11_peak_update_history_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:

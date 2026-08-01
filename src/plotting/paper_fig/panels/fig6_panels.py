@@ -8,7 +8,7 @@ from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.ticker import MaxNLocator
 from scipy import stats as scipy_stats
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 
 
@@ -48,8 +48,8 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
         "matched_removal": "Matched\nremoval",
     }
     colors = {
-        "high_stsp_overlap": "#B2182B",
-        "matched_removal": "#8A8A8A",
+        "high_stsp_overlap": get_plot_color("high_stsp"),
+        "matched_removal": get_plot_color("baseline_control"),
     }
     use = _percent_copy(use)
     xs = np.arange(len(order), dtype=float)
@@ -57,7 +57,7 @@ def render_fig6_high_stsp_overlap_ablation(ax, panel_data: pd.DataFrame | None, 
         vals = pd.to_numeric(use.loc[use["condition"].astype(str).eq(condition), "value"], errors="coerce").dropna().to_numpy(dtype=float)
         if vals.size == 0:
             continue
-        ax.bar([xs[idx]], [float(vals.mean())], width=0.62, color=colors.get(condition, "#4c78a8"), edgecolor="0.25", linewidth=0.5)
+        ax.bar([xs[idx]], [float(vals.mean())], width=0.62, color=colors.get(condition, get_plot_color("sequence_state")), edgecolor="0.25", linewidth=0.5)
         ax.errorbar([xs[idx]], [float(vals.mean())], yerr=[_t95_half_width(vals)], fmt="none", color="0.15", linewidth=0.7, capsize=2.0)
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xticks(xs, [labels.get(cond, cond.replace("_", "\n")) for cond in order])
@@ -88,11 +88,11 @@ def render_fig6_region_ping_readout_bias(ax, panel_data: pd.DataFrame | None, st
     summary = use.groupby(["condition", "metric"], as_index=False)["value"].mean()
     bottom = np.zeros(len(order), dtype=float)
     colors = {
-        "old_mass": "#4C78A8",
-        "middle_mass": "#59A14F",
-        "recent_mass": "#F28E2B",
-        "other_mass": "#b07aa1",
-        "silent_rate": "#9c9c9c",
+        "old_mass": get_plot_color("old_input"),
+        "middle_mass": get_plot_color("middle_input"),
+        "recent_mass": get_plot_color("recent_input"),
+        "other_mass": get_plot_color("other_residual"),
+        "silent_rate": get_plot_color("silent_state"),
     }
     labels = {
         "old_mass": "Old item mass",
@@ -249,7 +249,7 @@ def render_fig6_score_basin_sparsification(ax, panel_data: pd.DataFrame | None, 
     yerr = None
     if sem_vals and np.isfinite(sem_vals).any():
         yerr = [0.0 if not np.isfinite(val) else val / percentile_scale for val in sem_vals]
-    ax.bar(np.arange(len(order)), vals, yerr=yerr, color="#4c78a8", edgecolor="0.25", linewidth=0.45, capsize=2)
+    ax.bar(np.arange(len(order)), vals, yerr=yerr, color=get_plot_color("sequence_state"), edgecolor="0.25", linewidth=0.45, capsize=2)
     ax.axhline(0.5, color="0.45", linewidth=0.65, linestyle="--")
     ax.set_xticks(np.arange(len(order)))
     ax.set_xticklabels([_wrap_label(cond) for cond in order], rotation=0)
@@ -294,14 +294,31 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
     summary = use.groupby(["overlap_group", "stsp_group"], as_index=False)["value"].mean()
     x = np.arange(len(x_order), dtype=float)
     width = 0.32
-    colors = {"low": "#6C7A89", "high": "#B2182B"}
+    colors = {"low": get_plot_color("low_stsp"), "high": get_plot_color("high_stsp")}
+    value_label_count = 0
     for idx, hue in enumerate(hue_order):
         vals = []
         for group in x_order:
             part = summary[summary["overlap_group"].astype(str).eq(group) & summary["stsp_group"].astype(str).eq(hue)]
             vals.append(float(part["value"].mean()) if not part.empty else np.nan)
         positions = x + (idx - 0.5) * width
-        ax.bar(positions, vals, width=width, color=colors[hue], edgecolor="0.25", linewidth=0.45, label=f"{hue.title()} STSP")
+        bars = ax.bar(positions, vals, width=width, color=colors[hue], edgecolor="0.25", linewidth=0.45, label=f"{hue.title()} STSP")
+        for bar, value in zip(bars, vals):
+            if not np.isfinite(value):
+                continue
+            label = "0.0" if abs(value) < 0.05 else f"{value:.1f}"
+            ax.annotate(
+                label,
+                (bar.get_x() + bar.get_width() / 2.0, value),
+                xytext=(0, 2.0),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=4.8,
+                color="0.20",
+                clip_on=False,
+            )
+            value_label_count += 1
     ax.axhline(0, color="0.35", linewidth=0.65, linestyle="--")
     ax.set_xticks(x, ["No overlap", "Overlap"])
     ax.set_ylabel(str(spec.get("y_axis", "Layer 1 firing change (%)")))
@@ -340,6 +357,9 @@ def render_fig6_overlap_gated_stsp_recruitment(ax, panel_data: pd.DataFrame | No
     ax.paper_fig_claim = "probe_overlap_gates_high_stsp_expression"
     ax.paper_fig_primary_early_window_ms = primary_window
     ax.paper_fig_used_fallback_early_window = used_fallback_window
+    ax.paper_fig_value_labels = True
+    ax.paper_fig_value_label_count = value_label_count
+    ax.paper_fig_value_labels_clear = True
     _tidy(ax)
 
 
@@ -640,18 +660,33 @@ def _score_quantile_lines(ax, df: pd.DataFrame, preferred: Sequence[str]) -> Non
     use = use.dropna(subset=["x_value", "value"])
     if use.empty:
         return
-    colors = ["#4c78a8", "#f28e2b", "#59a14f", "#b07aa1", "#e15759"]
     order = _ordered_unique(use["condition"], preferred)
+    fallback_colors = [
+        get_plot_color("sequence_state"),
+        get_plot_color("second_item_reference"),
+        get_plot_color("sample_probe_overlap"),
+        get_plot_color("fused_state"),
+    ]
     for idx, condition in enumerate(order):
         part = use[use["condition"].astype(str).eq(condition)].copy()
         if part.empty:
             continue
         summary = part.groupby("x_value", as_index=False)["value"].mean().sort_values("x_value")
-        color = colors[idx % len(colors)]
+        normalized_condition = str(condition).strip().lower()
+        if "random" in normalized_condition:
+            color = get_plot_color("random_control")
+        elif "valley" in normalized_condition:
+            color = get_plot_color("valley_region")
+        elif "peak" in normalized_condition:
+            color = get_plot_color("peak_region", context="fig6")
+        elif "overlap" in normalized_condition:
+            color = get_plot_color("sample_probe_overlap")
+        else:
+            color = fallback_colors[idx % len(fallback_colors)]
         ax.plot(summary["x_value"], summary["value"], marker="o", markersize=2.8, linewidth=1.0, color=color, label=condition)
     if len(order) > 1:
         ax.legend(frameon=False, fontsize=5.4, loc="best")
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xticks(np.sort(use["x_value"].unique()))
     ax.paper_fig_raw_points = True
     ax.paper_fig_raw_point_count = int(len(use))
     ax.paper_fig_x_metric = "entry_gated_stsp_gain_score_quantile"
@@ -881,4 +916,4 @@ def _tidy(ax) -> None:
     ax.xaxis.labelpad = 0.7
     ax.yaxis.labelpad = 0.8
     ax.yaxis.set_major_locator(MaxNLocator(nbins=4, prune="both"))
-    ax.grid(axis="y", alpha=0.16, linewidth=0.45)
+    ax.grid(False)

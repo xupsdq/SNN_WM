@@ -6,7 +6,7 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.paper_fig.svg_assets import render_svg_asset_panel
 from src.plotting.paper_fig.utils import paper_fig_root
 
@@ -22,17 +22,67 @@ STYLE = {
     "capsize": 2.0,
 }
 
-LAYER_COLORS = {"layer1": "#A6BDD7", "layer2": "#6C8EBF", "layer3": "#2F4B7C"}
+LAYER_COLORS = {"layer1": get_plot_color("layer1"), "layer2": get_plot_color("layer2"), "layer3": get_plot_color("layer3")}
 CONDITION_COLORS = {
-    "dynamic_intact": "#009E73",
-    "ux_trial_shuffle": "#E69F00",
-    "static_frozen": "#8A8A8A",
+    "dynamic_intact": get_plot_color("dynamic"),
+    "ux_trial_shuffle": get_plot_color("trial_shuffled_ux"),
+    "static_frozen": get_plot_color("static_frozen"),
 }
 
 
 def render_fig1_architecture_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
-    render_svg_asset_panel(ax, spec)
+    # The maintained draw.io asset keeps its geometry and embedded digit intact.
+    # A cache-local CSS layer removes decorative band fills and brings the
+    # architecture into the same semantic palette as all quantitative panels.
+    css_override = f"""
+    #polish-hierarchy-v3 rect:nth-of-type(n+2) {{
+        fill: {PALETTE['white']} !important;
+        stroke: {PALETTE['neutral_light']} !important;
+        opacity: 1 !important;
+    }}
+    #polish-hierarchy-v3 line {{ display: none !important; }}
+    [data-cell-id="input_image_bg"] rect {{ stroke: {PALETTE['primary_navy']} !important; }}
+    [data-cell-id="dog_slab"] path:first-child {{
+        fill: {PALETTE['neutral_pale']} !important;
+        stroke: {PALETTE['neutral_mid']} !important;
+    }}
+    [data-cell-id="dog_slab"] path:nth-child(3) {{ stroke: {PALETTE['neutral_mid']} !important; }}
+    [data-cell-id="l1_cube"] path:first-child {{
+        fill: {PALETTE['primary_tint']} !important;
+        stroke: {PALETTE['primary_cyan']} !important;
+    }}
+    [data-cell-id="l1_cube"] path:nth-child(3) {{ stroke: {PALETTE['primary_cyan']} !important; }}
+    [data-cell-id="l2_cube"] path:first-child {{
+        fill: {PALETTE['primary_pale']} !important;
+        stroke: {PALETTE['primary_navy']} !important;
+    }}
+    [data-cell-id="l2_cube"] path:nth-child(3) {{ stroke: {PALETTE['primary_navy']} !important; }}
+    [data-cell-id^="readout_plate_"] path {{ stroke: {PALETTE['mechanism_teal']} !important; }}
+    [data-cell-id="readout_plate_0"] path:first-child {{ fill: {PALETTE['mechanism_tint']} !important; }}
+    [data-cell-id$="_stsp"] path {{
+        stroke: {PALETTE['mechanism_teal']} !important;
+        fill: {PALETTE['mechanism_teal']} !important;
+    }}
+    [data-cell-id$="_lat_dot"] rect {{
+        stroke: {PALETTE['neutral_dark']} !important;
+        fill: {PALETTE['neutral_dark']} !important;
+    }}
+    [data-cell-id$="_lat_loop"] path {{
+        stroke: {PALETTE['neutral_dark']} !important;
+        fill: none !important;
+    }}
+    #polish-legend-v9 path:first-of-type {{
+        fill: {PALETTE['neutral_pale']} !important;
+        stroke: {PALETTE['neutral_dark']} !important;
+    }}
+    #polish-legend-v9 path:nth-of-type(2),
+    #polish-legend-v9 path:nth-of-type(3) {{
+        stroke: {PALETTE['mechanism_teal']} !important;
+        fill: {PALETTE['mechanism_teal']} !important;
+    }}
+    """
+    render_svg_asset_panel(ax, spec, css_override=css_override)
 
 
 def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -48,11 +98,11 @@ def render_fig1_baseline_recall(ax, panel_data: pd.DataFrame | None, stats: Mapp
     mean = float(np.nanmean(values))
     sem = float(np.nanstd(values, ddof=1) / np.sqrt(values.size)) if values.size > 1 else 0.0
     if values.size > 1:
-        ax.axhspan(mean - sem, mean + sem, color="#9ECAE1", alpha=0.32, linewidth=0, zorder=0)
+        ax.axhspan(mean - sem, mean + sem, color=get_plot_color("layer1"), alpha=0.32, linewidth=0, zorder=0)
         ax.paper_fig_has_shaded_band = True
         ax.paper_fig_shaded_band = [mean - sem, mean + sem]
-    ax.plot(x, values, color="#4C78A8", linewidth=0.85, marker="o", markersize=2.7, zorder=3)
-    ax.axhline(mean, color="#2F6EA3", linewidth=0.75, zorder=2)
+    ax.plot(x, values, color=get_plot_color("dynamic"), linewidth=0.85, marker="o", markersize=2.7, zorder=3)
+    ax.axhline(mean, color=get_plot_color("dynamic"), linewidth=0.75, zorder=2)
     _reference_lines(ax, spec)
     tick_idx = _network_tick_indices(len(values))
     tick_labels = [str(i + 1) for i in range(len(values))]
@@ -188,7 +238,7 @@ def render_fig1_error_composition(ax, panel_data: pd.DataFrame | None, stats: Ma
     summary = normalized.groupby(["condition", "category"], as_index=False)["value"].mean()
     x = np.arange(len(conditions), dtype=float)
     bottom = np.zeros(len(conditions), dtype=float)
-    colors = {"Original": "#007A5A", "Donor": "#D55E00", "Other": "#D9D9D9"}
+    colors = {"Original": get_plot_color("original_sample_trace"), "Donor": get_plot_color("donor_trace"), "Other": get_plot_color("other_residual")}
     segment_centers: dict[tuple[str, str], float] = {}
     segment_values: dict[tuple[str, str], float] = {}
     for category in categories:
@@ -361,8 +411,7 @@ def _tidy(ax, st: Mapping[str, float]) -> None:
     ax.tick_params(axis="both", labelsize=st["tick_labelsize"], width=0.55, length=1.8, pad=1.4)
     ax.xaxis.label.set_size(st["axis_labelsize"])
     ax.yaxis.label.set_size(st["axis_labelsize"])
-    ax.grid(axis="y", color="0.9", linewidth=0.45)
-    ax.set_axisbelow(True)
+    ax.grid(False)
 
 
 def _placeholder(ax, spec: Mapping[str, Any], reason: str) -> None:

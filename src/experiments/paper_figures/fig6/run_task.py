@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+import sys as _early_sys
+
+_early_args = _early_sys.argv[1:]
+if __name__ == "__main__" and (
+    "--task=final-statistics" in _early_args
+    or any(
+        value == "--task"
+        and index + 1 < len(_early_args)
+        and _early_args[index + 1] == "final-statistics"
+        for index, value in enumerate(_early_args)
+    )
+):
+    from src.experiments.paper_figures.final_six.pipeline import (
+        canonical_runner_main as _final_statistics_main,
+    )
+
+    raise SystemExit(_final_statistics_main("fig6", _early_args))
+
 import argparse
 import sys
 from pathlib import Path
@@ -78,6 +96,11 @@ NUM_CLASSES = 10
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--task" in raw_argv and "final-statistics" in raw_argv:
+        from src.experiments.paper_figures.final_six.pipeline import canonical_runner_main
+
+        return canonical_runner_main("fig6", raw_argv)
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
     cfg = _config_from_args(args)
@@ -554,6 +577,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig6Config:
         basin_radius=int(args.basin_radius),
         basin_top_q=float(args.basin_top_q),
         stsp_group_quantile=float(args.stsp_group_quantile),
+        fig6e_stsp_group_quantile=float(args.fig6e_stsp_group_quantile),
         overlap_threshold=float(args.overlap_threshold),
         gain_ratio_clip_quantiles=clip_quantiles if len(clip_quantiles) == 2 else (0.01, 0.99),
         real_probe_entry_mode=str(args.real_probe_entry_mode),
@@ -615,6 +639,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--basin-radius", type=int, default=2)
     parser.add_argument("--basin-top-q", type=float, default=0.20)
     parser.add_argument("--stsp-group-quantile", type=float, default=0.20)
+    parser.add_argument("--fig6e-stsp-group-quantile", type=float, default=0.50)
     parser.add_argument("--overlap-threshold", type=float, default=0.05)
     parser.add_argument("--gain-ratio-clip-quantiles", default="0.01,0.99")
     parser.add_argument("--real-probe-entry-mode", default="encoded_spike", choices=["encoded_spike", "foreground"])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -1077,6 +1078,38 @@ def _check_fig2_specifics(
         warnings=warnings,
         failures=failures,
     )
+    expected_timing = dict(
+        ((spec.get("qc_requirements") or {}).get("required_episode_timing_ms"))
+        or {"item_a": 200, "delay1": 200, "item_b": 200, "delay2": 400}
+    )
+    source_timing = dict(((panel_a.get("content") or {}).get("timing_ms")) or {})
+    panel_a_render_metadata = dict(render_metadata.get("A") or {})
+    if source_timing == expected_timing:
+        passes.append("Fig.2A source spec records the frozen 200/200/200/400-ms protocol")
+    else:
+        failures.append(f"Fig.2A source timing mismatch: expected={expected_timing}, spec={source_timing}")
+    source_timing_identifier = str((panel_a.get("content") or {}).get("timing_source", ""))
+    if not source_timing_identifier:
+        failures.append("Fig.2A source spec must record a non-empty timing source identifier")
+    elif not panel_a_render_metadata:
+        passes.append("Fig.2A source spec records a non-empty timing source identifier")
+        warnings.append("Fig.2A check-only mode deferred rendered timing-lineage and label-visibility checks")
+    else:
+        rendered_timing = dict(panel_a_render_metadata.get("episode_timing_ms") or {})
+        if rendered_timing == expected_timing:
+            passes.append("Fig.2A rendered schematic shares the frozen source protocol")
+        else:
+            failures.append(
+                f"Fig.2A rendered timing lineage mismatch: expected={expected_timing}, rendered={rendered_timing}"
+            )
+        if str(panel_a_render_metadata.get("timing_source", "")) == source_timing_identifier:
+            passes.append("Fig.2A rendered schematic shares the source timing identifier")
+        else:
+            failures.append("Fig.2A timing source identifier differs between spec and render metadata")
+        if not bool(panel_a_render_metadata.get("timing_labels_visible", False)):
+            passes.append("Fig.2A keeps the current label-free timing design; durations remain protocol metadata only")
+        else:
+            failures.append("Fig.2A must not render per-stage duration labels in the current design")
 
     panel_data = _load_panel_data_map(output_dir, figure_id, panels)
     b_df = panel_data.get("B")
@@ -1099,29 +1132,63 @@ def _check_fig2_specifics(
 
     c_df = panel_data.get("C")
     if c_df is not None:
+        metrics = set(c_df.get("metric", pd.Series(dtype=str)).dropna().astype(str))
         conditions = set(c_df.get("condition", pd.Series(dtype=str)).astype(str))
-        if {"True pair", "Shuffled pair"}.issubset(conditions):
-            passes.append("Fig.2C includes true and shuffled pair conditions")
+        if "WPRI" in metrics and "delta_r2_interaction_beyond_bounded_saturation" in metrics:
+            passes.append("Fig.2C includes WPRI and the out-of-fold bounded-saturation interaction endpoint")
         else:
-            failures.append(f"Fig.2C missing true/shuffled conditions, found {sorted(conditions)}")
-        if "pair_id" in c_df.columns and c_df["pair_id"].replace("", pd.NA).dropna().any():
-            passes.append("Fig.2C carries pair_id for paired lines")
+            failures.append(
+                "Fig.2C must include WPRI plus delta_r2_interaction_beyond_bounded_saturation, "
+                f"found {sorted(metrics)}"
+            )
+        if "linear_model_r2" not in metrics and not any(str(v) in {"A_only", "B_only", "mean_AB", "sum_AB", "unconstrained_AB", "convex_AB"} for v in conditions):
+            passes.append("Fig.2C does not plot full linear model comparison")
         else:
-            warnings.append("Fig.2C pair_id unavailable for paired lines")
+            failures.append("Fig.2C must not plot full linear model comparison in the main figure")
         _require_fig2_primary_rows("Fig.2C", c_df, passes, failures)
+        c_render_metadata = dict(render_metadata.get("C") or {})
+        if not c_render_metadata:
+            warnings.append("Fig.2C check-only mode deferred dual-axis render checks")
+        else:
+            expected_form = "wpri_and_crossfit_interaction_dual_axis_bar"
+            if str(c_render_metadata.get("plot_form", "")) == expected_form:
+                passes.append("Fig.2C renders both metrics as two bars in one plotting area")
+            else:
+                failures.append(
+                    f"Fig.2C must render as {expected_form}, found {c_render_metadata.get('plot_form')!r}"
+                )
+            if bool(c_render_metadata.get("dual_y_axes", False)) and str(
+                c_render_metadata.get("secondary_y_label", "")
+            ) == "Held-out ΔR²" and str(c_render_metadata.get("secondary_y_multiplier", "")) == "×10⁻³" and math.isclose(
+                float(c_render_metadata.get("secondary_y_multiplier_size_scale", 1.0)), 0.75, abs_tol=1e-12
+            ):
+                passes.append("Fig.2C keeps WPRI and held-out ΔR² on explicit left/right scales")
+            else:
+                failures.append(
+                    "Fig.2C must retain explicit metric-specific left/right y-axes and a 0.75× ×10⁻³ multiplier"
+                )
+            if not bool(c_render_metadata.get("value_labels", False)):
+                passes.append("Fig.2C omits direct numeric labels above the bars")
+            else:
+                failures.append("Fig.2C must not print direct numeric labels above the bars")
+            if not bool(c_render_metadata.get("raw_points", False)) and int(
+                c_render_metadata.get("raw_point_count", 0) or 0
+            ) == 0:
+                passes.append("Fig.2C uses mean bars with error bars and omits raw network points")
+            else:
+                failures.append("Fig.2C must omit raw network points and retain summary error bars only")
 
     d_df = panel_data.get("D")
     if d_df is not None:
-        metrics = set(d_df.get("metric", pd.Series(dtype=str)).dropna().astype(str))
-        conditions = set(d_df.get("condition", pd.Series(dtype=str)).dropna().astype(str))
-        if "WPRI" in metrics and ("beyond_linear_pair_index" in metrics or "residual_pair_specificity" in metrics):
-            passes.append("Fig.2D includes WPRI and beyond-linear/residual closure metrics")
+        conditions = set(d_df.get("condition", pd.Series(dtype=str)).astype(str))
+        if {"True pair", "Shuffled pair"}.issubset(conditions):
+            passes.append("Fig.2D includes true and shuffled pair conditions")
         else:
-            failures.append(f"Fig.2D must include WPRI plus beyond-linear/residual metric, found {sorted(metrics)}")
-        if "linear_model_r2" not in metrics and not any(str(v) in {"A_only", "B_only", "mean_AB", "sum_AB", "unconstrained_AB", "convex_AB"} for v in conditions):
-            passes.append("Fig.2D does not plot full linear model comparison")
+            failures.append(f"Fig.2D missing true/shuffled conditions, found {sorted(conditions)}")
+        if "pair_id" in d_df.columns and d_df["pair_id"].replace("", pd.NA).dropna().any():
+            passes.append("Fig.2D carries pair_id for paired lines")
         else:
-            failures.append("Fig.2D must not plot full linear model comparison in the main figure")
+            warnings.append("Fig.2D pair_id unavailable for paired lines")
         _require_fig2_primary_rows("Fig.2D", d_df, passes, failures)
 
     e_df = panel_data.get("E")
@@ -3629,6 +3696,22 @@ def _check_fig6_stsp_recruitment_contract(
     warnings: list[str],
     failures: list[str],
 ) -> None:
+    frozen_protocol = dict(spec.get("frozen_protocol") or {})
+    required_protocol = {
+        "fig6e_stsp_group_quantile": 0.50,
+        "high_stsp_ablation_quantile": 0.20,
+        "overlap_threshold": 0.05,
+        "primary_early_window_ms": 10,
+    }
+    mismatched_protocol = {
+        key: frozen_protocol.get(key)
+        for key, expected in required_protocol.items()
+        if not math.isclose(float(frozen_protocol.get(key, float("nan"))), float(expected), abs_tol=1e-12)
+    }
+    if not mismatched_protocol and str(frozen_protocol.get("protocol_id", "")) == "fig6_q50_promoted_v1":
+        passes.append("Fig.6 resolved spec freezes q=.50 for panel E and q=.20 for the ablation")
+    else:
+        failures.append(f"Fig.6 frozen protocol is missing or inconsistent: {frozen_protocol}")
     canvas = spec.get("canvas_mm") or {}
     if float(canvas.get("width", 0)) == 165 and float(canvas.get("height", 0)) == 102:
         passes.append("Fig.6 canvas is 165 x 102 mm")
@@ -3798,6 +3881,27 @@ def _check_fig6_stsp_recruitment_contract(
         passes.append("Fig.6E includes overlap-gated STSP interaction_delta rows")
     else:
         failures.append("Fig.6E must include interaction_delta rows")
+    q_values = sorted(
+        set(pd.to_numeric(e_df.get("stsp_group_quantile", pd.Series(dtype=float)), errors="coerce").dropna())
+    )
+    threshold_values = sorted(
+        set(pd.to_numeric(e_df.get("overlap_threshold", pd.Series(dtype=float)), errors="coerce").dropna())
+    )
+    window_values = sorted(
+        set(pd.to_numeric(e_df.get("early_window_ms", pd.Series(dtype=float)), errors="coerce").dropna().astype(int))
+    )
+    if len(q_values) == 1 and math.isclose(float(q_values[0]), 0.50, abs_tol=1e-12):
+        passes.append("Fig.6E source rows are exclusively q=.50")
+    else:
+        failures.append(f"Fig.6E must contain only q=.50 rows, found {q_values}")
+    if len(threshold_values) == 1 and math.isclose(float(threshold_values[0]), 0.05, abs_tol=1e-12):
+        passes.append("Fig.6E source rows use overlap threshold .05")
+    else:
+        failures.append(f"Fig.6E overlap threshold must be .05, found {threshold_values}")
+    if window_values == [5, 10, 15, 20]:
+        passes.append("Fig.6E source rows contain the frozen 5/10/15/20-ms windows")
+    else:
+        failures.append(f"Fig.6E windows must be [5, 10, 15, 20], found {window_values}")
     if "panel_e_overlap_gated_stsp_recruitment.csv" in e_sources and "panel_e_overlap_gated_stsp_interaction.csv" in e_sources:
         passes.append("Fig.6E source manifest includes recruitment and interaction files")
     else:

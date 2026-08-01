@@ -11,6 +11,7 @@ TASK_DMS_BOUNDARY_BANK = "dms_boundary_bank"
 TASK_DMS_SHUFFLE_READOUT = "dms_shuffle_readout"
 TASK_DMS_DELAY_SWEEP_READOUT = "dms_delay_sweep_readout"
 TASK_FIRING_RATE_CONTROL = "firing_rate_control"
+TASK_TIME_BINNED_FIRING_RATE_CONTROL = "time_binned_firing_rate_control"
 
 TASK_IDS = (
     TASK_TRIAL_SPECS,
@@ -21,6 +22,7 @@ TASK_IDS = (
     TASK_DMS_SHUFFLE_READOUT,
     TASK_DMS_DELAY_SWEEP_READOUT,
     TASK_FIRING_RATE_CONTROL,
+    TASK_TIME_BINNED_FIRING_RATE_CONTROL,
 )
 
 REUSE_MODES = ("off", "auto", "require", "force")
@@ -76,6 +78,7 @@ __all__ = [
     "TASK_DMS_DELAY_SWEEP_READOUT",
     "TASK_DMS_SHUFFLE_READOUT",
     "TASK_FIRING_RATE_CONTROL",
+    "TASK_TIME_BINNED_FIRING_RATE_CONTROL",
     "TASK_IDS",
     "TASK_TRIAL_SPECS",
     "TRIAL_SPEC_FILES",

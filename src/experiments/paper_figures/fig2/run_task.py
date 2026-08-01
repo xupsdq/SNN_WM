@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+import sys as _early_sys
+
+_early_args = _early_sys.argv[1:]
+if __name__ == "__main__" and (
+    "--task=final-statistics" in _early_args
+    or any(
+        value == "--task"
+        and index + 1 < len(_early_args)
+        and _early_args[index + 1] == "final-statistics"
+        for index, value in enumerate(_early_args)
+    )
+):
+    from src.experiments.paper_figures.final_six.pipeline import (
+        canonical_runner_main as _final_statistics_main,
+    )
+
+    raise SystemExit(_final_statistics_main("fig2", _early_args))
+
 import argparse
 import sys
 from pathlib import Path
@@ -25,24 +43,33 @@ from src.experiments.paper_figures.fig2.artifacts import (
     default_artifact_root,
     load_completion_boundary_bank_artifact,
     load_completion_delay_mask_specs_artifact,
+    load_crossfit_split_specs_artifact,
+    load_crossfit_null_specs_artifact,
     load_pair_trial_specs_artifact,
     load_partial_cue_mask_specs_artifact,
     load_state_bank_artifact,
     save_completion_boundary_bank_artifact,
     save_completion_delay_mask_specs_artifact,
+    save_crossfit_split_specs_artifact,
+    save_crossfit_null_specs_artifact,
     save_pair_trial_specs_artifact,
     save_partial_cue_mask_specs_artifact,
     save_state_bank_artifact,
     task_artifact_dir,
+    validate_cache_key_integrity,
     write_json,
 )
 from src.experiments.paper_figures.fig2.cache_keys import (
     build_completion_boundary_cache_key,
     build_completion_mask_cache_key,
+    build_crossfit_split_cache_key,
+    build_crossfit_null_specs_cache_key,
     build_pair_specs_cache_key,
     build_partial_cue_mask_cache_key,
     build_state_bank_cache_key,
     cache_key_digest,
+    dataframe_hash,
+    model_fingerprint,
     pair_specs_hash,
 )
 from src.experiments.paper_figures.fig2.schemas import (
@@ -53,6 +80,10 @@ from src.experiments.paper_figures.fig2.schemas import (
     TASK_COMPLETION_DELAY_BOUNDARY_BANK,
     TASK_COMPLETION_DELAY_MASK_SPECS,
     TASK_COMPLETION_DELAY_SWEEP,
+    TASK_CROSSFIT_INTERACTION,
+    TASK_CROSSFIT_NULL_CALIBRATION,
+    TASK_CROSSFIT_NULL_SPECS,
+    TASK_CROSSFIT_SPLIT_SPECS,
     TASK_IDS,
     TASK_LINEAR_MIXTURE,
     TASK_MORPHOLOGY,
@@ -67,6 +98,14 @@ from src.experiments.paper_figures.fig2.schemas import (
     normalize_reuse_mode,
 )
 from src.experiments.paper_figures.fig2.subexperiments.completion_delay_sweep import _make_completion_weak_spikes
+from src.experiments.paper_figures.fig2.subexperiments.crossfit_interaction import (
+    build_crossfit_null_specs,
+    build_crossfit_split_specs,
+    compute_crossfit_interaction_metrics,
+    compute_crossfit_null_calibration_metrics,
+    validate_crossfit_null_specs,
+    validate_crossfit_split_specs,
+)
 from src.experiments.paper_figures.fig2.subexperiments.linear_mixture import (
     compute_linear_mixture_metrics,
     compute_linear_residual_pair_specificity,
@@ -87,6 +126,17 @@ from src.experiments.paper_figures.fig2.subexperiments.trial_specs import build_
 from src.experiments.paper_figures.fig2.subexperiments.state_bank import run_pair_episode_state_bank
 from src.experiments.paper_figures.fig2.subexperiments.helpers import _capture_pair_batch, _encode_cached, _iter_batches
 from src.experiments.paper_figures.fig2.types import ExperimentContext, Fig2Config, PairEpisodeStateBank
+from src.experiments.paper_figures.fig2.fixed_b_transition import run_fixed_b_task
+from src.experiments.paper_figures.fig2.subexperiments.fixed_b_specs import (
+    B_FOLD_MODES,
+    CROSSFIT_AXES,
+)
+from src.experiments.paper_figures.fig2.schemas import (
+    FIXED_B_TASK_IDS,
+    TASK_FIXED_B_COHORT_AGGREGATE,
+    TASK_FIXED_B_SPECS,
+)
+
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
@@ -97,13 +147,39 @@ from src.experiments.paper_figures.run_paper_figures import (
 
 FIGURE_ID = legacy.FIGURE_ID
 NUM_CLASSES = legacy.NUM_CLASSES
+PORTABLE_CROSSFIT_PARENT_TASKS = frozenset(
+    {
+        TASK_CROSSFIT_SPLIT_SPECS,
+        TASK_CROSSFIT_INTERACTION,
+        TASK_CROSSFIT_NULL_SPECS,
+        TASK_CROSSFIT_NULL_CALIBRATION,
+    }
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--task" in raw_argv and "final-statistics" in raw_argv:
+        from src.experiments.paper_figures.final_six.pipeline import canonical_runner_main
+
+        return canonical_runner_main("fig2", raw_argv)
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
     cfg = _config_from_args(args)
-    ctx = _build_context(cfg)
+    load_model = not (
+        str(args.task)
+        in {
+            TASK_CROSSFIT_SPLIT_SPECS,
+            TASK_CROSSFIT_NULL_SPECS,
+            TASK_FIXED_B_SPECS,
+            TASK_FIXED_B_COHORT_AGGREGATE,
+        }
+        or (
+            str(args.task) in {TASK_CROSSFIT_INTERACTION, TASK_CROSSFIT_NULL_CALIBRATION}
+            and mode == "require"
+        )
+    )
+    ctx = _build_context(cfg, load_model=load_model)
     artifact_root = _artifact_root_from_args(args, ctx.seed_dir)
     run_info = build_run_info(
         experiment_name=f"{FIGURE_ID}.{args.task}",
@@ -125,9 +201,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
         legacy._write_config_files(ctx)
-        pair_trials = _get_pair_specs(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
-        run_info["pair_specs_hash"] = pair_specs_hash(pair_trials)
-        _run_task(ctx, pair_trials, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
+        if str(args.task) in FIXED_B_TASK_IDS:
+            run_fixed_b_task(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
+        else:
+            pair_trials = _get_pair_specs(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
+            run_info["pair_specs_hash"] = pair_specs_hash(pair_trials)
+            _run_task(ctx, pair_trials, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
         _finalize_bundle(ctx, artifact_root=artifact_root, mode=mode)
         finalize_run_info(ctx.seed_dir / "meta", run_info, status="success")
         return 0
@@ -145,6 +224,16 @@ def _get_pair_specs(
 ) -> pd.DataFrame:
     task_dir = task_artifact_dir(artifact_root, TASK_PAIR_TRIAL_SPECS)
     expected_key = build_pair_specs_cache_key(ctx.cfg)
+    if task_id in PORTABLE_CROSSFIT_PARENT_TASKS and mode in {"auto", "require"}:
+        if task_dir.exists():
+            parent_key = validate_cache_key_integrity(task_dir, task_id=TASK_PAIR_TRIAL_SPECS)
+            artifact = load_pair_trial_specs_artifact(task_dir)
+            _validate_portable_pair_parent(ctx, artifact.pair_trials, parent_key)
+            _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
+            _set_artifact_metadata(ctx, "pair_trial_specs", "loaded_portable", task_dir, artifact.digest, parent_key)
+            return artifact.pair_trials
+        if mode == "require":
+            load_pair_trial_specs_artifact(task_dir)
     if mode == "require":
         artifact = load_pair_trial_specs_artifact(task_dir, expected_key=expected_key)
         _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
@@ -175,6 +264,47 @@ def _get_pair_specs(
     return artifact.pair_trials
 
 
+def _validate_portable_pair_parent(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    parent_key: Mapping[str, Any],
+) -> None:
+    expected_values = {
+        "network_seed": int(ctx.cfg.network_seed),
+        "dataset_split": str(ctx.cfg.split),
+        "num_pairs": int(ctx.cfg.num_pairs),
+        "sample_ms": int(ctx.cfg.sample_ms),
+        "delay1_ms": int(ctx.cfg.delay1_ms),
+        "second_item_ms": int(ctx.cfg.second_item_ms),
+        "delay2_ms": int(ctx.cfg.delay2_ms),
+    }
+    for name, expected in expected_values.items():
+        found = parent_key.get(name)
+        if found != expected:
+            raise RuntimeError(
+                f"Portable pair-spec lineage mismatch for {name}: expected={expected!r}, found={found!r}"
+            )
+    if len(pair_trials) != int(ctx.cfg.num_pairs):
+        raise RuntimeError(
+            f"Portable pair-spec row count mismatch: expected={ctx.cfg.num_pairs}, found={len(pair_trials)}"
+        )
+    required_columns = {"A_image_id", "B_image_id", "A_label", "B_label"}
+    missing = sorted(required_columns.difference(pair_trials.columns))
+    if missing:
+        raise RuntimeError(f"Portable pair-spec validation is missing columns: {missing}")
+    expected_labels: dict[int, int] = {}
+    for row in pair_trials.itertuples(index=False):
+        expected_labels[int(row.A_image_id)] = int(row.A_label)
+        expected_labels[int(row.B_image_id)] = int(row.B_label)
+    for image_id, expected_label in expected_labels.items():
+        found_label = int(ctx.dataset[int(image_id)][1])
+        if found_label != expected_label:
+            raise RuntimeError(
+                f"Local dataset identity mismatch for image {image_id}: "
+                f"pair artifact label={expected_label}, local dataset label={found_label}"
+            )
+
+
 def _write_pair_specs_to_bundle(ctx: ExperimentContext, pair_trials: pd.DataFrame, candidate_pool: pd.DataFrame) -> None:
     legacy._save_csv(ctx, pair_trials, ctx.trial_specs_dir / "pair_trials.csv")
     legacy._save_csv(ctx, candidate_pool, ctx.trial_specs_dir / "pair_candidate_pool.csv")
@@ -196,6 +326,40 @@ def _run_task(
         return
     if task_id == TASK_STATE_BANK:
         _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        return
+    if task_id == TASK_CROSSFIT_SPLIT_SPECS:
+        split_specs = _get_crossfit_split_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        _write_crossfit_split_specs_to_bundle(ctx, split_specs)
+        return
+    if task_id == TASK_CROSSFIT_INTERACTION:
+        split_specs = _get_crossfit_split_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        _write_crossfit_split_specs_to_bundle(ctx, split_specs)
+        bank = _get_state_bank_for_crossfit(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        compute_crossfit_interaction_metrics(ctx, bank, split_specs)
+        return
+    if task_id == TASK_CROSSFIT_NULL_SPECS:
+        split_specs = _get_crossfit_split_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        null_specs = _get_crossfit_null_specs(
+            ctx,
+            pair_trials,
+            split_specs,
+            mode=mode,
+            artifact_root=artifact_root,
+        )
+        _write_crossfit_null_specs_to_bundle(ctx, null_specs)
+        return
+    if task_id == TASK_CROSSFIT_NULL_CALIBRATION:
+        split_specs = _get_crossfit_split_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        null_specs = _get_crossfit_null_specs(
+            ctx,
+            pair_trials,
+            split_specs,
+            mode=mode,
+            artifact_root=artifact_root,
+        )
+        _write_crossfit_null_specs_to_bundle(ctx, null_specs)
+        bank = _get_state_bank_for_crossfit(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        compute_crossfit_null_calibration_metrics(ctx, bank, split_specs, null_specs)
         return
     if task_id == TASK_MORPHOLOGY:
         _run_morphology(ctx, _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root))
@@ -241,6 +405,18 @@ def _run_task(
         bank = _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
         _run_morphology(ctx, bank)
         _run_linear_mixture(ctx, bank)
+        split_specs = _get_crossfit_split_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        _write_crossfit_split_specs_to_bundle(ctx, split_specs)
+        compute_crossfit_interaction_metrics(ctx, bank, split_specs)
+        null_specs = _get_crossfit_null_specs(
+            ctx,
+            pair_trials,
+            split_specs,
+            mode=mode,
+            artifact_root=artifact_root,
+        )
+        _write_crossfit_null_specs_to_bundle(ctx, null_specs)
+        compute_crossfit_null_calibration_metrics(ctx, bank, split_specs, null_specs)
         run_neutral_ping_real_rollout_from_state_bank(ctx, bank)
         if mode != "off":
             setattr(ctx, "partial_cue_mask_specs", _get_partial_cue_mask_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root))
@@ -266,6 +442,204 @@ def _run_linear_mixture(ctx: ExperimentContext, bank: PairEpisodeStateBank) -> N
     compute_linear_mixture_metrics(ctx, bank)
     compute_linear_residual_pair_specificity(ctx, bank)
     ctx.completed_modules["linear_mixture"] = True
+
+
+def _get_crossfit_split_specs(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> pd.DataFrame:
+    task_dir = task_artifact_dir(artifact_root, TASK_CROSSFIT_SPLIT_SPECS)
+    parent_digest = str(getattr(ctx, "pair_trial_specs_cache_key_digest", ""))
+    if not parent_digest:
+        parent_key = validate_cache_key_integrity(
+            task_artifact_dir(artifact_root, TASK_PAIR_TRIAL_SPECS),
+            task_id=TASK_PAIR_TRIAL_SPECS,
+        )
+        parent_digest = cache_key_digest(parent_key)
+    expected_key = build_crossfit_split_cache_key(
+        ctx.cfg,
+        pair_hash=pair_specs_hash(pair_trials),
+        parent_pair_cache_digest=parent_digest,
+    )
+    if mode == "require":
+        artifact = load_crossfit_split_specs_artifact(task_dir, expected_key=expected_key)
+        validate_crossfit_split_specs(
+            artifact.table,
+            pair_trials,
+            network_seed=ctx.cfg.network_seed,
+            n_folds=ctx.cfg.crossfit_folds,
+        )
+        _set_artifact_metadata(ctx, "crossfit_split_specs", "loaded", task_dir, artifact.digest, expected_key)
+        ctx.completed_modules["crossfit_split_specs"] = True
+        return artifact.table.copy()
+    if mode == "auto" and task_dir.exists():
+        if cache_key_matches(task_dir, expected_key):
+            artifact = load_crossfit_split_specs_artifact(task_dir, expected_key=expected_key)
+            validate_crossfit_split_specs(
+                artifact.table,
+                pair_trials,
+                network_seed=ctx.cfg.network_seed,
+                n_folds=ctx.cfg.crossfit_folds,
+            )
+            _set_artifact_metadata(ctx, "crossfit_split_specs", "loaded", task_dir, artifact.digest, expected_key)
+            ctx.completed_modules["crossfit_split_specs"] = True
+            return artifact.table.copy()
+        validate_cache_key_integrity(task_dir, task_id=TASK_CROSSFIT_SPLIT_SPECS)
+
+    split_specs = build_crossfit_split_specs(
+        pair_trials,
+        network_seed=ctx.cfg.network_seed,
+        n_folds=ctx.cfg.crossfit_folds,
+    )
+    if mode == "off":
+        setattr(ctx, "crossfit_split_specs_artifact_source", "built_in_memory")
+        setattr(ctx, "crossfit_split_specs_cache_key_digest", cache_key_digest(expected_key))
+        ctx.completed_modules["crossfit_split_specs"] = True
+        return split_specs
+    artifact = save_crossfit_split_specs_artifact(task_dir, split_specs, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "crossfit_split_specs", "built", task_dir, artifact.digest, expected_key)
+    ctx.completed_modules["crossfit_split_specs"] = True
+    return artifact.table.copy()
+
+
+def _write_crossfit_split_specs_to_bundle(ctx: ExperimentContext, split_specs: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, split_specs, ctx.trial_specs_dir / "crossfit_split_specs.csv")
+    ctx.completed_modules["crossfit_split_specs"] = True
+
+
+def _get_crossfit_null_specs(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    split_specs: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> pd.DataFrame:
+    task_dir = task_artifact_dir(artifact_root, TASK_CROSSFIT_NULL_SPECS)
+    if mode == "off":
+        split_parent_digest = str(getattr(ctx, "crossfit_split_specs_cache_key_digest", ""))
+        if not split_parent_digest:
+            raise RuntimeError("In-memory cross-fit split specs are missing their cache-key digest")
+    else:
+        split_parent_dir = task_artifact_dir(artifact_root, TASK_CROSSFIT_SPLIT_SPECS)
+        split_parent_key = validate_cache_key_integrity(split_parent_dir, task_id=TASK_CROSSFIT_SPLIT_SPECS)
+        split_parent_digest = cache_key_digest(split_parent_key)
+    expected_key = build_crossfit_null_specs_cache_key(
+        ctx.cfg,
+        pair_hash=pair_specs_hash(pair_trials),
+        split_specs_hash=dataframe_hash(split_specs),
+        parent_split_cache_digest=split_parent_digest,
+    )
+    if mode == "require":
+        artifact = load_crossfit_null_specs_artifact(task_dir, expected_key=expected_key)
+        validate_crossfit_null_specs(
+            artifact.table,
+            network_seed=ctx.cfg.network_seed,
+            n_replicates=ctx.cfg.crossfit_null_replicates,
+            feature_count=ctx.cfg.crossfit_null_feature_count,
+            noise_scale_ratio=ctx.cfg.crossfit_null_noise_scale_ratio,
+        )
+        _set_artifact_metadata(ctx, "crossfit_null_specs", "loaded", task_dir, artifact.digest, expected_key)
+        ctx.completed_modules["crossfit_null_specs"] = True
+        return artifact.table.copy()
+    if mode == "auto" and task_dir.exists():
+        if cache_key_matches(task_dir, expected_key):
+            artifact = load_crossfit_null_specs_artifact(task_dir, expected_key=expected_key)
+            validate_crossfit_null_specs(
+                artifact.table,
+                network_seed=ctx.cfg.network_seed,
+                n_replicates=ctx.cfg.crossfit_null_replicates,
+                feature_count=ctx.cfg.crossfit_null_feature_count,
+                noise_scale_ratio=ctx.cfg.crossfit_null_noise_scale_ratio,
+            )
+            _set_artifact_metadata(ctx, "crossfit_null_specs", "loaded", task_dir, artifact.digest, expected_key)
+            ctx.completed_modules["crossfit_null_specs"] = True
+            return artifact.table.copy()
+        validate_cache_key_integrity(task_dir, task_id=TASK_CROSSFIT_NULL_SPECS)
+
+    table = build_crossfit_null_specs(
+        network_seed=ctx.cfg.network_seed,
+        n_replicates=ctx.cfg.crossfit_null_replicates,
+        feature_count=ctx.cfg.crossfit_null_feature_count,
+        noise_scale_ratio=ctx.cfg.crossfit_null_noise_scale_ratio,
+    )
+    if mode == "off":
+        setattr(ctx, "crossfit_null_specs_artifact_source", "built_in_memory")
+        setattr(ctx, "crossfit_null_specs_cache_key_digest", cache_key_digest(expected_key))
+        ctx.completed_modules["crossfit_null_specs"] = True
+        return table
+    artifact = save_crossfit_null_specs_artifact(task_dir, table, cache_key=expected_key)
+    _set_artifact_metadata(ctx, "crossfit_null_specs", "built", task_dir, artifact.digest, expected_key)
+    ctx.completed_modules["crossfit_null_specs"] = True
+    return artifact.table.copy()
+
+
+def _write_crossfit_null_specs_to_bundle(ctx: ExperimentContext, null_specs: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, null_specs, ctx.trial_specs_dir / "crossfit_null_specs.csv")
+    ctx.completed_modules["crossfit_null_specs"] = True
+
+
+def _get_state_bank_for_crossfit(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> PairEpisodeStateBank:
+    task_dir = task_artifact_dir(artifact_root, TASK_STATE_BANK)
+    if mode in {"auto", "require"} and task_dir.exists():
+        parent_key = validate_cache_key_integrity(task_dir, task_id=TASK_STATE_BANK)
+        _validate_portable_state_parent(ctx, pair_trials, parent_key)
+        artifact = load_state_bank_artifact(task_dir, pair_trials=pair_trials)
+        _set_artifact_metadata(ctx, "state_bank", "loaded_portable", task_dir, "", parent_key)
+        ctx.completed_modules["state_bank"] = True
+        return artifact.bank
+    if mode == "require":
+        load_state_bank_artifact(task_dir, pair_trials=pair_trials)
+    return _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+
+
+def _validate_portable_state_parent(
+    ctx: ExperimentContext,
+    pair_trials: pd.DataFrame,
+    parent_key: Mapping[str, Any],
+) -> None:
+    expected_values = {
+        "network_seed": int(ctx.cfg.network_seed),
+        "dataset_split": str(ctx.cfg.split),
+        "pair_specs_hash": pair_specs_hash(pair_trials),
+        "dt": float(ctx.cfg.dt),
+        "sample_ms": int(ctx.cfg.sample_ms),
+        "delay1_ms": int(ctx.cfg.delay1_ms),
+        "second_item_ms": int(ctx.cfg.second_item_ms),
+        "delay2_ms": int(ctx.cfg.delay2_ms),
+    }
+    for name, expected in expected_values.items():
+        found = parent_key.get(name)
+        if found != expected:
+            raise RuntimeError(
+                f"Portable state-bank lineage mismatch for {name}: expected={expected!r}, found={found!r}"
+            )
+    extra = parent_key.get("extra")
+    if not isinstance(extra, Mapping):
+        raise RuntimeError("Portable state-bank lineage is missing its extra cache-key payload")
+    if set(str(value) for value in extra.get("state_conditions", [])) != {"S0", "S_A", "S_B", "S_AB"}:
+        raise RuntimeError(f"Portable state-bank conditions are invalid: {extra.get('state_conditions')!r}")
+    if set(str(value) for value in extra.get("state_variables", [])) != {"u", "x", "g"}:
+        raise RuntimeError(f"Portable state-bank variables are invalid: {extra.get('state_variables')!r}")
+    upstream_model = parent_key.get("model")
+    if not isinstance(upstream_model, Mapping):
+        raise RuntimeError("Portable state-bank lineage is missing its model fingerprint")
+    local_model = model_fingerprint(ctx.cfg.model_path)
+    for name in ("sha256", "size_bytes"):
+        if upstream_model.get(name) != local_model.get(name):
+            raise RuntimeError(
+                f"Portable state-bank model fingerprint mismatch for {name}: "
+                f"artifact={upstream_model.get(name)!r}, local={local_model.get(name)!r}"
+            )
 
 
 def _get_state_bank(
@@ -542,7 +916,7 @@ def _empty_bank(pair_trials: pd.DataFrame) -> PairEpisodeStateBank:
     )
 
 
-def _build_context(cfg: Fig2Config) -> ExperimentContext:
+def _build_context(cfg: Fig2Config, *, load_model: bool = True) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
     seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
     dirs = legacy._prepare_dirs(seed_dir)
@@ -551,7 +925,10 @@ def _build_context(cfg: Fig2Config) -> ExperimentContext:
     class_index = build_class_index(dataset, NUM_CLASSES)
     max_duration = max(cfg.sample_ms, cfg.second_item_ms, cfg.weak_probe_ms, 100)
     warnings: list[str] = []
-    if Path(cfg.model_path).exists():
+    if not load_model:
+        net = None
+        encoder = None
+    elif Path(cfg.model_path).exists():
         net, encoder = load_model_and_encoder(cfg.model_path, device=device, dt=cfg.dt, max_duration_ms=max_duration)
     elif cfg.smoke:
         seed_everything(int(cfg.network_seed))
@@ -580,7 +957,10 @@ def _build_context(cfg: Fig2Config) -> ExperimentContext:
         warnings=warnings,
         output_files={},
         completed_modules={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[
+            f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke} "
+            f"model_loaded={bool(load_model)}"
+        ],
     )
 
 
@@ -647,6 +1027,8 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
     checks = {
         "pair_trial_specs": [ctx.trial_specs_dir / "pair_trials.csv", ctx.trial_specs_dir / "pair_candidate_pool.csv"],
         "state_bank": [ctx.raw_dir / "state_bank_l3.npz", ctx.raw_dir / "state_bank_manifest.csv"],
+        "crossfit_split_specs": [ctx.trial_specs_dir / "crossfit_split_specs.csv"],
+        "crossfit_null_specs": [ctx.trial_specs_dir / "crossfit_null_specs.csv"],
         "morphology": [
             ctx.metrics_dir / "panel_b_dual_retention_metrics.csv",
             ctx.metrics_dir / "panel_c_pair_specificity_metrics.csv",
@@ -655,6 +1037,17 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
         "linear_mixture": [
             ctx.metrics_dir / "panel_d_linear_mixture_fit_metrics.csv",
             ctx.metrics_dir / "panel_d_linear_residual_pair_specificity_metrics.csv",
+        ],
+        "crossfit_interaction": [
+            ctx.metrics_dir / "panel_d_crossfit_interaction_network_metrics.csv",
+            ctx.metrics_dir / "panel_d_crossfit_interaction_fold_metrics.csv",
+            ctx.metrics_dir / "panel_d_crossfit_interaction_pair_metrics.csv",
+            ctx.metrics_dir / "supp_crossfit_interaction_coefficients.csv",
+            ctx.metrics_dir / "panel_d_crossfit_interaction_analysis_spec.json",
+        ],
+        "crossfit_null_calibration": [
+            ctx.metrics_dir / "supp_crossfit_null_network_metrics.csv",
+            ctx.metrics_dir / "supp_crossfit_null_analysis_spec.json",
         ],
         "neutral_ping": [ctx.raw_dir / "panel_e_neutral_ping_trial_readout.csv", ctx.metrics_dir / "panel_e_neutral_ping_metrics.csv"],
         "partial_cue": [ctx.raw_dir / "panel_f_partial_cue_trial_readout.csv", ctx.metrics_dir / "panel_f_partial_cue_metrics.csv"],
@@ -732,6 +1125,71 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         completion_delay_sweep_ms = completion_delay_sweep_ms[:2]
         completion_delay_repeats = 1
     delay_grid = tuple(int(v) for v in str(args.delay_layer_grid).split(",") if str(v).strip())
+    crossfit_layers = tuple(str(v).strip() for v in str(args.crossfit_layers).split(",") if str(v).strip())
+    crossfit_state_variables = tuple(
+        str(v).strip() for v in str(args.crossfit_state_variables).split(",") if str(v).strip()
+    )
+    fixed_b_prefix_depths = tuple(
+        int(v) for v in str(args.fixed_b_prefix_depths).split(",") if str(v).strip()
+    )
+    fixed_b_ridge_alphas = tuple(
+        float(v) for v in str(args.fixed_b_ridge_alphas).split(",") if str(v).strip()
+    )
+    fixed_b_crossfit_axes = tuple(
+        str(value).strip()
+        for value in str(args.fixed_b_crossfit_axes).split(",")
+        if str(value).strip()
+    )
+    invalid_fixed_b_axes = sorted(
+        set(fixed_b_crossfit_axes) - set(CROSSFIT_AXES)
+    )
+    if not fixed_b_crossfit_axes or invalid_fixed_b_axes:
+        raise ValueError(
+            f"Unsupported fixed-B crossfit axes: {invalid_fixed_b_axes}"
+        )
+    fixed_b_b_fold_mode = str(args.fixed_b_b_fold_mode)
+    if not fixed_b_prefix_depths or not fixed_b_ridge_alphas:
+        raise ValueError("fixed-B prefix depths and ridge alphas cannot be empty")
+    fixed_b_history_families = int(args.fixed_b_history_families)
+    fixed_b_candidate_families = int(args.fixed_b_candidate_families)
+    fixed_b_anchors = int(args.fixed_b_anchors)
+    fixed_b_folds = int(args.fixed_b_folds)
+    fixed_b_item_ms = int(args.fixed_b_item_ms)
+    fixed_b_inter_delay_ms = int(args.fixed_b_inter_delay_ms)
+    fixed_b_stimulus_ms = int(args.fixed_b_stimulus_ms)
+    fixed_b_post_ms = int(args.fixed_b_post_ms)
+    fixed_b_target_components = int(args.fixed_b_target_components)
+    fixed_b_null_replicates = int(args.fixed_b_null_replicates)
+    fixed_b_source_match_max_smd = float(args.fixed_b_source_match_max_smd)
+    fixed_b_protocol_dir = (
+        str(_resolve_repo_path(args.fixed_b_protocol_dir))
+        if args.fixed_b_protocol_dir
+        else ""
+    )
+    fixed_b_task_state_path = (
+        str(_resolve_repo_path(args.fixed_b_task_state))
+        if args.fixed_b_task_state
+        else ""
+    )
+    if smoke:
+        fixed_b_history_families = 2
+        fixed_b_candidate_families = 20
+        fixed_b_anchors = (
+            20
+            if fixed_b_b_fold_mode == "stratified_within_class"
+            else 2
+        )
+        fixed_b_prefix_depths = (1, 2)
+        fixed_b_folds = 2
+        fixed_b_item_ms = 20
+        fixed_b_inter_delay_ms = 20
+        fixed_b_stimulus_ms = 20
+        fixed_b_post_ms = 20
+        fixed_b_target_components = min(fixed_b_target_components, 8)
+        fixed_b_null_replicates = min(fixed_b_null_replicates, 3)
+        fixed_b_source_match_max_smd = max(fixed_b_source_match_max_smd, 100.0)
+    if not crossfit_layers or not crossfit_state_variables:
+        raise ValueError("Crossfit analysis requires at least one layer and one state variable")
     task = str(args.task)
     run_all = task == TASK_ALL
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
@@ -768,9 +1226,17 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         n_shuffle=4 if smoke else int(args.n_shuffle),
         delay_layer_grid=delay_grid[:2] if smoke else delay_grid,
         linear_mixture_cv_folds=2 if smoke else int(args.linear_mixture_cv_folds),
+        crossfit_folds=2 if smoke else int(args.crossfit_folds),
+        crossfit_layers=crossfit_layers,
+        crossfit_state_variables=crossfit_state_variables,
+        crossfit_null_replicates=2 if smoke else int(args.crossfit_null_replicates),
+        crossfit_null_feature_count=64 if smoke else int(args.crossfit_null_feature_count),
+        crossfit_null_noise_scale_ratio=float(args.crossfit_null_noise_scale_ratio),
         run_state_bank=run_all or task == TASK_STATE_BANK,
         run_morphology=run_all or task == TASK_MORPHOLOGY,
         run_linear_mixture=run_all or task == TASK_LINEAR_MIXTURE,
+        run_crossfit_interaction=run_all or task == TASK_CROSSFIT_INTERACTION,
+        run_crossfit_null_calibration=run_all or task == TASK_CROSSFIT_NULL_CALIBRATION,
         run_neutral_ping=run_all or task == TASK_NEUTRAL_PING,
         run_partial_cue=run_all or task == TASK_PARTIAL_CUE,
         run_supplement=run_all or task == TASK_SUPPLEMENT,
@@ -788,6 +1254,27 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         use_encode_cache=not bool(args.no_encode_cache),
         enable_partial_cue_batch=bool(args.enable_partial_cue_batch),
         functional_readout_batch_size=max(1, int(args.functional_readout_batch_size)),
+        fixed_b_protocol_seed=int(args.fixed_b_protocol_seed),
+        fixed_b_candidate_families=fixed_b_candidate_families,
+        fixed_b_history_families=fixed_b_history_families,
+        fixed_b_anchors=fixed_b_anchors,
+        fixed_b_prefix_depths=fixed_b_prefix_depths,
+        fixed_b_item_ms=fixed_b_item_ms,
+        fixed_b_inter_delay_ms=fixed_b_inter_delay_ms,
+        fixed_b_stimulus_ms=fixed_b_stimulus_ms,
+        fixed_b_post_ms=fixed_b_post_ms,
+        fixed_b_folds=fixed_b_folds,
+        fixed_b_early_window_ms=int(args.fixed_b_early_window_ms),
+        fixed_b_trace_window_ms=int(args.fixed_b_trace_window_ms),
+        fixed_b_ridge_alphas=fixed_b_ridge_alphas,
+        fixed_b_target_components=fixed_b_target_components,
+        fixed_b_b_fold_mode=fixed_b_b_fold_mode,
+        fixed_b_crossfit_axes=fixed_b_crossfit_axes,
+        fixed_b_diagnostic_alpha=float(args.fixed_b_diagnostic_alpha),
+        fixed_b_null_replicates=fixed_b_null_replicates,
+        fixed_b_source_match_max_smd=fixed_b_source_match_max_smd,
+        fixed_b_protocol_dir=fixed_b_protocol_dir,
+        fixed_b_task_state_path=fixed_b_task_state_path,
         smoke=smoke,
     )
 
@@ -839,11 +1326,42 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--n-shuffle", type=int, default=50)
     parser.add_argument("--delay-layer-grid", default="200,400,800")
     parser.add_argument("--linear-mixture-cv-folds", type=int, default=5)
+    parser.add_argument("--crossfit-folds", type=int, default=5)
+    parser.add_argument("--crossfit-layers", default="layer3")
+    parser.add_argument("--crossfit-state-variables", default="g")
+    parser.add_argument("--crossfit-null-replicates", type=int, default=100)
+    parser.add_argument("--crossfit-null-feature-count", type=int, default=1024)
+    parser.add_argument("--crossfit-null-noise-scale-ratio", type=float, default=1.0)
     parser.add_argument("--completion-delay-sweep-ms", default="100,200,300,400,800,1200")
     parser.add_argument("--completion-delay-keep-prob", type=float, default=0.2)
     parser.add_argument("--completion-delay-repeats", type=int, default=5)
     parser.add_argument("--save-functional-traces", action="store_true")
     parser.add_argument("--save-proxy-functional-debug", action="store_true")
+    parser.add_argument("--fixed-b-protocol-seed", type=int, default=20260724)
+    parser.add_argument("--fixed-b-candidate-families", type=int, default=50)
+    parser.add_argument("--fixed-b-history-families", type=int, default=10)
+    parser.add_argument("--fixed-b-protocol-dir", default=None)
+    parser.add_argument("--fixed-b-task-state", default=None)
+    parser.add_argument("--fixed-b-anchors", type=int, default=50)
+    parser.add_argument("--fixed-b-prefix-depths", default="1,5")
+    parser.add_argument("--fixed-b-item-ms", type=int, default=200)
+    parser.add_argument("--fixed-b-inter-delay-ms", type=int, default=200)
+    parser.add_argument("--fixed-b-stimulus-ms", type=int, default=200)
+    parser.add_argument("--fixed-b-post-ms", type=int, default=200)
+    parser.add_argument("--fixed-b-folds", type=int, default=5)
+    parser.add_argument("--fixed-b-early-window-ms", type=int, default=20)
+    parser.add_argument("--fixed-b-trace-window-ms", type=int, default=200)
+    parser.add_argument("--fixed-b-ridge-alphas", default="0.1,1.0,10.0")
+    parser.add_argument("--fixed-b-target-components", type=int, default=32)
+    parser.add_argument(
+        "--fixed-b-b-fold-mode",
+        default="stratified_within_class",
+        choices=B_FOLD_MODES,
+    )
+    parser.add_argument("--fixed-b-crossfit-axes", default="both")
+    parser.add_argument("--fixed-b-diagnostic-alpha", type=float, default=10.0)
+    parser.add_argument("--fixed-b-null-replicates", type=int, default=19)
+    parser.add_argument("--fixed-b-source-match-max-smd", type=float, default=0.10)
     return parser.parse_args(list(argv) if argv is not None else None)
 
 

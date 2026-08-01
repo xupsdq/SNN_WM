@@ -2,7 +2,7 @@ figure_id: supp_fig_s3
 implementation_id: fig3_supp
 figure_title_draft: "Supplementary Fig. S3: Multi-item compactness, serial structure and boundaries"
 experiment_root_default: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape
-canvas_mm: {width: 165, height: 174}
+canvas_mm: {width: 165, height: 152}
 individual_axes: {left: 0.25, right: 0.97, bottom: 0.35, top: 0.88}
 reading_order: [A, B, C, D, E, F]
 expected_outputs:
@@ -25,122 +25,264 @@ qc_requirements:
   require_size_mm: true
   forbid_single_network: true
   forbid_fallback: true
-group_labels:
-  - {label: "Supplementary Fig. S3 - Multi-item compactness, serial structure and boundaries", x_mm: 12, y_mm: 7, fontsize: 7.4}
+group_labels: []
+analysis_summary: "Displayed summaries and intervals are read exactly from six frozen multi-network statistic payloads; the plot-only build performs no aggregation or inference."
 panels:
   A:
     panel_id: A
     claim: Saturating morphology fits reduce error relative to linear growth within each network.
-    panel_type: seed_fit_comparison
+    panel_type: frozen_fit_comparison
     producer_task: morphology_decomposition
-    data_adapter: part2_fit_comparison_adapter
-    renderer: render_part2_fit_comparison
-    source: data/metrics/supp_s3a_morphology_fit_comparison.csv
-    curve_source: data/metrics/supp_s3a_morphology_fit_curve_points.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_fit_comparison
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3a_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3a_stats.json
+      sha256: ea2e8c11cd2085e2d9c176e0bd97cbef282cd7a5c93a4b079d4aa074e33671d8
+      rows: 4
+      identity_fields: [metric]
+      network_summary_identity_order: [[linear_sse], [saturating_sse], [linear_minus_saturating_sse], [saturating_asymptote]]
+      summary_identity_order: [[linear_minus_saturating_sse], [linear_sse], [saturating_asymptote], [saturating_sse]]
+      display_identity_order: [[linear_sse], [saturating_sse]]
     source_mapping: {canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape, producer_task: morphology_decomposition}
-    position_mm: {x: 12, y: 20, w: 70, h: 34}
-    axes_mm: {x: 22, y: 22, w: 60, h: 28}
-    letter_mm: {x: 7, y: 15}
-    size_mm: {w: 70, h: 34}
-    x_axis: Fit comparison
-    y_axis: Linear - saturating SSE
+    position_mm: {x: 6, y: 6, w: 74, h: 42.666667}
+    axes_mm: {x: 18, y: 13, w: 60, h: 31.5}
+    letter_mm: {x: 2.5, y: 3}
+    size_mm: {w: 74, h: 42.666667}
+    x_axis: Fit model
+    y_axis: Fit SSE
     expected_networks: 20
   B:
     panel_id: B
     legacy_panel_id: fig3_supp:S4C
     claim: Observed peak-valley structure exceeds its sequence-level null after network-first aggregation.
-    panel_type: observed_null_summary
+    panel_type: frozen_observed_null_summary
     producer_task: peak_valley_landscape
-    data_adapter: part2_peak_valley_null_network_adapter
-    renderer: render_s5_peak_valley_null
-    source: data/metrics/supp_network_peak_valley_summary.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_peak_valley_null
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3b_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3b_stats.json
+      sha256: f1e23c73bb228d89b4f8f2e0a3e8872227e40ebef02c518303610f441ae8eee6
+      rows: 3
+      identity_fields: [metric]
+      network_summary_identity_order: [[observed_peak_valley_delta], [null_peak_valley_delta_p95], [is_structured]]
+      summary_identity_order: [[is_structured], [null_peak_valley_delta_p95], [observed_peak_valley_delta]]
+      display_identity_order: [[observed_peak_valley_delta], [null_peak_valley_delta_p95], [is_structured]]
     source_mapping: {canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape, producer_task: peak_valley_landscape}
-    position_mm: {x: 88, y: 20, w: 70, h: 34}
-    axes_mm: {x: 101, y: 22, w: 58, h: 28}
-    letter_mm: {x: 83, y: 15}
-    size_mm: {w: 70, h: 34}
-    aggregation: sequence_condition_to_network
+    position_mm: {x: 85, y: 6, w: 74, h: 42.666667}
+    axes_mm: {x: 97, y: 13, w: 60, h: 31.5}
+    letter_mm: {x: 81.5, y: 3}
+    size_mm: {w: 74, h: 42.666667}
+    aggregation: frozen_upstream_only
     inference_unit: independently trained network
-    x_axis: Observed / null / structured
-    y_axis: Network-level value
+    x_axis: Reference / structured fraction
+    y_axis: Separate fixed scales
     expected_networks: 20
   C:
     panel_id: C
     claim: At K=10 and 400 ms, the compressed L1 scaffold retains serial structure rather than only the latest item.
-    panel_type: morphology_serial_profile
+    panel_type: frozen_morphology_serial_profile
     producer_task: morphology_decomposition
-    data_adapter: part2_morphology_serial_adapter
-    renderer: render_fig3_morphology_serial_profile
-    source: data/metrics/panel_b_morphology_serial_profile.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_morphology_serial_profile
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3c_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3c_stats.json
+      sha256: 25f5037baa5b40e37f377ab55d02268c0f9626d4324b8fec5c280d4ecd6171eb
+      rows: 10
+      identity_fields: [serial_position]
+      network_summary_identity_order: [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+      summary_identity_order: [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+      display_identity_order: [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
     source_mapping: {source_package: fig3_morphology_serial_supp, source_panel: A, canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape}
-    position_mm: {x: 12, y: 72, w: 70, h: 34}
-    axes_mm: {x: 22, y: 75, w: 60, h: 28}
-    letter_mm: {x: 7, y: 67}
-    size_mm: {w: 70, h: 34}
+    position_mm: {x: 6, y: 54.666667, w: 74, h: 42.666666}
+    axes_mm: {x: 18, y: 61.666667, w: 60, h: 31.5}
+    letter_mm: {x: 2.5, y: 51.666667}
+    size_mm: {w: 74, h: 42.666666}
     focus_seq_len: 10
     focus_delay_ms: 400
     morphology_layer: layer1
     state_variable: g
     x_axis: Serial position
-    y_axis: L1 STSP support
+    y_axis: Layer 1 STSP support mass (proportion)
     expected_networks: 20
   D:
     panel_id: D
     legacy_panel_id: fig3_supp:S4E
     claim: Neutral ping reads out recent and earlier serial classes as well as the latest class.
-    panel_type: ping_recency_decomposition
+    panel_type: frozen_ping_recency_decomposition
     producer_task: neutral_ping_access
-    data_adapter: part2_existing_network_panel_adapter
-    renderer: render_s5_ping_recency_decomposition
-    source: data/metrics/panel_c_neutral_ping_position_distribution.csv
-    summary_source: data/metrics/panel_c_neutral_ping_access_summary.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_ping_recency
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3d_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3d_stats.json
+      sha256: 16dd943aa03e3bd23e83c66e7b1783e7701fd5b9779513123de001080790f29b
+      rows: 4
+      identity_fields: [condition, metric, readout_class]
+      network_summary_identity_order: [[latest, readout_mass, latest], [recent, readout_mass, recent], [earlier, readout_mass, earlier], [silent, readout_mass, silent]]
+      summary_identity_order: [[earlier, readout_mass, earlier], [latest, readout_mass, latest], [recent, readout_mass, recent], [silent, readout_mass, silent]]
+      display_identity_order: [[latest, readout_mass, latest], [recent, readout_mass, recent], [earlier, readout_mass, earlier], [silent, readout_mass, silent]]
     source_mapping: {canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape, producer_task: neutral_ping_access}
     state_condition: S_final
-    aggregation: sequence_condition_to_network
+    aggregation: frozen_upstream_only
     inference_unit: independently trained network
-    position_mm: {x: 88, y: 72, w: 70, h: 34}
-    axes_mm: {x: 101, y: 75, w: 58, h: 28}
-    letter_mm: {x: 83, y: 67}
-    size_mm: {w: 70, h: 34}
+    position_mm: {x: 85, y: 54.666667, w: 74, h: 42.666666}
+    axes_mm: {x: 97, y: 61.666667, w: 60, h: 31.5}
+    letter_mm: {x: 81.5, y: 51.666667}
+    size_mm: {w: 74, h: 42.666666}
     x_axis: Readout class
-    y_axis: Readout mass
+    y_axis: Readout mass (proportion)
     expected_networks: 20
   E:
     panel_id: E
     legacy_panel_id: fig3_supp:S4F
     claim: Partial cues recover targets across serial-position bins from the sequence state.
-    panel_type: weak_probe_recency_gain
+    panel_type: frozen_weak_probe_recency_gain
     producer_task: weak_cue_access
-    data_adapter: part2_existing_network_panel_adapter
-    renderer: render_s5_weak_probe_recency_gain
-    source: data/metrics/panel_d_weak_cue_item_metrics.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_weak_probe_recency
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3e_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3e_stats.json
+      sha256: f9b1c01327085611863460a8108764e1d48df5de729dde7f26db24e33c0a3200
+      rows: 4
+      identity_fields: [condition, metric, target_position_bin]
+      network_summary_identity_order: [[early, target_recovery_gain, early], [latest, target_recovery_gain, latest], [middle, target_recovery_gain, middle], [recent, target_recovery_gain, recent]]
+      summary_identity_order: [[early, target_recovery_gain, early], [latest, target_recovery_gain, latest], [middle, target_recovery_gain, middle], [recent, target_recovery_gain, recent]]
+      display_identity_order: [[early, target_recovery_gain, early], [middle, target_recovery_gain, middle], [recent, target_recovery_gain, recent], [latest, target_recovery_gain, latest]]
     source_mapping: {canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape, producer_task: weak_cue_access}
     contrast: sequence_state_minus_single_item_memory
-    aggregation: trial_weighted_rows_to_network
+    aggregation: frozen_upstream_only
     inference_unit: independently trained network
-    position_mm: {x: 12, y: 124, w: 70, h: 34}
-    axes_mm: {x: 22, y: 127, w: 60, h: 28}
-    letter_mm: {x: 7, y: 119}
-    size_mm: {w: 70, h: 34}
+    position_mm: {x: 6, y: 103.333333, w: 74, h: 42.666667}
+    axes_mm: {x: 18, y: 110.333333, w: 60, h: 31.5}
+    letter_mm: {x: 2.5, y: 100.333333}
+    size_mm: {w: 74, h: 42.666667}
     x_axis: Target position bin
     y_axis: Recovery gain (pp)
     expected_networks: 20
   F:
     panel_id: F
     claim: Morphology retention and sequence-state rescue show aligned sequence-length by delay boundaries.
-    panel_type: paired_boundary_heatmaps
+    panel_type: frozen_paired_boundary_heatmaps
     producer_task: boundary_summary
-    data_adapter: part2_boundary_pair_adapter
-    renderer: render_part2_boundary_pair
-    source: data/metrics/panel_f_boundary_summary.csv
+    data_adapter: part2_frozen_statistics_adapter
+    renderer: render_s3_frozen_boundary_pair
+    source: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3f_stats.json
+    frozen_statistics:
+      path: results/paper_figures/outputs/supplementary_part2/supp_fig_s3/stats/supp_fig_s3f_stats.json
+      sha256: 755de174e52760313c877edad52a0b4bb56921a1d6a79074e2af260378d87d0d
+      rows: 32
+      identity_fields: [delay_ms, metric, seq_len]
+      network_summary_identity_order:
+        - [100, N_eff_fraction, 10]
+        - [100, rescued_fraction, 10]
+        - [200, N_eff_fraction, 10]
+        - [200, rescued_fraction, 10]
+        - [400, N_eff_fraction, 10]
+        - [400, rescued_fraction, 10]
+        - [800, N_eff_fraction, 10]
+        - [800, rescued_fraction, 10]
+        - [100, N_eff_fraction, 3]
+        - [100, rescued_fraction, 3]
+        - [200, N_eff_fraction, 3]
+        - [200, rescued_fraction, 3]
+        - [400, N_eff_fraction, 3]
+        - [400, rescued_fraction, 3]
+        - [800, N_eff_fraction, 3]
+        - [800, rescued_fraction, 3]
+        - [100, N_eff_fraction, 5]
+        - [100, rescued_fraction, 5]
+        - [200, N_eff_fraction, 5]
+        - [200, rescued_fraction, 5]
+        - [400, N_eff_fraction, 5]
+        - [400, rescued_fraction, 5]
+        - [800, N_eff_fraction, 5]
+        - [800, rescued_fraction, 5]
+        - [100, N_eff_fraction, 7]
+        - [100, rescued_fraction, 7]
+        - [200, N_eff_fraction, 7]
+        - [200, rescued_fraction, 7]
+        - [400, N_eff_fraction, 7]
+        - [400, rescued_fraction, 7]
+        - [800, N_eff_fraction, 7]
+        - [800, rescued_fraction, 7]
+      summary_identity_order:
+        - [100, N_eff_fraction, 3]
+        - [200, N_eff_fraction, 3]
+        - [400, N_eff_fraction, 3]
+        - [800, N_eff_fraction, 3]
+        - [100, N_eff_fraction, 5]
+        - [200, N_eff_fraction, 5]
+        - [400, N_eff_fraction, 5]
+        - [800, N_eff_fraction, 5]
+        - [100, N_eff_fraction, 7]
+        - [200, N_eff_fraction, 7]
+        - [400, N_eff_fraction, 7]
+        - [800, N_eff_fraction, 7]
+        - [100, N_eff_fraction, 10]
+        - [200, N_eff_fraction, 10]
+        - [400, N_eff_fraction, 10]
+        - [800, N_eff_fraction, 10]
+        - [100, rescued_fraction, 3]
+        - [200, rescued_fraction, 3]
+        - [400, rescued_fraction, 3]
+        - [800, rescued_fraction, 3]
+        - [100, rescued_fraction, 5]
+        - [200, rescued_fraction, 5]
+        - [400, rescued_fraction, 5]
+        - [800, rescued_fraction, 5]
+        - [100, rescued_fraction, 7]
+        - [200, rescued_fraction, 7]
+        - [400, rescued_fraction, 7]
+        - [800, rescued_fraction, 7]
+        - [100, rescued_fraction, 10]
+        - [200, rescued_fraction, 10]
+        - [400, rescued_fraction, 10]
+        - [800, rescued_fraction, 10]
+      display_identity_order:
+        - [100, N_eff_fraction, 3]
+        - [100, N_eff_fraction, 5]
+        - [100, N_eff_fraction, 7]
+        - [100, N_eff_fraction, 10]
+        - [200, N_eff_fraction, 3]
+        - [200, N_eff_fraction, 5]
+        - [200, N_eff_fraction, 7]
+        - [200, N_eff_fraction, 10]
+        - [400, N_eff_fraction, 3]
+        - [400, N_eff_fraction, 5]
+        - [400, N_eff_fraction, 7]
+        - [400, N_eff_fraction, 10]
+        - [800, N_eff_fraction, 3]
+        - [800, N_eff_fraction, 5]
+        - [800, N_eff_fraction, 7]
+        - [800, N_eff_fraction, 10]
+        - [100, rescued_fraction, 3]
+        - [100, rescued_fraction, 5]
+        - [100, rescued_fraction, 7]
+        - [100, rescued_fraction, 10]
+        - [200, rescued_fraction, 3]
+        - [200, rescued_fraction, 5]
+        - [200, rescued_fraction, 7]
+        - [200, rescued_fraction, 10]
+        - [400, rescued_fraction, 3]
+        - [400, rescued_fraction, 5]
+        - [400, rescued_fraction, 7]
+        - [400, rescued_fraction, 10]
+        - [800, rescued_fraction, 3]
+        - [800, rescued_fraction, 5]
+        - [800, rescued_fraction, 7]
+        - [800, rescued_fraction, 10]
     source_mapping: {source_package: fig3_delay_supp, source_panels: [A, B], canonical_root: results/paper_figure_multi_seed/fig3_multiitem_peak_landscape}
-    position_mm: {x: 88, y: 124, w: 70, h: 34}
-    axes_mm: {x: 101, y: 127, w: 58, h: 28}
-    letter_mm: {x: 83, y: 119}
-    size_mm: {w: 70, h: 34}
+    position_mm: {x: 85, y: 103.333333, w: 74, h: 42.666667}
+    axes_mm: {x: 97, y: 110.333333, w: 60, h: 31.5}
+    letter_mm: {x: 81.5, y: 100.333333}
+    size_mm: {w: 74, h: 42.666667}
     metrics: [N_eff_fraction, rescued_fraction]
     expected_seq_lengths: [3, 5, 7, 10]
     expected_delay_ms: [100, 200, 400, 800]
-    x_axis: K
+    x_axis: Sequence length K
     y_axis: Delay (ms)
     expected_networks: 20

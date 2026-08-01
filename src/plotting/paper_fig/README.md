@@ -90,6 +90,11 @@ For Fig.1, expected outputs include:
 
 The spec is the source of truth. Do not hard-code manuscript panel decisions inside renderers.
 
+Before changing a multi-panel topology or panel dimensions, follow
+[`LAYOUT_CONTRACT.md`](LAYOUT_CONTRACT.md). Candidate specifications should
+declare a machine-checkable `layout_contract`; validate it before constructing
+axes with `src.plotting.paper_fig.layout_contract.validate_layout_contract()`.
+
 ## Adding A Panel
 
 Each panel spec should define:
@@ -140,6 +145,61 @@ Current supported skeleton renderer families include manual schematic slots, dot
 
 ## Style Policy
 
-Do not hard-code final colors, fonts, marker sizes, or line widths in this stage. The renderers accept a `style` parameter so a unified paper style system can be added later.
+Do not hard-code final colors in renderers. Paper figures obtain semantic
+colours from `src.plotting.common.colors`; renderer-local hexadecimal colour
+literals are rejected by `tests/test_paper_color_system.py`. The renderers
+continue to accept a `style` parameter for typography and mark sizing.
 
 All manuscript layout dimensions should be expressed in millimeters. Full figure export avoids tight bounding boxes so the requested canvas size is preserved.
+
+### Selected Okabe-Ito colour contract
+
+Nature's research-figure guide specifies accessible colour combinations,
+avoidance of red-green pairs and rainbow scales, high-contrast black or white
+text, figure-local keys/keylines, and RGB delivery. Nature does not prescribe
+a mandatory house palette. The project uses the user-selected Okabe-Ito
+candidate C, with fixed semantic roles and independent accessibility checks.
+
+The often-cited `ggsci` NPG palette is described by its own documentation as
+*inspired by* Nature Publishing Group plots. It is neither official nor the
+selected source for this project.
+
+| Role | Colour | Use |
+| --- | --- | --- |
+| Primary blue | `#0072B2` | principal result and middle-stage anchor |
+| Sky blue/pale blue | `#56B4E9`, `#B8DFF1` | early-stage identity, supporting outlines, and tints |
+| Bluish green/mint | `#009E73`, `#8DD2BE` | late-stage identity and STSP/overlap mechanism |
+| Vermillion/orange | `#D55E00`, `#E69F00` | explicit secondary comparator or alternative, including manipulations, shuffles, competing inputs, and contrasted transition paths |
+| Reddish purple | `#CC79A7` | fused-state identity, chiefly Fig.2 |
+| Neutral grays | `#666666` to `#F2F2F2` | baselines, nulls, controls, guides |
+| Ink | `#222222` | labels and text |
+
+Application rules:
+
+- A normal panel should use no more than three chromatic families; controls
+  are gray.
+- Dynamic/observed results remain blue, overlap/STSP support remains bluish
+  green, the explicit secondary comparator or alternative remains vermillion,
+  and fused-state identity remains reddish purple across main and
+  supplementary figures.
+- Ordered stages use one coordinated cool progression rather than unrelated
+  categorical roots or a single-hue depth ramp: early/old/layer 1 is sky blue,
+  middle/layer 2 is blue, and late/recent/layer 3 is bluish green. Their order
+  remains explicit in position and labels.
+- STSP mechanism presence is a separate axis: low/absent is gray and
+  high/present is bluish green. High STSP is never encoded as warning red.
+- Lightness ramps are reserved for genuinely continuous values within the same
+  quantity, such as a score, density, probability, or heat-map magnitude.
+- Large schematic fills use near-white tints and body text remains ink.
+- Quantitative fields use intact established maps (`Blues`, `cividis`,
+  `magma`); signed effects use `PuOr_r`. Colour bars remain mandatory.
+- Colour is not the only carrier for close comparisons: line style, marker
+  fill, direct labels, or a restrained hatch supplies redundancy.
+
+References: [Nature figure accessibility and export guide](https://research-figure-guide.nature.com/figures/building-and-exporting-figure-panels/),
+[Nature graph and RGB specifications](https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/),
+[Wong on colour blindness](https://www.nature.com/articles/nmeth.1618),
+[Crameri et al. on scientific colour maps](https://www.nature.com/articles/s41467-020-19160-7),
+[Paul Tol's colour schemes](https://sronpersonalpages.nl/~pault/),
+[Datawrapper's practical accessibility guide](https://www.datawrapper.de/blog/colorblindness-part2),
+and [the `ggsci` NPG palette description](https://search.r-project.org/CRAN/refmans/ggsci/html/pal_npg.html).

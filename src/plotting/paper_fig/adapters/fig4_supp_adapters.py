@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, summarize_values, write_adapter_outputs
+from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, panel_output_paths, summarize_values, write_adapter_outputs
 from src.plotting.paper_fig.adapters.fig4_adapters import (
     CONDITION_LABELS,
     DEFAULT_EXPERIMENT_ROOT,
@@ -30,94 +33,129 @@ PERTURBATION_KEEP = (
     "sample_random_matched_dynamic",
 )
 
+FROZEN_S4_NETWORK_IDS = tuple(str(seed) for seed in range(1000, 1020))
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _frozen_s4_path(repo_root: Path, frozen: Mapping[str, Any], key: str) -> Path:
+    raw = frozen.get(key)
+    if not raw:
+        raise RuntimeError(f"S4 persisted-input contract lacks {key!r}.")
+    path = Path(str(raw))
+    path = path if path.is_absolute() else repo_root / path
+    if not path.is_file():
+        raise RuntimeError(f"S4 persisted input is missing: {path}")
+    expected = str(frozen.get(f"{key}_sha256", "")).lower()
+    actual = _sha256(path)
+    if not expected or actual != expected:
+        raise RuntimeError(f"S4 persisted input hash mismatch for {path}: expected {expected or '<unset>'}, got {actual}.")
+    return path
+
+
+def _copy_frozen_s4_adapter_outputs(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
+    """Copy one already-persisted S4 plotting payload after strict identity checks.
+
+    This is intentionally a leaf adapter: it reads neither experiment/runtime
+    state nor per-seed metric tables, performs no aggregation, and has no
+    fallback path.  Any missing or changed persisted payload is a hard error.
+    """
+    figure_id, panel_id = _ids(spec)
+    frozen = spec.get("persisted_input")
+    if not isinstance(frozen, Mapping):
+        raise RuntimeError(f"{figure_id}{panel_id} lacks a persisted_input mapping.")
+
+    panel_path = _frozen_s4_path(repo_root, frozen, "panel_data")
+    stats_path = _frozen_s4_path(repo_root, frozen, "stats")
+    manifest_path = _frozen_s4_path(repo_root, frozen, "source_manifest")
+
+    panel_df = pd.read_csv(panel_path)
+    expected_rows = int(frozen.get("row_count", -1))
+    if len(panel_df) != expected_rows:
+        raise RuntimeError(f"{figure_id}{panel_id} row-count mismatch: expected {expected_rows}, got {len(panel_df)}.")
+    required = {"figure_id", "panel_id", "network_id", "seed_id", "value", "run_mode", "n_networks"}
+    missing = sorted(required.difference(panel_df.columns))
+    if missing:
+        raise RuntimeError(f"{figure_id}{panel_id} persisted panel data lacks columns {missing}.")
+    if set(panel_df["figure_id"].astype(str)) != {figure_id} or set(panel_df["panel_id"].astype(str)) != {panel_id}:
+        raise RuntimeError(f"{figure_id}{panel_id} row identity contains a foreign figure or panel id.")
+    network_ids = tuple(sorted(set(panel_df["network_id"].astype(str)), key=int))
+    seed_ids = tuple(sorted(set(panel_df["seed_id"].astype(str)), key=int))
+    if network_ids != FROZEN_S4_NETWORK_IDS or seed_ids != FROZEN_S4_NETWORK_IDS:
+        raise RuntimeError(f"{figure_id}{panel_id} network/seed identity differs from the frozen 1000-1019 set.")
+    if set(pd.to_numeric(panel_df["n_networks"], errors="raise").astype(int)) != {20}:
+        raise RuntimeError(f"{figure_id}{panel_id} does not declare exactly 20 networks on every row.")
+    if set(panel_df["run_mode"].astype(str)) != {"multi_network_final"}:
+        raise RuntimeError(f"{figure_id}{panel_id} is not a multi_network_final persisted payload.")
+
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    expected_source_count = int(frozen.get("source_count", -1))
+    manifest_network_ids = tuple(str(value) for value in manifest.get("network_ids", []))
+    if (
+        manifest.get("figure_id") != figure_id
+        or str(manifest.get("panel_id")) != panel_id
+        or manifest.get("status") != "ok"
+        or manifest.get("fallback_used") is not False
+        or manifest.get("run_mode") != "multi_network_final"
+        or int(manifest.get("n_networks", -1)) != 20
+        or manifest_network_ids != FROZEN_S4_NETWORK_IDS
+        or len(manifest.get("sources", [])) != expected_source_count
+        or len(manifest.get("source_files_used", [])) != expected_source_count
+        or manifest.get("warnings") not in ([], None)
+    ):
+        raise RuntimeError(f"{figure_id}{panel_id} source-manifest identity validation failed.")
+    if any(source.get("exists") is not True for source in manifest.get("sources", [])):
+        raise RuntimeError(f"{figure_id}{panel_id} source manifest contains a missing source.")
+
+    with stats_path.open("r", encoding="utf-8") as handle:
+        stats = json.load(handle)
+    stats_network_ids = tuple(str(value) for value in stats.get("network_ids", []))
+    if (
+        stats.get("figure_id") != figure_id
+        or str(stats.get("panel_id")) != panel_id
+        or int(stats.get("n_networks", -1)) != 20
+        or stats_network_ids != FROZEN_S4_NETWORK_IDS
+        or stats.get("run_mode") != "multi_network_final"
+        or stats.get("warnings") not in ([], None)
+    ):
+        raise RuntimeError(f"{figure_id}{panel_id} persisted stats identity validation failed.")
+    panel_values = pd.to_numeric(panel_df["value"], errors="coerce").dropna().to_numpy(dtype=float)
+    stats_values = np.asarray(stats.get("values_used_for_plotting", []), dtype=float)
+    if panel_values.shape != stats_values.shape or not np.array_equal(panel_values, stats_values, equal_nan=True):
+        raise RuntimeError(f"{figure_id}{panel_id} persisted stats values are not row-identical to panel data.")
+
+    destinations = panel_output_paths(output_dir, figure_id, panel_id)
+    for destination in destinations.values():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+    for source, destination in (
+        (panel_path, destinations["panel_data"]),
+        (stats_path, destinations["stats"]),
+        (manifest_path, destinations["sources"]),
+    ):
+        if source.resolve() != destination.resolve():
+            shutil.copyfile(source, destination)
+    return AdapterResult(
+        panel_data_path=destinations["panel_data"],
+        stats_manifest_path=destinations["stats"],
+        source_manifest_path=destinations["sources"],
+        source_manifest=manifest,
+        warnings=[],
+    )
+
 
 def build_s7_similarity_overlap_2x2_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    for seed_dir in seeds:
-        path = seed_dir / "data" / "metrics" / "supp_overlap_similarity_2x2.csv"
-        sources.append(_source(path, seed_dir))
-        if not path.exists():
-            warnings.append(f"{_display(path, repo_root)} missing.")
-            continue
-        df = pd.read_csv(path)
-        required = {"similarity_group", "overlap_group", "metric", "value"}
-        missing = sorted(required.difference(df.columns))
-        if missing:
-            warnings.append(f"{_display(path, repo_root)} lacks columns {missing}.")
-            continue
-        for _, r in df.iterrows():
-            similarity = str(r.get("similarity_group", ""))
-            overlap = str(r.get("overlap_group", ""))
-            metric = str(r.get("metric", ""))
-            rows.append(
-                _row(
-                    figure_id,
-                    panel_id,
-                    metric,
-                    f"{similarity}|{overlap}",
-                    _num(r.get("value")),
-                    "metric_value",
-                    seed_dir,
-                    path,
-                    repo_root,
-                    similarity_group=similarity,
-                    overlap_group=overlap,
-                    n_pairs=r.get("n_pairs", ""),
-                    similarity_order=0 if similarity.startswith("low") else 1,
-                    overlap_order=0 if overlap.startswith("low") else 1,
-                )
-            )
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, str(spec.get("plot_metric", "acc_drop")), ["metric", "similarity_group", "overlap_group"])
+    return _copy_frozen_s4_adapter_outputs(spec, repo_root, output_dir)
 
 
 def build_s7_overlap_excess_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    for seed_dir in seeds:
-        excess_path = seed_dir / "data" / "metrics" / "supp_overlap_excess_accuracy_metrics.csv"
-        matching_path = seed_dir / "data" / "metrics" / "supp_overlap_matching_diagnostics.csv"
-        sources.extend([_source(excess_path, seed_dir), _source(matching_path, seed_dir)])
-        if not excess_path.exists():
-            warnings.append(f"{_display(excess_path, repo_root)} missing.")
-            continue
-        df = pd.read_csv(excess_path)
-        required = {"iso_similarity_bin", "overlap_excess_group", "mean_acc_drop"}
-        missing = sorted(required.difference(df.columns))
-        if missing:
-            warnings.append(f"{_display(excess_path, repo_root)} lacks columns {missing}.")
-            continue
-        for _, r in df.iterrows():
-            group = str(r.get("overlap_excess_group", ""))
-            condition = "High overlap excess" if group.startswith("high") else "Low overlap excess"
-            for metric, unit in (("mean_acc_drop", "probability_delta"), ("drop_rate", "probability")):
-                if metric not in df.columns:
-                    continue
-                rows.append(
-                    _row(
-                        figure_id,
-                        panel_id,
-                        metric,
-                        condition,
-                        _num(r.get(metric)),
-                        unit,
-                        seed_dir,
-                        excess_path,
-                        repo_root,
-                        iso_similarity_bin=str(r.get("iso_similarity_bin", "")),
-                        iso_similarity_bin_order=_bin_order(r.get("iso_similarity_bin", "")),
-                        overlap_excess_group=group,
-                        mean_pixel_similarity=_num(r.get("mean_pixel_similarity")),
-                        mean_dice_overlap=_num(r.get("mean_dice_overlap")),
-                        mean_overlap_excess=_num(r.get("mean_overlap_excess")),
-                        n_pairs=r.get("n_pairs", ""),
-                    )
-                )
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, str(spec.get("plot_metric", "mean_acc_drop")), ["metric", "condition", "iso_similarity_bin"])
+    return _copy_frozen_s4_adapter_outputs(spec, repo_root, output_dir)
 
 
 def build_s7_similarity_full_trend_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -146,31 +184,7 @@ def build_s7_similarity_full_trend_adapter(spec: Mapping[str, Any], repo_root: P
 
 
 def build_s7_matching_diagnostics_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    metrics = ("similarity_difference", "sample_energy_rel_difference", "probe_energy_rel_difference", "dice_overlap_difference", "overlap_difference")
-    summary_metrics = ("mean_similarity_difference", "mean_sample_energy_rel_difference", "mean_probe_energy_rel_difference", "mean_overlap_difference")
-    for seed_dir in seeds:
-        candidates = [
-            seed_dir / "data" / "metrics" / "panel_d_matching_balance_diagnostics.csv",
-            seed_dir / "data" / "metrics" / "panel_d_iso_similarity_matched_pairs.csv",
-            seed_dir / "data" / "metrics" / "panel_c_overlap_matched_comparison.csv",
-        ]
-        sources.extend(_source(path, seed_dir) for path in candidates)
-        path = next((candidate for candidate in candidates if candidate.exists()), None)
-        if path is None:
-            warnings.append(f"Missing S5B matching diagnostic sources under {_display(seed_dir, repo_root)}.")
-            continue
-        df = pd.read_csv(path)
-        for _, r in df.iterrows():
-            for metric in metrics + summary_metrics:
-                if metric not in df.columns:
-                    continue
-                rows.append(_row(figure_id, panel_id, metric, metric.replace("mean_", ""), _num(r.get(metric)), "difference", seed_dir, path, repo_root, match_id=r.get("match_id", ""), n_matched_sets=r.get("n_matched_sets", "")))
-    result = _finish(spec, output_dir, root, seeds, rows, sources, warnings, "matching_diagnostics", ["metric"])
-    return result
+    return _copy_frozen_s4_adapter_outputs(spec, repo_root, output_dir)
 
 
 def build_s7_iso_similarity_matching_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
@@ -232,56 +246,7 @@ def build_s7_iso_similarity_matching_adapter(spec: Mapping[str, Any], repo_root:
 
 
 def build_s7_overlap_regression_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    figure_id, panel_id = _ids(spec)
-    root, seeds, warnings = _roots(spec, repo_root)
-    rows: list[dict[str, Any]] = []
-    sources: list[dict[str, Any]] = []
-    wanted = ("overlap", "similarity", "sample_energy", "probe_energy", "input_energy")
-    plotted_outcomes = set(map(str, spec.get("plotted_outcomes") or []))
-    for seed_dir in seeds:
-        candidates = [seed_dir / "data" / "metrics" / "supp_overlap_similarity_regression.csv", seed_dir / "data" / "metrics" / "panel_c_overlap_localization_metrics.csv"]
-        sources.extend(_source(path, seed_dir) for path in candidates)
-        path = next((candidate for candidate in candidates if candidate.exists()), None)
-        if path is None:
-            warnings.append(f"Missing overlap regression sources under {_display(seed_dir, repo_root)}.")
-            continue
-        df = pd.read_csv(path)
-        if "term" in df.columns:
-            for _, r in df.iterrows():
-                outcome = str(r.get("metric", r.get("outcome", "")))
-                if plotted_outcomes and outcome and outcome not in plotted_outcomes:
-                    continue
-                term = str(r.get("term", ""))
-                if not any(key in term.lower() for key in wanted):
-                    continue
-                value_col = _first_existing_col(df, ["estimate", "coef", "coefficient", "beta", "value"])
-                rows.append(_row(figure_id, panel_id, "regression_coefficient", _normalise_regression_term(term), _num(r.get(value_col)) if value_col else np.nan, "coefficient", seed_dir, path, repo_root, outcome_metric=outcome, se=_num(r.get("se", r.get("stderr", np.nan))), p_value=_num(r.get("p_value", r.get("p", np.nan)))))
-        else:
-            for _, r in df.iterrows():
-                outcome = str(r.get("metric", r.get("outcome", "")))
-                if plotted_outcomes and outcome and outcome not in plotted_outcomes:
-                    continue
-                for term in ("beta_overlap", "beta_similarity", "beta_input_energy", "beta_sample_energy", "beta_probe_energy"):
-                    if term not in df.columns:
-                        continue
-                    rows.append(
-                        _row(
-                            figure_id,
-                            panel_id,
-                            "regression_coefficient",
-                            _normalise_regression_term(term),
-                            _num(r.get(term)),
-                            "coefficient",
-                            seed_dir,
-                            path,
-                            repo_root,
-                            outcome_metric=outcome,
-                            r2=_num(r.get("r2")),
-                            n_pairs=r.get("n_pairs", ""),
-                            p_overlap=_num(r.get("p_overlap")),
-                        )
-                    )
-    return _finish(spec, output_dir, root, seeds, rows, sources, warnings, "regression_coefficient", ["outcome_metric", "condition"])
+    return _copy_frozen_s4_adapter_outputs(spec, repo_root, output_dir)
 
 
 def build_s7_random_nonoverlap_perturbation_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:

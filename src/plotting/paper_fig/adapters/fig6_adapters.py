@@ -600,6 +600,9 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
     checked_paths: list[Path] = []
     quantiles: list[float] = []
     thresholds: list[float] = []
+    expected_quantile = float(spec.get("stsp_group_quantile", 0.50))
+    expected_overlap_threshold = float(spec.get("overlap_threshold", 0.05))
+    expected_windows = set(int(value) for value in (spec.get("robustness_windows_ms") or [5, 10, 15, 20]))
     raw_recruitment_rows = 0
     raw_interaction_rows = 0
     metric_units = {
@@ -619,6 +622,18 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
             source_paths.append(recruitment_path)
             raw_recruitment_rows += int(len(recruitment_df))
             recruitment_df = recruitment_df.copy()
+            _require_fig6_constant(
+                recruitment_df,
+                "stsp_group_quantile",
+                expected_quantile,
+                recruitment_path,
+            )
+            _require_fig6_constant(
+                recruitment_df,
+                "overlap_threshold",
+                expected_overlap_threshold,
+                recruitment_path,
+            )
             if "network_seed" not in recruitment_df.columns:
                 recruitment_df["network_seed"] = _seed_id(seed_dir)
             if "early_window_ms" not in recruitment_df.columns:
@@ -698,6 +713,18 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
         source_paths.append(interaction_path)
         raw_interaction_rows += int(len(interaction_df))
         interaction_df = interaction_df.copy()
+        _require_fig6_constant(
+            interaction_df,
+            "stsp_group_quantile",
+            expected_quantile,
+            interaction_path,
+        )
+        _require_fig6_constant(
+            interaction_df,
+            "overlap_threshold",
+            expected_overlap_threshold,
+            interaction_path,
+        )
         if "network_seed" not in interaction_df.columns:
             interaction_df["network_seed"] = _seed_id(seed_dir)
         if "early_window_ms" not in interaction_df.columns:
@@ -724,6 +751,14 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
         for col in interaction_numeric_cols:
             interaction_df[col] = pd.to_numeric(interaction_df[col], errors="coerce")
         interaction_df = interaction_df.groupby(["network_seed", "early_window_ms"], dropna=False, as_index=False)[interaction_numeric_cols].mean()
+        found_windows = set(
+            pd.to_numeric(interaction_df["early_window_ms"], errors="coerce").dropna().astype(int)
+        )
+        if found_windows != expected_windows:
+            raise RuntimeError(
+                f"Fig.6E frozen-window mismatch in {interaction_path}: "
+                f"expected={sorted(expected_windows)}, found={sorted(found_windows)}"
+            )
         for _, r in interaction_df.iterrows():
             quantiles.append(_num(r.get("stsp_group_quantile")))
             thresholds.append(_num(r.get("overlap_threshold")))
@@ -767,6 +802,10 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
             "interaction_metric": "interaction_delta",
             "stsp_group_quantile": _first_finite(quantiles),
             "overlap_threshold": _first_finite(thresholds),
+            "frozen_protocol_id": str(spec.get("protocol_id", "")),
+            "expected_stsp_group_quantile": expected_quantile,
+            "expected_overlap_threshold": expected_overlap_threshold,
+            "expected_windows_ms": sorted(expected_windows),
             "adapter_performed_network_level_averaging": True,
             "raw_recruitment_rows_read_before_seed_grouping": raw_recruitment_rows,
             "raw_interaction_rows_read_before_seed_grouping": raw_interaction_rows,
@@ -778,6 +817,10 @@ def build_fig6_overlap_gated_stsp_recruitment_adapter(spec: Mapping[str, Any], r
             "interaction_metric": "interaction_delta",
             "stsp_group_quantile": _first_finite(quantiles),
             "overlap_threshold": _first_finite(thresholds),
+            "frozen_protocol_id": str(spec.get("protocol_id", "")),
+            "expected_stsp_group_quantile": expected_quantile,
+            "expected_overlap_threshold": expected_overlap_threshold,
+            "expected_windows_ms": sorted(expected_windows),
             "source_file_contract": [
                 "data/metrics/panel_e_overlap_gated_stsp_recruitment.csv",
                 "data/metrics/panel_e_overlap_gated_stsp_interaction.csv",
@@ -1485,6 +1528,25 @@ def _read_required_fig6_csv(path: Path, warnings: list[str], label: str) -> pd.D
         warnings.append(f"{label} missing required source: {path}")
         return None
     return _read_csv_with_warning(path, warnings, label)
+
+
+def _require_fig6_constant(
+    table: pd.DataFrame,
+    column: str,
+    expected: float,
+    source_path: Path,
+    *,
+    atol: float = 1e-12,
+) -> None:
+    if column not in table.columns:
+        raise RuntimeError(f"Fig.6 frozen protocol requires column {column!r}: {source_path}")
+    values = pd.to_numeric(table[column], errors="coerce").dropna().to_numpy(dtype=float)
+    if values.size == 0 or not np.allclose(values, float(expected), atol=atol, rtol=0.0):
+        unique = sorted(set(float(value) for value in values))
+        raise RuntimeError(
+            f"Fig.6 frozen protocol mismatch for {column} in {source_path}: "
+            f"expected={expected}, found={unique}"
+        )
 
 
 def _read_csv_with_warning(path: Path, warnings: list[str], label: str) -> pd.DataFrame | None:

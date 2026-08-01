@@ -313,7 +313,7 @@ def compute_score_shuffle_null_extension(ctx: ExperimentContext, bank: PeakAmpli
             baseline_count,
             dynamic_fired,
             baseline_fired,
-            stsp_group_quantile=float(ctx.cfg.stsp_group_quantile),
+            stsp_group_quantile=float(ctx.cfg.fig6e_stsp_group_quantile),
             overlap_threshold=float(ctx.cfg.overlap_threshold),
         )
         null_groups, null_lookup, null_threshold = _overlap_gated_group_metrics(
@@ -324,12 +324,12 @@ def compute_score_shuffle_null_extension(ctx: ExperimentContext, bank: PeakAmpli
             baseline_count,
             dynamic_fired,
             baseline_fired,
-            stsp_group_quantile=float(ctx.cfg.stsp_group_quantile),
+            stsp_group_quantile=float(ctx.cfg.fig6e_stsp_group_quantile),
             overlap_threshold=float(ctx.cfg.overlap_threshold),
         )
         _ = observed_groups, null_groups
-        observed_interaction = _overlap_gated_interaction_row(ctx, r, primary_window, float(ctx.cfg.stsp_group_quantile), float(observed_threshold), observed_lookup).get("interaction_delta", np.nan)
-        null_interaction = _overlap_gated_interaction_row(ctx, r, primary_window, float(ctx.cfg.stsp_group_quantile), float(null_threshold), null_lookup).get("interaction_delta", np.nan)
+        observed_interaction = _overlap_gated_interaction_row(ctx, r, primary_window, float(ctx.cfg.fig6e_stsp_group_quantile), float(observed_threshold), observed_lookup).get("interaction_delta", np.nan)
+        null_interaction = _overlap_gated_interaction_row(ctx, r, primary_window, float(ctx.cfg.fig6e_stsp_group_quantile), float(null_threshold), null_lookup).get("interaction_delta", np.nan)
         rows.append(_extension_row(ctx, "overlap_interaction", "E", observed_interaction, null_interaction, sequence_id=int(r.sequence_id), probe_id=int(r.probe_id)))
     _save_csv(ctx, pd.DataFrame(rows), ctx.metrics_dir / "supp_s11g_score_shuffle_null.csv")
     ctx.completed_modules["score_shuffle_null"] = True
@@ -341,7 +341,7 @@ def compute_overlap_threshold_sensitivity_extension(ctx: ExperimentContext, bank
     rows: list[dict[str, Any]] = []
     primary_window = int(ctx.cfg.primary_score_early_window_ms)
     primary_steps = _ms_to_steps(primary_window, ctx.cfg.dt)
-    q_values = (0.10, 0.20, 0.30)
+    q_values = (0.20, 0.30, 0.40, 0.50)
     threshold_values = (0.02, 0.05, 0.10)
     encode_cache: dict[tuple[Any, ...], Any] = {}
     for r in _progress(bank.probe_trials.itertuples(index=False), total=len(bank.probe_trials), desc="fig6 S11H threshold sweep", enabled=ctx.cfg.show_progress):

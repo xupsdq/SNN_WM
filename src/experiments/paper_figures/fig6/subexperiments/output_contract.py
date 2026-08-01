@@ -69,7 +69,8 @@ def _write_config_files(ctx: ExperimentContext) -> None:
             "score_excludes": ["connection_weights", "inhibition", "voltage", "threshold", "WTA", "final_label"],
             "primary_endpoint": "Layer 1 spatial spike recruitment / spike deflection",
             "global_ping": {"amp": float(cfg.global_ping_amp), "ms": int(cfg.global_ping_ms)},
-            "overlap_gated_stsp": {"stsp_group_quantile": float(cfg.stsp_group_quantile), "overlap_threshold": float(cfg.overlap_threshold)},
+            "overlap_gated_stsp": {"stsp_group_quantile": float(cfg.fig6e_stsp_group_quantile), "overlap_threshold": float(cfg.overlap_threshold)},
+            "high_stsp_ablation": {"stsp_group_quantile": float(cfg.stsp_group_quantile)},
         },
         ctx.config_dir / "entry_gated_stsp_score_spec.json",
     )
@@ -226,6 +227,8 @@ def _write_summary(ctx: ExperimentContext) -> dict[str, Any]:
             "entry_mask_mode": str(ctx.cfg.real_probe_entry_mode),
             "score_use_log_gain": bool(ctx.cfg.score_use_log_gain),
             "stsp_group_quantile": float(ctx.cfg.stsp_group_quantile),
+            "fig6e_stsp_group_quantile": float(ctx.cfg.fig6e_stsp_group_quantile),
+            "high_stsp_ablation_quantile": float(ctx.cfg.stsp_group_quantile),
             "overlap_threshold": float(ctx.cfg.overlap_threshold),
             "global_ping_amp": float(ctx.cfg.global_ping_amp),
             "global_ping_ms": int(ctx.cfg.global_ping_ms),

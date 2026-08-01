@@ -35,6 +35,7 @@ class Fig1Config:
     batch_size: int = 64
     dms_batch_size: int = 16
     dms_num_trials: int = 100
+    firing_bin_ms: int = 50
     delay_decode_backend: str = "torch_linear_probe"
     delay_decode_torch_ridge_lambda: float = 1.0
     run_baseline: bool = False

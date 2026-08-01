@@ -9,28 +9,28 @@ from matplotlib import cm
 from matplotlib.colors import Normalize, PowerNorm, TwoSlopeNorm
 from matplotlib.ticker import MaxNLocator
 
-from src.plotting.common.colors import get_plot_cmap, get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_cmap, get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 
 
-MAIN = "#0072B2"
-PEAK = "#D55E00"
-RANDOM = "#6A6A6A"
-VALLEY = "#0072B2"
+MAIN = get_plot_color("dynamic")
+PEAK = get_plot_color("peak_region")
+RANDOM = get_plot_color("random_control")
+VALLEY = get_plot_color("valley_region")
 GRID = "0.86"
 STATE_ORDER = ("S_final", "S0", "S0_ping_null")
 ACCESS_COLORS = {
-    "cue_only": "#8A8A8A",
-    "single_item_memory": "#E69F00",
-    "sequence_state": "#0072B2",
-    "singleton_access_fraction": "#E69F00",
-    "sequence_access_fraction": "#0072B2",
-    "rescued_fraction": "#009E73",
-    "morphology_N_eff": "#6A6A6A",
-    "single_item_access_count": "#E69F00",
-    "sequence_state_access_count": "#0072B2",
-    "rescued_count": "#009E73",
+    "cue_only": get_plot_color("cue_only"),
+    "single_item_memory": get_plot_color("single_item_memory"),
+    "sequence_state": get_plot_color("sequence_state"),
+    "singleton_access_fraction": get_plot_color("single_item_memory"),
+    "sequence_access_fraction": get_plot_color("sequence_state"),
+    "rescued_fraction": get_plot_color("rescued_state"),
+    "morphology_N_eff": get_plot_color("random_control"),
+    "single_item_access_count": get_plot_color("single_item_memory"),
+    "sequence_state_access_count": get_plot_color("sequence_state"),
+    "rescued_count": get_plot_color("rescued_state"),
 }
 ACCESS_LABELS = {
     "cue_only": "Cue only",
@@ -45,9 +45,9 @@ ACCESS_LABELS = {
     "rescued_count": "Rescued",
 }
 CUE_SPECIFICITY_COLORS = {
-    "matched": "#0072B2",
-    "mismatched": "#E69F00",
-    "unseen": "#8A8A8A",
+    "matched": get_plot_color("sequence_state"),
+    "mismatched": get_plot_color("second_item_reference"),
+    "unseen": get_plot_color("baseline_control"),
 }
 CUE_SPECIFICITY_LABELS = {
     "matched": "Matched",
@@ -104,6 +104,256 @@ def render_fig3_progressive_update(ax, panel_data: pd.DataFrame | None, stats: M
     ax.paper_fig_has_shaded_band = True
 
 
+def render_fig3_prefix_schematic(
+    ax,
+    panel_data: pd.DataFrame | None,
+    stats: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    style: Mapping[str, Any] | None = None,
+) -> None:
+    _ = panel_data, stats, spec, style
+    ax.set_axis_off()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    xs = (0.08, 0.20, 0.32, 0.46, 0.60)
+    labels = ("item 1", "item 2", "item 3", "...", "item K")
+    states = ("S1", "S2", "S3", "", "SK")
+    for index, (x, label, state) in enumerate(
+        zip(xs, labels, states)
+    ):
+        if label == "...":
+            ax.text(x, 0.63, "...", ha="center", va="center", fontsize=8)
+            continue
+        ax.add_patch(
+            plt.Rectangle(
+                (x - 0.026, 0.55),
+                0.052,
+                0.17,
+                facecolor=plt.cm.tab10(index / 8),
+                edgecolor="white",
+                linewidth=0.7,
+            )
+        )
+        ax.text(x, 0.49, label, ha="center", va="top", fontsize=5.8)
+        ax.text(x, 0.80, state, ha="center", va="bottom", fontsize=6.2)
+        if index < len(xs) - 1:
+            ax.annotate(
+                "",
+                xy=(xs[index + 1] - 0.04, 0.64),
+                xytext=(x + 0.034, 0.64),
+                arrowprops={
+                    "arrowstyle": "->",
+                    "linewidth": 0.7,
+                    "color": "0.35",
+                },
+            )
+    ax.annotate(
+        "",
+        xy=(0.75, 0.72),
+        xytext=(0.64, 0.66),
+        arrowprops={"arrowstyle": "->", "linewidth": 0.8, "color": MAIN},
+    )
+    ax.annotate(
+        "",
+        xy=(0.75, 0.36),
+        xytext=(0.64, 0.61),
+        arrowprops={
+            "arrowstyle": "->",
+            "linewidth": 0.8,
+            "color": COLOR_NEUTRAL,
+        },
+    )
+    ax.text(
+        0.77,
+        0.72,
+        "observed update",
+        ha="left",
+        va="center",
+        fontsize=6.2,
+        color=MAIN,
+    )
+    ax.text(
+        0.77,
+        0.36,
+        "matched passive decay",
+        ha="left",
+        va="center",
+        fontsize=6.2,
+        color=COLOR_NEUTRAL,
+    )
+    ax.text(
+        0.66,
+        0.18,
+        "same S(k-1), same elapsed time",
+        ha="center",
+        va="center",
+        fontsize=5.7,
+        color="0.3",
+    )
+    ax.paper_fig_plot_form = "fig3_prefix_counterfactual_schematic"
+
+
+def render_fig3_prefix_trajectory(
+    ax,
+    panel_data: pd.DataFrame | None,
+    stats: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    style: Mapping[str, Any] | None = None,
+) -> None:
+    _ = stats, style
+    frame = _clean(panel_data)
+    requested = spec.get("metrics_to_plot") or [spec.get("metric") or "N_eff"]
+    metrics = tuple(str(metric) for metric in requested)
+    if frame.empty or "stage_k" not in frame.columns:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    frame["stage_k"] = pd.to_numeric(frame["stage_k"], errors="coerce")
+    frame = frame.dropna(subset=["stage_k", "value"])
+    if frame.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    colors = {
+        "N_eff": MAIN,
+        "state_displacement": MAIN,
+        "natural_decay_displacement": COLOR_NEUTRAL,
+        "observed_minus_natural_decay": get_plot_color("peak_region"),
+        "recency_bias": get_plot_color("second_item_reference"),
+        "similarity_entropy": get_plot_color("random_control"),
+    }
+    labels = {
+        "N_eff": "Effective items",
+        "state_displacement": "Observed update",
+        "natural_decay_displacement": "Zero-input decay",
+        "observed_minus_natural_decay": "Observed - decay",
+        "recency_bias": "Recency bias",
+        "similarity_entropy": "Similarity entropy",
+    }
+    plotted = False
+    for metric in metrics:
+        use = frame.loc[frame["metric"].astype(str).eq(metric)].copy()
+        summary = _summary(use, "stage_k", "value")
+        if summary.empty:
+            continue
+        color = colors.get(metric, MAIN)
+        ax.fill_between(
+            summary["x"],
+            summary["mean"] - summary["sem"],
+            summary["mean"] + summary["sem"],
+            color=color,
+            alpha=0.16,
+            linewidth=0,
+        )
+        ax.plot(
+            summary["x"],
+            summary["mean"],
+            color=color,
+            linewidth=1.35,
+            marker="o",
+            markersize=2.6,
+            label=labels.get(metric, metric),
+        )
+        plotted = True
+    if not plotted:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    stages = pd.to_numeric(frame["stage_k"], errors="coerce").dropna()
+    xmin = float(stages.min())
+    xmax = float(stages.max())
+    if metrics == ("N_eff",):
+        ax.plot(
+            [xmin, xmax],
+            [xmin, xmax],
+            color="0.65",
+            linewidth=0.75,
+            linestyle="--",
+            label="Independent-item bound",
+        )
+    if "recency_bias" in metrics:
+        ax.axhline(0.0, color="0.70", linewidth=0.7, linestyle="--")
+    ax.set_xlim(xmin, xmax + 0.2)
+    ax.set_xticks(np.arange(int(xmin), int(xmax) + 1))
+    ax.set_xlabel(str(spec.get("x_axis") or "Sequence stage"))
+    ax.set_ylabel(str(spec.get("y_axis") or labels.get(metrics[0], metrics[0])))
+    if bool(spec.get("y_min_zero", True)):
+        bottom, top = ax.get_ylim()
+        ax.set_ylim(min(0.0, bottom), top)
+    ax.legend(
+        frameon=False,
+        fontsize=4.6,
+        loc=str(spec.get("legend_location") or "upper left"),
+        handlelength=1.1,
+        borderaxespad=0.15,
+    )
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_prefix_network_trajectory"
+    ax.paper_fig_individual_traces = False
+    ax.paper_fig_has_shaded_band = True
+
+
+def render_fig3_prefix_item_weight_heatmap(
+    ax,
+    panel_data: pd.DataFrame | None,
+    stats: Mapping[str, Any] | None,
+    spec: Mapping[str, Any],
+    style: Mapping[str, Any] | None = None,
+) -> None:
+    _ = stats, style
+    frame = _clean(panel_data)
+    required = {"stage_k", "item_position", "value"}
+    if frame.empty or not required.issubset(frame.columns):
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    frame["stage_k"] = pd.to_numeric(frame["stage_k"], errors="coerce")
+    frame["item_position"] = pd.to_numeric(
+        frame["item_position"],
+        errors="coerce",
+    )
+    frame = frame.dropna(subset=["stage_k", "item_position", "value"])
+    if frame.empty:
+        render_generic_placeholder(ax, panel_data, stats, spec, style)
+        return
+    stages = np.sort(frame["stage_k"].unique())
+    positions = np.sort(frame["item_position"].unique())
+    matrix = np.full((len(stages), len(positions)), np.nan)
+    for row_index, stage in enumerate(stages):
+        for column_index, position in enumerate(positions):
+            values = pd.to_numeric(
+                frame.loc[
+                    frame["stage_k"].eq(stage)
+                    & frame["item_position"].eq(position),
+                    "value",
+                ],
+                errors="coerce",
+            ).dropna()
+            if not values.empty:
+                matrix[row_index, column_index] = float(values.mean())
+    color_max = float(spec.get("vmax") or np.nanmax(matrix))
+    image = ax.imshow(
+        matrix,
+        origin="lower",
+        aspect="auto",
+        cmap=get_plot_cmap("stsp_support"),
+        vmin=0.0,
+        vmax=color_max,
+        interpolation="nearest",
+    )
+    ax.set_xticks(np.arange(len(positions)))
+    ax.set_xticklabels([str(int(value)) for value in positions])
+    ax.set_yticks(np.arange(len(stages)))
+    ax.set_yticklabels([str(int(value)) for value in stages])
+    ax.set_xlabel(str(spec.get("x_axis") or "Item position"))
+    ax.set_ylabel(str(spec.get("y_axis") or "Sequence stage"))
+    colorbar = plt.colorbar(image, ax=ax, fraction=0.045, pad=0.025)
+    colorbar.set_ticks([0.0, color_max / 2.0, color_max])
+    colorbar.ax.set_title("Weight", fontsize=5.0, pad=2.0)
+    colorbar.ax.tick_params(labelsize=4.7, width=0.45, length=2)
+    _tidy(ax)
+    _compact(ax)
+    ax.paper_fig_plot_form = "fig3_prefix_item_weight_heatmap"
+    ax.paper_fig_y_metric = "item_weight"
+
+
 def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = style
     df = _clean(panel_data)
@@ -122,7 +372,7 @@ def render_fig3_3d_landscape(ax, panel_data: pd.DataFrame | None, stats: Mapping
         if diverging:
             vmax = float(np.nanpercentile(np.abs(finite), 98)) or 1.0
             norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
-            cmap = get_plot_cmap("difference")
+            cmap = get_plot_cmap("signed_effect")
             cbar_label = "Δ STSP support"
         else:
             vmin = float(np.nanmin(finite))
@@ -332,7 +582,7 @@ def render_fig3_weak_probe_completion(ax, panel_data: pd.DataFrame | None, stats
     if "target_source" in use.columns and use["target_source"].astype(str).str.contains("sequence_member", na=False).any():
         use = use[use["target_source"].astype(str).str.contains("sequence_member", na=False)].copy()
     use["keep_prob"] = pd.to_numeric(use["keep_prob"], errors="coerce")
-    colors = {"cue_only": "0.45", "single_item_memory": "#009E73", "sequence_state": MAIN}
+    colors = {"cue_only": get_plot_color("cue_only"), "single_item_memory": get_plot_color("single_item_memory"), "sequence_state": MAIN}
     labels = {"cue_only": "No memory", "single_item_memory": "Single-item memory", "sequence_state": "Sequence state"}
     markers = {"cue_only": "o", "single_item_memory": "s", "sequence_state": "^"}
     linestyles = {"cue_only": "-", "single_item_memory": "-", "sequence_state": "-"}
@@ -442,7 +692,7 @@ def render_fig3_region_ping_readout(ax, panel_data: pd.DataFrame | None, stats: 
     if "random" not in region_order:
         ax.text(0.98, 0.96, "random missing", transform=ax.transAxes, ha="right", va="top", fontsize=5.0, color="0.35")
     cats = ["old", "recent", "silent"]
-    colors = {"old": MAIN, "recent": "#E69F00", "silent": "0.84"}
+    colors = {"old": get_plot_color("old_input"), "recent": get_plot_color("recent_input"), "silent": get_plot_color("silent_state")}
     agg = _region_ping_categories(use, region_order)
     xs = np.arange(len(region_order))
     bottom = np.zeros(len(region_order), dtype=float)
@@ -805,7 +1055,7 @@ def render_fig3_boundary_heatmap(ax, panel_data: pd.DataFrame | None, stats: Map
             pass
     if not np.isfinite(vmax) or vmax <= vmin:
         vmax = vmin + 1.0
-    image = ax.imshow(mat, origin="lower", aspect="auto", cmap="Greens", vmin=vmin, vmax=vmax, interpolation="nearest")
+    image = ax.imshow(mat, origin="lower", aspect="auto", cmap=get_plot_cmap("stsp_support"), vmin=vmin, vmax=vmax, interpolation="nearest")
     for yi in range(len(ys)):
         for xi in range(len(xs)):
             val = mat[yi, xi]
@@ -880,7 +1130,7 @@ def _render_landscape_heatmap(ax, panel_data: pd.DataFrame | None, stats: Mappin
     mat, _, _ = _matrix(df)
     finite = mat[np.isfinite(mat)]
     vmax = float(np.nanpercentile(np.abs(finite), 98)) if finite.size else 1.0
-    image = ax.imshow(mat, origin="upper", cmap=get_plot_cmap("difference"), vmin=-vmax, vmax=vmax, interpolation="nearest")
+    image = ax.imshow(mat, origin="upper", cmap=get_plot_cmap("signed_effect"), vmin=-vmax, vmax=vmax, interpolation="nearest")
     for role, color, marker in (("peak", PEAK, "o"), ("valley", VALLEY, "s")):
         pts = df[df.get("mask_role", pd.Series(dtype=str)).astype(str).eq(role)]
         if not pts.empty:
@@ -979,7 +1229,7 @@ def _title(ax, spec: Mapping[str, Any]) -> None:
 def _tidy(ax) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.grid(axis="y", color=GRID, linewidth=0.35, alpha=0.65)
+    ax.grid(False)
 
 
 def _compact(ax) -> None:

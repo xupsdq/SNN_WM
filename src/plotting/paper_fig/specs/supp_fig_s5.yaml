@@ -2,8 +2,8 @@ figure_id: supp_fig_s5
 implementation_id: fig5_supp
 figure_title_draft: "Supplementary Fig. S5: Local perturbation and write-back controls"
 experiment_root: results/paper_figure_multi_seed/fig5_local_support_competition
-canvas_mm: {width: 165, height: 146}
-individual_axes: {left: 0.30, right: 0.97, bottom: 0.33, top: 0.87}
+canvas_mm: {width: 165, height: 110}
+individual_axes: {left: 0.24, right: 0.97, bottom: 0.25, top: 0.83}
 reading_order: [A, B, C, D, E]
 expected_outputs:
   full_figure: [pdf, svg, png]
@@ -25,8 +25,8 @@ qc_requirements:
   require_size_mm: true
   forbid_single_network: true
   forbid_fallback: true
-group_labels:
-  - {label: "Supplementary Fig. S5 - Local perturbation and write-back controls", x_mm: 12, y_mm: 7}
+group_labels: []
+analysis_summary: "Mean +/- SEM across n = 20 independently trained networks unless stated otherwise."
 panels:
   A:
     panel_id: A
@@ -36,14 +36,21 @@ panels:
     claim: Early transition effects are robust to the early-window definition.
     data_adapter: s9_early_window_robustness_adapter
     renderer: render_s9_early_window_robustness
-    source: data/metrics/supp_early_window_robustness.csv
+    source: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6A_panel_data.csv
     source_mapping: {source_package: fig5_supp, source_panel: S6A, panel_data: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6A_panel_data.csv}
-    position_mm: {x: 12, y: 20, w: 70.5, h: 32}
-    axes_mm: {x: 22, y: 22, w: 60, h: 26}
-    panel_label_mm: {x: 8.5, y: 15}
-    size_mm: {w: 70.5, h: 58}
+    frozen_inputs:
+      panel_data_sha256: 9a8b277d54e2c800ac09ecf20a15b26fbc7ccbc72061f41acc53680c43e8713f
+      fixed_statistics: results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5a_stats.json
+      fixed_statistics_sha256: 85fa034536b84c9da84bdd0e81166d3ba91fdb7545ca2d19021aa4684348862c
+      identity_columns: [early_window_ms, unit_group]
+      persisted_rows: 400
+      displayed_summary_rows: 20
+    position_mm: {x: 6, y: 6, w: 74, h: 46}
+    axes_mm: {x: 18, y: 14, w: 60, h: 34}
+    panel_label_mm: {x: 2.5, y: 3}
+    size_mm: {w: 74, h: 46}
     x_axis: Early window (ms)
-    y_axis: Advance + recruit probability
+    y_axis: P(advance OR recruit) (proportion)
     expected_networks: 20
   B:
     panel_id: B
@@ -53,15 +60,22 @@ panels:
     claim: Overlap-dominant units retain an advance/recruit advantage after paired network-level aggregation.
     data_adapter: s9_trialwise_transition_advantage_adapter
     renderer: render_s9_trialwise_transition_advantage
-    source_priority: [data/metrics/panel_b_transition_summary_by_group.csv, data/metrics/supp_s9_transition_composition_by_group.csv]
+    source: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6B_panel_data.csv
     source_mapping: {source_package: fig5_supp, source_panel: S6B, panel_data: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6B_panel_data.csv}
-    position_mm: {x: 88.5, y: 20, w: 70.5, h: 32}
-    axes_mm: {x: 101, y: 22, w: 58, h: 26}
-    panel_label_mm: {x: 85, y: 15}
-    size_mm: {w: 70.5, h: 55}
+    frozen_inputs:
+      panel_data_sha256: 1cd2272134bc9530d3eb02eaaf9cc2a0c4672001cf8354afef83f20c3bb71ed8
+      fixed_statistics: results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5b_stats.json
+      fixed_statistics_sha256: c773ab136ddfaf6e539ceecad0b37bb1fcce0ced6d2c4d7ee0a15d6fc0ae5fed
+      identity_columns: [condition, control_group, metric]
+      persisted_rows: 30000
+      displayed_summary_rows: 3
+    position_mm: {x: 85, y: 6, w: 74, h: 46}
+    axes_mm: {x: 97, y: 14, w: 60, h: 34}
+    panel_label_mm: {x: 81.5, y: 3}
+    size_mm: {w: 74, h: 46}
     metric: delta_P_advance_plus_recruit
     x_axis: Control group
-    y_axis: Delta P(advance + recruit)
+    y_axis: ΔP(advance OR recruit) (proportion)
     expected_networks: 20
   C:
     panel_id: C
@@ -71,14 +85,24 @@ panels:
     claim: Attenuate/reset perturbations change the intended u/x variables at the pre-probe boundary.
     data_adapter: s9_perturbation_ux_audit_adapter
     renderer: render_s9_perturbation_ux_audit
-    source_priority: [data/metrics/supp_s10_perturbation_ux_audit.csv, data/metrics/supp_perturbation_ux_audit.csv]
+    source: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6D_panel_data.csv
     source_mapping: {source_package: fig5_supp, source_panel: S6D, panel_data: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6D_panel_data.csv}
-    position_mm: {x: 12, y: 64, w: 70.5, h: 32}
-    axes_mm: {x: 22, y: 67, w: 60, h: 25}
-    panel_label_mm: {x: 8.5, y: 59}
-    size_mm: {w: 70.5, h: 55}
-    x_axis: Perturbation condition
-    y_axis: Mean variable delta
+    frozen_inputs:
+      panel_data_sha256: 5d2b9041d5c9e27075063e3b5d4a79b5a6e8d42b32ae2e1f58950a6893691a97
+      fixed_statistics: results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5c_stats.json
+      fixed_statistics_sha256: 078760fab72fdb994ee154fb5a15ed6895e38428c7eeeea1bcb8bc41aaf6f4db
+      identity_columns: [condition, metric]
+      persisted_rows: 40000
+      displayed_summary_rows: 4
+    position_mm: {x: 6, y: 58, w: 48.333333, h: 46}
+    axes_mm: {x: 15, y: 64, w: 38.5, h: 34}
+    internal_axes_mm:
+      - {id: C_delta_u, x: 15, y: 64, w: 38.5, h: 14}
+      - {id: C_delta_x, x: 15, y: 84, w: 38.5, h: 14}
+    panel_label_mm: {x: 2.5, y: 55}
+    size_mm: {w: 48.333333, h: 46}
+    x_axis: L1 STSP perturbation
+    y_axis: Δu / Δx (dimensionless; separate axes)
     expected_networks: 20
   D:
     panel_id: D
@@ -88,14 +112,22 @@ panels:
     claim: Targeted STSP perturbations reduce advance/recruit transitions relative to dynamic state.
     data_adapter: s9_perturbation_transition_contrast_adapter
     renderer: render_s9_perturbation_transition_contrast
-    source_priority: [data/metrics/supp_s10_perturbation_transition_contrast.csv, data/metrics/panel_d_perturbation_transition_contrast.csv]
+    source: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6E_panel_data.csv
     source_mapping: {source_package: fig5_supp, source_panel: S6E, panel_data: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6E_panel_data.csv}
-    position_mm: {x: 88.5, y: 64, w: 70.5, h: 32}
-    axes_mm: {x: 101, y: 67, w: 58, h: 25}
-    panel_label_mm: {x: 85, y: 59}
-    size_mm: {w: 70.5, h: 58}
+    frozen_inputs:
+      panel_data_sha256: dfae1121c4fe7a77063065f88218d33cc0cf41332f966af268700f5603896911
+      fixed_statistics: results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5d_stats.json
+      fixed_statistics_sha256: 2a1379d54a7225940ac0c9cfc2b6e3fc9d1c80ed88c58d0eb4ba6c78a0f21648
+      identity_columns: [condition, metric, unit_group]
+      display_metric: delta_P_advance_plus_recruit
+      persisted_rows: 120000
+      displayed_summary_rows: 4
+    position_mm: {x: 58.333333, y: 58, w: 48.333334, h: 46}
+    axes_mm: {x: 67.333333, y: 66, w: 38.5, h: 34}
+    panel_label_mm: {x: 54.833333, y: 55}
+    size_mm: {w: 48.333334, h: 46}
     x_axis: Unit group
-    y_axis: Perturbed - dynamic delta P
+    y_axis: Perturbed − dynamic ΔP
     expected_networks: 20
   E:
     panel_id: E
@@ -105,12 +137,21 @@ panels:
     claim: Targeted STSP perturbations disrupt or delay downstream same-winner units.
     data_adapter: s9_same_winner_lost_delayed_adapter
     renderer: render_s9_same_winner_lost_delayed
-    source_priority: [data/metrics/supp_s10_same_winner_lost_delayed.csv, data/metrics/supp_s10_same_winner_disruption.csv, data/metrics/panel_d_perturbation_transition_summary_by_group.csv]
+    source: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6F_panel_data.csv
     source_mapping: {source_package: fig5_supp, source_panel: S6F, panel_data: results/paper_figures/outputs/fig5_supp/panel_data/fig5_suppS6F_panel_data.csv}
-    position_mm: {x: 47.25, y: 108, w: 70.5, h: 28}
-    axes_mm: {x: 58, y: 111, w: 85, h: 22}
-    panel_label_mm: {x: 43.75, y: 103}
-    size_mm: {w: 70.5, h: 55}
-    x_axis: Perturbation condition
-    y_axis: Same-winner disruption
+    frozen_inputs:
+      panel_data_sha256: dc4ac85684da04acf2af15252b6ba16af19b1e854a0a012e9d6a867be2e73352
+      fixed_statistics: results/paper_figures/outputs/supplementary_part2/supp_fig_s5/stats/supp_fig_s5e_stats.json
+      fixed_statistics_sha256: 5b5dfbd25277942acb2f2d239ca4e5b9ec376539b9d5b909a38c4d201af74dbd
+      identity_columns: [condition, metric, unit_group]
+      displayed_metrics: [P_same_winner_preserved, P_same_winner_lost, P_same_winner_delayed]
+      excluded_pooled_metric: P_same_winner_lost_or_delayed
+      persisted_rows: 480
+      displayed_summary_rows: 18
+    position_mm: {x: 110.666667, y: 58, w: 48.333333, h: 46}
+    axes_mm: {x: 119.666667, y: 66, w: 38.5, h: 34}
+    panel_label_mm: {x: 107.166667, y: 55}
+    size_mm: {w: 48.333333, h: 46}
+    x_axis: Condition within unit group
+    y_axis: "Same-winner\noutcome probability"
     expected_networks: 20

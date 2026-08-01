@@ -21,6 +21,8 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_EXEMPLAR_DECODER_SPECS,
     TASK_EXEMPLAR_DECODER_STATE_BANK,
     TASK_EXEMPLAR_DECODER_SUMMARY,
+    TASK_FORMATION_INTERVENTION_SPECS,
+    TASK_FORMATION_NECESSITY,
     TASK_MORPHOLOGY_DECOMPOSITION,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_NEUTRAL_PING_ACCESS,
@@ -453,6 +455,56 @@ def build_boundary_summary_cache_key(
     }
 
 
+def build_formation_intervention_specs_cache_key(
+    cfg: Any,
+    *,
+    boundary_state_digest: str,
+    specs_hash: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "task_id": TASK_FORMATION_INTERVENTION_SPECS,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "boundary_state_digest": str(boundary_state_digest),
+        "sequence_specs_hash": str(specs_hash),
+        "sequence_length": int(getattr(cfg, "formation_sequence_length")),
+        "delay_ms": int(getattr(cfg, "delay_ms")),
+        "max_sequences": int(getattr(cfg, "formation_max_sequences")),
+        "terminal_stage": int(getattr(cfg, "formation_terminal_stage")),
+        "mask_mode": str(getattr(cfg, "formation_mask_mode")),
+        "attenuation": float(getattr(cfg, "formation_attenuation")),
+        "selection_policy": "triangulated_target_support_matched_nonoverlap_input_matched_random_v2",
+        "smoke": bool(getattr(cfg, "smoke", False)),
+    }
+
+
+def build_formation_necessity_cache_key(
+    cfg: Any,
+    *,
+    boundary_state_digest: str,
+    intervention_specs_digest: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": int(SCHEMA_VERSION),
+        "task_id": TASK_FORMATION_NECESSITY,
+        "network_seed": int(getattr(cfg, "network_seed")),
+        "boundary_state_digest": str(boundary_state_digest),
+        "intervention_specs_digest": str(intervention_specs_digest),
+        "terminal_stage": int(getattr(cfg, "formation_terminal_stage")),
+        "weak_probe_keep_fraction": float(getattr(cfg, "formation_weak_probe_keep_fraction")),
+        "weak_probe_repeats": int(
+            getattr(cfg, "formation_weak_probe_repeats")
+        ),
+        "weak_probe_scale": float(getattr(cfg, "weak_probe_scale")),
+        "functional_restore_mode": str(getattr(cfg, "functional_restore_mode")),
+        "n_shuffle": int(getattr(cfg, "formation_n_shuffle")),
+        "formation_protocol": "batched_cue_access_repeated_boundary_v8",
+        "smoke": bool(getattr(cfg, "smoke", False)),
+    }
+
+
 def cache_key_digest(cache_key: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(cache_key).encode("utf-8")).hexdigest()
 
@@ -484,6 +536,8 @@ __all__ = [
     "build_exemplar_decoder_specs_cache_key",
     "build_exemplar_decoder_state_bank_cache_key",
     "build_exemplar_decoder_summary_cache_key",
+    "build_formation_intervention_specs_cache_key",
+    "build_formation_necessity_cache_key",
     "build_morphology_decomposition_cache_key",
     "build_morphology_function_coupling_cache_key",
     "build_neutral_ping_access_cache_key",

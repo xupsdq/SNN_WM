@@ -5,6 +5,15 @@ canvas_mm:
   width: 165
   height: 110
 reading_order: [A, B, C, D, E]
+row_bar_width_contract:
+  contract_id: row_local_physical_bar_width_v1
+  unit: mm
+  tolerance_mm: 0.05
+  groups:
+    - group_id: row_1_a_b
+      panels: [A, B]
+      target_mm: 14.8
+      selection_rule: minimum pre-normalization width within the row
 argument_bands:
   - band_id: local_support
     label: Local support

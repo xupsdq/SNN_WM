@@ -7,7 +7,11 @@ import pandas as pd
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from scipy.stats import t as student_t
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import (
+    NATURE_COMPATIBLE_PALETTE as PALETTE,
+    get_plot_color,
+    get_plot_distinction,
+)
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 
 
@@ -24,23 +28,23 @@ CONDITION_COLORS = {
     "Dynamic intact": get_plot_color("dynamic"),
     "Static": get_plot_color("static_frozen"),
     "Static frozen": get_plot_color("static_frozen"),
-    "Attenuate L1 STSP": "#8A8A8A",
-    "Reset L1 STSP": "#6C7A89",
-    "Attenuate STSP": "#E45756",
-    "Reset STSP": "#4C78A8",
-    "Attenuate overlap support": "#E45756",
-    "Reset overlap support": "#4C78A8",
-    "Sham perturbation": "#A0A0A0",
+    "Attenuate L1 STSP": get_plot_color("perturb_attenuate"),
+    "Reset L1 STSP": get_plot_color("perturb_reset"),
+    "Attenuate STSP": get_plot_color("perturb_attenuate"),
+    "Reset STSP": get_plot_color("perturb_reset"),
+    "Attenuate overlap support": get_plot_color("perturb_attenuate"),
+    "Reset overlap support": get_plot_color("perturb_reset"),
+    "Sham perturbation": get_plot_color("sham_control"),
 }
 GROUP_COLORS = {
-    "Overlap-dominant": "#007A5A",
-    "Probe-only-dominant": "#56B4E9",
-    "Balanced": "#6C7A89",
-    "Random matched": "#666666",
+    "Overlap-dominant": get_plot_color("sample_probe_overlap"),
+    "Probe-only-dominant": get_plot_color("probe_only_region"),
+    "Balanced": get_plot_color("balanced_support"),
+    "Random matched": get_plot_color("random_control"),
 }
 HISTORY_COLORS = {
-    "prior_updated": "#4C78A8",
-    "not_prior_updated": "#BAB0AC",
+    "prior_updated": get_plot_color("prior_updated"),
+    "not_prior_updated": get_plot_color("not_prior_updated"),
 }
 HISTORY_LEGEND_LABELS = {
     "prior_updated": "Prior",
@@ -82,7 +86,7 @@ def render_fig5_early_firing(ax, panel_data: pd.DataFrame | None, stats: Mapping
     metrics = [m for m in ("P_advance", "P_recruit", "P_advance_plus_recruit") if m in set(df["metric"])]
     width = 0.22
     x = np.arange(len(groups), dtype=float)
-    metric_colors = {"P_advance": "#4C78A8", "P_recruit": "#F58518", "P_advance_plus_recruit": "#54A24B"}
+    metric_colors = {"P_advance": get_plot_color("transition_advance"), "P_recruit": get_plot_color("transition_recruit"), "P_advance_plus_recruit": get_plot_color("transition_combined")}
     for i, metric in enumerate(metrics):
         subset = df[df["metric"].eq(metric)]
         means, sems = _group_means(subset, "condition", groups)
@@ -132,7 +136,7 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
     ax.paper_fig_plot_form = "fig5_winner_loser_event_traces"
-    colors = {"winner_delta_v": "#F58518", "loser_delta_v": "#CC79A7", "loser_inhibition": "#7570B3"}
+    colors = {"winner_delta_v": get_plot_color("winner"), "loser_delta_v": get_plot_color("loser"), "loser_inhibition": get_plot_color("inhibition")}
     default_metrics = ("winner_delta_v", "loser_delta_v", "loser_inhibition")
     metric_order = tuple(str(metric) for metric in (spec.get("metrics") or default_metrics) if str(metric) in colors)
     trace_labels = _clean_trace_labels(spec.get("trace_labels") or {})
@@ -147,7 +151,14 @@ def render_fig5_winner_loser_events(ax, panel_data: pd.DataFrame | None, stats: 
         y = grouped["mean"].to_numpy(dtype=float) * 1000.0
         ci_lower = grouped["ci95_lower"].to_numpy(dtype=float) * 1000.0
         ci_upper = grouped["ci95_upper"].to_numpy(dtype=float) * 1000.0
-        ax.plot(x, y, linewidth=st["line_width"], color=colors.get(metric, "0.2"), label=str(trace_labels.get(metric, _trace_label(metric))))
+        ax.plot(
+            x,
+            y,
+            linewidth=st["line_width"],
+            linestyle=get_plot_distinction(metric).linestyle,
+            color=colors.get(metric, "0.2"),
+            label=str(trace_labels.get(metric, _trace_label(metric))),
+        )
         if int(grouped["n_networks"].max()) > 1:
             ax.fill_between(x, ci_lower, ci_upper, color=colors.get(metric, "0.2"), alpha=0.18, linewidth=0)
     ax.axvline(0, color="0.25", linewidth=0.6)
@@ -228,7 +239,7 @@ def render_fig5_causal_perturbation_summary(ax, panel_data: pd.DataFrame | None,
     df = _scaled_copy(df, 100.0)
     contrast_order = _fig5_contrast_order(df)
     x_positions = np.arange(len(contrast_order), dtype=float)
-    colors = ["#8A8A8A", "#6C7A89"]
+    colors = [PALETTE["neutral_mid"], PALETTE["neutral_dark"]]
     all_values: list[float] = []
     max_networks = 0
     for index, (xpos, condition) in enumerate(zip(x_positions, contrast_order)):
@@ -379,10 +390,10 @@ def render_fig5_perturbation_transition_distribution(ax, panel_data: pd.DataFram
     if not groups and "unit_group" in plot_df.columns:
         groups = [g for g in ("overlap_dominant", "probe_only_dominant") if g in set(plot_df["unit_group"])]
     metric_colors = {
-        "P_advance": "#4C78A8",
-        "P_recruit": "#F58518",
-        "P_loss": "#E45756",
-        "P_unchanged": "#BAB0AC",
+        "P_advance": PALETTE["primary_navy"],
+        "P_recruit": PALETTE["comparison_coral"],
+        "P_loss": PALETTE["comparison_coral"],
+        "P_unchanged": PALETTE["neutral_light"],
     }
     x_positions: list[float] = []
     tick_labels: list[str] = []
@@ -434,7 +445,7 @@ def render_fig5_perturbation_summary(ax, panel_data: pd.DataFrame | None, stats:
         order = list(df["condition"].dropna().unique())
     means, sems = _group_means(df, "condition", order)
     y = np.arange(len(order), dtype=float)
-    ax.barh(y, means, xerr=sems, height=0.58, color="#D95F02", edgecolor="black", linewidth=0.35, alpha=0.86)
+    ax.barh(y, means, xerr=sems, height=0.58, color=PALETTE["comparison_coral"], edgecolor="black", linewidth=0.35, alpha=0.86)
     ax.axvline(0, color="0.25", linewidth=0.6)
     ax.set_yticks(y, [_wrap(label) for label in order])
     ax.invert_yaxis()
@@ -465,7 +476,7 @@ def _draw_stacked_transition_bars(
     hatch_by_condition: bool = False,
 ) -> None:
     transition_order = ["advance", "recruit", "loss"]
-    transition_colors = {"advance": "#4C78A8", "recruit": "#F58518", "loss": "#E45756"}
+    transition_colors = {"advance": get_plot_color("transition_advance"), "recruit": get_plot_color("transition_recruit"), "loss": get_plot_color("transition_loss")}
     hatches = {"Dynamic": "", "Attenuate": "///", "Reset": "\\\\\\", "Static": "..."}
     width = float(width if width is not None else st["bar_width"])
     first_bar = True

@@ -13,7 +13,10 @@ def create_layout(spec: Mapping[str, Any], selected_panels: set[str] | None = No
     canvas = spec["canvas_mm"]
     fig = plt.figure(figsize=(mm_to_inch(canvas["width"]), mm_to_inch(canvas["height"])), dpi=300)
     install_true_edge_callbacks(fig, spec)
-    fig.paper_fig_semantic_layout = semantic_layout_for_figure("fig3")
+    fig.paper_fig_semantic_layout = (
+        spec.get("semantic_layout")
+        or semantic_layout_for_figure("fig3")
+    )
     axes = {}
     for panel_id, panel in (spec.get("panels") or {}).items():
         if selected_panels is not None and panel_id not in selected_panels:

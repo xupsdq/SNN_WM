@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+import sys as _early_sys
+
+_early_args = _early_sys.argv[1:]
+if __name__ == "__main__" and (
+    "--task=final-statistics" in _early_args
+    or any(
+        value == "--task"
+        and index + 1 < len(_early_args)
+        and _early_args[index + 1] == "final-statistics"
+        for index, value in enumerate(_early_args)
+    )
+):
+    from src.experiments.paper_figures.final_six.pipeline import (
+        canonical_runner_main as _final_statistics_main,
+    )
+
+    raise SystemExit(_final_statistics_main("fig5", _early_args))
+
 import argparse
 import sys
 import time
@@ -92,6 +110,11 @@ NUM_CLASSES = 10
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--task" in raw_argv and "final-statistics" in raw_argv:
+        from src.experiments.paper_figures.final_six.pipeline import canonical_runner_main
+
+        return canonical_runner_main("fig5", raw_argv)
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
     cfg = _config_from_args(args)

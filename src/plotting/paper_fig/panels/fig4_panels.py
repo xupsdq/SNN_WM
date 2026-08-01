@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch, Rectangle
 from scipy.stats import t as student_t
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL, GRID_ALPHA_SOFT
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 from src.plotting.paper_fig.svg_assets import (
@@ -25,27 +25,27 @@ def render_fig4_reentry_schematic(ax, panel_data: pd.DataFrame | None, stats: Ma
     _ = panel_data, stats, style
     width, _ = setup_programmatic_schematic(ax, spec)
     sample, probe = load_embedded_square_pngs(spec)
-    blue, orange = "#0072B2", "#D55E00"
-    neutral, ink = "#8B95A3", "#253041"
+    blue, orange = get_plot_color("first_item_reference"), get_plot_color("second_item_reference")
+    neutral, ink = get_plot_color("guide"), get_plot_color("ink")
 
-    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor="#F6F7F9", edgecolor="#F6F7F9", radius=1.8, role="top_band")
-    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor="#F1F9F7", edgecolor="#F1F9F7", radius=1.8, role="bottom_band")
+    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor=PALETTE["white"], edgecolor=PALETTE["white"], radius=1.8, role="top_band")
+    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor=PALETTE["white"], edgecolor=PALETTE["white"], radius=1.8, role="bottom_band")
 
     schematic_text(ax, 11.25, 46.6, "Sample", color=blue, role="header_sample")
     schematic_text(ax, 68.25, 46.6, "Probe", color=orange, role="header_probe")
     schematic_digit(ax, sample, 3.0, 27.0, 16.5, edgecolor=blue, role="digit_sample")
-    schematic_box(ax, 28.25, 29.3, 23.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay")
+    schematic_box(ax, 28.25, 29.3, 23.0, 11.8, facecolor=PALETTE["neutral_pale"], edgecolor=PALETTE["neutral_light"], text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay")
     schematic_digit(ax, probe, 60.0, 27.0, 16.5, edgecolor=orange, role="digit_probe")
     schematic_arrow(ax, (19.5, 35.25), (28.25, 35.25), color=neutral)
     schematic_arrow(ax, (51.25, 35.25), (60.0, 35.25), color=neutral)
 
-    schematic_box(ax, 1.5, 3.0, 20.0, 17.5, facecolor="#DCEEFF", edgecolor=blue, text="Sample\nwritten", text_color="#005A8D", role="sample_written")
-    schematic_box(ax, 27.0, 3.0, 25.5, 17.5, facecolor="#EAF4FC", edgecolor="#82B5DF", text="Retained\nsample trace", text_color="#4D5C70", linestyle=(0, (3, 2)), role="retained_sample")
-    schematic_box(ax, 58.0, 3.0, 20.0, 17.5, facecolor="#FFF3DE", edgecolor=orange, text="Probe test", text_color="#8A4500", role="probe_test")
-    schematic_arrow(ax, (21.5, 11.75), (27.0, 11.75), color="#A7B0BC")
-    schematic_arrow(ax, (52.5, 11.75), (58.0, 11.75), color="#A7B0BC")
+    schematic_box(ax, 1.5, 3.0, 20.0, 17.5, facecolor=PALETTE["primary_tint"], edgecolor=blue, text="Sample\nwritten", text_color=PALETTE["ink"], role="sample_written")
+    schematic_box(ax, 27.0, 3.0, 25.5, 17.5, facecolor=PALETTE["primary_tint"], edgecolor=PALETTE["primary_cyan"], text="Retained\nsample trace", text_color=PALETTE["ink"], linestyle=(0, (3, 2)), role="retained_sample")
+    schematic_box(ax, 58.0, 3.0, 20.0, 17.5, facecolor=get_plot_color("probe_window"), edgecolor=orange, text="Probe test", text_color=PALETTE["ink"], role="probe_test")
+    schematic_arrow(ax, (21.5, 11.75), (27.0, 11.75), color=PALETTE["neutral_mid"])
+    schematic_arrow(ax, (52.5, 11.75), (58.0, 11.75), color=PALETTE["neutral_mid"])
     schematic_arrow(ax, (11.25, 27.0), (11.25, 20.5), color=blue)
-    schematic_arrow(ax, (39.75, 29.3), (39.75, 20.5), color="#82B5DF")
+    schematic_arrow(ax, (39.75, 29.3), (39.75, 20.5), color=PALETTE["primary_cyan"])
     schematic_arrow(ax, (68.25, 27.0), (68.25, 20.5), color=orange)
 
     ax.paper_fig_plot_form = "programmatic_sample_probe_schematic"
@@ -62,17 +62,18 @@ def render_fig4_similarity_entry(ax, panel_data: pd.DataFrame | None, stats: Map
     x = np.arange(len(summary), dtype=float)
     y = summary["mean"].to_numpy(dtype=float) * 100.0
     sem = summary["sem"].to_numpy(dtype=float) * 100.0
-    ax.errorbar(x, y, yerr=sem, fmt="o-", color="#009E73", linewidth=1.15, markersize=3.6, capsize=2.0)
+    ax.errorbar(x, y, yerr=sem, fmt="o-", color=get_plot_color("dynamic"), linewidth=1.15, markersize=3.6, capsize=2.0)
     if _run_mode(stats) == "single_network_draft":
         ax.scatter(np.arange(len(df)), np.interp(df["similarity_bin_order"], summary["similarity_bin_order"], y), s=4, color=COLOR_NEUTRAL, alpha=0.18)
     ax.set_xticks(x, [""] * len(x))
-    ax.annotate("", xy=(0.78, -0.04), xytext=(0.22, -0.04), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.65, "color": COLOR_NEUTRAL}, annotation_clip=False)
-    ax.set_xlabel("")
+    ax.annotate("", xy=(0.78, -0.075), xytext=(0.22, -0.075), xycoords="axes fraction", arrowprops={"arrowstyle": "->", "linewidth": 0.65, "color": COLOR_NEUTRAL}, annotation_clip=False)
+    ax.set_xlabel(str(spec.get("x_axis", "Increasing sample-probe similarity")))
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
     if spec.get("y_label_x") is not None:
         ax.yaxis.set_label_coords(float(spec.get("y_label_x")), float(spec.get("y_label_y", 0.5)))
     _tidy(ax)
     _compact(ax)
+    ax.xaxis.set_label_coords(0.5, -0.14)
     ax.paper_fig_plot_form = "fig4_similarity_entry"
     ax.paper_fig_similarity_direction_arrow = True
     ax.paper_fig_literal_bin_xticklabels = False
@@ -124,7 +125,7 @@ def render_fig4_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mappi
         high_vals = pd.to_numeric(pivot["High overlap excess"], errors="coerce").dropna() * 100.0
         means = [float(low_vals.mean()) if len(low_vals) else np.nan, float(high_vals.mean()) if len(high_vals) else np.nan]
         sems = [float(low_vals.sem()) if len(low_vals) > 1 else 0.0, float(high_vals.sem()) if len(high_vals) > 1 else 0.0]
-        ax.bar([0, 1], means, yerr=sems, color=["#8A8A8A", "#007A5A"], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
+        ax.bar([0, 1], means, yerr=sems, color=[get_plot_color("low_overlap"), get_plot_color("high_overlap")], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
         ax.set_xticks([0, 1], ["Low", "High"])
     else:
         order = [c for c in ["Low overlap excess", "High overlap excess"] if c in set(df["condition"].astype(str))]
@@ -134,7 +135,7 @@ def render_fig4_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mappi
             vals = pd.to_numeric(df.loc[df["condition"].astype(str).eq(condition), "value"], errors="coerce").dropna() * 100.0
             means.append(float(vals.mean()) if len(vals) else np.nan)
             sems.append(float(vals.sem()) if len(vals) > 1 else 0.0)
-        ax.bar(x, means, yerr=sems, color=["#8A8A8A", "#007A5A"][: len(order)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
+        ax.bar(x, means, yerr=sems, color=[get_plot_color("low_overlap"), get_plot_color("high_overlap")][: len(order)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.76, capsize=1.8, zorder=2)
         ax.set_xticks(x, ["Low", "High"][: len(order)])
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
     ax.set_xlabel(str(spec.get("x_axis", "Overlap beyond similarity")))
@@ -162,19 +163,17 @@ def render_fig4_overlap_accuracy_identification(ax, panel_data: pd.DataFrame | N
         vals = pd.to_numeric(rates.loc[rates["condition"].eq(condition), "value"], errors="coerce").dropna() * 100.0
         if vals.empty:
             continue
-        jitter = np.linspace(-0.05, 0.05, len(vals)) if len(vals) > 1 else np.array([0.0])
-        ax.scatter(np.full(len(vals), idx) + jitter, vals, s=12, color=color_map[condition], alpha=0.45, zorder=3)
         ax.bar([idx], [float(vals.mean())], color=color_map[condition], alpha=0.55, edgecolor=COLOR_NEUTRAL, linewidth=0.55, zorder=2)
         ax.errorbar([idx], [float(vals.mean())], yerr=[_t_ci_half_width(vals)], fmt="none", ecolor=COLOR_NEUTRAL, capsize=2.0, linewidth=0.8, zorder=4)
-    delta = pd.to_numeric(df.loc[df["metric"].eq("high_minus_low_accuracy_drop"), "value"], errors="coerce").dropna() * 100.0
-    if not delta.empty:
-        ax.text(0.03, 0.95, f"High - low {float(delta.mean()):.1f} pp", transform=ax.transAxes, ha="left", va="top", fontsize=5.4, color=COLOR_NEUTRAL)
     ax.set_xticks([0, 1], [label_map[k] for k in order])
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop (%)")))
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_overlap_accuracy_identification"
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_jitter_points = False
     ax.paper_fig_error_bar = "two_sided_t_95_ci_across_networks"
     ax.paper_fig_inference_unit = "independently_trained_network"
 
@@ -198,7 +197,7 @@ def render_fig4_decision_spike_displacement(ax, panel_data: pd.DataFrame | None,
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    colors = {"Overlap support": "#007A5A", "Non-overlap support": "#CC79A7"}
+    colors = {"Overlap support": get_plot_color("sample_probe_overlap"), "Non-overlap support": get_plot_color("non_overlap_control")}
     display_labels = dict(spec.get("display_labels_short") or {})
     network_col = "network_id" if "network_id" in df.columns else "seed_id" if "seed_id" in df.columns else None
     rendered_network_traces = 0
@@ -356,7 +355,7 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
         return
     order = [c for c in ["Random-matched reset", "Non-overlap reset", "Overlap reset", "Dynamic"] if c in set(df["condition"].astype(str))]
     df = df[df["condition"].isin(order)].copy()
-    colors = ["#8A8A8A", "#CC79A7", "#007A5A", "#009E73"][: len(order)]
+    colors = [get_plot_color("static_frozen"), get_plot_color("non_overlap_control"), get_plot_color("sample_probe_overlap"), get_plot_color("dynamic")][: len(order)]
     x = np.arange(len(order), dtype=float)
     means = []
     ci_half_widths = []
@@ -365,12 +364,6 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
         means.append(float(vals.mean()) if len(vals) else np.nan)
         ci_half_widths.append(_t_ci_half_width(vals))
     ax.bar(x, means, yerr=ci_half_widths, color=colors, edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=2.0, zorder=2)
-    for index, (condition, color) in enumerate(zip(order, colors)):
-        vals = pd.to_numeric(df.loc[df["condition"].eq(condition), "value"], errors="coerce").dropna().to_numpy(dtype=float) * 100.0
-        if vals.size == 0:
-            continue
-        jitter = np.linspace(-0.13, 0.13, vals.size) if vals.size > 1 else np.zeros(1)
-        ax.scatter(np.full(vals.size, x[index]) + jitter, vals, s=8.0, color=color, edgecolors="white", linewidths=0.22, alpha=0.72, zorder=3)
     ax.axhline(0, color="0.45", linestyle="--", linewidth=0.7, zorder=1)
     label_map = dict(spec.get("display_labels_short") or {})
     ax.set_xticks(x, [label_map.get(item, item) for item in order], rotation=0)
@@ -382,10 +375,9 @@ def render_fig4_overlap_perturbation(ax, panel_data: pd.DataFrame | None, stats:
     _tidy(ax)
     _compact(ax)
     ax.paper_fig_plot_form = "fig4_overlap_perturbation_bar"
-    ax.paper_fig_raw_points = True
-    ax.paper_fig_raw_point_count = int(len(df))
-    ax.paper_fig_raw_point_alpha = 0.72
-    ax.paper_fig_jitter_points = True
+    ax.paper_fig_raw_points = False
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_jitter_points = False
     ax.paper_fig_error_bar = "two_sided_t_95_ci_across_networks"
     ax.paper_fig_inference_unit = "independently_trained_network"
     ax.paper_fig_renderer_summarizes_row_level = False
@@ -491,7 +483,7 @@ def _run_mode(stats: Mapping[str, Any] | None) -> str:
 def _tidy(ax) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.grid(alpha=GRID_ALPHA_SOFT, linewidth=0.35)
+    ax.grid(False)
 
 
 def _compact(ax) -> None:

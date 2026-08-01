@@ -2,7 +2,13 @@ figure_id: supp_fig_s1
 implementation_id: fig1_supp
 figure_title_draft: "Supplementary Fig. S1: Activity-silent maintenance and substrate specificity"
 experiment_root_default: results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate
-canvas_mm: {width: 165, height: 116}
+canvas_mm: {width: 165, height: 110}
+png_dpi: 300
+font_family: [Arial, Helvetica]
+source_axis_text_pt: 9.1
+source_panel_letter_pt: 10.5
+minimum_scientific_line_pt: 1.15
+persisted_input_only: true
 individual_axes: {left: 0.30, right: 0.97, bottom: 0.38, top: 0.87}
 reading_order: [A, B, C, D]
 expected_outputs:
@@ -25,8 +31,8 @@ qc_requirements:
   require_size_mm: true
   forbid_single_network: true
   forbid_fallback: true
-group_labels:
-  - {label: "Supplementary Fig. S1 - Activity-silent maintenance and substrate specificity", x_mm: 12, y_mm: 7}
+group_labels: []
+analysis_summary: "Persisted mean +/- SEM across independently trained networks (A, n = 19; B-D, n = 20)."
 panels:
   A:
     panel_id: A
@@ -37,15 +43,38 @@ panels:
     data_adapter: s2_phase_firing_adapter
     renderer: render_phase_firing_rates
     source: data/metrics/supp_phase_firing_rates.csv
-    source_mapping: {source_package: fig1_supp_s2, source_panel: S2A, panel_data: results/paper_figures/outputs/fig1_supp_s2/panel_data/fig1_supp_s2S2A_panel_data.csv}
-    position_mm: {x: 12, y: 20, w: 70.5, h: 36}
-    axes_mm: {x: 25, y: 22, w: 57, h: 27}
-    panel_label_mm: {x: 3, y: 15}
-    size_mm: {w: 70.5, h: 58}
+    source_mapping: {source_package: supplementary_part2/supp_fig_s1, source_panel: S1A, panel_data: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1a_panel_data.csv}
+    position_mm: {x: 6, y: 6, w: 74, h: 46}
+    axes_mm: {x: 18, y: 14, w: 60, h: 34}
+    panel_label_mm: {x: 2.5, y: 3}
+    size_mm: {w: 74, h: 46}
     x_axis: Phase
     y_axis: Population spike rate (spikes s$^{-1}$)
     conditions: [layer1, layer2, layer3]
-    expected_networks: 20
+    display_labels: {layer1: L1, layer2: L2, layer3: L3}
+    phase_order: [stimulus, early_delay, late_delay, probe]
+    expected_networks: 19
+    excluded_networks: ["1005"]
+    persisted_input:
+      panel_key: S1A
+      panel_data:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1a_panel_data.csv
+        sha256: dd36067cb840fb1f83808f0a2910a2e64c9c7ae9846966b95fb92bfef9905f59
+        row_count: 228
+        network_count: 19
+        metric: spike_rate_hz
+        columns: [figure_id, panel_id, metric, condition, layer, network_id, seed_id, value, unit, source_file, phase, run_mode]
+      stats:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/stats/supp_fig_s1a_stats.json
+        sha256: ad54ebe6b105c4478b066f23623d6407f93a86be19dfb011b3c9f24270776eb6
+        summary_count: 12
+      source_manifest:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/source_manifests/supp_fig_s1a_sources.json
+        sha256: fa1ad1dea86cc3f91c99ff380cecccd781cf1bf83e513ec6248bd2959b2481c0
+        source_path_count: 19
+      parent_hash_manifest: &parent_hash_manifest
+        path: docs/tasks/20260722_discovery_communications_biology_supplementary_v4_repair/evidence/data_lineage/parent_hashes.json
+        sha256: 25623d65aef11cd6d988601339828b9c5f4f1aa6392e7699c688f69c4aaf8ae9
   B:
     panel_id: B
     legacy_panel_id: fig1_supp_s2:S2B
@@ -55,17 +84,36 @@ panels:
     data_adapter: s2_delay_decode_curve_adapter
     renderer: render_delay_decode_timecourse
     source_priority: [data/metrics/supp_delay_decode_curve.csv, data/metrics/panel_c_delay_decode_metrics.csv]
-    source_mapping: {source_package: fig1_supp_s2, source_panel: S2B, panel_data: results/paper_figures/outputs/fig1_supp_s2/panel_data/fig1_supp_s2S2B_panel_data.csv}
-    position_mm: {x: 88.5, y: 20, w: 70.5, h: 36}
-    axes_mm: {x: 101, y: 22, w: 58, h: 27}
-    panel_label_mm: {x: 85, y: 15}
-    size_mm: {w: 70.5, h: 52}
+    source_mapping: {source_package: supplementary_part2/supp_fig_s1, source_panel: S1B, panel_data: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1b_panel_data.csv}
+    position_mm: {x: 85, y: 6, w: 74, h: 46}
+    axes_mm: {x: 97, y: 14, w: 60, h: 34}
+    panel_label_mm: {x: 81.5, y: 3}
+    size_mm: {w: 74, h: 46}
     x_axis: Delay (ms)
     y_axis: Decoding accuracy (%)
     reference_lines: [{value: 10, label: "10% chance"}]
     conditions: [layer1, layer2, layer3]
     display_labels: {layer1: L1, layer2: L2, layer3: L3}
+    delay_order_ms: [100, 200, 400, 800, 1200]
     expected_networks: 20
+    persisted_input:
+      panel_key: S1B
+      panel_data:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1b_panel_data.csv
+        sha256: 6420c3a3a8b4ab79ebc8f234c591f47a3de3075dcb36aeebcaf4eefd715b7732
+        row_count: 300
+        network_count: 20
+        metric: delay_decode_accuracy
+        columns: [figure_id, panel_id, metric, condition, layer, network_id, seed_id, value, unit, source_file, delay_ms, feature_type, classifier, chance, n_train, n_test, run_mode]
+      stats:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/stats/supp_fig_s1b_stats.json
+        sha256: 9dcdc1097706b7bc1c28a87549d763b130068e40fdc33cf382fa47de8b4ac3a0
+        summary_count: 15
+      source_manifest:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/source_manifests/supp_fig_s1b_sources.json
+        sha256: a4c2e031ddbf4692cf32f5e936cec175c4bb443105b81f03b437537f8f01fb1c
+        source_path_count: 20
+      parent_hash_manifest: *parent_hash_manifest
   C:
     panel_id: C
     legacy_panel_id: fig1_supp_s2:S2C
@@ -75,15 +123,34 @@ panels:
     data_adapter: s2_dms_delay_contrast_adapter
     renderer: render_stsp_interference_delay
     source_priority: [data/metrics/supp_dms_delay_sweep_contrast.csv, data/metrics/supp_dms_delay_sweep_metrics.csv]
-    source_mapping: {source_package: fig1_supp_s2, source_panel: S2C, panel_data: results/paper_figures/outputs/fig1_supp_s2/panel_data/fig1_supp_s2S2C_panel_data.csv}
-    position_mm: {x: 12, y: 68, w: 70.5, h: 36}
-    axes_mm: {x: 25, y: 76, w: 57, h: 26}
-    panel_label_mm: {x: 3, y: 63}
-    size_mm: {w: 70.5, h: 58}
+    source_mapping: {source_package: supplementary_part2/supp_fig_s1, source_panel: S1C, panel_data: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1c_panel_data.csv}
+    position_mm: {x: 6, y: 58, w: 74, h: 46}
+    axes_mm: {x: 18, y: 66, w: 60, h: 34}
+    panel_label_mm: {x: 2.5, y: 55}
+    size_mm: {w: 74, h: 46}
     x_axis: Delay (ms)
-    y_axis: Static - dynamic accuracy (pp)
+    y_axis: Static − dynamic accuracy (percentage points)
     conditions: [static_minus_dynamic]
+    delay_order_ms: [100, 200, 400, 800, 1200]
     expected_networks: 20
+    persisted_input:
+      panel_key: S1C
+      panel_data:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1c_panel_data.csv
+        sha256: 6c4538eed3e34b0c1e881188bebc6d74ee695fe4e5aa67278f214f5cd9277d29
+        row_count: 100
+        network_count: 20
+        metric: static_minus_dynamic_accuracy
+        columns: [figure_id, panel_id, metric, condition, layer, network_id, seed_id, value, unit, source_file, delay_ms, run_mode]
+      stats:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/stats/supp_fig_s1c_stats.json
+        sha256: 9bdd3edb2af69c110285f1c633a04778bd9d88aabe288591938d067b09a3fcac
+        summary_count: 5
+      source_manifest:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/source_manifests/supp_fig_s1c_sources.json
+        sha256: cb0b9cc9d257d34fb8efba4a77c9adeac2939d15078e9c43d3b7c84501efbb65
+        source_path_count: 20
+      parent_hash_manifest: *parent_hash_manifest
   D:
     panel_id: D
     legacy_panel_id: fig1_supp_s2:S2D
@@ -93,13 +160,36 @@ panels:
     data_adapter: s2_substrate_specificity_adapter
     renderer: render_substrate_shuffle_specificity
     source_priority: [data/metrics/supp_substrate_shuffle_metrics.csv, data/metrics/compat_metrics_condition_summary.csv]
-    source_mapping: {source_package: fig1_supp_s2, source_panel: S2D, panel_data: results/paper_figures/outputs/fig1_supp_s2/panel_data/fig1_supp_s2S2D_panel_data.csv, recovered_existing_seed: 1005}
-    position_mm: {x: 88.5, y: 68, w: 70.5, h: 36}
-    axes_mm: {x: 101, y: 76, w: 58, h: 26}
-    panel_label_mm: {x: 85, y: 63}
-    size_mm: {w: 70.5, h: 55}
-    x_axis: ""
-    y_axis: Donor attribution gain (pp)
+    source_mapping: {source_package: supplementary_part2/supp_fig_s1, source_panel: S1D, panel_data: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1d_panel_data.csv, recovered_existing_seed: 1005}
+    position_mm: {x: 85, y: 58, w: 74, h: 46}
+    axes_mm: {x: 97, y: 66, w: 60, h: 34}
+    panel_label_mm: {x: 81.5, y: 55}
+    size_mm: {w: 74, h: 46}
+    x_axis: STSP condition
+    y_axis: Donor attribution gain (percentage points)
     conditions: [dynamic_intact, spike_state_shuffle, membrane_state_shuffle, ux_trial_shuffle, static_frozen]
-    display_labels: {dynamic_intact: Dynamic, spike_state_shuffle: Spike, membrane_state_shuffle: Vm, ux_trial_shuffle: "u/x shuffle", static_frozen: Static}
+    display_labels:
+      dynamic_intact: Dynamic
+      spike_state_shuffle: "Spike\nshuffle"
+      membrane_state_shuffle: "$V_{\\mathrm{m}}$\nshuffle"
+      ux_trial_shuffle: "$u/x$\nshuffle"
+      static_frozen: Static
     expected_networks: 20
+    persisted_input:
+      panel_key: S1D
+      panel_data:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/panel_data/supp_fig_s1d_panel_data.csv
+        sha256: 03a0e49484f428b7b8cb5ddcefb9d67edbe8b43a528c94ca3e2d9fb28b6f8886
+        row_count: 100
+        network_count: 20
+        metric: donor_gain_vs_dynamic
+        columns: [figure_id, panel_id, metric, condition, layer, network_id, seed_id, value, unit, source_file, substrate, sample_attribution_rate, donor_attribution_rate, original_drop_vs_dynamic, acc_probe, error_rate, silent_rate, n_trials, run_mode]
+      stats:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/stats/supp_fig_s1d_stats.json
+        sha256: 6477b8365fceb004812c30ee2ef35bb7c0d99a0365774949004f5235c0c9cc8f
+        summary_count: 5
+      source_manifest:
+        path: results/paper_figures/outputs/supplementary_part2/supp_fig_s1/source_manifests/supp_fig_s1d_sources.json
+        sha256: 301b87bbad4dc4ce73b9aee2b76bf365957330390787deff636d82f606104789
+        source_path_count: 20
+      parent_hash_manifest: *parent_hash_manifest

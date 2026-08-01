@@ -6,7 +6,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.paper_fig.panels.fig1_panels import (
     CONDITION_COLORS,
     LAYER_COLORS,
@@ -35,7 +35,7 @@ def render_supp_temporal_encoding_schematic(ax, panel_data: pd.DataFrame | None,
         ax.paper_fig_plot_form = "manual_schematic_asset_slot"
         return
     ax.paper_fig_plot_form = "programmatic_temporal_encoding_schematic"
-    _draw_flow(ax, ["MNIST", "DoG\nON/OFF", "Latency\nspikes", "Gamma\nwindow"], ["#F2F2F2", "#DDEEFF", "#FFF2B2", "#E8DDF5"])
+    _draw_flow(ax, ["MNIST", "DoG\nON/OFF", "Latency\nspikes", "Gamma\nwindow"], [PALETTE["neutral_pale"], PALETTE["primary_tint"], PALETTE["comparison_tint"], PALETTE["fused_tint"]])
 
 
 def render_supp_stsp_update_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -47,7 +47,7 @@ def render_supp_stsp_update_schematic(ax, panel_data: pd.DataFrame | None, stats
         ax.paper_fig_plot_form = "manual_schematic_asset_slot"
         return
     ax.paper_fig_plot_form = "programmatic_stsp_update_schematic"
-    _draw_flow(ax, ["Layer\ninput", "u update", "x update", "g = u*x", "Delay\nstate"], ["#F2F2F2", "#DCECC9", "#DDEEFF", "#FFF2B2", "#E8DDF5"])
+    _draw_flow(ax, ["Layer\ninput", "u update", "x update", "g = u*x", "Delay\nstate"], [PALETTE["neutral_pale"], PALETTE["mechanism_tint"], PALETTE["primary_tint"], PALETTE["comparison_tint"], PALETTE["fused_tint"]])
     ax.text(0.5, 0.14, "trial-specific u/x retained across delay", ha="center", va="center", fontsize=5.8, transform=ax.transAxes, color="0.25")
 
 
@@ -64,7 +64,7 @@ def render_class_recall_by_digit(ax, panel_data: pd.DataFrame | None, stats: Map
         order = sorted(df["digit_class"].astype(str).unique().tolist())
     x = np.arange(len(order), dtype=float)
     means, sems = _group_means(df, "digit_class", order)
-    ax.bar(x, means, yerr=sems, capsize=st["capsize"], width=0.72, color="#4C78A8", edgecolor="black", linewidth=0.4, alpha=0.86)
+    ax.bar(x, means, yerr=sems, capsize=st["capsize"], width=0.72, color=PALETTE["primary_navy"], edgecolor="black", linewidth=0.4, alpha=0.86)
     _scatter_points(ax, df, "digit_class", order, x)
     _reference_lines(ax, spec)
     ax.set_xticks(x, order)
@@ -103,56 +103,99 @@ def render_confusion_matrix(ax, panel_data: pd.DataFrame | None, stats: Mapping[
 
 
 def render_phase_firing_rates(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats
+    _ = panel_data
     st = _style(style)
-    df = _clean(panel_data)
-    if df.empty or not {"layer", "phase"}.issubset(df.columns):
-        _placeholder(ax, spec, "Phase firing data unavailable")
-        return
+    summary = _frozen_summary_table(stats, ("layer", "phase"))
     ax.paper_fig_plot_form = "supp_phase_firing_rates"
-    phases = [phase for phase in PHASE_ORDER if phase in set(df["phase"].astype(str))]
-    if not phases:
-        phases = df["phase"].astype(str).drop_duplicates().tolist()
+    ax.paper_fig_renderer_summarizes_row_level = False
+    phases = [str(value) for value in spec.get("phase_order", PHASE_ORDER)]
     x = np.arange(len(phases), dtype=float)
-    for layer in [layer for layer in ("layer1", "layer2", "layer3") if layer in set(df["layer"].astype(str))]:
-        part = df[df["layer"].astype(str).eq(layer)]
-        means, sems = _group_means(part, "phase", phases)
-        ax.plot(x, means, marker="o", markersize=2.7, linewidth=0.9, color=LAYER_COLORS.get(layer, "0.4"), label=(spec.get("display_labels") or {}).get(layer, layer))
-        if len(part["seed_id"].dropna().unique()) > 1:
-            ax.fill_between(x, means - sems, means + sems, color=LAYER_COLORS.get(layer, "0.4"), alpha=0.16, linewidth=0)
-    ax.set_xticks(x, [_short_phase_label(p) for p in phases], rotation=25, ha="right")
+    layer_styles = {
+        "layer1": {"marker": "o", "linestyle": "-"},
+        "layer2": {"marker": "s", "linestyle": "--"},
+        "layer3": {"marker": "^", "linestyle": ":"},
+    }
+    for layer in [str(value) for value in spec.get("conditions", ("layer1", "layer2", "layer3"))]:
+        means, sems = _ordered_frozen_values(summary, {"layer": layer}, "phase", phases)
+        color = LAYER_COLORS.get(layer, "0.4")
+        layer_style = layer_styles.get(layer, {"marker": "o", "linestyle": "-"})
+        ax.plot(
+            x,
+            means,
+            marker=layer_style["marker"],
+            linestyle=layer_style["linestyle"],
+            markersize=4.0,
+            linewidth=1.15,
+            color=color,
+            label=(spec.get("display_labels") or {}).get(layer, layer),
+        )
+        ax.fill_between(x, means - sems, means + sems, color=color, alpha=0.16, linewidth=0)
+    ax.set_xticks(x, [_short_phase_label(p) for p in phases])
     ax.set_xlabel(str(spec.get("x_axis", "Phase")))
-    ax.set_ylabel(str(spec.get("y_axis", "Spike rate (Hz)")))
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="best", handlelength=1.0)
+    ax.set_ylabel(str(spec.get("y_axis", "Population spike rate (spikes s$^{-1}$)")))
+    legend = ax.legend(
+        frameon=False,
+        fontsize=st["legend_fontsize"],
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=3,
+        borderaxespad=0.0,
+        handlelength=1.4,
+        columnspacing=1.0,
+    )
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = 3
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     _tidy(ax, st)
+    _apply_frozen_axes_style(ax)
 
 
 def render_delay_decode_timecourse(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats
+    _ = panel_data
     st = _style(style)
-    df = _clean(panel_data)
-    if df.empty or "delay_ms" not in df.columns:
-        _placeholder(ax, spec, "Delay decoding curve unavailable")
-        return
+    summary = _frozen_summary_table(stats, ("layer", "delay_ms"))
     ax.paper_fig_plot_form = "supp_delay_decode_timecourse"
-    df = df.copy()
-    df["delay_ms"] = pd.to_numeric(df["delay_ms"], errors="coerce")
-    for layer in [layer for layer in ("layer1", "layer2", "layer3") if layer in set(df["layer"].astype(str))]:
-        part = df[df["layer"].astype(str).eq(layer)].dropna(subset=["delay_ms"])
-        grouped = part.groupby("delay_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
-        x = grouped["delay_ms"].to_numpy(dtype=float)
-        y = grouped["mean"].to_numpy(dtype=float)
-        sem = grouped["sem"].fillna(0).to_numpy(dtype=float)
+    ax.paper_fig_renderer_summarizes_row_level = False
+    delays = [float(value) for value in spec.get("delay_order_ms", (100, 200, 400, 800, 1200))]
+    layer_styles = {
+        "layer1": {"marker": "o", "linestyle": "-"},
+        "layer2": {"marker": "s", "linestyle": "--"},
+        "layer3": {"marker": "^", "linestyle": ":"},
+    }
+    for layer in [str(value) for value in spec.get("conditions", ("layer1", "layer2", "layer3"))]:
+        y, sem = _ordered_frozen_values(summary, {"layer": layer}, "delay_ms", delays)
         color = LAYER_COLORS.get(layer, "0.4")
-        ax.plot(x, y, marker="o", markersize=2.7, linewidth=0.9, color=color, label=(spec.get("display_labels") or {}).get(layer, layer))
-        if len(part["seed_id"].dropna().unique()) > 1:
-            ax.fill_between(x, y - sem, y + sem, color=color, alpha=0.16, linewidth=0)
-    _reference_lines(ax, spec)
+        layer_style = layer_styles.get(layer, {"marker": "o", "linestyle": "-"})
+        ax.plot(
+            delays,
+            y,
+            marker=layer_style["marker"],
+            linestyle=layer_style["linestyle"],
+            markersize=4.0,
+            linewidth=1.15,
+            color=color,
+            label=(spec.get("display_labels") or {}).get(layer, layer),
+        )
+        ax.fill_between(delays, y - sem, y + sem, color=color, alpha=0.16, linewidth=0)
+    ax.axhline(10.0, color="0.45", linewidth=1.15, linestyle="--", zorder=0)
     ax.set_xlabel(str(spec.get("x_axis", "Delay (ms)")))
     ax.set_ylabel(str(spec.get("y_axis", "Decoding accuracy (%)")))
     ax.set_ylim(0, 100)
-    ax.legend(frameon=False, fontsize=st["legend_fontsize"], loc="best", handlelength=1.0)
+    legend = ax.legend(
+        frameon=False,
+        fontsize=st["legend_fontsize"],
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=3,
+        borderaxespad=0.0,
+        handlelength=1.4,
+        columnspacing=1.0,
+    )
+    ax.paper_fig_legend_above_plot = True
+    ax.paper_fig_legend_ncols = 3
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
     _tidy(ax, st)
+    _apply_frozen_axes_style(ax)
 
 
 def render_dms_delay_probe_accuracy(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -161,50 +204,106 @@ def render_dms_delay_probe_accuracy(ax, panel_data: pd.DataFrame | None, stats: 
 
 
 def render_stsp_interference_delay(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats
+    _ = panel_data
     st = _style(style)
-    df = _clean(panel_data)
-    if df.empty or "delay_ms" not in df.columns:
-        _placeholder(ax, spec, "STSP interference data unavailable")
-        return
+    summary = _frozen_summary_table(stats, ("delay_ms",))
     ax.paper_fig_plot_form = "supp_static_minus_dynamic_delay"
-    df = df.copy()
-    df["delay_ms"] = pd.to_numeric(df["delay_ms"], errors="coerce")
-    grouped = df.dropna(subset=["delay_ms"]).groupby("delay_ms", as_index=False)["value"].agg(["mean", "sem"]).reset_index()
-    x = grouped["delay_ms"].to_numpy(dtype=float)
-    y = grouped["mean"].to_numpy(dtype=float)
-    sem = grouped["sem"].fillna(0).to_numpy(dtype=float)
-    ax.axhline(0, color="0.45", linewidth=0.65, linestyle="--")
-    ax.plot(x, y, marker="o", markersize=2.8, linewidth=0.95, color=get_plot_color("trial_shuffled_ux"))
-    if len(df["seed_id"].dropna().unique()) > 1:
-        ax.fill_between(x, y - sem, y + sem, color=get_plot_color("trial_shuffled_ux"), alpha=0.16, linewidth=0)
+    ax.paper_fig_renderer_summarizes_row_level = False
+    delays = [float(value) for value in spec.get("delay_order_ms", (100, 200, 400, 800, 1200))]
+    y, sem = _ordered_frozen_values(summary, {}, "delay_ms", delays)
+    color = get_plot_color("trial_shuffled_ux")
+    ax.axhline(0, color="0.45", linewidth=1.15, linestyle="--", zorder=0)
+    ax.plot(delays, y, marker="D", markersize=4.0, linewidth=1.15, color=color)
+    ax.fill_between(delays, y - sem, y + sem, color=color, alpha=0.16, linewidth=0)
     ax.set_xlabel(str(spec.get("x_axis", "Delay (ms)")))
-    ax.set_ylabel(str(spec.get("y_axis", "Static - dynamic accuracy (%)")))
+    ax.set_ylabel(_wrap_percentage_points_label(str(spec.get("y_axis", "Static − dynamic accuracy (percentage points)"))))
     _tidy(ax, st)
+    _apply_frozen_axes_style(ax)
 
 
 def render_substrate_shuffle_specificity(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
-    _ = stats
+    _ = panel_data
     st = _style(style)
-    df = _clean(panel_data)
-    if df.empty:
-        _placeholder(ax, spec, "Substrate specificity data unavailable")
-        return
+    summary = _frozen_summary_table(stats, ("condition",))
     ax.paper_fig_plot_form = "supp_substrate_shuffle_specificity"
-    order = [condition for condition in spec.get("conditions", []) if condition in set(df["condition"].astype(str))]
-    if not order:
-        order = df["condition"].astype(str).drop_duplicates().tolist()
+    ax.paper_fig_renderer_summarizes_row_level = False
+    order = [str(condition) for condition in spec.get("conditions", [])]
     x = np.arange(len(order), dtype=float)
-    means, sems = _group_means(df, "condition", order)
+    means, sems = _ordered_frozen_values(summary, {}, "condition", order)
     colors = [CONDITION_COLORS.get(c, get_plot_color(c, default="0.65")) for c in order]
-    ax.axhline(0, color="0.45", linewidth=0.65, linestyle="--")
-    ax.bar(x, means, yerr=sems, capsize=st["capsize"], width=0.68, color=colors, edgecolor="black", linewidth=0.4, alpha=0.86)
-    _scatter_points(ax, df, "condition", order, x)
+    ax.axhline(0, color="0.45", linewidth=1.15, linestyle="--", zorder=0)
+    ax.bar(
+        x,
+        means,
+        yerr=sems,
+        capsize=3.0,
+        width=0.68,
+        color=colors,
+        edgecolor="black",
+        linewidth=1.15,
+        error_kw={"elinewidth": 1.15, "capthick": 1.15},
+        alpha=0.86,
+    )
     labels = [(spec.get("display_labels") or {}).get(c, c) for c in order]
-    ax.set_xticks(x, labels, rotation=18, ha="right")
-    ax.set_xlabel(str(spec.get("x_axis", "")))
-    ax.set_ylabel(str(spec.get("y_axis", "Donor attribution gain (%)")))
+    ax.set_xticks(x, labels, rotation=0, ha="center")
+    ax.set_xlabel("")
+    ax.paper_fig_x_metric = str(spec.get("x_axis", "STSP condition"))
+    ax.set_ylabel(_wrap_percentage_points_label(str(spec.get("y_axis", "Donor attribution gain (percentage points)"))))
     _tidy(ax, st)
+    _apply_frozen_axes_style(ax)
+
+
+def _apply_frozen_axes_style(ax) -> None:
+    for spine in ax.spines.values():
+        if spine.get_visible():
+            spine.set_linewidth(0.8)
+    ax.tick_params(axis="both", which="both", width=0.8)
+
+
+def _wrap_percentage_points_label(label: str) -> str:
+    """Keep long bottom-row labels inside the frozen 165 x 110 mm canvas."""
+    suffix = " (percentage points)"
+    return f"{label[:-len(suffix)]}\n{suffix.strip()}" if label.endswith(suffix) else label
+
+
+def _frozen_summary_table(stats: Mapping[str, Any] | None, identity_columns: Sequence[str]) -> pd.DataFrame:
+    if not isinstance(stats, Mapping) or not isinstance(stats.get("summaries"), list):
+        raise ValueError("Hash-validated frozen summaries are required for Supplementary Figure S1")
+    summary = pd.DataFrame(stats["summaries"])
+    required = set(identity_columns).union({"mean", "sem", "n"})
+    missing = required.difference(summary.columns)
+    if missing:
+        raise ValueError(f"Frozen summary columns are missing: {sorted(missing)}")
+    for column in ("mean", "sem", "n"):
+        summary[column] = pd.to_numeric(summary[column], errors="raise")
+    if summary[list(identity_columns)].duplicated().any():
+        raise ValueError(f"Frozen summary identity is duplicated for columns {list(identity_columns)}")
+    return summary
+
+
+def _ordered_frozen_values(
+    summary: pd.DataFrame,
+    selectors: Mapping[str, str],
+    order_column: str,
+    order: Sequence[Any],
+) -> tuple[np.ndarray, np.ndarray]:
+    selected = summary
+    for column, value in selectors.items():
+        selected = selected[selected[column].astype(str).eq(str(value))]
+    if order_column == "delay_ms":
+        observed_keys = pd.to_numeric(selected[order_column], errors="raise").astype(float)
+        lookup = {float(key): row for key, (_, row) in zip(observed_keys, selected.iterrows())}
+        normalized_order = [float(value) for value in order]
+    else:
+        lookup = {str(row[order_column]): row for _, row in selected.iterrows()}
+        normalized_order = [str(value) for value in order]
+    if set(lookup) != set(normalized_order):
+        raise ValueError(
+            f"Frozen summary identity changed for {order_column}: expected {normalized_order}, observed {list(lookup)}"
+        )
+    means = np.asarray([float(lookup[value]["mean"]) for value in normalized_order], dtype=float)
+    sems = np.asarray([float(lookup[value]["sem"]) for value in normalized_order], dtype=float)
+    return means, sems
 
 
 def _line_by_condition(ax, panel_data: pd.DataFrame | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None, *, y_default: str, plot_form: str) -> None:

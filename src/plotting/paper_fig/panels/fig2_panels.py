@@ -4,7 +4,9 @@ from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 
+from src.plotting.paper_fig.typography import mark_relative_text_size
 from src.plotting.paper_fig.svg_assets import (
     load_embedded_square_pngs,
     schematic_arrow,
@@ -27,48 +29,66 @@ STYLE = {
 
 STATE_ORDER = ["S0", "S_A", "S_B", "S_AB"]
 STATE_LABELS = {"S0": "No\nmemory", "S_A": "Item 1", "S_B": "Item 2", "S_AB": "Fused\npair"}
-STATE_COLORS = {"S0": "#8A8A8A", "S_A": "#007A5A", "S_B": "#D55E00", "S_AB": "#0072B2"}
-READOUT_COLORS = {"A": "#007A5A", "B": "#D55E00", "Other": "#B3B3B3", "Silent": "#E6E6E6"}
+# Fig.2 treats the fused/captured state as the integrated mechanism-bearing
+# outcome.  Reuse the paper's teal mechanism root so this main figure stays in
+# the shared blue-orange-teal-neutral language without changing other figures.
+FIG2_FUSED_COLOR = PALETTE["mechanism_teal"]
+FIG2_FUSED_TINT = PALETTE["mechanism_tint"]
+STATE_COLORS = {"S0": get_plot_color("baseline_control"), "S_A": get_plot_color("first_item_reference"), "S_B": get_plot_color("second_item_reference"), "S_AB": FIG2_FUSED_COLOR}
+READOUT_COLORS = {"A": get_plot_color("first_item_reference"), "B": get_plot_color("second_item_reference"), "Other": get_plot_color("other_residual"), "Silent": get_plot_color("silent_state")}
 COMPOSITION_LABELS = {"Other": "Other", "A": "Item 1", "B": "Item 2", "Silent": "Silent"}
 
 
 def render_fig2_episode_schematic(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
     _ = panel_data, stats, style
     width, _ = setup_programmatic_schematic(ax, spec)
+    content = spec.get("content") or {}
+    timing_raw = content.get("timing_ms") or {}
+    timing_keys = ("item_a", "delay1", "item_b", "delay2")
+    missing_timing = [key for key in timing_keys if key not in timing_raw]
+    if missing_timing:
+        raise ValueError(f"Fig.2A timing source-of-truth is missing keys: {missing_timing}")
+    timing = {key: int(timing_raw[key]) for key in timing_keys}
+    if any(value <= 0 for value in timing.values()):
+        raise ValueError(f"Fig.2A timing values must be positive milliseconds, found {timing}")
     item_a, item_b = load_embedded_square_pngs(spec)
-    blue, orange, gold, pink = "#0072B2", "#D55E00", "#E69F00", "#CC79A7"
-    neutral, ink = "#8B95A3", "#253041"
+    blue, orange = get_plot_color("first_item_reference"), get_plot_color("second_item_reference")
+    fused, captured = FIG2_FUSED_COLOR, FIG2_FUSED_COLOR
+    neutral, ink = get_plot_color("guide"), get_plot_color("ink")
 
-    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor="#F6F7F9", edgecolor="#F6F7F9", radius=1.8, role="top_band")
-    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor="#F1F9F7", edgecolor="#F1F9F7", radius=1.8, role="bottom_band")
+    schematic_box(ax, 0.5, 25.2, width - 1.0, 19.2, facecolor=PALETTE["white"], edgecolor=PALETTE["white"], radius=1.8, role="top_band")
+    schematic_box(ax, 0.5, 1.0, width - 1.0, 23.2, facecolor=PALETTE["white"], edgecolor=PALETTE["white"], radius=1.8, role="bottom_band")
 
     schematic_text(ax, 11.25, 46.6, "Item A", color=blue, role="header_item_a")
     schematic_text(ax, 74.25, 46.6, "Item B", color=orange, role="header_item_b")
     schematic_digit(ax, item_a, 3.0, 27.0, 16.5, edgecolor=blue, role="digit_item_a")
-    schematic_box(ax, 31.0, 29.3, 24.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_a")
+    schematic_box(ax, 31.0, 29.3, 24.0, 11.8, facecolor=PALETTE["neutral_pale"], edgecolor=PALETTE["neutral_light"], text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_a")
     schematic_digit(ax, item_b, 66.0, 27.0, 16.5, edgecolor=orange, role="digit_item_b")
-    schematic_box(ax, 94.0, 29.3, 24.0, 11.8, facecolor="#F5F6F8", edgecolor="#C9CED6", text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_b")
-    schematic_box(ax, 130.5, 28.2, 29.0, 14.0, facecolor="#F9E9F3", edgecolor=pink, text="Capture", text_color="#5F2850", linewidth=0.9, role="capture")
+    schematic_box(ax, 94.0, 29.3, 24.0, 11.8, facecolor=PALETTE["neutral_pale"], edgecolor=PALETTE["neutral_light"], text="Delay", text_color=ink, linestyle=(0, (3, 2)), role="delay_b")
+    schematic_box(ax, 130.5, 28.2, 29.0, 14.0, facecolor=FIG2_FUSED_TINT, edgecolor=captured, text="Capture", text_color=PALETTE["ink"], linewidth=0.9, role="capture")
     for start, end in (((19.5, 35.25), (31.0, 35.25)), ((55.0, 35.25), (66.0, 35.25)), ((82.5, 35.25), (94.0, 35.25)), ((118.0, 35.25), (130.5, 35.25))):
         schematic_arrow(ax, start, end, color=neutral)
 
-    schematic_box(ax, 1.5, 3.0, 21.0, 17.5, facecolor="#DCEEFF", edgecolor=blue, text="A written", text_color="#005A8D", role="a_written")
-    schematic_box(ax, 29.0, 3.0, 27.0, 17.5, facecolor="#EAF4FC", edgecolor="#82B5DF", text="Retained A trace", text_color="#4D5C70", linestyle=(0, (3, 2)), role="retained_a")
-    schematic_box(ax, 63.0, 3.0, 21.0, 17.5, facecolor="#FFE4BD", edgecolor=orange, text="B written", text_color="#8A4500", role="b_written")
-    schematic_box(ax, 91.0, 3.0, 27.0, 17.5, facecolor="#FFF3DE", edgecolor=gold, text="Fused state\nevolves", text_color="#8A4B00", linestyle=(0, (3, 2)), role="fused_state")
-    schematic_box(ax, 129.5, 3.0, 30.0, 17.5, facecolor="#F9E9F3", edgecolor=pink, text="Captured\nfused trace", text_color="#7A2F66", linewidth=0.9, role="captured_trace")
+    schematic_box(ax, 1.5, 3.0, 21.0, 17.5, facecolor=PALETTE["primary_tint"], edgecolor=blue, text="A written", text_color=PALETTE["ink"], role="a_written")
+    schematic_box(ax, 29.0, 3.0, 27.0, 17.5, facecolor=PALETTE["primary_tint"], edgecolor=PALETTE["primary_cyan"], text="Retained A trace", text_color=PALETTE["ink"], linestyle=(0, (3, 2)), role="retained_a")
+    schematic_box(ax, 63.0, 3.0, 21.0, 17.5, facecolor=PALETTE["comparison_tint"], edgecolor=orange, text="B written", text_color=PALETTE["ink"], role="b_written")
+    schematic_box(ax, 91.0, 3.0, 27.0, 17.5, facecolor=FIG2_FUSED_TINT, edgecolor=fused, text="Fused state\nevolves", text_color=PALETTE["ink"], linestyle=(0, (3, 2)), role="fused_state")
+    schematic_box(ax, 129.5, 3.0, 30.0, 17.5, facecolor=FIG2_FUSED_TINT, edgecolor=captured, text="Captured\nfused trace", text_color=PALETTE["ink"], linewidth=0.9, role="captured_trace")
     for start, end in (((22.5, 11.75), (29.0, 11.75)), ((56.0, 11.75), (63.0, 11.75)), ((84.0, 11.75), (91.0, 11.75)), ((118.0, 11.75), (129.5, 11.75))):
-        schematic_arrow(ax, start, end, color="#A7B0BC")
+        schematic_arrow(ax, start, end, color=PALETTE["neutral_mid"])
     for start, end, color in (
         ((11.25, 27.0), (11.25, 20.5), blue),
-        ((43.0, 29.3), (43.0, 20.5), "#82B5DF"),
+        ((43.0, 29.3), (43.0, 20.5), PALETTE["primary_cyan"]),
         ((74.25, 27.0), (74.25, 20.5), orange),
-        ((106.0, 29.3), (106.0, 20.5), gold),
-        ((145.0, 28.2), (145.0, 20.5), pink),
+        ((106.0, 29.3), (106.0, 20.5), fused),
+        ((145.0, 28.2), (145.0, 20.5), captured),
     ):
         schematic_arrow(ax, start, end, color=color)
 
     ax.paper_fig_plot_form = "programmatic_two_item_episode_schematic"
+    ax.paper_fig_episode_timing_ms = timing
+    ax.paper_fig_timing_source = str(content.get("timing_source", ""))
+    ax.paper_fig_timing_labels_visible = False
 
 
 def render_fig2_dual_retention_constituents(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -99,7 +119,7 @@ def render_fig2_pair_specificity(ax, panel_data: pd.DataFrame | None, stats: Map
         return
     ax.paper_fig_plot_form = "true_vs_shuffled_pair_boxplot"
     order = ["True pair", "Shuffled pair"]
-    _boxplot_by_condition(ax, df, "condition", order, colors=["#B87514", "#8A8A8A"], st=st)
+    _boxplot_by_condition(ax, df, "condition", order, colors=[FIG2_FUSED_COLOR, get_plot_color("baseline_control")], st=st)
     ax.set_xticks(np.arange(len(order)), ["Experienced\npair", "Shuffled\npair"])
     ax.set_ylabel(str(spec.get("y_axis", "Pair specificity")))
     ax.set_xlabel("")
@@ -117,26 +137,112 @@ def render_fig2_morphology_closure(ax, panel_data: pd.DataFrame | None, stats: M
     if df.empty:
         _placeholder(ax, spec, "Morphology closure data unavailable")
         return
-    ax.paper_fig_plot_form = "positive_effect_bar_summary_against_zero"
-    order = ["WPRI", "Beyond-linear"]
-    plot_df = df[df["condition"].astype(str).isin(order)].copy()
-    if plot_df.empty:
-        _placeholder(ax, spec, "Morphology closure metrics unavailable")
+    required = {
+        "WPRI": "WPRI",
+        "delta_r2_interaction_beyond_bounded_saturation": "Cross-fit ΔR²",
+    }
+    if not set(required).issubset(set(df["metric"].astype(str))):
+        _placeholder(ax, spec, "Cross-fitted Fig.2C metrics unavailable")
         return
-    _bar_summary(ax, plot_df, "condition", order, colors=["#F0B000", "#B87514"], st=st, alpha=0.83)
-    ax.axhline(0, color="0.35", linestyle="--", linewidth=0.72)
-    ax.set_xticks(np.arange(len(order)), ["WPRI", "Beyond-\nlinear"])
-    limits = spec.get("y_limits") or spec.get("y_axis_limits") or [-0.4, 0.4]
-    if isinstance(limits, (list, tuple)) and len(limits) == 2:
-        ax.set_ylim(float(limits[0]), float(limits[1]))
-    else:
-        ax.set_ylim(-0.4, 0.4)
-    ax.set_ylabel(str(spec.get("y_axis", "Score")))
-    ax.set_xlabel("")
+
+    ax.set_axis_off()
+    plot_axis = ax.inset_axes([0.09, 0.0, 0.72, 1.0])
+    right_axis = plot_axis.twinx()
+    colors = {"WPRI": get_plot_color("sequence_state"), "delta_r2_interaction_beyond_bounded_saturation": FIG2_FUSED_COLOR}
+    limits = spec.get("metric_y_limits") or {}
+    positions = {
+        "WPRI": 0.0,
+        "delta_r2_interaction_beyond_bounded_saturation": 1.0,
+    }
+    axes = {
+        "WPRI": plot_axis,
+        "delta_r2_interaction_beyond_bounded_saturation": right_axis,
+    }
+    for metric, label in required.items():
+        target_axis = axes[metric]
+        position = positions[metric]
+        values = pd.to_numeric(df.loc[df["metric"].astype(str).eq(metric), "value"], errors="coerce").dropna().to_numpy(dtype=float)
+        mean = float(np.mean(values))
+        sem = float(np.std(values, ddof=1) / np.sqrt(values.size)) if values.size > 1 else 0.0
+        target_axis.bar(
+            [position],
+            [mean],
+            yerr=[sem],
+            width=0.52,
+            capsize=st["capsize"],
+            color=colors[metric],
+            edgecolor="black",
+            linewidth=0.45,
+            alpha=0.84,
+            zorder=2,
+        )
+        metric_limits = limits.get(metric)
+        if isinstance(metric_limits, (list, tuple)) and len(metric_limits) == 2:
+            target_axis.set_ylim(float(metric_limits[0]), float(metric_limits[1]))
+
+    plot_axis.set_xlim(-0.58, 1.58)
+    right_axis.set_xlim(plot_axis.get_xlim())
+    plot_axis.set_xticks(
+        [positions["WPRI"], positions["delta_r2_interaction_beyond_bounded_saturation"]],
+        [required["WPRI"], required["delta_r2_interaction_beyond_bounded_saturation"]],
+    )
+    plot_axis.set_xlabel("")
+    plot_axis.set_ylabel("WPRI", color="black")
+    right_axis.set_ylabel("Held-out ΔR²", color="black")
+    plot_axis.tick_params(axis="y", colors="black")
+    right_axis.tick_params(axis="y", colors="black")
+    plot_axis.set_yticks([0.00, 0.04, 0.08, 0.12, 0.16])
+    right_axis.set_yticks([0.001, 0.002, 0.003], ["1", "2", "3"])
+
+    _tidy(plot_axis, st)
+    plot_axis.grid(False)
+    right_axis.grid(False)
+    right_axis.spines["top"].set_visible(False)
+    right_axis.spines["left"].set_visible(False)
+    right_axis.spines["bottom"].set_visible(False)
+    right_axis.spines["right"].set_visible(True)
+    right_axis.spines["right"].set_linewidth(st["line_width"])
+    right_axis.tick_params(
+        axis="y",
+        labelsize=st["tick_labelsize"],
+        width=0.55,
+        length=1.8,
+        pad=0.8,
+    )
+    right_axis.yaxis.label.set_size(st["axis_labelsize"])
+    right_axis.yaxis.labelpad = 1.0
+    # The shared semantic-gap fitter is left-axis oriented.  Keep the twin
+    # axis on its explicitly tuned right-side spacing so its tick labels stay
+    # visually attached to the spine.
+    right_axis.paper_fig_skip_semantic_gap_fit = True
+    multiplier_artist = right_axis.text(
+        1.01,
+        0.99,
+        "×10⁻³",
+        transform=right_axis.transAxes,
+        ha="left",
+        va="top",
+        fontsize=st["tick_labelsize"] * 0.75,
+        color="black",
+    )
+    mark_relative_text_size(multiplier_artist, 0.75)
+
+    ax.paper_fig_plot_form = "wpri_and_crossfit_interaction_dual_axis_bar"
     ax.paper_fig_x_metric = "Metric"
-    ax.paper_fig_y_metric = "Score"
+    ax.paper_fig_y_metric = "WPRI (left) and held-out ΔR² (right)"
     ax.paper_fig_raw_points = False
-    _tidy(ax, st)
+    ax.paper_fig_raw_point_count = 0
+    ax.paper_fig_value_labels = False
+    ax.paper_fig_value_label_count = 0
+    ax.paper_fig_dual_y_axes = True
+    ax.paper_fig_secondary_y_label = "Held-out ΔR²"
+    ax.paper_fig_secondary_y_multiplier = "×10⁻³"
+    ax.paper_fig_secondary_y_multiplier_size_scale = 0.75
+    ax.paper_fig_measure_right_stack = True
+    ax.paper_fig_composite_child_axes = True
+    ax.paper_fig_child_axes = [plot_axis, right_axis]
+    ax.paper_fig_inner_axes_bounds = [[0.09, 0.0, 0.72, 1.0], [0.09, 0.0, 0.72, 1.0]]
+    ax.paper_fig_inner_axes_aligned = True
 
 
 def render_fig2_neutral_ping_composition(ax, panel_data: pd.DataFrame | None, stats: Mapping[str, Any] | None, spec: Mapping[str, Any], style: Mapping[str, Any] | None = None) -> None:
@@ -442,8 +548,7 @@ def _tidy(ax, st: Mapping[str, float]) -> None:
     ax.xaxis.label.set_size(st["axis_labelsize"])
     ax.yaxis.label.set_size(st["axis_labelsize"])
     ax.yaxis.labelpad = 1.0
-    ax.grid(axis="y", color="0.9", linewidth=0.45)
-    ax.set_axisbelow(True)
+    ax.grid(False)
 
 
 def _display(spec: Mapping[str, Any], value: str) -> str:

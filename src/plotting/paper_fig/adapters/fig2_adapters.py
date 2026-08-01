@@ -125,7 +125,7 @@ def build_fig2_pair_specificity_adapter(spec: Mapping[str, Any], repo_root: Path
                     )
                 )
     if not sources:
-        return missing_adapter_result(spec, repo_root, output_dir, "Missing panel_c_pair_specificity_metrics.csv for Fig.2C.")
+        return missing_adapter_result(spec, repo_root, output_dir, "Missing panel_c_pair_specificity_metrics.csv for Fig.2D.")
     raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["True pair", "Shuffled pair"])
     panel_df = _seed_level_summary(raw_panel_df, ["condition"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "pair_specificity_score", _run_mode(seeds), ["condition"])
@@ -136,7 +136,7 @@ def build_fig2_pair_specificity_adapter(spec: Mapping[str, Any], repo_root: Path
 
 
 def build_fig2_morphology_closure_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:
-    """Build compact Fig.2D WPRI plus beyond-linear closure rows."""
+    """Build Fig.2C WPRI plus leakage-safe cross-fitted interaction rows."""
     figure_id, panel_id = _ids(spec)
     seeds = _seed_dirs(spec, repo_root)
     if not seeds:
@@ -149,8 +149,8 @@ def build_fig2_morphology_closure_adapter(spec: Mapping[str, Any], repo_root: Pa
     for seed_dir in seeds:
         metrics_dir = seed_dir / "data" / "metrics"
         org_path = metrics_dir / "panel_d_pair_level_organization_metrics.csv"
-        res_path = metrics_dir / "panel_d_linear_residual_pair_specificity_metrics.csv"
-        mix_path = metrics_dir / "panel_d_linear_mixture_fit_metrics.csv"
+        crossfit_path = metrics_dir / "panel_d_crossfit_interaction_network_metrics.csv"
+        crossfit_spec_path = metrics_dir / "panel_d_crossfit_interaction_analysis_spec.json"
         if org_path.exists():
             org = pd.read_csv(org_path)
             raw_rows += len(org)
@@ -180,16 +180,18 @@ def build_fig2_morphology_closure_adapter(spec: Mapping[str, Any], repo_root: Pa
                 )
         else:
             warnings.append(f"Missing WPRI metrics: {_display_path(org_path, repo_root)}")
-        if res_path.exists():
-            res = pd.read_csv(res_path)
-            raw_rows += len(res)
-            res = _primary(res)
-            filtered_rows += len(res)
-            sources.append(_source_entry(res_path, repo_root))
-            metric_col = "beyond_linear_pair_index" if "beyond_linear_pair_index" in res.columns else "residual_pair_specificity"
-            if metric_col == "residual_pair_specificity":
-                warnings.append("Fig.2D used residual_pair_specificity fallback because beyond_linear_pair_index was unavailable.")
-            for _, row in res.iterrows():
+        if crossfit_path.exists():
+            crossfit = pd.read_csv(crossfit_path)
+            raw_rows += len(crossfit)
+            crossfit = _primary(crossfit)
+            filtered_rows += len(crossfit)
+            sources.append(_source_entry(crossfit_path, repo_root))
+            metric_col = "delta_r2_interaction_beyond_bounded_saturation"
+            if metric_col not in crossfit.columns:
+                raise RuntimeError(
+                    f"Fig.2C crossfit source is missing the required endpoint {metric_col}: {crossfit_path}"
+                )
+            for _, row in crossfit.iterrows():
                 if pd.isna(row.get(metric_col)):
                     continue
                 rows.append(
@@ -197,39 +199,42 @@ def build_fig2_morphology_closure_adapter(spec: Mapping[str, Any], repo_root: Pa
                         figure_id,
                         panel_id,
                         metric=metric_col,
-                        condition="Beyond-linear",
+                        condition="Cross-fit ΔR²",
                         value=float(row.get(metric_col)),
-                        unit="score",
+                        unit="held-out delta R2",
                         seed_id=row.get("network_seed", _seed_id(seed_dir)),
-                        source_file=_display_path(res_path, repo_root),
+                        source_file=_display_path(crossfit_path, repo_root),
                         layer=row.get("layer", "layer3"),
-                        pair_id=row.get("pair_id", ""),
                         state_variable=row.get("state_variable", "g"),
-                        residual_true_pair_score=row.get("residual_true_pair_score", ""),
-                        residual_shuffled_pair_score=row.get("residual_shuffled_pair_score", ""),
-                        residual_template_definition=row.get("residual_template_definition", ""),
-                        fallback_used=metric_col == "residual_pair_specificity",
+                        n_pairs=row.get("n_pairs", ""),
+                        n_features=row.get("n_features", ""),
+                        n_folds=row.get("n_folds", ""),
+                        linear_delta_r2=row.get("delta_r2_linear_interaction", ""),
+                        quadratic_delta_r2=row.get("delta_r2_interaction_beyond_marginal_nonlinearity", ""),
+                        fallback_used=False,
                         run_mode=_run_mode(seeds),
                     )
                 )
         else:
-            warnings.append(f"Missing linear residual metrics: {_display_path(res_path, repo_root)}")
-        if mix_path.exists():
-            sources.append(_source_entry(mix_path, repo_root))
+            warnings.append(f"Missing crossfit interaction metrics: {_display_path(crossfit_path, repo_root)}")
+        if crossfit_spec_path.exists():
+            sources.append(_source_entry(crossfit_spec_path, repo_root))
         else:
-            warnings.append(f"Linear mixture metrics unavailable for Fig.2D source manifest: {_display_path(mix_path, repo_root)}")
+            warnings.append(f"Missing crossfit analysis spec: {_display_path(crossfit_spec_path, repo_root)}")
     if not any(source["exists"] for source in sources):
-        return missing_adapter_result(spec, repo_root, output_dir, "Missing Fig.2D morphology closure sources.")
-    raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["WPRI", "Beyond-linear"])
+        return missing_adapter_result(spec, repo_root, output_dir, "Missing Fig.2C morphology closure sources.")
+    raw_panel_df = _sort_conditions(pd.DataFrame(rows), ["WPRI", "Cross-fit ΔR²"])
     panel_df = _seed_level_summary(raw_panel_df, ["condition", "metric"])
     stats = _stats_payload(figure_id, panel_id, panel_df, "morphology_closure", _run_mode(seeds), ["metric", "condition"])
     stats["visual_metrics"] = _unique(panel_df, "metric")
     stats["linear_model_comparison_plotted"] = False
+    stats["legacy_residual_template_metric_used"] = False
     _add_processing_stats(stats, sources, raw_rows, filtered_rows, len(panel_df))
     _add_seed_aggregation_stats(stats, raw_panel_df, panel_df)
     manifest = _manifest(figure_id, panel_id, sources, seeds, status="ok" if rows else "missing_source")
     manifest["visual_metrics"] = stats["visual_metrics"]
     manifest["linear_model_comparison_plotted"] = False
+    manifest["legacy_residual_template_metric_used"] = False
     return write_adapter_outputs(output_dir, figure_id, panel_id, panel_df, stats, manifest, warnings)
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -37,6 +38,202 @@ from src.plotting.paper_fig.adapters.fig3_adapters import (
 
 READOUT_CLASS_ORDER = ("latest", "recent", "earlier", "silent")
 TARGET_POSITION_BIN_ORDER = ("early", "middle", "recent", "latest")
+
+
+def build_part2_frozen_statistics_adapter(
+    spec: Mapping[str, Any], repo_root: Path, output_dir: Path
+) -> AdapterResult:
+    """Load one immutable S3 statistic payload without recomputation or fallback."""
+    figure_id, panel_id = _ids(spec)
+    if figure_id != "supp_fig_s3" or panel_id not in set("ABCDEF"):
+        raise ValueError(
+            "part2_frozen_statistics_adapter is restricted to supp_fig_s3 panels A-F"
+        )
+
+    contract = spec.get("frozen_statistics")
+    if not isinstance(contract, Mapping):
+        raise ValueError(f"{figure_id}{panel_id}: frozen_statistics contract is required")
+    source_rel = str(contract.get("path", "")).strip()
+    expected_sha256 = str(contract.get("sha256", "")).strip().lower()
+    identity_fields = tuple(map(str, contract.get("identity_fields") or ()))
+    expected_rows = int(contract.get("rows", 0))
+    if not source_rel or len(expected_sha256) != 64 or not identity_fields or expected_rows <= 0:
+        raise ValueError(f"{figure_id}{panel_id}: incomplete frozen_statistics contract")
+
+    source_path = (repo_root / source_rel).resolve()
+    if not source_path.is_file():
+        raise FileNotFoundError(
+            f"{figure_id}{panel_id}: frozen statistic payload is missing: {source_rel}"
+        )
+    source_bytes = source_path.read_bytes()
+    actual_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise ValueError(
+            f"{figure_id}{panel_id}: frozen statistic SHA-256 mismatch: "
+            f"expected {expected_sha256}, observed {actual_sha256}"
+        )
+    try:
+        payload = json.loads(source_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{figure_id}{panel_id}: invalid UTF-8 JSON payload") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{figure_id}{panel_id}: frozen statistic payload must be an object")
+    if payload.get("figure_id") != figure_id or payload.get("panel_id") != panel_id:
+        raise ValueError(f"{figure_id}{panel_id}: frozen statistic figure/panel identity mismatch")
+    if payload.get("warnings") != []:
+        raise ValueError(f"{figure_id}{panel_id}: frozen statistic payload contains warnings")
+
+    network_ids = payload.get("network_ids")
+    network_summaries = payload.get("network_summaries")
+    summaries = payload.get("summaries")
+    if not isinstance(network_ids, list) or not isinstance(network_summaries, list) or not isinstance(summaries, list):
+        raise ValueError(f"{figure_id}{panel_id}: required frozen statistic arrays are missing")
+    if len(network_ids) != int(payload.get("n_networks", -1)) or len(network_ids) != int(
+        payload.get("n_networks_observed", -1)
+    ):
+        raise ValueError(f"{figure_id}{panel_id}: frozen network count fields disagree")
+    if len(set(map(str, network_ids))) != len(network_ids):
+        raise ValueError(f"{figure_id}{panel_id}: frozen network ids are not unique")
+    if len(network_summaries) != expected_rows or len(summaries) != expected_rows:
+        raise ValueError(
+            f"{figure_id}{panel_id}: expected {expected_rows} frozen summary rows; "
+            f"observed {len(network_summaries)} network summaries and {len(summaries)} summaries"
+        )
+
+    network_order = _frozen_identity_order(network_summaries, identity_fields, figure_id, panel_id)
+    summary_order = _frozen_identity_order(summaries, identity_fields, figure_id, panel_id)
+    expected_network_order = _contract_identity_order(
+        contract, "network_summary_identity_order", identity_fields, figure_id, panel_id
+    )
+    expected_summary_order = _contract_identity_order(
+        contract, "summary_identity_order", identity_fields, figure_id, panel_id
+    )
+    expected_display_order = _contract_identity_order(
+        contract, "display_identity_order", identity_fields, figure_id, panel_id
+    )
+    if network_order != expected_network_order:
+        raise ValueError(f"{figure_id}{panel_id}: frozen network-summary identity/order mismatch")
+    if summary_order != expected_summary_order:
+        raise ValueError(f"{figure_id}{panel_id}: frozen summary identity/order mismatch")
+    if set(expected_display_order) != set(network_order):
+        if panel_id == "A" and set(expected_display_order).issubset(set(network_order)):
+            pass
+        else:
+            raise ValueError(f"{figure_id}{panel_id}: display identity set mismatch")
+
+    required_statistic_fields = {
+        "mean",
+        "sem",
+        "ci95_low",
+        "ci95_high",
+        "n_networks",
+        "one_sample_p_vs_zero",
+    }
+    for summary in network_summaries:
+        if not isinstance(summary, Mapping) or not required_statistic_fields.issubset(summary):
+            raise ValueError(f"{figure_id}{panel_id}: malformed frozen network summary")
+        if int(summary["n_networks"]) != len(network_ids):
+            raise ValueError(f"{figure_id}{panel_id}: frozen row network count mismatch")
+
+    summary_by_identity = {identity: row for identity, row in zip(summary_order, summaries)}
+    rows: list[dict[str, Any]] = []
+    for identity in expected_display_order if panel_id == "A" else summary_order:
+        summary = summary_by_identity[identity]
+        values = summary.get("values_used_for_plotting")
+        if not isinstance(values, list) or len(values) != len(network_ids):
+            raise ValueError(f"{figure_id}{panel_id}: frozen plotting values do not align to network ids")
+        for network_id, value in zip(network_ids, values):
+            row = {
+                "figure_id": figure_id,
+                "panel_id": panel_id,
+                "metric": summary.get("metric", payload.get("metric", "")),
+                "condition": summary.get("condition", summary.get("metric", "")),
+                "layer": "",
+                "network_id": str(network_id),
+                "seed_id": str(network_id),
+                "value": value,
+                "unit": "frozen_display_value",
+                "source_file": source_rel,
+                "frozen_source_sha256": actual_sha256,
+            }
+            for field in identity_fields:
+                row[field] = summary[field]
+            rows.append(row)
+
+    panel_df = pd.DataFrame(rows)
+    if panel_df.empty or panel_df.duplicated(["network_id", *identity_fields]).any():
+        raise ValueError(f"{figure_id}{panel_id}: frozen panel rows are empty or duplicated")
+
+    output_stats = dict(payload)
+    output_stats["frozen_source_path"] = source_rel
+    output_stats["frozen_source_sha256"] = actual_sha256
+    output_stats["frozen_identity_fields"] = list(identity_fields)
+    output_stats["frozen_network_summary_identity_order"] = [list(item) for item in network_order]
+    output_stats["frozen_summary_identity_order"] = [list(item) for item in summary_order]
+    output_stats["frozen_display_identity_order"] = [list(item) for item in expected_display_order]
+    output_stats["plot_only_no_recompute"] = True
+    manifest = {
+        "figure_id": figure_id,
+        "panel_id": panel_id,
+        "status": "ok",
+        "run_mode": payload.get("run_mode"),
+        "n_networks": len(network_ids),
+        "network_ids": list(map(str, network_ids)),
+        "inferential_unit": payload.get("inferential_unit"),
+        "source_files_used": [source_rel],
+        "checked_candidates": [source_rel],
+        "sources": [
+            {
+                "path": source_rel,
+                "exists": True,
+                "size_bytes": len(source_bytes),
+                "sha256": actual_sha256,
+                "role": "immutable_frozen_statistics",
+            }
+        ],
+        "frozen_schema_identity_order_validated": True,
+        "plot_only_no_recompute": True,
+        "warnings": [],
+    }
+    return write_adapter_outputs(
+        output_dir, figure_id, panel_id, panel_df, output_stats, manifest, []
+    )
+
+
+def _contract_identity_order(
+    contract: Mapping[str, Any],
+    key: str,
+    identity_fields: Sequence[str],
+    figure_id: str,
+    panel_id: str,
+) -> list[tuple[Any, ...]]:
+    raw_order = contract.get(key)
+    if not isinstance(raw_order, list):
+        raise ValueError(f"{figure_id}{panel_id}: {key} must be a list")
+    order: list[tuple[Any, ...]] = []
+    for item in raw_order:
+        if not isinstance(item, list) or len(item) != len(identity_fields):
+            raise ValueError(f"{figure_id}{panel_id}: malformed {key} entry")
+        order.append(tuple(item))
+    if len(set(order)) != len(order):
+        raise ValueError(f"{figure_id}{panel_id}: duplicate identity in {key}")
+    return order
+
+
+def _frozen_identity_order(
+    rows: Sequence[Mapping[str, Any]],
+    identity_fields: Sequence[str],
+    figure_id: str,
+    panel_id: str,
+) -> list[tuple[Any, ...]]:
+    order: list[tuple[Any, ...]] = []
+    for row in rows:
+        if not isinstance(row, Mapping) or not set(identity_fields).issubset(row):
+            raise ValueError(f"{figure_id}{panel_id}: frozen identity fields are missing")
+        order.append(tuple(row[field] for field in identity_fields))
+    if len(set(order)) != len(order):
+        raise ValueError(f"{figure_id}{panel_id}: frozen identity rows are duplicated")
+    return order
 
 
 def build_part2_fit_comparison_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:

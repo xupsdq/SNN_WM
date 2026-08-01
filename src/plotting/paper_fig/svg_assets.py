@@ -34,7 +34,13 @@ def parse_svg_viewbox(path: str | Path) -> dict[str, float]:
     raise ValueError(f"Cannot parse SVG viewBox or width/height: {path}")
 
 
-def render_svg_asset_panel(ax, spec: Mapping[str, Any], *, dpi: int = 300) -> None:
+def render_svg_asset_panel(
+    ax,
+    spec: Mapping[str, Any],
+    *,
+    dpi: int = 300,
+    css_override: str = "",
+) -> None:
     """Draw an external SVG as a contained raster image while preserving aspect ratio."""
     ax.set_axis_off()
     path = resolve_svg_asset_path(spec)
@@ -44,7 +50,8 @@ def render_svg_asset_panel(ax, spec: Mapping[str, Any], *, dpi: int = 300) -> No
     panel_h = float(panel.get("h", panel.get("height", 1.0)))
     aspect = viewbox["width"] / viewbox["height"]
     box_w, box_h = _contained_size(panel_w, panel_h, aspect)
-    png = _rasterize_svg(path, box_w, box_h, dpi=dpi)
+    render_path = _svg_with_css_override(path, css_override)
+    png = _rasterize_svg(render_path, box_w, box_h, dpi=dpi)
     img = mpimg.imread(png)
     frac_w = box_w / panel_w if panel_w else 1.0
     frac_h = box_h / panel_h if panel_h else 1.0
@@ -55,10 +62,30 @@ def render_svg_asset_panel(ax, spec: Mapping[str, Any], *, dpi: int = 300) -> No
     ax.set_ylim(0, 1)
     ax.paper_fig_plot_form = "manual_svg_asset"
     ax.paper_fig_svg_asset = str(path)
+    ax.paper_fig_svg_render_asset = str(render_path)
     ax.paper_fig_svg_viewbox = viewbox
     ax.paper_fig_svg_aspect_ratio = float(aspect)
     ax.paper_fig_svg_rendered_size_mm = {"w": float(box_w), "h": float(box_h)}
     ax.paper_fig_svg_raster_cache = str(png)
+
+
+def _svg_with_css_override(path: Path, css_override: str) -> Path:
+    """Create a cache-local styled SVG without mutating the canonical asset."""
+    css = str(css_override or "").strip()
+    if not css:
+        return path
+    source = path.read_text(encoding="utf-8")
+    closing_index = source.lower().rfind("</svg>")
+    if closing_index < 0:
+        raise ValueError(f"Cannot inject a rendering style into SVG without </svg>: {path}")
+    digest = hashlib.sha256(source.encode("utf-8") + b"\0" + css.encode("utf-8")).hexdigest()[:16]
+    cache_dir = repo_root_from_here() / ".codex" / "tmp" / "paper_fig_svg_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    out = cache_dir / f"{path.stem}_styled_{digest}.svg"
+    if not out.exists():
+        style = f'<style id="codex-paper-palette"><![CDATA[\n{css}\n]]></style>'
+        out.write_text(source[:closing_index] + style + source[closing_index:], encoding="utf-8")
+    return out
 
 
 def load_embedded_square_pngs(spec: Mapping[str, Any], *, count: int = 2) -> list[Any]:

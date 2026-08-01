@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+import sys as _early_sys
+
+_early_args = _early_sys.argv[1:]
+if __name__ == "__main__" and (
+    "--task=final-statistics" in _early_args
+    or any(
+        value == "--task"
+        and index + 1 < len(_early_args)
+        and _early_args[index + 1] == "final-statistics"
+        for index, value in enumerate(_early_args)
+    )
+):
+    from src.experiments.paper_figures.final_six.pipeline import (
+        canonical_runner_main as _final_statistics_main,
+    )
+
+    raise SystemExit(_final_statistics_main("fig1", _early_args))
+
 import argparse
 import sys
 from dataclasses import replace
@@ -47,6 +65,7 @@ from src.experiments.paper_figures.fig1.schemas import (
     TASK_DMS_DELAY_SWEEP_READOUT,
     TASK_DMS_SHUFFLE_READOUT,
     TASK_FIRING_RATE_CONTROL,
+    TASK_TIME_BINNED_FIRING_RATE_CONTROL,
     TASK_IDS,
     TASK_TRIAL_SPECS,
     normalize_reuse_mode,
@@ -70,6 +89,9 @@ from src.experiments.paper_figures.fig1.subexperiments.firing_rate_control impor
     run_phase_firing_rate_control,
     run_phase_firing_rate_control_from_bank,
 )
+from src.experiments.paper_figures.fig1.subexperiments.time_binned_firing_rate import (
+    run_time_binned_firing_rate_control,
+)
 from src.experiments.paper_figures.fig1.subexperiments.helpers import (
     _encode_cached,
     _iter_batches,
@@ -83,6 +105,11 @@ NUM_CLASSES = legacy.NUM_CLASSES
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--task" in raw_argv and "final-statistics" in raw_argv:
+        from src.experiments.paper_figures.final_six.pipeline import canonical_runner_main
+
+        return canonical_runner_main("fig1", raw_argv)
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
     cfg = _config_from_args(args)
@@ -297,6 +324,13 @@ def _run_task(
         else:
             bank = _get_dms_boundary_bank(ctx, specs["dms"], artifact_root=artifact_root, mode=mode, producer=False)
             run_phase_firing_rate_control_from_bank(ctx, bank)
+        return
+    if task_id == TASK_TIME_BINNED_FIRING_RATE_CONTROL:
+        run_time_binned_firing_rate_control(
+            ctx,
+            specs["dms"],
+            bin_ms=int(ctx.cfg.firing_bin_ms),
+        )
         return
     raise ValueError(f"Unsupported Fig.1 task: {task_id}")
 
@@ -630,6 +664,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig1Config:
         batch_size=min(int(args.batch_size), 16) if smoke else int(args.batch_size),
         dms_batch_size=min(int(args.dms_batch_size), 4) if smoke else int(args.dms_batch_size),
         dms_num_trials=min(int(args.dms_num_trials), 20) if smoke else int(args.dms_num_trials),
+        firing_bin_ms=int(args.firing_bin_ms),
         delay_decode_backend=str(args.delay_decode_backend),
         delay_decode_torch_ridge_lambda=float(args.delay_decode_torch_ridge_lambda),
         run_baseline=False,
@@ -690,6 +725,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--dms-batch-size", type=int, default=16)
     parser.add_argument("--dms-num-trials", type=int, default=100)
+    parser.add_argument("--firing-bin-ms", type=int, default=50)
     return parser.parse_args(list(argv) if argv is not None else None)
 
 

@@ -5,8 +5,138 @@ canvas_mm:
   width: 165
   height: 102
 reading_order: [A, B, C, D, E]
+row_bar_width_contract:
+  contract_id: row_local_physical_bar_width_v1
+  unit: mm
+  tolerance_mm: 0.05
+  groups:
+    - group_id: row_2_d_e
+      panels: [D, E]
+      target_mm: 12.7
+      selection_rule: minimum pre-normalization width within the row
 score_name: entry_gated_stsp_gain_score
 primary_endpoint: Layer 1 spatial spike enrichment / recruitment
+reader_contract:
+  version: fig6_reader_v1
+  status: frozen_for_topology_exploration
+  source_basis:
+    manuscript: docs/paper/v4.docx
+    section: Overlap gates the conversion of content-biased STSP gain fields into recruitment
+    figure_caption: Fig. 6
+  audience:
+    primary: Computational and systems neuroscience readers inspecting the figure at final print size.
+    assumed_knowledge: Readers know STSP and Layer 1, but have not yet internalized the local score definition.
+  figure_question: >-
+    In multi-input memory states, does retained STSP support behave as a content-biased gain field
+    that is converted into early Layer 1 recruitment when later input reaches supported pathways?
+  terminal_inference: >-
+    The multi-input STSP landscape retains content-biased structure; local entry-gated support
+    predicts early Layer 1 recruitment under both direct ping and weak-cue input, targeted removal
+    reduces that recruitment, and pathway overlap gates whether the retained support is expressed.
+  inference_scope: Within-model evidence for multi-input support-to-recruitment conversion; not a test of chunk formation itself.
+  forbidden_inferences:
+    - STSP alone determines firing without later input.
+    - The local score predicts the final class label.
+    - Fig. 6 establishes formation-period necessity for chunk-like fused states.
+    - Panels D and E estimate the same quantity or should share a numerical scale.
+  semantic_units:
+    - unit_id: content_field
+      panels: [A]
+      role: prerequisite_evidence
+      reader_task: Compare readout composition across high-, low-, and random-support entries.
+      local_conclusion: The retained multi-input field carries serial-content bias rather than only scalar excitability.
+      visual_weight: medium
+    - unit_id: recruitment_prediction
+      panels: [B, C]
+      role: core_comparative_evidence
+      reader_task: Compare the direction and consistency of score-response trends under direct ping and weak cue.
+      local_conclusion: Stronger entry-gated support predicts stronger early Layer 1 recruitment across two input regimes.
+      visual_weight: high
+    - unit_id: targeted_contribution
+      panels: [D]
+      role: perturbation_support
+      reader_task: Compare targeted high-STSP-overlap removal with a matched removal control.
+      local_conclusion: High-STSP-overlap sites contribute more to recruitment than matched sites.
+      visual_weight: medium
+    - unit_id: overlap_boundary
+      panels: [E]
+      role: boundary_condition
+      reader_task: Evaluate the STSP-by-overlap interaction rather than isolated bar heights.
+      local_conclusion: High retained support is expressed as firing change only where later input overlaps the supported pathway.
+      visual_weight: high
+  task_graph:
+    nodes:
+      - {node_id: Q, kind: question, label: "Multi-input generalization?"}
+      - {node_id: A, kind: evidence, semantic_unit: content_field, panels: [A]}
+      - {node_id: BC, kind: evidence_pair, semantic_unit: recruitment_prediction, panels: [B, C]}
+      - {node_id: D, kind: intervention, semantic_unit: targeted_contribution, panels: [D]}
+      - {node_id: E, kind: boundary_test, semantic_unit: overlap_boundary, panels: [E]}
+      - {node_id: I, kind: inference, label: "Content-biased and overlap-gated support-to-recruitment conversion"}
+    edges:
+      - {from: Q, to: A, relation: establish_field_content}
+      - {from: A, to: BC, relation: test_conversion_prediction}
+      - {from: BC, to: D, relation: test_targeted_contribution}
+      - {from: BC, to: E, relation: test_overlap_boundary}
+      - {from: D, to: I, relation: supports_contribution}
+      - {from: E, to: I, relation: sets_expression_boundary}
+  comparison_obligations:
+    - comparison_id: bc_cross_regime_trend
+      panels: [B, C]
+      reader_action: Compare trend direction and ordering across identical STSP-score quantiles.
+      required: [adjacent_panels, equal_plot_area, identical_x_positions, consistent_line_encoding]
+      not_required: [shared_y_scale, cross_panel_magnitude_comparison]
+    - comparison_id: a_entry_composition
+      panels: [A]
+      reader_action: Compare 100-percent composition across the three entry conditions.
+      required: [common_baseline, common_total, stable_stack_order]
+    - comparison_id: d_targeted_removal
+      panels: [D]
+      reader_action: Compare the two removal conditions on one common scale.
+      required: [common_baseline, matched_bar_geometry]
+    - comparison_id: e_overlap_interaction
+      panels: [E]
+      reader_action: Compare the high-minus-low STSP contrast across no-overlap and overlap conditions.
+      required: [interaction_legible, common_baseline, stable_stsp_encoding]
+  topology_invariants:
+    - Panel A is visually upstream of the B/C evidence pair.
+    - Panel A retains a natural-width vertical composition plot and is not stretched across the canvas merely to fill its row.
+    - The occupied panel footprint is rectangular; no isolated first row may create a narrow-top, wide-bottom silhouette.
+    - Panels B and C remain adjacent with no intervening panel and equal data-area geometry.
+    - Panels D and E are both downstream of B/C but are not presented as a shared numerical comparison.
+    - Panel E receives at least the visual emphasis of Panel D because it establishes the title-level boundary condition.
+    - The A-B-C-D-E panel sequence remains recoverable from panel geometry alone; arrows or stage headers cannot repair an ambiguous scan.
+    - Every topology preserves all task nodes and directed dependencies.
+  topology_freedoms:
+    - Panel widths and row heights may be unequal inside the frozen two-row topology.
+    - Panel A may be narrower than B and C, while B and C retain equal comparison geometry.
+    - Panel D may be narrower than Panel E because they are not a direct numerical comparison.
+    - Global axis alignment and cross-panel physical bar-width equality are not required.
+  rejected_topology_patterns:
+    - Stretching Panel A to full width or rotating it solely to consume first-row space.
+    - Placing natural-width Panel A alone above two full-width evidence rows, which creates a trapezoidal panel footprint.
+    - Placing a D/E validation column to the right of A when row-major scanning reaches it before B/C.
+  frozen_topology:
+    topology_id: two_row_rectangular_fig6_v1
+    status: frozen
+    rows:
+      - [A, B, C]
+      - [D, E]
+    reading_order: [A, B, C, D, E]
+    width_policy:
+      first_row: Panel A keeps its natural width; Panels B and C are equal and may be wider than A.
+      second_row: Panel D may be narrower than Panel E; together they fill the same outer width as the first row.
+    rationale: >-
+      With five fixed panels, a rectangular occupied footprint, an upstream natural-width Panel A,
+      and an indivisible B/C comparison pair, alternative row or column topologies either distort A,
+      create a trapezoidal silhouette, or break the reading order.
+frozen_protocol:
+  protocol_id: fig6_q50_promoted_v1
+  fig6e_stsp_group_quantile: 0.50
+  high_stsp_ablation_quantile: 0.20
+  overlap_threshold: 0.05
+  primary_early_window_ms: 10
+  robustness_windows_ms: [5, 10, 15, 20]
+  supplementary_quantile_sweep: [0.20, 0.30, 0.40, 0.50]
 argument_bands:
   - band_id: causal_control
     label: High-STSP-overlap control
@@ -70,6 +200,10 @@ qc_requirements:
     - final_label
   primary_endpoint: Layer 1 spatial spike enrichment / recruitment
   primary_early_window_ms: 10
+  required_fig6e_stsp_group_quantile: 0.50
+  required_high_stsp_ablation_quantile: 0.20
+  required_overlap_threshold: 0.05
+  required_fig6e_windows_ms: [5, 10, 15, 20]
 panels:
   A:
     panel_id: A
@@ -162,3 +296,7 @@ panels:
     y_axis: Layer 1 firing change (%)
     primary_early_window_ms: 10
     score_name: entry_gated_stsp_gain_score
+    stsp_group_quantile: 0.50
+    overlap_threshold: 0.05
+    protocol_id: fig6_q50_promoted_v1
+    robustness_windows_ms: [5, 10, 15, 20]

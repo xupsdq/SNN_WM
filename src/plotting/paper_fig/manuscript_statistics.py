@@ -174,7 +174,7 @@ TASKS: tuple[TaskSpec, ...] = (
     TaskSpec(
         "Q05",
         "fig2",
-        "C",
+        "D",
         "true experienced pairs exceed shuffled-pair controls.",
         (
             SourceSpec(
@@ -188,20 +188,27 @@ TASKS: tuple[TaskSpec, ...] = (
     TaskSpec(
         "Q06",
         "fig2",
-        "D",
-        "WPRI and beyond-linear residual indices are above zero.",
+        "C",
+        "WPRI and the leakage-safe cross-fitted interaction gain are above zero.",
         (
             SourceSpec(
                 "data/metrics/panel_d_pair_level_organization_metrics.csv",
                 ("network_seed", "pair_id", "layer", "state_variable", "WPRI"),
             ),
             SourceSpec(
-                "data/metrics/panel_d_linear_residual_pair_specificity_metrics.csv",
-                ("network_seed", "pair_id", "layer", "state_variable", "beyond_linear_pair_index"),
+                "data/metrics/panel_d_crossfit_interaction_network_metrics.csv",
+                (
+                    "network_seed",
+                    "layer",
+                    "state_variable",
+                    "delta_r2_interaction_beyond_bounded_saturation",
+                    "delta_r2_linear_interaction",
+                    "delta_r2_interaction_beyond_marginal_nonlinearity",
+                ),
             ),
         ),
         "q06",
-        "Both indices are averaged within seed/layer/state variable and tested vs 0.",
+        "WPRI is averaged within network. Cross-fitted endpoints are scored only on image-group-held-out pairs; network is the inferential unit.",
     ),
     TaskSpec(
         "Q07",
@@ -541,11 +548,19 @@ TASKS: tuple[TaskSpec, ...] = (
         (
             SourceSpec(
                 "data/metrics/panel_e_overlap_gated_stsp_interaction.csv",
-                ("network_seed", "early_window_ms", "interaction_delta", "stsp_effect_with_overlap", "stsp_effect_without_overlap"),
+                (
+                    "network_seed",
+                    "early_window_ms",
+                    "stsp_group_quantile",
+                    "overlap_threshold",
+                    "interaction_delta",
+                    "stsp_effect_with_overlap",
+                    "stsp_effect_without_overlap",
+                ),
             ),
         ),
         "q27",
-        "Seed-level interaction_delta is tested vs 0 at 5/10/15/20 ms; the four windows form one BH-FDR family.",
+        "The promoted q=0.50, overlap-threshold=0.05 seed-level interaction_delta is tested vs 0 at 5/10/15/20 ms; the four windows form one BH-FDR family.",
     ),
 )
 
@@ -1048,14 +1063,34 @@ def _calc_q05(root: Path, task: TaskSpec, seeds: Sequence[int]) -> list[dict[str
 
 def _calc_q06(root: Path, task: TaskSpec, seeds: Sequence[int]) -> list[dict[str, str]]:
     wpri, _present = _read_csvs(root, task, task.sources[0].path, seeds)
-    residual, _present = _read_csvs(root, task, task.sources[1].path, seeds)
+    crossfit, _present = _read_csvs(root, task, task.sources[1].path, seeds)
     rows = _one_sample_rows(task, wpri, "WPRI", metric="WPRI_vs_zero", group_cols=("layer", "state_variable"), source_file=task.sources[0].path)
     rows.extend(
         _one_sample_rows(
             task,
-            residual,
-            "beyond_linear_pair_index",
-            metric="beyond_linear_pair_index_vs_zero",
+            crossfit,
+            "delta_r2_interaction_beyond_bounded_saturation",
+            metric="crossfit_interaction_beyond_bounded_saturation_vs_zero",
+            group_cols=("layer", "state_variable"),
+            source_file=task.sources[1].path,
+        )
+    )
+    rows.extend(
+        _one_sample_rows(
+            task,
+            crossfit,
+            "delta_r2_linear_interaction",
+            metric="crossfit_linear_interaction_sensitivity_vs_zero",
+            group_cols=("layer", "state_variable"),
+            source_file=task.sources[1].path,
+        )
+    )
+    rows.extend(
+        _one_sample_rows(
+            task,
+            crossfit,
+            "delta_r2_interaction_beyond_marginal_nonlinearity",
+            metric="crossfit_quadratic_marginal_sensitivity_vs_zero",
             group_cols=("layer", "state_variable"),
             source_file=task.sources[1].path,
         )
@@ -1474,7 +1509,13 @@ def _calc_q26(root: Path, task: TaskSpec, seeds: Sequence[int]) -> list[dict[str
 
 def _calc_q27(root: Path, task: TaskSpec, seeds: Sequence[int]) -> list[dict[str, str]]:
     df, _present = _read_csvs(root, task, task.sources[0].path, seeds)
-    return _one_sample_rows(task, df, "interaction_delta", metric="interaction_delta", group_cols=("early_window_ms",))
+    return _one_sample_rows(
+        task,
+        df,
+        "interaction_delta",
+        metric="interaction_delta",
+        group_cols=("early_window_ms", "stsp_group_quantile", "overlap_threshold"),
+    )
 
 
 CALCULATORS: dict[str, Callable[[Path, TaskSpec, Sequence[int]], list[dict[str, str]]]] = {

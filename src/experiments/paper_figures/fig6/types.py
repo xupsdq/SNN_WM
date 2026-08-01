@@ -78,6 +78,7 @@ class Fig6Config:
     real_probe_entry_mode: str = "encoded_spike"
     score_use_log_gain: bool = False
     stsp_group_quantile: float = 0.20
+    fig6e_stsp_group_quantile: float = 0.50
     overlap_threshold: float = 0.05
     global_ping_amp: float = 0.5
     global_ping_ms: int = 30

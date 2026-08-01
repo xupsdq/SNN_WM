@@ -11,7 +11,9 @@ from src.plotting.paper_fig.data_resolver import AdapterResult, summarize_values
 
 
 FIGURE_ID = "fig3"
-DEFAULT_EXPERIMENT_ROOT = Path("results/paper_experiments/fig3_multiitem_peak_landscape")
+DEFAULT_EXPERIMENT_ROOT = Path(
+    "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape"
+)
 DRAFT_WARNING = "Single-network result. Use for pipeline validation only, not final manuscript statistics."
 STATE_ORDER = ("S_final", "S0", "S0_ping_null")
 CUE_ORDER = ("valley", "random", "peak")
@@ -63,6 +65,176 @@ def build_fig3_progressive_update_adapter(spec: Mapping[str, Any], repo_root: Pa
                 )
             )
     return _finish(spec, repo_root, output_dir, figure_id, panel_id, root, seeds, sources, rows, warnings, "stepwise_update_ratio", ["stage_k"])
+
+
+def build_fig3_prefix_trajectory_adapter(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    requested = spec.get("metrics_to_plot") or [spec.get("metric") or "N_eff"]
+    metrics = tuple(str(metric) for metric in requested)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = (
+            seed_dir
+            / "data"
+            / "metrics"
+            / "panel_b_prefix_trajectory_metrics.csv"
+        )
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(
+                f"Missing prefix-trajectory source: {_display(path, repo_root)}"
+            )
+            continue
+        frame = pd.read_csv(path)
+        required = {"network_seed", "stage_k", *metrics}
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            warnings.append(
+                f"Prefix trajectory missing {missing} in "
+                f"{_display(path, repo_root)}"
+            )
+            continue
+        min_stage = int(spec.get("min_stage") or 1)
+        frame = frame.loc[
+            pd.to_numeric(frame["stage_k"], errors="coerce").ge(min_stage)
+        ].copy()
+        network_seed = frame["network_seed"].iloc[0]
+        for metric in metrics:
+            network_stage = (
+                frame.groupby("stage_k", as_index=False)[metric]
+                .mean()
+                .dropna(subset=[metric])
+            )
+            for _, row in network_stage.iterrows():
+                value = _float(row.get(metric))
+                if not np.isfinite(value):
+                    continue
+                rows.append(
+                    _canonical(
+                        figure_id,
+                        panel_id,
+                        metric=metric,
+                        condition="K10_D200",
+                        layer="layer1",
+                        seed_id=network_seed,
+                        value=value,
+                        unit=_prefix_metric_unit(metric),
+                        source_file=_display(path, repo_root),
+                        stage_k=int(row["stage_k"]),
+                        x_value=int(row["stage_k"]),
+                        y_value=value,
+                    )
+                )
+    return _finish(
+        spec,
+        repo_root,
+        output_dir,
+        figure_id,
+        panel_id,
+        root,
+        seeds,
+        sources,
+        rows,
+        warnings,
+        metrics[0],
+        ["stage_k", "metric"],
+        stats_extra={"metrics_to_plot": list(metrics)},
+    )
+
+
+def build_fig3_prefix_item_weight_adapter(
+    spec: Mapping[str, Any],
+    repo_root: Path,
+    output_dir: Path,
+) -> AdapterResult:
+    figure_id, panel_id = _ids(spec)
+    root, seeds, warnings = _resolve_experiment_root(spec, repo_root)
+    rows: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    for seed_dir in seeds:
+        path = (
+            seed_dir
+            / "data"
+            / "metrics"
+            / "panel_b_prefix_item_weights.csv"
+        )
+        sources.append(_source(path, repo_root, seed_dir))
+        if not path.exists():
+            warnings.append(
+                f"Missing prefix-item-weight source: {_display(path, repo_root)}"
+            )
+            continue
+        frame = pd.read_csv(path)
+        required = {
+            "network_seed",
+            "stage_k",
+            "item_position",
+            "item_weight",
+        }
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            warnings.append(
+                f"Prefix item weights missing {missing} in "
+                f"{_display(path, repo_root)}"
+            )
+            continue
+        network_cells = (
+            frame.groupby(
+                ["network_seed", "stage_k", "item_position"],
+                as_index=False,
+            )["item_weight"]
+            .mean()
+        )
+        for _, row in network_cells.iterrows():
+            value = _float(row.get("item_weight"))
+            if not np.isfinite(value):
+                continue
+            rows.append(
+                _canonical(
+                    figure_id,
+                    panel_id,
+                    metric="item_weight",
+                    condition="K10_D200",
+                    layer="layer1",
+                    seed_id=row["network_seed"],
+                    value=value,
+                    unit="proportion",
+                    source_file=_display(path, repo_root),
+                    stage_k=int(row["stage_k"]),
+                    item_position=int(row["item_position"]),
+                    x_value=int(row["item_position"]),
+                    y_value=int(row["stage_k"]),
+                    z_value=value,
+                )
+            )
+    return _finish(
+        spec,
+        repo_root,
+        output_dir,
+        figure_id,
+        panel_id,
+        root,
+        seeds,
+        sources,
+        rows,
+        warnings,
+        "item_weight",
+        ["stage_k", "item_position"],
+    )
+
+
+def _prefix_metric_unit(metric: str) -> str:
+    if metric == "N_eff":
+        return "items"
+    if metric in {"recency_bias", "similarity_entropy"}:
+        return "normalized"
+    return "L2 distance"
 
 
 def build_fig3_example_landscape_adapter(spec: Mapping[str, Any], repo_root: Path, output_dir: Path) -> AdapterResult:

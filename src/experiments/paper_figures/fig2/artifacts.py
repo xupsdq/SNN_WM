@@ -18,6 +18,10 @@ from src.experiments.paper_figures.fig2.schemas import (
     COMPLETION_BOUNDARY_MANIFEST_COLUMNS,
     COMPLETION_CONDITIONS,
     COMPLETION_DELAY_MASK_COLUMNS,
+    CROSSFIT_SPLIT_COLUMNS,
+    CROSSFIT_SPLIT_FILE,
+    CROSSFIT_NULL_SPEC_COLUMNS,
+    CROSSFIT_NULL_SPEC_FILE,
     PAIR_SPEC_FILES,
     PAIR_SPEC_MANIFEST_COLUMNS,
     STATE_BANK_ARRAY_VARIABLES,
@@ -122,6 +126,26 @@ def require_cache_key_match(task_dir: Path, expected_key: Mapping[str, Any], *, 
         )
 
 
+def validate_cache_key_integrity(task_dir: Path, *, task_id: str | None = None) -> dict[str, Any]:
+    payload = read_cache_key(task_dir)
+    cache_key = payload["cache_key"]
+    if not isinstance(cache_key, dict):
+        raise ValueError(f"Malformed artifact cache key payload: {Path(task_dir) / CACHE_KEY_FILE}")
+    found_digest = str(payload.get("cache_key_digest"))
+    computed_digest = cache_key_digest(cache_key)
+    if found_digest != computed_digest:
+        raise RuntimeError(
+            f"Artifact cache key digest mismatch: stored {found_digest}, computed {computed_digest}: "
+            f"{Path(task_dir) / CACHE_KEY_FILE}"
+        )
+    if task_id is not None and str(cache_key.get("task_id")) != str(task_id):
+        raise RuntimeError(
+            f"Artifact task id mismatch: expected {task_id!r}, found {cache_key.get('task_id')!r}: "
+            f"{Path(task_dir) / CACHE_KEY_FILE}"
+        )
+    return cache_key
+
+
 def save_pair_trial_specs_artifact(
     task_dir: Path,
     *,
@@ -164,6 +188,68 @@ def load_pair_trial_specs_artifact(
         candidate_pool=artifact.table["candidate_pool"].copy(),
         manifest=artifact.manifest,
         digest=artifact.digest,
+    )
+
+
+def save_crossfit_split_specs_artifact(
+    task_dir: Path,
+    table: pd.DataFrame,
+    *,
+    cache_key: Mapping[str, Any],
+) -> TableArtifact:
+    return _save_single_table_artifact(
+        task_dir,
+        table=table,
+        filename=CROSSFIT_SPLIT_FILE,
+        name="crossfit_split_specs",
+        columns=CROSSFIT_SPLIT_COLUMNS,
+        cache_key=cache_key,
+    )
+
+
+def load_crossfit_split_specs_artifact(
+    task_dir: Path,
+    *,
+    expected_key: Mapping[str, Any] | None = None,
+) -> TableArtifact:
+    return _load_single_table_artifact(
+        task_dir,
+        filename=CROSSFIT_SPLIT_FILE,
+        name="crossfit_split_specs",
+        columns=CROSSFIT_SPLIT_COLUMNS,
+        expected_key=expected_key,
+        task_id="crossfit_split_specs",
+    )
+
+
+def save_crossfit_null_specs_artifact(
+    task_dir: Path,
+    table: pd.DataFrame,
+    *,
+    cache_key: Mapping[str, Any],
+) -> TableArtifact:
+    return _save_single_table_artifact(
+        task_dir,
+        table=table,
+        filename=CROSSFIT_NULL_SPEC_FILE,
+        name="crossfit_null_specs",
+        columns=CROSSFIT_NULL_SPEC_COLUMNS,
+        cache_key=cache_key,
+    )
+
+
+def load_crossfit_null_specs_artifact(
+    task_dir: Path,
+    *,
+    expected_key: Mapping[str, Any] | None = None,
+) -> TableArtifact:
+    return _load_single_table_artifact(
+        task_dir,
+        filename=CROSSFIT_NULL_SPEC_FILE,
+        name="crossfit_null_specs",
+        columns=CROSSFIT_NULL_SPEC_COLUMNS,
+        expected_key=expected_key,
+        task_id="crossfit_null_specs",
     )
 
 
@@ -231,6 +317,8 @@ def load_state_bank_artifact(
     task_dir = Path(task_dir)
     if expected_key is not None:
         require_cache_key_match(task_dir, expected_key, task_id="state_bank")
+    else:
+        validate_cache_key_integrity(task_dir, task_id="state_bank")
     row_count = len(pair_trials)
     state_manifest_path = task_dir / "state_bank_manifest.csv"
     boundary_manifest_path = task_dir / "boundary_manifest.csv"
@@ -513,6 +601,8 @@ def _load_table_bundle(
     task_dir = Path(task_dir)
     if expected_key is not None:
         require_cache_key_match(task_dir, expected_key, task_id=task_id)
+    else:
+        validate_cache_key_integrity(task_dir, task_id=task_id)
     manifest_path = task_dir / "manifest.csv"
     if not manifest_path.exists():
         raise FileNotFoundError(f"{task_id} manifest is missing: {manifest_path}")
@@ -763,6 +853,8 @@ __all__ = [
     "default_artifact_root",
     "load_completion_boundary_bank_artifact",
     "load_completion_delay_mask_specs_artifact",
+    "load_crossfit_split_specs_artifact",
+    "load_crossfit_null_specs_artifact",
     "load_pair_trial_specs_artifact",
     "load_partial_cue_mask_specs_artifact",
     "load_state_bank_artifact",
@@ -771,10 +863,13 @@ __all__ = [
     "reset_task_artifact_dir",
     "save_completion_boundary_bank_artifact",
     "save_completion_delay_mask_specs_artifact",
+    "save_crossfit_split_specs_artifact",
+    "save_crossfit_null_specs_artifact",
     "save_pair_trial_specs_artifact",
     "save_partial_cue_mask_specs_artifact",
     "save_state_bank_artifact",
     "task_artifact_dir",
+    "validate_cache_key_integrity",
     "write_cache_key",
     "write_json",
 ]

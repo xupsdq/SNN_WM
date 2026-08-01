@@ -5,7 +5,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from src.plotting.common.colors import get_plot_color
+from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE as PALETTE, get_plot_color
 from src.plotting.common.theme_tokens import COLOR_NEUTRAL, GRID_ALPHA_SOFT
 from src.plotting.paper_fig.panels.fig1_panels import render_generic_placeholder
 from src.plotting.paper_fig.panels.fig4_panels import render_fig4_decision_deflection
@@ -32,12 +32,16 @@ def render_s7_similarity_overlap_2x2(ax, panel_data: pd.DataFrame | None, stats:
             vals.append(float(part["mean"].iloc[0]) if not part.empty else np.nan)
             errs.append(float(part["sem"].iloc[0]) if not part.empty else 0.0)
         xs = np.arange(len(sim_order), dtype=float) + (idx - 0.5) * width
-        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx], edgecolor=COLOR_NEUTRAL, linewidth=0.45, capsize=1.8, label=("Low overlap" if idx == 0 else "High overlap"))
-    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
-    ax.set_xticks(np.arange(len(sim_order)), ["Low sim", "High sim"])
+        vals = [value * 100.0 for value in vals]
+        errs = [value * 100.0 for value in errs]
+        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx], hatch=("//" if idx == 0 else ""), edgecolor=COLOR_NEUTRAL, linewidth=0.55, capsize=1.8, label=("Low overlap" if idx == 0 else "High overlap"))
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=1.15)
+    ax.set_xticks(np.arange(len(sim_order)), ["Low similarity", "High similarity"])
     ax.set_xlabel(str(spec.get("x_axis", "Similarity group")))
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")))
-    ax.legend(frameon=False, fontsize=4.6, loc="upper left", handlelength=0.8)
+    legend = ax.legend(frameon=False, fontsize=4.8, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2, handlelength=1.2, borderaxespad=0.0)
+    ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
+    ax.paper_fig_legend_above_plot = True
     _tidy(ax)
     ax.paper_fig_plot_form = "s7_similarity_overlap_2x2"
 
@@ -58,15 +62,14 @@ def render_s7_overlap_excess(ax, panel_data: pd.DataFrame | None, stats: Mapping
         pivot = pivot.sort_values("iso_similarity_bin_order")
         low_vals = pd.to_numeric(pivot["Low overlap excess"], errors="coerce").dropna()
         high_vals = pd.to_numeric(pivot["High overlap excess"], errors="coerce").dropna()
-        means = [float(low_vals.mean()) if len(low_vals) else np.nan, float(high_vals.mean()) if len(high_vals) else np.nan]
-        sems = [float(low_vals.sem()) if len(low_vals) > 1 else 0.0, float(high_vals.sem()) if len(high_vals) > 1 else 0.0]
-        ax.bar([0, 1], means, yerr=sems, color=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")], edgecolor=COLOR_NEUTRAL, linewidth=0.45, alpha=0.72, capsize=1.8, zorder=2)
+        means = [100.0 * (float(low_vals.mean()) if len(low_vals) else np.nan), 100.0 * (float(high_vals.mean()) if len(high_vals) else np.nan)]
+        sems = [100.0 * (float(low_vals.sem()) if len(low_vals) > 1 else 0.0), 100.0 * (float(high_vals.sem()) if len(high_vals) > 1 else 0.0)]
+        bars = ax.bar([0, 1], means, yerr=sems, color=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")], edgecolor=COLOR_NEUTRAL, linewidth=0.55, alpha=0.72, capsize=1.8, zorder=2)
+        bars[0].set_hatch("//")
         ax.set_xticks([0, 1], ["Low", "High"])
     else:
-        order = _ordered_unique(df["condition"], ["Low overlap excess", "High overlap excess"])
-        _bar_summary(ax, df, order, colors=[get_plot_color("shuffled_pair"), get_plot_color("true_pair")])
-        ax.set_xticks(np.arange(len(order)), ["Low", "High"])
-    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
+        raise RuntimeError("Frozen S4B payload lacks both low- and high-overlap-excess conditions.")
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=1.15)
     ax.set_xlabel(str(spec.get("x_axis", "Similarity stratum")))
     ax.set_ylabel(str(spec.get("y_axis", "Accuracy drop")), labelpad=float(spec.get("y_labelpad", 1.0)))
     if spec.get("y_label_x") is not None:
@@ -104,10 +107,17 @@ def render_s7_matching_diagnostics(ax, panel_data: pd.DataFrame | None, stats: M
     if df.empty:
         render_generic_placeholder(ax, panel_data, stats, spec, style)
         return
-    metrics = _ordered_unique(df["metric"], ["similarity_difference", "sample_energy_rel_difference", "probe_energy_rel_difference", "dice_overlap_difference", "overlap_difference", "mean_similarity_difference", "mean_sample_energy_rel_difference", "mean_probe_energy_rel_difference"])
+    metrics = _ordered_unique(df["metric"], ["similarity_difference", "sample_energy_rel_difference", "probe_energy_rel_difference", "dice_overlap_difference", "overlap_difference", "mean_similarity_difference", "mean_sample_energy_rel_difference", "mean_probe_energy_rel_difference", "mean_overlap_difference"])
     _dot_bar(ax, df, metrics, color=get_plot_color("other_residual"))
-    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
-    ax.set_xticks(np.arange(len(metrics)), [_short_metric(m) for m in metrics], rotation=25, ha="right")
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=1.15)
+    metric_labels = spec.get("metric_labels", {})
+    if not isinstance(metric_labels, Mapping):
+        metric_labels = {}
+    ax.set_xticks(np.arange(len(metrics)), [str(metric_labels.get(metric, _short_metric(metric))) for metric in metrics], rotation=0, ha="center")
+    categorical_tick_font_pt = float(spec.get("categorical_tick_font_pt", 9.1))
+    for label in ax.get_xticklabels():
+        label.paper_fig_text_size_scale = categorical_tick_font_pt / 9.0
+        label.set_linespacing(0.82)
     ax.set_xlabel("")
     ax.set_ylabel(str(spec.get("y_axis", "Difference")))
     _tidy(ax)
@@ -168,6 +178,9 @@ def render_s7_overlap_regression(ax, panel_data: pd.DataFrame | None, stats: Map
     if not outcomes:
         _coefficient_plot(ax, panel_data, spec, "s7_overlap_regression")
         return
+    display_labels = spec.get("display_labels", {})
+    if not isinstance(display_labels, Mapping):
+        display_labels = {}
     colors = [get_plot_color("sample_probe_overlap"), get_plot_color("true_pair"), get_plot_color("other_residual")]
     width = min(0.26, 0.72 / max(len(outcomes), 1))
     x = np.arange(len(order), dtype=float)
@@ -180,9 +193,12 @@ def render_s7_overlap_regression(ax, panel_data: pd.DataFrame | None, stats: Map
             vals.append(float(vals_for_term.mean()) if len(vals_for_term) else np.nan)
             errs.append(float(vals_for_term.sem()) if len(vals_for_term) > 1 else 0.0)
         xs = x + (idx - (len(outcomes) - 1) / 2) * width
-        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx % len(colors)], edgecolor=COLOR_NEUTRAL, linewidth=0.45, capsize=1.5, label=str(outcome))
-    ax.axhline(0, color="0.45", linestyle="--", linewidth=0.6)
-    ax.set_xticks(x, [_short_metric(v).replace("\n", " ") for v in order], rotation=0, ha="center")
+        ax.bar(xs, vals, yerr=errs, width=width, color=colors[idx % len(colors)], hatch=("//" if idx == 0 else ""), edgecolor=COLOR_NEUTRAL, linewidth=0.55, capsize=1.5, label=str(display_labels.get(outcome, outcome)))
+    ax.axhline(0, color="0.45", linestyle="--", linewidth=1.15)
+    term_labels = spec.get("term_labels", {})
+    if not isinstance(term_labels, Mapping):
+        term_labels = {}
+    ax.set_xticks(x, [str(term_labels.get(term, _short_metric(term))) for term in order], rotation=0, ha="center")
     ax.set_ylabel(str(spec.get("y_axis", "Coefficient")))
     legend = ax.legend(frameon=False, fontsize=4.5, loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=max(1, len(outcomes)), handlelength=0.8, borderaxespad=0.0)
     ax.paper_fig_legend_texts = [text.get_text() for text in legend.get_texts()]
@@ -441,7 +457,7 @@ def _num(value: Any) -> float:
 def _tidy(ax) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.grid(alpha=GRID_ALPHA_SOFT, linewidth=0.35)
+    ax.grid(False)
     ax.tick_params(axis="both", labelsize=5.0, pad=0.8, length=1.6, width=0.5, color=COLOR_NEUTRAL)
     ax.xaxis.label.set_size(5.4)
     ax.yaxis.label.set_size(5.4)

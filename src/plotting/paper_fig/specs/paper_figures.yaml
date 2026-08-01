@@ -40,6 +40,10 @@ figures:
     spec: fig3_morphology_serial_supp.yaml
     title: Supplementary Fig. S4x serial structure of the compressed Fig.3 scaffold
     status: implemented_skeleton
+  fig3_progressive_supp:
+    spec: fig3_progressive_supp.yaml
+    title: Progressive formation of a multi-item STSP state
+    status: prospective_validation
   fig4:
     spec: fig4.yaml
     title: Overlap-gated synaptic re-entry

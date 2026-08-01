@@ -9,6 +9,15 @@ gutters_mm:
   horizontal: 2
   vertical: 2
 reading_order: [A, B, C, D, E]
+row_bar_width_contract:
+  contract_id: row_local_physical_bar_width_v1
+  unit: mm
+  tolerance_mm: 0.05
+  groups:
+    - group_id: row_3_d_e
+      panels: [D, E]
+      target_mm: 15.0
+      selection_rule: minimum pre-normalization width within the row
 run_modes:
   single_network_draft:
     min_networks: 1

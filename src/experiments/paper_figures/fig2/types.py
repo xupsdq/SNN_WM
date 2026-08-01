@@ -50,11 +50,19 @@ class Fig2Config:
     n_shuffle: int = 50
     delay_layer_grid: tuple[int, ...] = (200, 400, 800)
     linear_mixture_cv_folds: int = 5
+    crossfit_folds: int = 5
+    crossfit_layers: tuple[str, ...] = ("layer3",)
+    crossfit_state_variables: tuple[str, ...] = ("g",)
+    crossfit_null_replicates: int = 100
+    crossfit_null_feature_count: int = 1024
+    crossfit_null_noise_scale_ratio: float = 1.0
     primary_layer: str = "layer3"
     primary_state_variable: str = "g"
     run_state_bank: bool = False
     run_morphology: bool = False
     run_linear_mixture: bool = False
+    run_crossfit_interaction: bool = False
+    run_crossfit_null_calibration: bool = False
     run_neutral_ping: bool = False
     run_partial_cue: bool = False
     run_supplement: bool = False
@@ -72,6 +80,28 @@ class Fig2Config:
     use_encode_cache: bool = True
     enable_partial_cue_batch: bool = False
     functional_readout_batch_size: int = 128
+    fixed_b_protocol_seed: int = 20260724
+    fixed_b_candidate_families: int = 50
+    fixed_b_history_families: int = 10
+    fixed_b_anchors: int = 50
+    fixed_b_prefix_depths: tuple[int, ...] = (1, 5)
+    fixed_b_item_ms: int = 200
+    fixed_b_inter_delay_ms: int = 200
+    fixed_b_stimulus_ms: int = 200
+    fixed_b_post_ms: int = 200
+    fixed_b_folds: int = 5
+    fixed_b_early_window_ms: int = 20
+    fixed_b_trace_window_ms: int = 200
+    fixed_b_ridge_alphas: tuple[float, ...] = (0.1, 1.0, 10.0)
+    fixed_b_target_components: int = 32
+    fixed_b_b_fold_mode: str = "stratified_within_class"
+    fixed_b_crossfit_axes: tuple[str, ...] = ("both",)
+    fixed_b_diagnostic_alpha: float = 10.0
+    fixed_b_null_replicates: int = 19
+    fixed_b_source_match_max_smd: float = 0.10
+    fixed_b_protocol_dir: str = ""
+    fixed_b_task_state_path: str = ""
+
     smoke: bool = False
 
     @property
@@ -97,6 +127,33 @@ class Fig2Config:
     @property
     def weak_probe_steps(self) -> int:
         return _ms_to_steps(self.weak_probe_ms, self.dt)
+
+    @property
+    def fixed_b_item_steps(self) -> int:
+        return _ms_to_steps(self.fixed_b_item_ms, self.dt)
+
+    @property
+    def fixed_b_inter_delay_steps(self) -> int:
+        return _ms_to_steps(self.fixed_b_inter_delay_ms, self.dt)
+
+    @property
+    def fixed_b_stimulus_steps(self) -> int:
+        return _ms_to_steps(self.fixed_b_stimulus_ms, self.dt)
+
+    @property
+    def fixed_b_post_steps(self) -> int:
+        return _ms_to_steps(self.fixed_b_post_ms, self.dt)
+
+    @property
+    def fixed_b_early_window_steps(self) -> int:
+        return _ms_to_steps(self.fixed_b_early_window_ms, self.dt)
+
+    @property
+    def fixed_b_trace_window_steps(self) -> int:
+        return min(
+            _ms_to_steps(self.fixed_b_trace_window_ms, self.dt),
+            self.fixed_b_stimulus_steps,
+        )
 
 
 @dataclass

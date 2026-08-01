@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.transforms import Bbox
 
+from src.plotting.paper_fig.bar_width_layout import apply_row_bar_width_contract, write_row_bar_width_report
 from src.plotting.paper_fig.data_resolver import AdapterResult, missing_adapter_result, panel_stem
 from src.plotting.paper_fig.export import (
     export_full_figure,
@@ -74,6 +75,7 @@ def build_figure(
     full_export_paths: dict[str, str] | None = None
     placeholder_reasons: dict[str, str] = {}
     render_metadata: dict[str, dict[str, Any]] = {}
+    row_bar_width_report: dict[str, Any] = {}
     if not check_only:
         fig, axes = _create_layout(implementation_id, spec, selected)
         render_jobs: dict[str, tuple[Any, Any, Mapping[str, Any], Any]] = {}
@@ -96,12 +98,15 @@ def build_figure(
         apply_paper_figure_typography(fig)
         if callable(finalize_layout):
             finalize_layout(fig, axes, spec)
+        if selected is None:
+            row_bar_width_report = apply_row_bar_width_contract(fig, axes, spec)
         fig.canvas.draw()
         for pid, ax in axes.items():
             render_metadata[pid].update(_collect_render_metadata(ax, fig=fig, panel_label_artist=panel_label_artists.get(pid)))
         write_layout_report = getattr(fig, "paper_fig_write_layout_report", None)
         if callable(write_layout_report):
             write_layout_report(fig, axes, spec, output_dir)
+        write_row_bar_width_report(row_bar_width_report, output_dir)
         export_dpi = int(spec.get("png_dpi", 300))
         if panel_id is None:
             full_export_paths = export_full_figure(fig, output_dir, fig_id, dpi=export_dpi)
@@ -121,7 +126,12 @@ def build_figure(
         placeholder_reasons=placeholder_reasons,
         render_metadata=render_metadata,
     )
-    return {"figure_id": fig_id, "output_dir": str(output_dir), "qc": qc_report}
+    return {
+        "figure_id": fig_id,
+        "output_dir": str(output_dir),
+        "qc": qc_report,
+        "row_bar_width": row_bar_width_report,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -271,9 +281,18 @@ def _collect_render_metadata(ax, *, fig=None, panel_label_artist=None) -> dict[s
         "legend_above_plot": bool(getattr(ax, "paper_fig_legend_above_plot", False)),
         "x_metric": str(getattr(ax, "paper_fig_x_metric", "")),
         "y_metric": str(getattr(ax, "paper_fig_y_metric", "")),
+        "dual_y_axes": bool(getattr(ax, "paper_fig_dual_y_axes", False)),
+        "secondary_y_label": str(getattr(ax, "paper_fig_secondary_y_label", "")),
+        "secondary_y_multiplier": str(getattr(ax, "paper_fig_secondary_y_multiplier", "")),
+        "secondary_y_multiplier_size_scale": float(
+            getattr(ax, "paper_fig_secondary_y_multiplier_size_scale", 1.0) or 1.0
+        ),
         "score_name": str(getattr(ax, "paper_fig_score_name", "")),
         "score_excludes": getattr(ax, "paper_fig_score_excludes", []),
         "primary_endpoint": str(getattr(ax, "paper_fig_primary_endpoint", "")),
+        "episode_timing_ms": getattr(ax, "paper_fig_episode_timing_ms", {}),
+        "timing_source": str(getattr(ax, "paper_fig_timing_source", "")),
+        "timing_labels_visible": bool(getattr(ax, "paper_fig_timing_labels_visible", False)),
         "score_interpretation": str(getattr(ax, "paper_fig_score_interpretation", "")),
         "final_label_claim": getattr(ax, "paper_fig_final_label_claim", None),
         "pure_mechanism_schematic": bool(getattr(ax, "paper_fig_pure_mechanism_schematic", False)),
@@ -437,7 +456,12 @@ def _bbox_fig_bounds(fig, bbox) -> list[float]:
     return [float(fig_bbox.x0), float(fig_bbox.y0), float(fig_bbox.x1), float(fig_bbox.y1)]
 
 
-def _draw_panel_labels(fig, spec: Mapping[str, Any], panels: Mapping[str, Mapping[str, Any]], selected: set[str] | None) -> dict[str, Any]:
+def _draw_panel_labels(
+    fig,
+    spec: Mapping[str, Any],
+    panels: Mapping[str, Mapping[str, Any]],
+    selected: set[str] | None,
+) -> dict[str, Any]:
     """Place panel labels in figure coordinates so rows align consistently."""
     canvas = spec.get("canvas_mm") or {}
     canvas_w = float(canvas.get("width", 1.0))
