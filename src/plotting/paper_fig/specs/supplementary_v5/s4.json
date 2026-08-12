@@ -1,0 +1,151 @@
+{
+  "figure_id": "s4",
+  "canvas_mm": [165.0, 102.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d"],
+  "reader_contract": {
+    "version": "supplementary_s4_c5_reader_v2",
+    "status": "frozen",
+    "figure_question": "Is the C5 successor-reuse result positive across networks and protected against dependence on the development seed or intervention leakage?",
+    "terminal_inference": "Both next-processing and next-successor endpoints are positive in every tested network at K1 and K5, the estimates persist in the confirmatory 19-network cohort, and all frozen intervention-identity gates pass.",
+    "forbidden_inferences": [
+      "C5 establishes necessity, complete mediation, or uniqueness.",
+      "K1 and K5 effect magnitudes were compared by a prespecified inferential test.",
+      "The Layer 2 and Layer 3 endpoints estimate one interchangeable biological quantity.",
+      "C5 establishes a causal relation to Fig.5 morphology or Fig.6 conditional function."
+    ],
+    "semantic_units": [
+      {"unit_id": "processing", "panels": ["a"], "role": "next-input network prevalence", "reader_task": "Inspect K1 and K5 early Layer-2 donor-transfer values across all 20 networks."},
+      {"unit_id": "successor", "panels": ["b"], "role": "next-successor network prevalence", "reader_task": "Inspect K1 and K5 post-C Layer-3 donor-transfer values across all 20 networks."},
+      {"unit_id": "cohort", "panels": ["c"], "role": "confirmatory cohort closure", "reader_task": "Compare each confirmatory-19 estimate with its overlapping full-20 reference."},
+      {"unit_id": "identity", "panels": ["d"], "role": "causal identity prerequisite", "reader_task": "Verify Layer-2-only transfer, preserved receiver state, reset fast state, identical C, and sham identity."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "processing_evidence", "panels": ["a"]},
+        {"node_id": "B", "kind": "successor_evidence", "panels": ["b"]},
+        {"node_id": "C", "kind": "cohort_closure", "panels": ["c"]},
+        {"node_id": "D", "kind": "identity_audit", "panels": ["d"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "B", "relation": "successor_follows_next_processing"},
+        {"from": "A", "to": "C", "relation": "tests_development_seed_dependence"},
+        {"from": "B", "to": "C", "relation": "tests_development_seed_dependence"},
+        {"from": "C", "to": "I", "relation": "closes_cohort_alternative"},
+        {"from": "D", "to": "I", "relation": "closes_intervention_leakage_alternative"}
+      ]
+    },
+    "comparison_obligations": [
+      {"comparison_id": "within_endpoint_depth", "panels": ["a", "b"], "reader_action": "Read K1 and K5 within each endpoint panel without treating their visual separation as a tested depth contrast.", "required": ["same_network_cohort", "raw_network_values", "mean_ci"], "not_required": ["K1_vs_K5_test", "cross_endpoint_difference_test"]},
+      {"comparison_id": "cohort_overlap", "panels": ["c"], "reader_action": "Compare confirmatory-19 and full-20 summaries for the same endpoint-by-K row.", "required": ["shared_axis", "open_filled_redundancy"], "not_required": ["independent_group_test"]}
+    ],
+    "topology_invariants": [
+      "The two core endpoint distributions occupy adjacent first-row slots.",
+      "The cohort sensitivity occupies the lower-left slot after the two core endpoints.",
+      "The identity audit is the final lower-right panel and remains visually subordinate.",
+      "Layer 2 and Layer 3 distributions remain separate panels.",
+      "No retired formation-bridge experiment or Fig.5-to-Fig.6 bridge is present."
+    ],
+    "topology_freedoms": [
+      "Gate-label abbreviation and tick density may be reduced inside the frozen slots.",
+      "Deterministic network jitter may be adjusted without changing the summaries."
+    ]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "c5_network_distribution",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.5, 10.0, 64.0, 30.0],
+      "xlabel": "History depth",
+      "ylabel": "Donor transfer",
+      "x_order": [1, 5],
+      "ylim": [0.32, 0.36],
+      "yticks": [0.32, 0.34, 0.36],
+      "color_role": "layer2",
+      "marker": "o"
+    },
+    "b": {
+      "panel_type": "c5_network_distribution",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [96.0, 10.0, 64.0, 30.0],
+      "xlabel": "History depth",
+      "ylabel": "Donor transfer",
+      "x_order": [1, 5],
+      "ylim": [0.27, 0.31],
+      "yticks": [0.27, 0.29, 0.31],
+      "color_role": "layer3",
+      "marker": "s"
+    },
+    "c": {
+      "panel_type": "c5_cohort_forest",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.5, 64.0, 64.0, 28.0],
+      "xlabel": "Donor transfer",
+      "row_order": ["L2 K1", "L2 K5", "L3 K1", "L3 K5"],
+      "xlim": [0.27, 0.36],
+      "xticks": [0.28, 0.32, 0.35]
+    },
+    "d": {
+      "panel_type": "identity_gate_matrix",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [96.0, 64.0, 64.0, 28.0],
+      "colorbar_bbox_mm": [96.0, 59.5, 64.0, 1.5],
+      "xlabel": "",
+      "ylabel": "History depth",
+      "row_order": [1, 5],
+      "column_order": ["L2 only", "Boundary", "STSP kept", "Fast reset", "Same C", "Sham out"],
+      "column_labels": ["L2 only", "Bnd.", "STSP", "Fast", "Same C", "Sham"],
+      "colorbar_label": "Pass (%)",
+      "vmin": 0.0,
+      "vmax": 100.0,
+      "decimals": 0,
+      "cmap_role": "stsp_support"
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "processing", "panels": ["a"], "role": "early Layer-2 network distribution"},
+      {"unit_id": "successor", "panels": ["b"], "role": "post-C Layer-3 network distribution"},
+      {"unit_id": "cohort", "panels": ["c"], "role": "confirmatory-19 closure"},
+      {"unit_id": "identity", "panels": ["d"], "role": "C5 causal identity audit"}
+    ],
+    "comparison_groups": [
+      {"group_id": "endpoint_prevalence", "panels": ["a", "b"], "comparison_basis": "same 20 networks and K1/K5 ordering but endpoint-specific scales", "reader_task": "verify within-endpoint network prevalence without making a cross-endpoint magnitude test"}
+    ],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "first_row_slots", "panels": ["a", "b"], "target": "slot", "edges": ["top", "bottom"], "rationale": "two equal first-row endpoint slots"},
+      {"group_id": "first_row_plots", "panels": ["a", "b"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "direct endpoint-panel rhythm", "comparison_basis": "same networks and K ordering with endpoint-specific y scales"},
+      {"group_id": "second_row_slots", "panels": ["c", "d"], "target": "slot", "edges": ["top", "bottom"], "rationale": "two equal second-row robustness slots"},
+      {"group_id": "second_row_plots", "panels": ["c", "d"], "target": "plot_area", "edges": ["top", "bottom"], "rationale": "stable lower-row rhythm despite different chart grammars", "comparison_basis": "robustness closure panels share vertical extent but encode distinct statistical and audit quantities"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "network distribution", "category_slots": 2, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom"], "visual_weight": "high"},
+      "b": {"chart_family": "network distribution", "category_slots": 2, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom"], "visual_weight": "high"},
+      "c": {"chart_family": "cohort forest", "category_slots": 4, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "d": {"chart_family": "identity audit matrix", "category_slots": 6, "natural_aspect": [2.0, 4.0], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "low"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["processing", "successor", "cohort", "identity"], "rationale": "core endpoints lead, cohort robustness follows, and the engineering identity audit closes the final alternative"},
+    "hard_constraints": [
+      "165x102 mm canvas",
+      "two equal 48 mm rows with two equal slots in each row",
+      "identity audit must remain the final panel",
+      "all six identity gates must be computed from all 160 persisted audit rows",
+      "raw network points must remain visible in panels a and b",
+      "full-20 and confirmatory-19 cohorts are overlapping, not independent"
+    ],
+    "soft_targets": ["use compact horizontal gate labels", "center the cohort legend above panel c"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -12,7 +12,7 @@ from typing import Any, Sequence
 
 
 FIGURE_IDS = tuple(f"fig{index}" for index in range(1, 7))
-REPLAY_VERSION = "final_six_plot_replay_v1.0.0"
+REPLAY_VERSION = "final_six_plot_replay_v2.0.0"
 
 
 def _repo_root() -> Path:
@@ -39,28 +39,24 @@ def _hash_exports(bundle_root: Path) -> dict[str, dict[str, str]]:
     }
 
 
-def _clear_local_python_cache(package_dir: Path) -> list[str]:
-    removed: list[str] = []
-    for cache_dir in sorted(package_dir.rglob("__pycache__"), reverse=True):
-        resolved = cache_dir.resolve()
-        if not resolved.is_relative_to(package_dir.resolve()):
-            raise PermissionError(f"refusing to remove cache outside package: {resolved}")
-        shutil.rmtree(resolved)
-        removed.append(str(resolved))
-    return removed
-
-
 def replay(bundle_root: Path) -> dict[str, Any]:
     repo_root = _repo_root().resolve()
     bundle_root = bundle_root.resolve()
-    expected = (
-        repo_root / "results/paper_figure_multi_seed/final_six_figures"
+    expected_parent = (
+        repo_root / "results/paper_figure_multi_seed"
     ).resolve()
-    if bundle_root != expected:
-        raise ValueError(f"replay accepts only the final-six bundle: {expected}")
+    valid_bundle_name = (
+        bundle_root.name == "final_six_figures"
+        or bundle_root.name.startswith("final_six_figures_")
+    )
+    if bundle_root.parent != expected_parent or not valid_bundle_name:
+        raise ValueError(
+            "replay accepts only a canonical or versioned final-six bundle under "
+            f"{expected_parent}; got {bundle_root}"
+        )
     before = _hash_exports(bundle_root)
     package_dir = Path(__file__).resolve().parent
-    removed = _clear_local_python_cache(package_dir)
+    removed: list[str] = []
     commands: list[dict[str, Any]] = []
     for figure_id in FIGURE_IDS:
         command = [
@@ -73,6 +69,7 @@ def replay(bundle_root: Path) -> dict[str, Any]:
         result = subprocess.run(
             command,
             cwd=str(repo_root),
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
             text=True,
             capture_output=True,
             check=False,
@@ -115,6 +112,7 @@ def replay(bundle_root: Path) -> dict[str, Any]:
         "status": status,
         "cache_scope": str(package_dir),
         "cache_directories_removed": removed,
+        "cache_policy": "no cache deletion; subprocesses disable bytecode writes",
         "commands": commands,
         "before_sha256": before,
         "after_sha256": after,

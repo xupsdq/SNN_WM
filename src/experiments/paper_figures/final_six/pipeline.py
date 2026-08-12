@@ -17,7 +17,7 @@ from .builders import BuilderContext, FIGURE_BUILDERS, PanelResult
 from .schema import sha256_file, write_csv, write_json
 
 
-BUILDER_VERSION = "final_six_statistics_v1.0.0"
+BUILDER_VERSION = "final_six_statistics_v2.4.0"
 FINAL_TASK_ID = "final-statistics"
 FIGURE_IDS = tuple(f"fig{index}" for index in range(1, 7))
 DEFAULT_RELATIVE_OUTPUT = Path(
@@ -40,42 +40,41 @@ PANEL_CLAIMS = {
         "e": "error-pool attribution composition",
     },
     "fig2": {
-        "a": "one-step exact-B transition direction",
+        "a": "distinct A/C histories followed by identical B and paired post-B state/outcome comparison",
         "b": "history-aligned rescue and loss",
         "c": "common update and history effect",
-        "d": "event-linked residual enrichment",
-        "e": "Layer-1-only downstream donor transfer",
+        "d": "changed-event versus size-matched-random residual magnitude",
     },
     "fig3": {
         "a": "overlap-specific causal gate",
         "b": "pre-input retained support",
-        "c": "advance and recruit conversion",
-        "d": "winner-loser local competition",
-        "e": "STSP causal necessity",
-        "f": "Layer 2 history-dependent write-back",
+        "c": "descriptive 30-ms advance, recruit and loss probabilities",
+        "d": "Layer-1 STSP contribution to early processing",
+        "e": "Layer-2 history-dependent write-back",
+        "f": "Layer-1-only causal entry into Layer-2 successor formation",
+        "g": "conceptual synthesis of iterative inherited-state updating",
     },
     "fig4": {
-        "a": "successive observed versus equal-time passive displacement",
-        "b": "relation-balanced K1-to-K5 rescue and loss shifts",
-        "c": "K5 common update and history residual",
-        "d": "K5 changed-event residual localization",
-        "e": "K5 downstream donor transfer",
+        "a": "C5 early Layer-2 processing donor transfer",
+        "b": "C5 post-C Layer-3 successor donor transfer",
+        "c": "successive observed versus persisted passive displacement",
+        "d": "relation-balanced K1-to-K5 rescue and loss shifts",
     },
     "fig5": {
         "a": "both pair constituents retained",
         "b": "experienced-pair specificity",
-        "c": "organization beyond linear mixture",
-        "d": "multi-item expansion and compression",
-        "e": "serial-position organization",
-        "f": "structural K-by-delay boundary",
+        "c": "effective component number across load",
+        "d": "latest-item-only exclusion",
+        "e": "Layer-1 g effective area across load and delay",
+        "f": "coefficient-free morphology specificity across load and delay",
     },
     "fig6": {
         "a": "pair partial-cue recovery",
         "b": "multi-item serial access",
-        "c": "cue-content specificity",
+        "c": "matched versus same-label-novel and unseen cue specificity",
         "d": "functional K-by-delay boundary",
-        "e": "targeted high-STSP-overlap contribution",
-        "f": "STSP-by-overlap expression gate",
+        "e": "exact-area-and-energy-matched high-STSP-overlap contribution",
+        "f": "primary 10-ms STSP-by-overlap expression gate",
     },
 }
 
@@ -417,7 +416,11 @@ def _write_figure_bundle(
         "builder_version": BUILDER_VERSION,
         "built_at": _now(),
         "git_commit": _git_commit(repo_root),
-        "scientific_chain": "inherit -> transition -> implement -> recur -> organize -> access",
+        "scientific_chain": (
+            "inherit -> identical-input conditioning -> successor formation -> "
+            "successor reuse and recurrence; morphology and conditional function are "
+            "parallel outcome modules"
+        ),
         "model_or_dataset_initialized": False,
     }
     write_json(figure_dir / "run_config.json", run_config)
@@ -571,7 +574,7 @@ def _refresh_top_level(*, repo_root: Path, output_root: Path) -> None:
         .sort_values(["figure_id", "panel_id", "source_path"], kind="mergesort")
     )
     write_csv(output_root / "meta/parent_hashes_before.csv", parent_hashes)
-    expected_quantitative = 31
+    expected_quantitative = 29
     observed_quantitative = int(panel_index["panel_type"].eq("quantitative").sum())
     write_json(
         output_root / "run_config.json",

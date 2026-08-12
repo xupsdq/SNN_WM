@@ -223,7 +223,7 @@ def load_source(
         if missing_columns:
             raise ValueError(f"{descriptor.key}: missing columns {missing_columns} in {path}")
         path_seed = _path_seed(path)
-        if path_seed is not None:
+        if descriptor.seeded and path_seed is not None:
             if "network_seed" not in frame.columns:
                 frame.insert(0, "network_seed", path_seed)
             observed = sorted(

@@ -1,0 +1,143 @@
+{
+  "figure_id": "s1",
+  "canvas_mm": [165.0, 102.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d"],
+  "reader_contract": {
+    "version": "supplementary_s1_inheritance_controls_reader_v1",
+    "status": "frozen",
+    "figure_question": "Is the directional influence of inherited state on a later input robust to delay, trial pairing, and unequal donor opportunity?",
+    "terminal_inference": "The directional donor-state influence attenuates with delay, remains visible in paired donor flux, and exceeds the batch-matched donor-opportunity control.",
+    "forbidden_inferences": [
+      "The control panels establish that STSP is the unique carrier of history.",
+      "The accuracy gap proves a general behavioral benefit under every input history.",
+      "Donor flux is a complete mediation analysis of the later response.",
+      "These controls establish a causal bridge from Fig.5 morphology to Fig.6 conditional function."
+    ],
+    "semantic_units": [
+      {"unit_id": "delay", "panels": ["a"], "role": "behavioral delay attenuation", "reader_task": "Inspect the network-level accuracy-gap trajectory across tested delays."},
+      {"unit_id": "direction", "panels": ["b"], "role": "sample-directed attenuation", "reader_task": "Inspect whether sample-directed bias follows the same bounded delay dependence."},
+      {"unit_id": "flux", "panels": ["c"], "role": "paired donor flux", "reader_task": "Compare within-network inflow, outflow, and their net endpoint."},
+      {"unit_id": "opportunity", "panels": ["d"], "role": "donor-opportunity control", "reader_task": "Inspect the batch-matched donor excess after unequal opportunity is controlled."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "delay_control", "panels": ["a", "b"]},
+        {"node_id": "B", "kind": "paired_direction_control", "panels": ["c"]},
+        {"node_id": "C", "kind": "opportunity_control", "panels": ["d"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "I", "relation": "bounds_temporal_persistence"},
+        {"from": "B", "to": "I", "relation": "tests_directional_pairing"},
+        {"from": "C", "to": "I", "relation": "closes_donor_opportunity_alternative"}
+      ]
+    },
+    "topology_invariants": [
+      "The two delay trajectories precede the paired flux and opportunity controls.",
+      "All panels retain network-level values and estimation summaries.",
+      "No uniqueness, mediation, or Fig.5-to-Fig.6 claim is encoded."
+    ]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "network_trajectory",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 10.0, 64.5, 30.0],
+      "xlabel": "Delay (ms)",
+      "ylabel": "Accuracy gap (%)",
+      "x_order": [100, 200, 400, 800, 1200],
+      "ylim": [-4.0, 32.0],
+      "yticks": [0.0, 10.0, 20.0, 30.0],
+      "color_role": "dynamic",
+      "reference": 0.0
+    },
+    "b": {
+      "panel_type": "network_trajectory",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 10.0, 64.5, 30.0],
+      "xlabel": "Delay (ms)",
+      "ylabel": "Sample bias (%)",
+      "x_order": [100, 200, 400, 800, 1200],
+      "ylim": [-2.0, 14.0],
+      "yticks": [0.0, 5.0, 10.0],
+      "color_role": "dynamic",
+      "reference": 0.0
+    },
+    "c": {
+      "panel_type": "paired_flux",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 60.0, 64.5, 30.0],
+      "xlabel": "",
+      "ylabel": "Trials (%)",
+      "x_order": ["Inflow", "Outflow", "Net"],
+      "ylim": [0.0, 11.0],
+      "yticks": [0.0, 5.0, 10.0],
+      "reference": 0.0
+    },
+    "d": {
+      "panel_type": "vertical_estimation",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 60.0, 64.5, 30.0],
+      "xlabel": "u/x − intact",
+      "ylabel": "Donor excess (%)",
+      "ylim": [-1.0, 8.0],
+      "yticks": [0.0, 2.0, 4.0, 6.0, 8.0],
+      "color_role": "donor_trace",
+      "reference": 0.0
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "delay", "panels": ["a"], "role": "behavioral delay attenuation"},
+      {"unit_id": "direction", "panels": ["b"], "role": "sample-directed delay attenuation"},
+      {"unit_id": "flux", "panels": ["c"], "role": "trial-paired donor flux"},
+      {"unit_id": "opportunity", "panels": ["d"], "role": "batch-matched donor-opportunity null"}
+    ],
+    "comparison_groups": [
+      {
+        "group_id": "delay_pair",
+        "panels": ["a", "b"],
+        "comparison_basis": "same five tested delays and network cohort",
+        "reader_task": "compare attenuation timing without comparing physical y-height"
+      }
+    ],
+    "alignment_groups": [
+      {
+        "group_id": "panel_labels",
+        "panels": ["a", "b", "c", "d"],
+        "target": "panel_label",
+        "edges": ["left", "top"],
+        "rationale": "constant slot-relative panel-letter placement"
+      }
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "ordered trajectory", "category_slots": 5, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "b": {"chart_family": "ordered trajectory", "category_slots": 5, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "c": {"chart_family": "paired slope plus endpoint", "category_slots": 3, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "d": {"chart_family": "one-dimensional estimation", "category_slots": 1, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "low"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {
+      "reading_direction": "row_major",
+      "unit_sequence": ["delay", "direction", "flux", "opportunity"],
+      "rationale": "delay evidence precedes paired donor validation"
+    },
+    "hard_constraints": ["165x102 mm canvas", "two equal 48 mm rows", "no clipping or inference in plotting"],
+    "soft_targets": ["balanced visual weight across rows"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

@@ -10,6 +10,7 @@ ALLOWED_EDGES = {"left", "right", "top", "bottom"}
 ALLOWED_VISUAL_WEIGHTS = {"low", "medium", "high"}
 ALLOWED_BAR_MODES = {"preserve_slots", "proportional_panel_width", "within_panel_only"}
 ALLOWED_READING_DIRECTIONS = {"row_major", "column_major", "explicit"}
+ALLOWED_RELEASED_CONSTRAINTS = {"equal_width", "panel_atomicity"}
 
 
 @dataclass
@@ -40,6 +41,7 @@ def validate_layout_contract(spec: Mapping[str, Any]) -> LayoutContractReport:
         return report
 
     _check_version(contract, report)
+    _check_grid_policy_and_exceptions(contract, panels, report)
     unit_ids = _check_semantic_units(contract, panels, report)
     _check_comparison_groups(contract, panels, report)
     _check_alignment_groups(contract, panels, report)
@@ -62,6 +64,56 @@ def _check_version(contract: Mapping[str, Any], report: LayoutContractReport) ->
         report.passes.append(f"layout status is {status}")
     else:
         report.failures.append("layout_contract.status must be candidate, frozen, or approved")
+
+
+def _check_grid_policy_and_exceptions(
+    contract: Mapping[str, Any],
+    panels: set[str],
+    report: LayoutContractReport,
+) -> None:
+    policy = contract.get("grid_policy")
+    if policy is None:
+        report.warnings.append(
+            "legacy layout_contract has no grid_policy; add it when the layout is next revised"
+        )
+        return
+    if not isinstance(policy, Mapping):
+        report.failures.append("layout_contract.grid_policy must be a mapping")
+        return
+
+    required = ("equal_row_heights", "equal_width_within_row", "panel_atomicity")
+    missing = [key for key in required if policy.get(key) is not True]
+    if missing:
+        report.failures.append(f"layout_contract.grid_policy must enable: {missing}")
+    else:
+        report.passes.append("preferred equal-grid and panel-atomicity policy is enabled")
+
+    exceptions = contract.get("approved_exceptions")
+    if not isinstance(exceptions, Sequence) or isinstance(exceptions, (str, bytes)):
+        report.failures.append("layout_contract.approved_exceptions must be a list")
+        return
+    for index, item in enumerate(exceptions):
+        if not isinstance(item, Mapping):
+            report.failures.append(f"approved_exceptions[{index}] must be a mapping")
+            continue
+        if item.get("approved_exception") is not True:
+            report.failures.append(f"approved_exceptions[{index}].approved_exception must be true")
+        if not str(item.get("scope") or "").strip():
+            report.failures.append(f"approved_exceptions[{index}] requires scope")
+        released = str(item.get("released_constraint") or "")
+        if released not in ALLOWED_RELEASED_CONSTRAINTS:
+            report.failures.append(
+                f"approved_exceptions[{index}].released_constraint must be one of "
+                f"{sorted(ALLOWED_RELEASED_CONSTRAINTS)}"
+            )
+        members = _panel_list(item.get("panels"), f"approved exception {index}", report)
+        unknown = set(members) - panels
+        if unknown:
+            report.failures.append(f"approved exception {index} has unknown panels: {sorted(unknown)}")
+        if not str(item.get("rationale") or "").strip():
+            report.failures.append(f"approved_exceptions[{index}] requires rationale")
+    if not exceptions:
+        report.passes.append("layout declares no released grid constraints")
 
 
 def _check_semantic_units(

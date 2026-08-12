@@ -1,0 +1,143 @@
+{
+  "figure_id": "s2",
+  "canvas_mm": [165.0, 102.0],
+  "slots": {
+    "a": [2.0, 2.0, 161.0, 48.0],
+    "b": [2.0, 52.0, 52.333, 48.0],
+    "c": [56.333, 52.0, 52.334, 48.0],
+    "d": [110.667, 52.0, 52.333, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d"],
+  "reader_contract": {
+    "version": "supplementary_s2_reader_v4",
+    "status": "frozen",
+    "figure_question": "With current B held identical and only inherited Layer 1 u/x substituted, does donor direction enter the downstream successor computation, and do the result and its interpretation survive metric and cohort checks?",
+    "terminal_inference": "Donor direction enters both the Layer 2 successor update and the early Layer 3 class-score vector; the effect is broadly distributed across comparisons and persists after excluding the development seed.",
+    "forbidden_inferences": [
+      "The Layer 2 and early Layer 3 donor-transfer indices estimate the same biological quantity.",
+      "The visual difference between the two endpoint rows is an inferential Layer 2 versus Layer 3 contrast.",
+      "A donor-transfer index is the fraction of a complete state that was copied.",
+      "The overlapping full-20 and untouched-19 cohorts are independent groups."
+    ],
+    "semantic_units": [
+      {"unit_id": "exchange", "panels": ["a"], "role": "selective state substitution", "reader_task": "Read one aligned before-to-after substitution: donor Layer-1 u/x replaces receiver Layer-1 u/x while the receiver carrier and Layer-2/3 states remain receiver-owned."},
+      {"unit_id": "transfer", "panels": ["b"], "role": "core cross-layer evidence", "reader_task": "Read the Layer 2 and early Layer 3 donor-transfer endpoints on one shared DTI axis."},
+      {"unit_id": "robustness", "panels": ["c"], "role": "metric robustness", "reader_task": "Check whether median transfer, direction alignment, and positive-comparison prevalence all remain above their prespecified nulls."},
+      {"unit_id": "untouched", "panels": ["d"], "role": "cohort closure", "reader_task": "Check whether both transfer endpoints persist after excluding the development seed."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "intervention_boundary", "panels": ["a"]},
+        {"node_id": "B", "kind": "core_evidence", "panels": ["b"]},
+        {"node_id": "C", "kind": "alternative_exclusion", "panels": ["c"]},
+        {"node_id": "D", "kind": "confirmatory_closure", "panels": ["d"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "B", "relation": "defines_selective_transfer"},
+        {"from": "B", "to": "C", "relation": "tests_metric_robustness"},
+        {"from": "B", "to": "D", "relation": "tests_cohort_robustness"},
+        {"from": "C", "to": "I", "relation": "excludes_metric_artifact"},
+        {"from": "D", "to": "I", "relation": "excludes_development_seed_dependence"}
+      ]
+    },
+    "comparison_obligations": [
+      {"comparison_id": "cross_layer_transfer", "panels": ["b"], "reader_action": "Compare two endpoint rows using the identical DTI axis and mark grammar.", "required": ["one_coordinate_system", "shared_x_scale", "adjacent_rows", "distinct_layer_markers"], "not_required": ["paired_connectors", "layer_difference_test"]},
+      {"comparison_id": "metric_robustness", "panels": ["c"], "reader_action": "Compare each displayed margin with zero after applying its metric-specific null.", "required": ["one_margin_axis", "zero_reference", "layer_legend"], "not_required": ["cross_metric_magnitude_interpretation"]},
+      {"comparison_id": "untouched_cohort", "panels": ["d"], "reader_action": "Compare untouched estimates with the full-cohort reference for the same endpoint.", "required": ["same_dti_axis", "filled_open_redundancy"], "not_required": ["independent_group_test"]}
+    ],
+    "topology_invariants": [
+      "The selective component-exchange schematic occupies the full first row.",
+      "The two primary transfer endpoints remain one atomic panel on one DTI axis.",
+      "Metric robustness and untouched-cohort closure remain separate downstream panels.",
+      "The lower row contains three equal slots with no internal facets or insets."
+    ],
+    "topology_freedoms": [
+      "Endpoint row spacing and deterministic jitter may be adjusted inside panel b without changing its shared coordinate system.",
+      "Tick density may be reduced within the frozen axes when required for final-size legibility."
+    ]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "exchange_schematic",
+      "slot_bbox_mm": [2.0, 2.0, 161.0, 48.0],
+      "plot_bbox_mm": [8.0, 8.0, 149.0, 33.0],
+      "exchange_layout": {
+        "before_group": [0.02, 0.06, 0.36, 0.88],
+        "donor_component": [0.05, 0.67, 0.30, 0.16],
+        "receiver_before": [0.05, 0.13, 0.30, 0.41],
+        "operation_icon": [0.47, 0.365, 0.06, 0.27],
+        "receiver_after": [0.64, 0.215, 0.33, 0.57]
+      }
+    },
+    "b": {
+      "panel_type": "two_endpoint_transfer",
+      "slot_bbox_mm": [2.0, 52.0, 52.333, 48.0],
+      "plot_bbox_mm": [13.5, 62.0, 38.333, 28.0],
+      "xlabel": "Donor-transfer index",
+      "row_order": ["L2 update", "Early L3"],
+      "row_labels": ["L2", "L3"],
+      "xlim": [0.0, 1.0],
+      "xticks": [0.0, 0.5, 1.0],
+      "references": [0.0, 1.0]
+    },
+    "c": {
+      "panel_type": "horizontal_forest",
+      "slot_bbox_mm": [56.333, 52.0, 52.334, 48.0],
+      "plot_bbox_mm": [67.833, 62.0, 38.334, 28.0],
+      "xlabel": "Margin above null",
+      "row_order": ["Median DTI", "Alignment", "Positive frac."],
+      "row_labels": ["DTI", "Align.", "Pos."],
+      "xlim": [-0.05, 0.95],
+      "xticks": [0.0, 0.25, 0.5, 0.75],
+      "reference": 0.0
+    },
+    "d": {
+      "panel_type": "cohort_forest",
+      "slot_bbox_mm": [110.667, 52.0, 52.333, 48.0],
+      "plot_bbox_mm": [122.167, 62.0, 38.333, 28.0],
+      "xlabel": "Donor-transfer index",
+      "row_order": ["L2 update", "Early L3"],
+      "row_labels": ["L2", "L3"],
+      "xlim": [0.0, 1.0],
+      "xticks": [0.0, 0.5, 1.0],
+      "reference": 0.0
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "exchange", "panels": ["a"], "role": "selective donor-to-receiver state-component substitution"},
+      {"unit_id": "transfer", "panels": ["b"], "role": "shared-axis Layer 2 and early Layer 3 donor transfer"},
+      {"unit_id": "robustness", "panels": ["c"], "role": "distribution and direction robustness"},
+      {"unit_id": "untouched", "panels": ["d"], "role": "untouched confirmatory cohort"}
+    ],
+    "comparison_groups": [],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "lower_row_slots", "panels": ["b", "c", "d"], "target": "slot", "edges": ["top", "bottom"], "rationale": "one equal-height three-panel evidence row"},
+      {"group_id": "lower_row_plots", "panels": ["b", "c", "d"], "target": "plot_area", "edges": ["top", "bottom"], "rationale": "a stable lower-row point-range rhythm without implying a common numerical scale", "comparison_basis": "all three panels use network-level horizontal estimation grammar; each panel retains its declared x definition"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "state-component exchange schematic", "category_slots": 3, "natural_aspect": [4.0, 5.5], "decoration_sides": [], "visual_weight": "high"},
+      "b": {"chart_family": "two-row horizontal estimation", "category_slots": 2, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom"], "visual_weight": "high"},
+      "c": {"chart_family": "horizontal forest", "category_slots": 3, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "d": {"chart_family": "cohort forest", "category_slots": 2, "natural_aspect": [1.2, 1.8], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["exchange", "transfer", "robustness", "untouched"], "rationale": "the selective exchange boundary licenses the combined cross-layer endpoint panel, followed by separate metric and cohort closure tasks"},
+    "hard_constraints": [
+      "165x102 mm canvas",
+      "one full-width exchange schematic row plus three equal lower-row slots",
+      "b to d use approximately 38.333 mm visible data width, 28 mm height, and visible bottom and left axes",
+      "b keeps both transfer endpoints on one DTI axis without a Layer 2 versus Layer 3 difference inference",
+      "c preserves metric-specific null definitions",
+      "d does not treat the overlapping cohorts as independent"
+    ],
+    "soft_targets": ["keep the component-exchange action dominant in panel a", "keep both lower-row legends inside their owning slots"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

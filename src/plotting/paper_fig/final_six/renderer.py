@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import io
 import json
 import math
 import os
@@ -25,7 +24,15 @@ from lxml import etree
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.patches import Arc, FancyBboxPatch, Rectangle, Wedge
+from matplotlib.patches import (
+    Arc,
+    Circle,
+    FancyArrowPatch,
+    FancyBboxPatch,
+    Rectangle,
+    Wedge,
+)
+from matplotlib.path import Path as MplPath
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from scipy import stats
@@ -37,6 +44,7 @@ from src.plotting.common.colors import (
     get_plot_distinction,
 )
 from src.plotting.paper_fig.layout_contract import validate_layout_contract
+from src.plotting.paper_fig.svg_icons import draw_tabler_icon
 from src.plotting.paper_fig.typography import (
     VECTOR_TEXT_RCPARAMS,
     apply_paper_figure_typography,
@@ -47,11 +55,11 @@ from src.plotting.paper_fig.typography import (
 from .specs import CANVAS_MM, get_figure_spec
 
 
-RENDERER_VERSION = "final_six_csv_plotter_v1.12.0"
+RENDERER_VERSION = "final_six_csv_plotter_v2.10.0"
 EXPECTED_SEEDS = tuple(range(1000, 1020))
 ALLOWED_EXTERNAL_ASSETS = {
     "fig1": "results/paper_figures/outputs/structure-enhanced.svg",
-    "fig2": "results/paper_figures/outputs/DMS-enhanced.svg",
+    "fig3": "src/plotting/paper_fig/assets/fig3_state_evolution.svg",
 }
 MM_TO_INCH = 1.0 / 25.4
 MM_TO_POINT = 72.0 / 25.4
@@ -93,13 +101,18 @@ class BundleReader:
                 f"{self.figure_id}: input dir must be its final bundle directory; "
                 f"got {self.figure_dir}"
             )
-        expected_root = (
-            _repo_root() / "results" / "paper_figure_multi_seed" / "final_six_figures"
+        expected_parent = (
+            _repo_root() / "results" / "paper_figure_multi_seed"
         ).resolve()
-        if self.figure_dir.parent != expected_root:
+        bundle_root = self.figure_dir.parent
+        valid_bundle_name = (
+            bundle_root.name == "final_six_figures"
+            or bundle_root.name.startswith("final_six_figures_")
+        )
+        if bundle_root.parent != expected_parent or not valid_bundle_name:
             raise ValueError(
-                f"{self.figure_id}: plotting only accepts the final-six bundle; "
-                f"expected parent {expected_root}"
+                f"{self.figure_id}: plotting only accepts a canonical or versioned "
+                f"final-six bundle under {expected_parent}; got {bundle_root}"
             )
 
     def _resolve_internal(self, relative: str, purpose: str) -> Path:
@@ -408,7 +421,6 @@ def _plot_forest(axis: plt.Axes, frame: pd.DataFrame, spec: Mapping[str, Any]) -
     else:
         axis.set_yticks([])
         axis.tick_params(axis="y", left=False)
-        axis.spines["left"].set_visible(False)
     axis.set_ylim(-0.65, len(order) - 0.35)
     axis.set_xlabel(str(spec.get("x_label") or ""))
     if spec.get("x_limits"):
@@ -1475,6 +1487,7 @@ def _plot_ordered_lines(
     hue_field = spec.get("hue_field")
     hue_order = list(spec.get("hue_order") or ["single"])
     hue_labels = spec.get("hue_labels") or {}
+    x_labels = spec.get("x_labels") or {}
     numeric_x = bool(spec.get("numeric_x"))
     x_positions = (
         np.asarray(x_order, dtype=float)
@@ -1572,7 +1585,7 @@ def _plot_ordered_lines(
             color=NEUTRAL,
             lw=0.9,
             ls="--",
-            label="N_eff = K",
+            label="_identity_reference",
             zorder=0,
         )
         axis.text(
@@ -1589,7 +1602,9 @@ def _plot_ordered_lines(
         axis.set_xticklabels([_tick_text(item) for item in ticks])
     else:
         axis.set_xticks(x_positions)
-        axis.set_xticklabels([_tick_text(item) for item in x_order])
+        axis.set_xticklabels(
+            [str(x_labels.get(item, _tick_text(item))) for item in x_order]
+        )
     if x_field == "phase":
         axis.set_xticklabels(x_order)
         plt.setp(axis.get_xticklabels(), rotation=18, ha="right", rotation_mode="anchor")
@@ -1997,7 +2012,15 @@ def _plot_partial_cue_split(
         child.set_xticks([0.0, 0.5, 1.0], ["0", "0.5", "1"])
         child.set_ylim(*[float(value) for value in spec["y_limits"]])
         child.set_yticks([float(value) for value in spec["y_ticks"]])
-        child.set_title(f"Target {target}", pad=2.0)
+        target_label = child.text(
+            0.5,
+            1.02,
+            f"Target {target}",
+            transform=child.transAxes,
+            ha="center",
+            va="bottom",
+        )
+        mark_relative_text_size(target_label, 0.86)
         child.set_xlabel(str(spec.get("x_label") or ""))
         _style_axis(child)
         if target_index == 0:
@@ -2006,7 +2029,6 @@ def _plot_partial_cue_split(
             child.tick_params(axis="y", labelleft=False)
             if not bool(spec.get("show_right_y_axis", True)):
                 child.tick_params(axis="y", left=False)
-                child.spines["left"].set_visible(False)
     legend_anchor = [float(value) for value in spec.get("legend_anchor", [0.5, 1.08])]
     axis.legend(
         handles,
@@ -2108,8 +2130,10 @@ def _plot_heatmap(
     axis.invert_yaxis()
     axis.set_xlabel(str(spec.get("x_label") or ""))
     axis.set_ylabel(str(spec.get("y_label") or ""))
-    for spine in axis.spines.values():
-        spine.set_visible(False)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.spines["left"].set_linewidth(0.6)
+    axis.spines["bottom"].set_linewidth(0.6)
     axis.tick_params(length=0)
     orientation = str(spec.get("colorbar_orientation") or "vertical")
     if orientation == "horizontal_top":
@@ -2147,7 +2171,8 @@ def _plot_heatmap(
                 labelpad=float(spec.get("colorbar_label_pad_pt", 1.0)),
             )
         elif label_position == "title":
-            colorbar.ax.set_title(colorbar_label, pad=2.0)
+            colorbar.ax.xaxis.set_label_position("top")
+            colorbar.ax.set_xlabel(colorbar_label, labelpad=2.0)
         else:
             raise ValueError(
                 f"Unsupported horizontal colorbar label position: {label_position}"
@@ -2414,22 +2439,53 @@ def _plot_protocol(
         "passive_state": NATURE_COMPATIBLE_PALETTE["neutral_light"],
         "contrast": NATURE_COMPATIBLE_PALETTE["fused_tint"],
         "repeat_rule": NATURE_COMPATIBLE_PALETTE["mechanism_tint"],
+        "receiver_state": NATURE_COMPATIBLE_PALETTE["neutral_pale"],
+        "donor_successor": NATURE_COMPATIBLE_PALETTE["comparison_tint"],
+        "held_fixed": NATURE_COMPATIBLE_PALETTE["neutral_light"],
+        "isolated_intervention": NATURE_COMPATIBLE_PALETTE["fused_tint"],
+        "identical_input": NATURE_COMPATIBLE_PALETTE["primary_tint"],
+        "next_processing": NATURE_COMPATIBLE_PALETTE["primary_pale"],
+        "next_successor": NATURE_COMPATIBLE_PALETTE["mechanism_tint"],
     }
     branch_colors = {
         "observed": get_plot_color("dynamic"),
         "matched_passive": NEUTRAL,
         "comparison": get_plot_color("fused_state"),
         "repeat": NATURE_COMPATIBLE_PALETTE["mechanism_teal"],
+        "receiver": NEUTRAL,
+        "donor_transfer": get_plot_color("donor_trace"),
+        "held_fixed": NEUTRAL,
+        "identical_input": get_plot_color("layer1"),
+        "downstream": get_plot_color("fused_state"),
+    }
+    branch_linestyles = {
+        "observed": "-",
+        "matched_passive": "--",
+        "comparison": "-.",
+        "repeat": ":",
+        "receiver": "-",
+        "donor_transfer": "-",
+        "held_fixed": "--",
+        "identical_input": ":",
+        "downstream": "-.",
     }
     for _, edge in edges.iterrows():
         source = node_lookup[str(edge["source_node"])]
         target = node_lookup[str(edge["target_node"])]
         color = branch_colors.get(str(edge["branch"]), NEUTRAL)
+        linestyle = branch_linestyles.get(str(edge["branch"]), "-")
         axis.annotate(
             "",
             xy=(float(target["x_mm"]), float(target["y_mm"])),
             xytext=(float(source["x_mm"]), float(source["y_mm"])),
-            arrowprops={"arrowstyle": "-|>", "lw": 1.25, "color": color, "shrinkA": 13, "shrinkB": 13},
+            arrowprops={
+                "arrowstyle": "-|>",
+                "lw": 1.25,
+                "color": color,
+                "linestyle": linestyle,
+                "shrinkA": 13,
+                "shrinkB": 13,
+            },
             zorder=1,
         )
     for _, node in nodes.iterrows():
@@ -2445,7 +2501,12 @@ def _plot_protocol(
             "contrast": 27.0,
             "repeat_rule": 20.0,
         }
-        width = width_by_role.get(role, 22.0)
+        raw_width = node.get("width_mm", width_by_role.get(role, 22.0))
+        width = (
+            float(raw_width)
+            if not pd.isna(raw_width)
+            else float(width_by_role.get(role, 22.0))
+        )
         box = FancyBboxPatch(
             (x - width / 2.0, y - 6.0),
             width,
@@ -2475,16 +2536,45 @@ def _plot_protocol(
             color=NEUTRAL,
             zorder=3,
         )
-    handles = [
-        Line2D([0], [0], color=branch_colors["observed"], lw=1.5, label="Observed input"),
-        Line2D([0], [0], color=branch_colors["matched_passive"], lw=1.5, label="Equal-time passive"),
-        Line2D([0], [0], color=branch_colors["comparison"], lw=1.5, label="Stage contrast"),
-    ]
+    legend_entries = list(spec.get("legend_entries") or [])
+    if legend_entries:
+        handles = [
+            Line2D(
+                [0],
+                [0],
+                color=branch_colors[str(entry["branch"])],
+                linestyle=branch_linestyles[str(entry["branch"])],
+                lw=1.5,
+                label=str(entry["label"]),
+            )
+            for entry in legend_entries
+        ]
+    else:
+        handles = [
+            Line2D(
+                [0], [0], color=branch_colors["observed"],
+                linestyle=branch_linestyles["observed"], lw=1.5,
+                label="Observed input",
+            ),
+            Line2D(
+                [0], [0], color=branch_colors["matched_passive"],
+                linestyle=branch_linestyles["matched_passive"], lw=1.5,
+                label="Equal-time passive",
+            ),
+            Line2D(
+                [0], [0], color=branch_colors["comparison"],
+                linestyle=branch_linestyles["comparison"], lw=1.5,
+                label="Stage contrast",
+            ),
+        ]
+    legend_anchor = tuple(
+        float(value) for value in spec.get("legend_anchor", [0.5, 1.0])
+    )
     axis.legend(
         handles=handles,
         loc="lower center",
-        bbox_to_anchor=(0.5, 1.0),
-        ncol=3,
+        bbox_to_anchor=legend_anchor,
+        ncol=len(handles),
         frameon=False,
         handlelength=1.6,
         columnspacing=1.2,
@@ -2494,201 +2584,760 @@ def _plot_protocol(
     axis.axis("off")
 
 
-def _extract_rightmost_embedded_image(asset_bytes: bytes) -> Image.Image:
-    parser = etree.XMLParser(resolve_entities=False)
-    root = etree.fromstring(asset_bytes, parser)
-    candidates: list[tuple[bool, float, float, str]] = []
-    for element in root.xpath(".//*[local-name()='image']"):
-        href = (
-            element.get("{http://www.w3.org/1999/xlink}href")
-            or element.get("href")
-            or ""
-        )
-        if not href.startswith("data:image/") or ";base64," not in href:
-            continue
-        try:
-            x_position = float(element.get("x") or 0.0)
-        except ValueError:
-            x_position = 0.0
-        try:
-            width = float(element.get("width") or 0.0)
-            height = float(element.get("height") or 0.0)
-        except ValueError:
-            width = 0.0
-            height = 0.0
-        aspect = width / height if height > 0 else math.inf
-        is_square_stimulus = (
-            min(width, height) >= 50.0 and 0.85 <= aspect <= 1.15
-        )
-        candidates.append(
-            (is_square_stimulus, min(width, height), x_position, href)
-        )
-    if not candidates:
-        raise ValueError("registered DMS SVG contains no embedded stimulus image")
-    _, _, _, href = max(
-        candidates,
-        key=lambda item: (item[0], item[1], item[2]),
-    )
-    encoded = href.split(",", 1)[1]
-    with Image.open(io.BytesIO(base64.b64decode(encoded))) as image:
-        return image.convert("RGBA")
-
-
-def _plot_fig2_transition_schematic(
-    axis: plt.Axes,
-    asset_bytes: bytes,
-    spec: Mapping[str, Any],
-) -> None:
-    layer1 = get_plot_color("layer1", context="final_six")
-    current_input = get_plot_color("donor_trace", context="final_six")
-    probe_image = np.asarray(_extract_rightmost_embedded_image(asset_bytes))
-    layout = spec.get("schematic_layout") or {}
-
-    def bbox(name: str, default: Sequence[float]) -> tuple[float, float, float, float]:
-        values = layout.get(name, default)
-        if len(values) != 4:
-            raise ValueError(f"fig2a {name} must contain four coordinates")
-        return tuple(float(value) for value in values)
-
-    history_centers = {
-        key: np.asarray(value, dtype=float)
-        for key, value in (
-            layout.get("history_centers")
-            or {"A": [42.0, 28.0], "C": [42.0, 12.0]}
-        ).items()
+def _stimulus_matrix(stimuli: pd.DataFrame, role: str, *, panel_label: str) -> np.ndarray:
+    required = {
+        "stimulus_role",
+        "pixel_x",
+        "pixel_y",
+        "normalized_intensity",
     }
-    history_size = np.asarray(
-        layout.get("history_node_size", [30.0, 8.0]), dtype=float
-    )
-    b_bbox = bbox("b_bbox", [108.0, 12.0, 16.0, 16.0])
-
-    def rounded_box(
-        bounds: Sequence[float],
-        *,
-        facecolor: str,
-        edgecolor: str,
-        linewidth: float = 0.75,
-        radius: float = 1.2,
-        zorder: int = 1,
-    ) -> FancyBboxPatch:
-        x, y, width, height = [float(value) for value in bounds]
-        patch = FancyBboxPatch(
-            (x, y),
-            width,
-            height,
-            boxstyle=f"round,pad=0.08,rounding_size={radius}",
-            facecolor=facecolor,
-            edgecolor=edgecolor,
-            linewidth=linewidth,
-            zorder=zorder,
+    missing = sorted(required - set(stimuli.columns))
+    if missing:
+        raise ValueError(f"{panel_label} stimulus table is missing columns: {missing}")
+    part = stimuli.loc[stimuli["stimulus_role"].astype(str).eq(role)].copy()
+    if len(part) != 28 * 28:
+        raise ValueError(
+            f"{panel_label} role {role!r} must contain exactly 784 persisted pixels"
         )
-        axis.add_patch(patch)
-        return patch
+    pixel_x = pd.to_numeric(part["pixel_x"], errors="raise").astype(int).to_numpy()
+    pixel_y = pd.to_numeric(part["pixel_y"], errors="raise").astype(int).to_numpy()
+    intensity = pd.to_numeric(
+        part["normalized_intensity"], errors="raise"
+    ).to_numpy(dtype=np.float64)
+    if (
+        np.any(pixel_x < 0)
+        or np.any(pixel_x >= 28)
+        or np.any(pixel_y < 0)
+        or np.any(pixel_y >= 28)
+        or len(set(zip(pixel_x.tolist(), pixel_y.tolist()))) != 28 * 28
+        or not np.isfinite(intensity).all()
+        or np.any(intensity < 0.0)
+        or np.any(intensity > 1.0)
+    ):
+        raise ValueError(f"{panel_label} role {role!r} has invalid pixel coordinates")
+    image = np.zeros((28, 28), dtype=np.float64)
+    image[pixel_y, pixel_x] = intensity
+    return image
 
-    def arrow(
-        start: Sequence[float],
-        end: Sequence[float],
-        *,
-        color: str = NEUTRAL,
-        linewidth: float = 0.72,
-        mutation_scale: float = 6.0,
-        zorder: int = 5,
-    ) -> None:
-        axis.annotate(
-            "",
-            xy=tuple(float(value) for value in end),
-            xytext=tuple(float(value) for value in start),
-            arrowprops={
-                "arrowstyle": "-|>",
-                "color": color,
-                "lw": linewidth,
-                "mutation_scale": mutation_scale,
-                "shrinkA": 0,
-                "shrinkB": 0,
-            },
-            zorder=zorder,
-        )
 
-    for condition in ("A", "C"):
-        center = history_centers[condition]
-        rounded_box(
-            [
-                center[0] - history_size[0] / 2.0,
-                center[1] - history_size[1] / 2.0,
-                history_size[0],
-                history_size[1],
-            ],
-            facecolor="white",
-            edgecolor=layer1,
-            linewidth=1.05,
-            radius=1.0,
-            zorder=3,
-        )
-        axis.text(
-            center[0],
-            center[1],
-            f"History {condition}",
-            ha="center",
-            va="center",
-            color=INK,
-            zorder=6,
-        )
-
-    b_x, b_y, b_width, b_height = b_bbox
-    rounded_box(
-        b_bbox,
-        facecolor="#111111",
-        edgecolor=current_input,
-        linewidth=1.15,
-        radius=1.0,
-        zorder=3,
-    )
+def _draw_persisted_stimulus(
+    axis: plt.Axes,
+    bounds: Sequence[float],
+    image: np.ndarray,
+    *,
+    edgecolor: str,
+    linewidth: float = 0.75,
+) -> None:
+    x, y, width, height = [float(value) for value in bounds]
     axis.imshow(
-        probe_image,
-        extent=(
-            b_x + 0.45,
-            b_x + b_width - 0.45,
-            b_y + 0.45,
-            b_y + b_height - 0.45,
-        ),
+        image,
+        extent=(x, x + width, y, y + height),
         origin="upper",
+        cmap="gray",
+        vmin=0.0,
+        vmax=1.0,
+        interpolation="nearest",
         aspect="auto",
         zorder=4,
     )
-    axis.text(
-        b_x + b_width / 2.0,
-        b_y + b_height + 2.0,
-        "B",
-        ha="center",
-        va="bottom",
-        color=current_input,
+    axis.add_patch(
+        Rectangle(
+            (x, y),
+            width,
+            height,
+            facecolor="none",
+            edgecolor=edgecolor,
+            linewidth=linewidth,
+            zorder=5,
+        )
+    )
+
+
+def _schematic_round_box(
+    axis: plt.Axes,
+    bounds: Sequence[float],
+    *,
+    facecolor: str,
+    edgecolor: str,
+    linewidth: float = 0.8,
+    radius: float = 1.2,
+    zorder: int = 2,
+) -> FancyBboxPatch:
+    x, y, width, height = [float(value) for value in bounds]
+    patch = FancyBboxPatch(
+        (x, y),
+        width,
+        height,
+        boxstyle=f"round,pad=0.08,rounding_size={radius}",
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        linewidth=linewidth,
+        zorder=zorder,
+    )
+    axis.add_patch(patch)
+    return patch
+
+
+def _schematic_arrow(
+    axis: plt.Axes,
+    start: Sequence[float],
+    end: Sequence[float],
+    *,
+    color: str = INK,
+    linewidth: float = 0.9,
+    mutation_scale: float = 7.0,
+    zorder: int = 5,
+) -> None:
+    axis.annotate(
+        "",
+        xy=tuple(float(value) for value in end),
+        xytext=tuple(float(value) for value in start),
+        arrowprops={
+            "arrowstyle": "-|>",
+            "color": color,
+            "lw": linewidth,
+            "mutation_scale": mutation_scale,
+            "shrinkA": 0,
+            "shrinkB": 0,
+        },
+        zorder=zorder,
+    )
+
+
+def _schematic_text(
+    axis: plt.Axes,
+    x: float,
+    y: float,
+    label: str,
+    *,
+    scale: float = 1.0,
+    color: str = INK,
+    ha: str = "center",
+    va: str = "center",
+    zorder: int = 7,
+) -> plt.Text:
+    text = axis.text(
+        float(x),
+        float(y),
+        str(label),
+        ha=ha,
+        va=va,
+        color=color,
+        zorder=zorder,
+    )
+    mark_relative_text_size(text, scale)
+    return text
+
+
+def _schematic_curved_arrow(
+    axis: plt.Axes,
+    start: Sequence[float],
+    end: Sequence[float],
+    *,
+    color: str = INK,
+    linewidth: float = 0.9,
+    mutation_scale: float = 7.0,
+    rad: float = 0.0,
+    zorder: int = 5,
+) -> None:
+    axis.annotate(
+        "",
+        xy=tuple(float(value) for value in end),
+        xytext=tuple(float(value) for value in start),
+        arrowprops={
+            "arrowstyle": "-|>",
+            "color": color,
+            "lw": linewidth,
+            "mutation_scale": mutation_scale,
+            "shrinkA": 0,
+            "shrinkB": 0,
+            "connectionstyle": f"arc3,rad={rad}",
+        },
+        zorder=zorder,
+    )
+
+
+def _draw_segmented_stage_bar(
+    axis: plt.Axes,
+    segments: Sequence[Mapping[str, Any]],
+    *,
+    title: str,
+    y: float = 34.0,
+    height: float = 4.0,
+) -> None:
+    _schematic_text(
+        axis,
+        76.0,
+        y + height + 1.8,
+        title,
+        scale=0.90,
+        color=INK,
+        zorder=9,
+    ).set_fontweight("bold")
+    for segment in segments:
+        x0 = float(segment["x0"])
+        x1 = float(segment["x1"])
+        dark = bool(segment.get("dark", False))
+        axis.add_patch(
+            Rectangle(
+                (x0, y),
+                x1 - x0,
+                height,
+                facecolor="#111111" if dark else "#E6E6E6",
+                edgecolor=INK,
+                linewidth=0.72,
+                zorder=7,
+            )
+        )
+        _schematic_text(
+            axis,
+            (x0 + x1) / 2.0,
+            y + height / 2.0,
+            str(segment["label"]),
+            scale=0.72,
+            color="white" if dark else INK,
+            zorder=8,
+        ).set_fontweight("bold")
+
+
+def _draw_condition_tag(
+    axis: plt.Axes,
+    bounds: Sequence[float],
+    *,
+    label: str,
+    accent: str,
+) -> None:
+    x, y, width, height = [float(value) for value in bounds]
+    axis.add_patch(
+        Rectangle(
+            (x, y),
+            width,
+            height,
+            facecolor=accent,
+            edgecolor="none",
+            alpha=0.28,
+            zorder=2,
+        )
+    )
+    _schematic_text(
+        axis,
+        x + width / 2.0,
+        y + height / 2.0,
+        label,
+        scale=0.66,
+        color=INK,
+        zorder=4,
+    ).set_fontweight("bold")
+
+
+def _draw_state_card(
+    axis: plt.Axes,
+    bounds: Sequence[float],
+    *,
+    accent: str,
+    variant: int,
+) -> None:
+    x, y, width, height = [float(value) for value in bounds]
+    axis.add_patch(
+        Rectangle(
+            (x, y),
+            width,
+            height,
+            facecolor="white",
+            edgecolor=NATURE_COMPATIBLE_PALETTE["neutral_mid"],
+            linewidth=0.72,
+            zorder=2,
+        )
+    )
+    labels = ("L1", "L2", "L3")
+    offsets = (
+        (0.18, 0.54, 0.82),
+        (0.30, 0.64, 0.76),
+    )[int(variant) % 2]
+    row_height = height / 3.0
+    for row, label in enumerate(labels):
+        row_y = y + height - (row + 0.5) * row_height
+        if row:
+            axis.plot(
+                [x, x + width],
+                [y + height - row * row_height] * 2,
+                color=PALE,
+                lw=0.48,
+                zorder=3,
+            )
+        _schematic_text(
+            axis,
+            x + 2.1,
+            row_y,
+            label,
+            scale=0.54,
+            color=NATURE_COMPATIBLE_PALETTE["neutral_dark"],
+            ha="left",
+            zorder=4,
+        )
+        track_x0 = x + 7.0
+        track_x1 = x + width - 2.0
+        axis.plot(
+            [track_x0, track_x1],
+            [row_y, row_y],
+            color=PALE,
+            lw=0.60,
+            solid_capstyle="round",
+            zorder=3,
+        )
+        marker_x = track_x0 + (track_x1 - track_x0) * offsets[row]
+        axis.add_patch(
+            Circle(
+                (marker_x, row_y),
+                0.58,
+                facecolor=accent,
+                edgecolor="white",
+                linewidth=0.32,
+                zorder=5,
+            )
+        )
+
+
+def _draw_readout_card(
+    axis: plt.Axes,
+    bounds: Sequence[float],
+    *,
+    label: str,
+    accent: str,
+    kind: str,
+) -> None:
+    x, y, width, height = [float(value) for value in bounds]
+    axis.add_patch(
+        Rectangle(
+            (x, y),
+            width,
+            height,
+            facecolor="white",
+            edgecolor=NATURE_COMPATIBLE_PALETTE["neutral_mid"],
+            linewidth=0.72,
+            zorder=3,
+        )
+    )
+    axis.add_patch(
+        Rectangle(
+            (x, y),
+            1.4,
+            height,
+            facecolor=accent,
+            edgecolor="none",
+            zorder=4,
+        )
+    )
+    glyph_x = x + 5.0
+    glyph_y = y + height / 2.0
+    if kind == "behavior":
+        axis.plot(
+            [glyph_x - 1.7, glyph_x + 1.7],
+            [glyph_y - 1.0, glyph_y - 1.0],
+            color=PALE,
+            lw=0.55,
+            zorder=4,
+        )
+        axis.plot(
+            [glyph_x - 1.0, glyph_x - 1.0],
+            [glyph_y - 1.0, glyph_y + 0.6],
+            color=accent,
+            lw=1.15,
+            zorder=5,
+        )
+        axis.plot(
+            [glyph_x + 1.0, glyph_x + 1.0],
+            [glyph_y - 1.0, glyph_y + 1.25],
+            color=accent,
+            lw=1.15,
+            zorder=5,
+        )
+    elif kind == "early_l2":
+        for offset, spike_height in zip(
+            (-1.8, -0.9, 0.0, 0.9, 1.8),
+            (1.0, 2.0, 1.45, 2.45, 1.25),
+        ):
+            axis.plot(
+                [glyph_x + offset, glyph_x + offset],
+                [glyph_y - 1.2, glyph_y - 1.2 + spike_height],
+                color=accent,
+                lw=0.90,
+                solid_capstyle="round",
+                zorder=5,
+            )
+    else:
+        for row, offset in enumerate((-1.25, 0.0, 1.25)):
+            axis.plot(
+                [glyph_x - 1.8, glyph_x + 1.8],
+                [glyph_y + offset, glyph_y + offset],
+                color=PALE,
+                lw=0.52,
+                zorder=4,
+            )
+            axis.add_patch(
+                Circle(
+                    (glyph_x - 0.9 + row * 0.9, glyph_y + offset),
+                    0.44,
+                    facecolor=accent,
+                    edgecolor="white",
+                    linewidth=0.25,
+                    zorder=5,
+                )
+            )
+    _schematic_text(
+        axis,
+        x + 8.2,
+        y + height / 2.0,
+        label,
+        scale=0.60,
+        color=INK,
+        ha="left",
         zorder=6,
     )
 
-    merge = np.asarray([86.0, 20.0], dtype=float)
-    for condition in ("A", "C"):
-        center = history_centers[condition]
-        start = np.asarray(
-            [center[0] + history_size[0] / 2.0, center[1]], dtype=float
+
+def _draw_square_bracket(
+    axis: plt.Axes,
+    *,
+    x: float,
+    y0: float,
+    y1: float,
+    opens_right: bool,
+    color: str = INK,
+) -> None:
+    direction = 1.0 if opens_right else -1.0
+    axis.plot([x, x], [y0, y1], color=color, lw=0.72, zorder=5)
+    axis.plot([x, x + direction * 2.0], [y0, y0], color=color, lw=0.72, zorder=5)
+    axis.plot([x, x + direction * 2.0], [y1, y1], color=color, lw=0.72, zorder=5)
+
+
+def _draw_region_headers(
+    axis: plt.Axes,
+    regions: Sequence[Mapping[str, Any]],
+) -> None:
+    header_y = 36.2
+    for region in regions:
+        center = float(
+            region.get(
+                "center",
+                0.5 * (float(region["x0"]) + float(region["x1"])),
+            )
         )
-        axis.plot(
-            [start[0], merge[0]],
-            [start[1], merge[1]],
-            color=NEUTRAL,
-            lw=0.8,
-            solid_capstyle="round",
+        _schematic_text(
+            axis,
+            center,
+            header_y,
+            str(region["label"]),
+            scale=0.62,
+            color=INK,
+            zorder=6,
+        ).set_fontweight("bold")
+
+
+def _curved_arrow(
+    axis: plt.Axes,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    *,
+    color: str,
+    rad: float = 0.0,
+    linewidth: float = 0.9,
+    zorder: int = 4,
+) -> None:
+    axis.add_patch(
+        FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            connectionstyle=f"arc3,rad={rad}",
+            mutation_scale=7.0,
+            linewidth=linewidth,
+            color=color,
+            shrinkA=1.0,
+            shrinkB=1.0,
+            zorder=zorder,
+        )
+    )
+
+
+def _orthogonal_arrow(
+    axis: plt.Axes,
+    start: tuple[float, float],
+    end: tuple[float, float],
+    *,
+    color: str,
+    bend_x: float | None = None,
+    linewidth: float = 0.95,
+    zorder: int = 4,
+) -> None:
+    x0, y0 = start
+    x1, y1 = end
+    if np.isclose(y0, y1):
+        vertices = [(x0, y0), (x1, y1)]
+    else:
+        bend = 0.5 * (x0 + x1) if bend_x is None else float(bend_x)
+        if not x0 < bend < x1:
+            raise ValueError(
+                f"orthogonal arrow bend {bend} must lie between {x0} and {x1}"
+            )
+        vertices = [(x0, y0), (bend, y0), (bend, y1), (x1, y1)]
+    path = MplPath(
+        vertices,
+        [MplPath.MOVETO] + [MplPath.LINETO] * (len(vertices) - 1),
+    )
+    axis.add_patch(
+        FancyArrowPatch(
+            path=path,
+            arrowstyle="-|>",
+            mutation_scale=7.2,
+            linewidth=linewidth,
+            color=color,
+            shrinkA=0.8,
+            shrinkB=0.8,
+            joinstyle="miter",
+            capstyle="butt",
+            zorder=zorder,
+        )
+    )
+
+
+def _plot_fig2_paired_dms_schematic(
+    axis: plt.Axes,
+    stimuli: pd.DataFrame,
+    spec: Mapping[str, Any],
+) -> None:
+    layout = spec.get("schematic_layout") or {}
+    history_rows = layout["history_rows"]
+    shared_b = layout["shared_b"]
+    comparison_bbox = [
+        float(value) for value in layout["comparison_bbox"]
+    ]
+    colors = {
+        "A": get_plot_color("dynamic", context="final_six"),
+        "C": get_plot_color("fused_state", context="final_six"),
+    }
+    neutral_dark = NATURE_COMPATIBLE_PALETTE["neutral_dark"]
+    neutral_mid = NATURE_COMPATIBLE_PALETTE["neutral_mid"]
+    neutral_pale = NATURE_COMPATIBLE_PALETTE["neutral_pale"]
+    state_color = NATURE_COMPATIBLE_PALETTE["mechanism_teal"]
+    behavior_color = NATURE_COMPATIBLE_PALETTE["comparison_coral"]
+    images = {
+        role: _stimulus_matrix(stimuli, role, panel_label="fig2a")
+        for role in ("A", "C", "B")
+    }
+    identities = (
+        stimuli[["stimulus_role", "label"]]
+        .drop_duplicates()
+        .set_index("stimulus_role")["label"]
+        .astype(int)
+        .to_dict()
+    )
+    if identities != {"A": 1, "C": 6, "B": 0}:
+        raise ValueError(
+            "fig2a requires distinct frozen A/B/C classes 1/0/6; "
+            f"observed {identities}"
+        )
+
+    for role in ("A", "C"):
+        row = history_rows[role]
+        image_bbox = [float(value) for value in row["image_bbox"]]
+        delay_bbox = [float(value) for value in row["delay_bbox"]]
+        center_y = float(row["center_y"])
+        accent = colors[role]
+        _draw_persisted_stimulus(
+            axis,
+            image_bbox,
+            images[role],
+            edgecolor=accent,
+            linewidth=0.9,
+        )
+        label_x, label_y = [float(value) for value in row["label_xy"]]
+        _schematic_text(
+            axis,
+            label_x,
+            label_y,
+            f"History {role}  ·  digit {identities[role]}",
+            scale=0.9,
+            color=accent,
+            zorder=7,
+        )
+        _schematic_round_box(
+            axis,
+            delay_bbox,
+            facecolor=neutral_pale,
+            edgecolor=neutral_mid,
+            linewidth=0.7,
+            radius=1.0,
+            zorder=3,
+        )
+        delay_x, delay_y, delay_width, delay_height = delay_bbox
+        _schematic_text(
+            axis,
+            delay_x + delay_width / 2.0,
+            delay_y + delay_height * 0.64,
+            "No input",
+            scale=0.9,
+            color=INK,
+            zorder=6,
+        )
+        _schematic_text(
+            axis,
+            delay_x + delay_width / 2.0,
+            delay_y + delay_height * 0.30,
+            "200 ms",
+            scale=0.85,
+            color=neutral_dark,
+            zorder=6,
+        )
+        _schematic_arrow(
+            axis,
+            (image_bbox[0] + image_bbox[2] + 0.8, center_y),
+            (delay_bbox[0] - 0.8, center_y),
+            color=matplotlib.colors.to_rgba(accent, 0.88),
+            linewidth=0.85,
+            mutation_scale=6.2,
             zorder=4,
         )
-    arrow(
-        merge,
-        (b_x, b_y + b_height / 2.0),
-        color=NEUTRAL,
+
+    b_image_bbox = [float(value) for value in shared_b["image_bbox"]]
+    _draw_persisted_stimulus(
+        axis,
+        b_image_bbox,
+        images["B"],
+        edgecolor=INK,
+        linewidth=0.8,
+    )
+    b_label_x, b_label_y = [
+        float(value) for value in shared_b["label_xy"]
+    ]
+    _schematic_text(
+        axis,
+        b_label_x,
+        b_label_y,
+        f"Identical B  ·  digit {identities['B']}",
+        scale=0.9,
+        color=INK,
+        zorder=7,
+    )
+    b_left = b_image_bbox[0]
+    for role, end_y in (("A", 22.6), ("C", 17.4)):
+        delay_bbox = [
+            float(value) for value in history_rows[role]["delay_bbox"]
+        ]
+        _orthogonal_arrow(
+            axis,
+            (
+                delay_bbox[0] + delay_bbox[2] + 0.8,
+                float(history_rows[role]["center_y"]),
+            ),
+            (b_left - 0.8, end_y),
+            color=matplotlib.colors.to_rgba(colors[role], 0.88),
+            bend_x=43.0,
+            linewidth=0.85,
+            zorder=4,
+        )
+
+    comparison_x, comparison_y, comparison_width, comparison_height = (
+        comparison_bbox
+    )
+    _schematic_round_box(
+        axis,
+        comparison_bbox,
+        facecolor="white",
+        edgecolor=neutral_dark,
+        linewidth=0.7,
+        radius=1.4,
+        zorder=2,
+    )
+    _schematic_arrow(
+        axis,
+        (b_image_bbox[0] + b_image_bbox[2] + 0.8, 20.0),
+        (comparison_x - 0.8, 20.0),
+        color=neutral_dark,
         linewidth=0.85,
         mutation_scale=6.2,
+        zorder=4,
+    )
+    _schematic_text(
+        axis,
+        comparison_x + comparison_width / 2.0,
+        comparison_y + comparison_height - 3.2,
+        "Compare after identical B",
+        scale=0.95,
+        color=INK,
+        zorder=7,
+    )
+    state_bbox = [float(value) for value in layout["state_icon_bbox"]]
+    behavior_bbox = [
+        float(value) for value in layout["behavior_icon_bbox"]
+    ]
+    draw_tabler_icon(
+        axis,
+        "hierarchy-3",
+        state_bbox,
+        color=state_color,
+        linewidth=0.85,
         zorder=6,
     )
-    axis.set_xlim(0.0, 152.0)
-    axis.set_ylim(0.0, 40.0)
+    draw_tabler_icon(
+        axis,
+        "target-arrow",
+        behavior_bbox,
+        color=behavior_color,
+        linewidth=0.85,
+        zorder=6,
+    )
+    _schematic_text(
+        axis,
+        state_bbox[0] + state_bbox[2] / 2.0,
+        state_bbox[1] - 1.8,
+        "Post-B STSP state",
+        scale=0.85,
+        color=state_color,
+        zorder=7,
+    )
+    _schematic_text(
+        axis,
+        behavior_bbox[0] + behavior_bbox[2] / 2.0,
+        behavior_bbox[1] - 1.8,
+        "B-choice outcome",
+        scale=0.85,
+        color=behavior_color,
+        zorder=7,
+    )
+    comparison_center = comparison_x + comparison_width / 2.0
+    footer_y = comparison_y + 3.3
+    _schematic_text(
+        axis,
+        comparison_center - 11.0,
+        footer_y,
+        "A-history",
+        scale=0.85,
+        color=colors["A"],
+        zorder=7,
+    )
+    _schematic_text(
+        axis,
+        comparison_center,
+        footer_y,
+        "versus",
+        scale=0.82,
+        color=neutral_dark,
+        zorder=7,
+    )
+    _schematic_text(
+        axis,
+        comparison_center + 11.0,
+        footer_y,
+        "C-history",
+        scale=0.85,
+        color=colors["C"],
+        zorder=7,
+    )
+
+    content_bounds = [float(value) for value in layout["content_bounds"]]
+    axis.set_xlim(content_bounds[0], content_bounds[0] + content_bounds[2])
+    axis.set_ylim(content_bounds[1], content_bounds[1] + content_bounds[3])
     axis.set_aspect("equal", adjustable="box")
     axis.axis("off")
 
@@ -2719,7 +3368,7 @@ def _plot_bbox_mm(
                 f"explicit plot area {explicit} escapes slot {tuple(slot)}"
             )
         return explicit
-    if chart in {"svg_asset", "protocol"}:
+    if chart in {"svg_asset", "protocol", "schematic"}:
         left, right, top, bottom = 5.0, 4.0, 5.0, 3.0
     elif chart in {"forest", "estimate_strip"}:
         left, right, top, bottom = 27.0, 3.0, 7.0, 9.0
@@ -3178,6 +3827,14 @@ def _prepare_panel_frame(
             manifest, figure_id=figure_id, panel_id=panel_id, schematic=True
         )
         return manifest, None
+    if chart == "schematic":
+        frame = reader.read_csv(
+            str(panel_spec["source"]), f"{figure_id}{panel_id} schematic data"
+        )
+        _validate_panel_data(
+            frame, figure_id=figure_id, panel_id=panel_id, schematic=True
+        )
+        return frame, None
     if chart == "protocol":
         nodes = reader.read_csv(str(panel_spec["source"]), f"{figure_id}{panel_id} protocol nodes")
         edges = reader.read_csv(
@@ -3216,8 +3873,7 @@ def render_figure(
     figure_dir = Path(input_dir).resolve()
     reader = BundleReader(figure_id=figure_id, figure_dir=figure_dir)
     loaded: dict[str, tuple[pd.DataFrame, pd.DataFrame | None]] = {}
-    asset_payload: tuple[bytes, str, str] | None = None
-    custom_asset_payloads: dict[str, bytes] = {}
+    asset_payload: tuple[str, bytes, str, str] | None = None
     for panel_id, panel_spec in spec["panels"].items():
         loaded[panel_id] = _prepare_panel_frame(
             reader, figure_id, panel_id, panel_spec
@@ -3225,17 +3881,15 @@ def render_figure(
         if panel_spec["chart"] == "svg_asset":
             manifest = loaded[panel_id][0]
             _, asset_bytes = reader.read_registered_svg(manifest)
-            if panel_spec.get("custom_renderer"):
-                custom_asset_payloads[panel_id] = asset_bytes
-            else:
-                asset_payload = (
-                    asset_bytes,
-                    str(
-                        panel_spec.get("asset_viewbox_override")
-                        or manifest.iloc[0]["viewBox"]
-                    ),
-                    str(panel_spec.get("asset_embedding") or "inline"),
-                )
+            asset_payload = (
+                panel_id,
+                asset_bytes,
+                str(
+                    panel_spec.get("asset_viewbox_override")
+                    or manifest.iloc[0]["viewBox"]
+                ),
+                str(panel_spec.get("asset_embedding") or "inline"),
+            )
     if check_only:
         reader.write_access_log()
         return {
@@ -3273,16 +3927,8 @@ def render_figure(
             axis = fig.add_axes(_as_figure_axes(plot_bbox, canvas_mm))
             frame, auxiliary = loaded[panel_id]
             if chart == "svg_asset":
-                custom_renderer = str(panel_spec.get("custom_renderer") or "")
-                if custom_renderer == "fig2_transition":
-                    _plot_fig2_transition_schematic(
-                        axis,
-                        custom_asset_payloads[panel_id],
-                        panel_spec,
-                    )
-                else:
-                    axis.axis("off")
-                if panel_spec.get("asset_annotation") and not custom_renderer:
+                axis.axis("off")
+                if panel_spec.get("asset_annotation"):
                     annotation = fig.text(
                         (float(slot[0]) + float(slot[2]) / 2.0) / canvas_width,
                         1.0 - (float(slot[1]) + 1.5) / canvas_height,
@@ -3292,6 +3938,19 @@ def render_figure(
                         color=INK,
                     )
                     mark_relative_text_size(annotation, 0.9)
+            elif chart == "schematic":
+                custom_renderer = str(panel_spec.get("custom_renderer") or "")
+                if custom_renderer == "fig2_paired_dms":
+                    _plot_fig2_paired_dms_schematic(axis, frame, panel_spec)
+                elif custom_renderer:
+                    raise ValueError(
+                        f"{figure_id}{panel_id}: unknown schematic renderer "
+                        f"{custom_renderer!r}"
+                    )
+                else:
+                    raise ValueError(
+                        f"{figure_id}{panel_id}: schematic renderer is not configured"
+                    )
             elif chart == "protocol":
                 if auxiliary is None:
                     raise AssertionError("protocol edges were not loaded")
@@ -3373,12 +4032,12 @@ def render_figure(
         _inject_svg_asset(
             base_svg,
             final_svg,
-            asset_bytes=asset_payload[0],
-            asset_viewbox=asset_payload[1],
-            slot=spec["slots"]["a"],
-            embedding_mode=asset_payload[2],
+            asset_bytes=asset_payload[1],
+            asset_viewbox=asset_payload[2],
+            slot=spec["slots"][asset_payload[0]],
+            embedding_mode=asset_payload[3],
             top_padding_mm=float(
-                spec["panels"]["a"].get("asset_top_padding_mm", 5.0)
+                spec["panels"][asset_payload[0]].get("asset_top_padding_mm", 5.0)
             ),
         )
     else:

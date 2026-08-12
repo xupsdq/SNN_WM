@@ -34,14 +34,15 @@ from .schema import (
 )
 
 
-VALIDATOR_VERSION = "final_six_bundle_validator_v1.4.0"
-EXPECTED_QUANTITATIVE_PANELS = 31
-EXPECTED_SCHEMATICS = {("fig1", "a"), ("fig2", "a")}
+VALIDATOR_VERSION = "final_six_bundle_validator_v2.2.0"
+EXPECTED_QUANTITATIVE_PANELS = 29
+EXPECTED_SCHEMATICS = {("fig1", "a"), ("fig2", "a"), ("fig3", "g")}
 DEFAULT_CANVAS_MM = (165.0, 152.0)
 FIGURE_CANVAS_MM = {
     "fig2": (165.0, 102.0),
+    "fig3": (165.0, 202.0),
     "fig4": (165.0, 102.0),
-    "fig5": (165.0, 102.0),
+    "fig5": (165.0, 152.0),
     "fig6": (165.0, 152.0),
 }
 
@@ -53,30 +54,33 @@ DIRECT_GROUP_COLUMNS: Mapping[tuple[str, str], tuple[str, ...]] = {
     ("fig2", "b"): ("endpoint", "outcome_type", "history_relation"),
     ("fig2", "c"): ("endpoint", "condition"),
     ("fig2", "d"): ("endpoint", "condition"),
-    ("fig2", "e"): ("endpoint", "condition"),
     ("fig3", "a"): ("endpoint", "condition"),
     ("fig3", "b"): ("endpoint", "unit_group"),
     ("fig3", "c"): ("endpoint", "unit_group", "early_window_ms"),
-    ("fig3", "d"): ("endpoint", "condition", "time_ms"),
+    ("fig3", "d"): ("endpoint", "condition"),
     ("fig3", "e"): ("endpoint", "condition", "history_status"),
     ("fig3", "f"): ("endpoint", "condition"),
-    ("fig4", "a"): ("endpoint", "stage_k"),
-    ("fig4", "b"): ("endpoint", "prefix_k"),
-    ("fig4", "c"): ("endpoint", "condition"),
-    ("fig4", "d"): ("endpoint", "condition"),
-    ("fig4", "e"): ("endpoint", "condition"),
+    ("fig4", "a"): ("endpoint", "condition"),
+    ("fig4", "b"): ("endpoint", "condition"),
+    ("fig4", "c"): ("endpoint", "stage_k"),
+    ("fig4", "d"): ("endpoint", "prefix_k"),
     ("fig5", "a"): ("endpoint", "condition"),
     ("fig5", "b"): ("endpoint", "condition"),
-    ("fig5", "c"): ("endpoint", "condition"),
+    ("fig5", "c"): ("endpoint", "seq_len"),
     ("fig5", "d"): ("endpoint", "seq_len"),
-    ("fig5", "e"): ("endpoint", "seq_len", "item_position"),
+    ("fig5", "e"): ("endpoint", "seq_len", "delay_ms"),
     ("fig5", "f"): ("endpoint", "seq_len", "delay_ms"),
-    ("fig6", "a"): ("endpoint", "target_item"),
+    ("fig6", "a"): ("endpoint", "target_item", "state_condition", "keep_prob"),
     ("fig6", "b"): ("endpoint", "target_position"),
     ("fig6", "c"): ("endpoint", "condition"),
     ("fig6", "d"): ("endpoint", "seq_len", "delay_ms"),
     ("fig6", "e"): ("endpoint", "condition"),
-    ("fig6", "f"): ("endpoint", "cell_or_interaction"),
+    ("fig6", "f"): ("endpoint", "cell"),
+}
+AUXILIARY_STATISTICS_SOURCES: Mapping[tuple[str, str], str] = {
+    ("fig5", "a"): "panel_a_min_component_similarity.csv",
+    ("fig5", "b"): "panel_b_true_minus_shuffled.csv",
+    ("fig6", "a"): "panel_a_auc_contrasts.csv",
 }
 
 
@@ -243,23 +247,27 @@ def _direct_statistics_checks(
                     break
             if not matches:
                 continue
+            duplicate_keys = statistics.loc[
+                matches, ["group", "contrast", "statistics_status"]
+            ].fillna("")
             _assert(
-                len(matches) == 1,
-                f"{figure_id}{panel_id}: duplicate statistics group {group_name}",
+                not duplicate_keys.duplicated().any(),
+                f"{figure_id}{panel_id}: duplicate statistics record for {group_name}",
             )
-            index = int(matches[0])
-            if index in matched_rows:
-                continue
-            records.append(
-                _compare_summary(
-                    figure_id=figure_id,
-                    panel_id=panel_id,
-                    group=group_name,
-                    values=part,
-                    recorded=statistics.loc[index],
+            for raw_index in matches:
+                index = int(raw_index)
+                if index in matched_rows:
+                    continue
+                records.append(
+                    _compare_summary(
+                        figure_id=figure_id,
+                        panel_id=panel_id,
+                        group=group_name,
+                        values=part,
+                        recorded=statistics.loc[index],
+                    )
                 )
-            )
-            matched_rows.add(index)
+                matched_rows.add(index)
     return records, matched_rows
 
 
@@ -314,6 +322,14 @@ def _unmatched_statistics_checks(
                 minuend="aligned",
                 subtrahend="mismatched",
             )
+        elif (figure_id, panel_id) == ("fig2", "d"):
+            values = _contrast_frame(
+                plot,
+                endpoint="residual_magnitude",
+                category_column="condition",
+                minuend="changed_events",
+                subtrahend="matched_random",
+            )
         elif (figure_id, panel_id) in {("fig3", "b"), ("fig3", "c")}:
             endpoint = str(row["endpoint"])
             suffix = contrast.removeprefix("overlap_dominant_minus_")
@@ -323,17 +339,6 @@ def _unmatched_statistics_checks(
                 category_column="unit_group",
                 minuend="overlap_dominant",
                 subtrahend=suffix,
-            )
-        elif (figure_id, panel_id) == ("fig3", "d") and group == "winner_minus_loser_late_pre":
-            continue
-        elif (figure_id, panel_id) == ("fig4", "b"):
-            state_variable = contrast.removesuffix("_mean_stage2_to10_vs_zero")
-            selected = plot.loc[
-                plot["endpoint"].eq("observed_minus_passive")
-                & plot["state_variable"].eq(state_variable)
-            ]
-            values = (
-                selected.groupby("network_seed", as_index=False)["value"].mean()
             )
         elif (figure_id, panel_id) == ("fig6", "b"):
             selected = plot.loc[
@@ -376,6 +381,24 @@ def _unmatched_statistics_checks(
                 minuend="high_stsp_overlap",
                 subtrahend="matched_removal",
             )
+        elif (figure_id, panel_id) == ("fig6", "f"):
+            cells = plot.pivot_table(
+                index="network_seed",
+                columns="cell",
+                values="value",
+                aggfunc="first",
+            )
+            values = pd.DataFrame(
+                {
+                    "network_seed": cells.index.astype(int),
+                    "value": (
+                        cells["high_overlap_delta"]
+                        - cells["low_overlap_delta"]
+                        - cells["high_nooverlap_delta"]
+                        + cells["low_nooverlap_delta"]
+                    ).to_numpy(dtype=float),
+                }
+            )
         if values is None:
             raise ValueError(
                 f"{figure_id}{panel_id}: no statistics reconstruction for unmatched "
@@ -408,8 +431,6 @@ def _validate_panel_statistics(
     )
     checked = len(direct) + len(indirect)
     expected = len(statistics)
-    if (figure_id, panel_id) == ("fig3", "d"):
-        expected -= 1
     _assert(
         checked == expected,
         f"{figure_id}{panel_id}: checked {checked}/{expected} statistics rows",
@@ -453,7 +474,34 @@ def _validate_frozen_protocols(
         _assert(condition, f"frozen-protocol validation failed: {name}")
         passed.append({"check": name, "status": "pass"})
 
+    def source_row_counts(frame: pd.DataFrame) -> dict[str, tuple[int, int, int]]:
+        return {
+            Path(str(row.source_path)).name: (
+                int(row.input_rows),
+                int(row.output_rows),
+                int(row.excluded_rows),
+            )
+            for row in frame.itertuples(index=False)
+        }
+
     p = plots
+    panel_index = pd.read_csv(bundle_root / "panel_index.csv")
+    panel_claims = {
+        (str(row.figure_id), str(row.panel_id)): str(row.claim)
+        for row in panel_index.itertuples(index=False)
+    }
+    check(
+        "panel_claims_match_current_reader_tasks",
+        panel_claims.get(("fig2", "a"))
+        == (
+            "distinct A/C histories followed by identical B and paired "
+            "post-B state/outcome comparison"
+        )
+        and panel_claims.get(("fig3", "g"))
+        == "conceptual synthesis of iterative inherited-state updating"
+        and panel_claims.get(("fig4", "a"))
+        == "C5 early Layer-2 processing donor transfer",
+    )
     fig1c = p[("fig1", "c")]
     check(
         "fig1c_50ms_time_layer",
@@ -487,7 +535,7 @@ def _validate_frozen_protocols(
             atol=1e-9,
         ),
     )
-    for panel_id in ("c", "d", "e"):
+    for panel_id in ("c", "d"):
         check(
             f"fig2{panel_id}_prefix_k1",
             set(p[("fig2", panel_id)]["prefix_k"]) == {1},
@@ -516,119 +564,211 @@ def _validate_frozen_protocols(
         ("exact-b" in identity_text or "exact b" in identity_text)
         and "rollout_rows.csv" in " ".join(fig2_manifest["source_path"].astype(str)),
     )
+    fig2d = p[("fig2", "d")]
+    fig2d_pivot = fig2d.pivot(
+        index="network_seed",
+        columns="condition",
+        values="value",
+    )
+    check(
+        "fig2d_direct_changed_and_matched_random_magnitudes",
+        len(fig2d) == 40
+        and set(fig2d["condition"]) == {"matched_random", "changed_events"}
+        and set(fig2d["endpoint"]) == {"residual_magnitude"}
+        and set(fig2d["unit"]) == {"mean_absolute_residual"}
+        and fig2d.groupby("condition")["network_seed"].nunique().eq(20).all()
+        and (fig2d_pivot["changed_events"] - fig2d_pivot["matched_random"])
+        .gt(0)
+        .all(),
+    )
+
     fig3d = p[("fig3", "d")]
-    trace = pd.read_csv(bundle_root / "fig3/data/panel_d_trace.csv")
-    contrast = pd.read_csv(bundle_root / "fig3/data/panel_d_contrast.csv")
     check(
-        "fig3d_event_trial_network",
-        len(trace) == 840
-        and trace.groupby(["network_seed", "time_ms", "trace_type"]).size().eq(1).all()
-        and pd.to_numeric(trace["n_events"], errors="coerce").gt(0).all()
-        and pd.to_numeric(trace["n_trials"], errors="coerce").gt(0).all()
-        and len(contrast) == 20
-        and _numeric_set(contrast["network_seed"]) == set(EXPECTED_SEEDS)
-        and set(fig3d["primary_window_start_ms"].dropna()) == {-8}
-        and set(fig3d["primary_window_end_ms"].dropna()) == {-1},
+        "fig3d_layer1_stsp_necessity_first_50ms",
+        len(fig3d) == 40
+        and set(fig3d["endpoint"])
+        == {"dynamic_minus_attenuation", "dynamic_minus_reset"}
+        and set(fig3d["condition"]) == {"first_50_ms"}
+        and set(fig3d["time_window_ms"]) == {50}
+        and fig3d.groupby("endpoint")["network_seed"].nunique().eq(20).all()
+        and pd.to_numeric(fig3d["value"], errors="coerce").gt(0).all(),
+    )
+    fig3f = p[("fig3", "f")]
+    check(
+        "fig3f_layer1_only_layer2_successor_transfer_k1",
+        len(fig3f) == 20
+        and set(fig3f["prefix_k"]) == {1}
+        and set(fig3f["condition"]) == {"layer1_only_ux_swap"}
+        and set(fig3f["endpoint"])
+        == {"layer1_only_layer2_update_donor_transfer"}
+        and _numeric_set(fig3f["network_seed"]) == set(EXPECTED_SEEDS)
+        and pd.to_numeric(fig3f["value"], errors="coerce").gt(0).all(),
+    )
+    fig3g_asset = pd.read_csv(
+        bundle_root / "fig3/meta/panel_g_asset_manifest.csv"
     )
     check(
-        "fig3f_first_50ms",
-        set(p[("fig3", "f")]["time_window_ms"]) == {50},
+        "fig3g_registered_state_evolution_synthesis",
+        len(fig3g_asset) == 1
+        and set(fig3g_asset["figure_id"].astype(str)) == {"fig3"}
+        and set(fig3g_asset["panel_id"].astype(str)) == {"g"}
+        and set(fig3g_asset["asset_path"].astype(str))
+        == {"src/plotting/paper_fig/assets/fig3_state_evolution.svg"}
+        and set(fig3g_asset["viewBox"].astype(str)) == {"0 0 1560 420"}
+        and fig3g_asset["asset_sha256"].astype(str).str.fullmatch(r"[0-9a-f]{64}").all(),
     )
-    fig4a = p[("fig4", "a")]
-    pivot = fig4a.pivot_table(
+
+    fig2a = pd.read_csv(bundle_root / "fig2/data/panel_a_input_stimuli.csv")
+    fig2a_identity = (
+        fig2a[
+            [
+                "stimulus_role",
+                "image_id",
+                "label",
+                "render_occurrences",
+            ]
+        ]
+        .drop_duplicates()
+        .sort_values("stimulus_role")
+    )
+    check(
+        "fig2a_frozen_paired_inputs_and_shared_b",
+        len(fig2a) == 3 * 28 * 28
+        and set(fig2a["stimulus_role"]) == {"A", "B", "C"}
+        and fig2a.groupby("stimulus_role").size().eq(28 * 28).all()
+        and not fig2a.duplicated(
+            ["stimulus_role", "pixel_x", "pixel_y"]
+        ).any()
+        and {
+            str(row.stimulus_role): (
+                int(row.image_id),
+                int(row.label),
+                int(row.render_occurrences),
+            )
+            for row in fig2a_identity.itertuples(index=False)
+        }
+        == {"A": (9301, 1, 1), "B": (3536, 0, 2), "C": (9589, 6, 1)}
+        and pd.to_numeric(fig2a["normalized_intensity"], errors="coerce")
+        .between(0.0, 1.0)
+        .all(),
+    )
+    fig2a_manifest = pd.read_csv(
+        bundle_root / "fig2/meta/panel_a_source_manifest.csv"
+    )
+    check(
+        "fig2a_source_selection_counts",
+        source_row_counts(fig2a_manifest)
+        == {
+            "DMS-enhanced.svg": (1, 1, 0),
+            "history_specs.csv": (60, 2, 58),
+            "history_input_manifest.csv": (100, 2, 98),
+            "b_anchor_specs.csv": (50, 1, 49),
+            "t10k-images-idx3-ubyte": (10000, 3, 9997),
+        },
+    )
+
+    c5_endpoints = {
+        "a": "early_layer2_event_map_donor_transfer",
+        "b": "layer3_successor_ux_donor_transfer",
+    }
+    for panel_id, endpoint in c5_endpoints.items():
+        frame = p[("fig4", panel_id)]
+        check(
+            f"fig4{panel_id}_c5_20network_k1_k5_positive",
+            len(frame) == 40
+            and set(frame["endpoint"]) == {endpoint}
+            and set(frame["prefix_k"]) == {1, 5}
+            and set(frame["condition"]) == {"K1", "K5"}
+            and frame.groupby("condition")["network_seed"].nunique().eq(20).all()
+            and pd.to_numeric(frame["value"], errors="coerce").gt(0).all()
+            and pd.to_numeric(frame["summary_ci95_low"], errors="coerce")
+            .gt(0)
+            .all(),
+        )
+
+    fig4c = p[("fig4", "c")]
+    recurrence_pivot = fig4c.pivot_table(
         index=["network_seed", "stage_k"],
         columns="condition",
         values="value",
         aggfunc="first",
     )
     check(
-        "fig4a_successive_observed_passive_coverage",
-        set(fig4a["stage_k"]) == set(range(2, 11))
-        and set(fig4a["condition"]) == {"observed", "passive"}
-        and fig4a.groupby(["condition", "stage_k"])["network_seed"]
+        "fig4c_successive_observed_passive_coverage",
+        set(fig4c["stage_k"]) == set(range(2, 11))
+        and set(fig4c["condition"]) == {"observed", "passive"}
+        and fig4c.groupby(["condition", "stage_k"])["network_seed"]
         .nunique()
         .eq(20)
         .all()
-        and (pivot["observed"] - pivot["passive"]).gt(0).all(),
+        and (recurrence_pivot["observed"] - recurrence_pivot["passive"])
+        .gt(0)
+        .all(),
     )
-    fig4b = p[("fig4", "b")]
+    fig4d = p[("fig4", "d")]
     check(
-        "fig4b_relation_balanced_depth_outcomes",
-        set(fig4b["prefix_k"]) == {"K1", "K5"}
-        and set(fig4b["outcome_type"]) == {"rescue", "loss"}
-        and fig4b.groupby(["prefix_k", "outcome_type"])["network_seed"]
+        "fig4d_relation_balanced_depth_outcomes",
+        set(fig4d["prefix_k"]) == {"K1", "K5"}
+        and set(fig4d["outcome_type"]) == {"rescue", "loss"}
+        and fig4d.groupby(["prefix_k", "outcome_type"])["network_seed"]
         .nunique()
         .eq(20)
         .all(),
     )
-    fig4b_pivot = fig4b.pivot_table(
+    fig4d_pivot = fig4d.pivot_table(
         index="network_seed",
         columns=["outcome_type", "prefix_k"],
         values="value",
         aggfunc="first",
     )
     check(
-        "fig4b_all_network_depth_directions",
+        "fig4d_all_network_depth_directions",
         (
-            fig4b_pivot[("rescue", "K5")]
-            - fig4b_pivot[("rescue", "K1")]
+            fig4d_pivot[("rescue", "K5")]
+            - fig4d_pivot[("rescue", "K1")]
         ).lt(0).all()
         and (
-            fig4b_pivot[("loss", "K5")]
-            - fig4b_pivot[("loss", "K1")]
+            fig4d_pivot[("loss", "K5")]
+            - fig4d_pivot[("loss", "K1")]
         ).gt(0).all(),
     )
-    fig4c = p[("fig4", "c")]
+
+    fig5c = p[("fig5", "c")]
     check(
-        "fig4c_k5_state_components",
-        set(fig4c["prefix_k"]) == {5}
-        and set(fig4c["endpoint"])
-        == {
-            "same_B_common_update_cosine",
-            "processing_residual_gamma_energy_fraction",
-        },
+        "fig5c_multi_component_neff",
+        len(fig5c) == 20 * 4
+        and set(fig5c["seq_len"]) == {3, 5, 7, 10}
+        and set(fig5c["endpoint"]) == {"N_eff"}
+        and fig5c.groupby("seq_len")["network_seed"].nunique().eq(20).all()
+        and pd.to_numeric(fig5c["value"], errors="coerce").gt(1).all(),
     )
-    fig4d = p[("fig4", "d")]
-    fig4d_pivot = fig4d.pivot_table(
-        index="network_seed", columns="condition", values="value", aggfunc="first"
+    fig5d = p[("fig5", "d")]
+    check(
+        "fig5d_latest_item_below_half",
+        len(fig5d) == 20 * 4
+        and set(fig5d["seq_len"]) == {3, 5, 7, 10}
+        and set(fig5d["endpoint"]) == {"latest_item_weight"}
+        and fig5d.groupby("seq_len")["network_seed"].nunique().eq(20).all()
+        and pd.to_numeric(fig5d["value"], errors="coerce").between(0, 0.5).all(),
+    )
+    _validate_heatmap_network_cells(
+        p[("fig5", "e")], ("seq_len", "delay_ms"), "fig5e"
     )
     check(
-        "fig4d_changed_events_above_matched_random",
-        set(fig4d["condition"]) == {"matched_random", "changed_events"}
-        and (fig4d_pivot["changed_events"] - fig4d_pivot["matched_random"]).gt(0).all(),
-    )
-    fig4e = p[("fig4", "e")]
-    check(
-        "fig4e_k5_donor_transfer",
-        set(fig4e["prefix_k"]) == {5}
-        and set(fig4e["endpoint"])
-        == {
-            "layer1_only_layer2_update_donor_transfer",
-            "layer1_only_early_class_score_donor_transfer",
-        }
-        and pd.to_numeric(fig4e["value"], errors="coerce").gt(0).all(),
-    )
-    fig5e = p[("fig5", "e")]
-    check(
-        "fig5e_unavailable_is_absent_not_zero",
-        (fig5e["item_position"] <= fig5e["seq_len"]).all()
-        and fig5e.groupby(["network_seed", "seq_len"]).size().eq(
-            fig5e.groupby(["network_seed", "seq_len"])["seq_len"].first()
-        ).all()
-        and np.allclose(
-            fig5e.groupby(["network_seed", "seq_len"])["value"].sum(),
-            1.0,
-            rtol=1e-8,
-            atol=1e-10,
-        ),
+        "fig5e_effective_area_complete_4x4_network_grid",
+        len(p[("fig5", "e")]) == 20 * 4 * 4
+        and set(p[("fig5", "e")]["endpoint"]) == {"layer1_g_effective_area"},
     )
     _validate_heatmap_network_cells(
         p[("fig5", "f")], ("seq_len", "delay_ms"), "fig5f"
     )
     check(
-        "fig5f_complete_4x4_network_grid",
-        len(p[("fig5", "f")]) == 20 * 4 * 4,
+        "fig5f_matched_minus_deranged_complete_4x4_network_grid",
+        len(p[("fig5", "f")]) == 20 * 4 * 4
+        and set(p[("fig5", "f")]["endpoint"])
+        == {"matched_minus_deranged_cosine"},
     )
+
     _validate_heatmap_network_cells(
         p[("fig6", "d")], ("seq_len", "delay_ms"), "fig6d"
     )
@@ -650,7 +790,7 @@ def _validate_frozen_protocols(
         "fig6c_two_content_contrasts_only",
         set(fig6c["record_type"]) == {"paired_network_contrast"}
         and set(fig6c["endpoint"])
-        == {"matched_minus_mismatched", "matched_minus_unseen"}
+        == {"matched_minus_same_label_novel", "matched_minus_unseen"}
         and fig6c.groupby("endpoint")["network_seed"].nunique().eq(20).all(),
     )
     fig6e = p[("fig6", "e")]
@@ -665,63 +805,89 @@ def _validate_frozen_protocols(
         .gt(0)
         .all(),
     )
-    fig6f = p[("fig6", "f")]
-    robustness = pd.read_csv(bundle_root / "fig6/data/panel_f_robustness.csv")
-    check(
-        "fig6f_primary_10ms_only",
-        set(fig6f["early_window_ms"]) == {10}
-        and np.allclose(fig6f["stsp_group_quantile"], 0.5)
-        and np.allclose(fig6f["overlap_threshold"], 0.05)
-        and set(fig6f["unit"]) == {"percent"}
-        and set(fig6f["cell_or_interaction"])
-        == {
-            "high_nooverlap_delta",
-            "high_overlap_delta",
-            "low_nooverlap_delta",
-            "low_overlap_delta",
-            "interaction_delta",
-        },
+    exact_coverage = pd.read_csv(
+        bundle_root / "fig6/data/panel_e_exact_match_coverage.csv"
     )
     check(
-        "fig6f_robustness_is_separate_5_15_20ms",
-        set(robustness["early_window_ms"]) == {5, 15, 20}
-        and 10 not in set(robustness["early_window_ms"])
-        and len(robustness) == 20 * 3,
+        "fig6e_exact_area_and_energy_subset_coverage",
+        len(exact_coverage) == 20
+        and _numeric_set(exact_coverage["network_seed"]) == set(EXPECTED_SEEDS)
+        and pd.to_numeric(exact_coverage["n_exact_trials"], errors="coerce")
+        .between(1, pd.to_numeric(exact_coverage["n_trials"], errors="coerce"))
+        .all()
+        and pd.to_numeric(exact_coverage["exact_match_fraction"], errors="coerce")
+        .between(0, 1, inclusive="both")
+        .all(),
+    )
+    fig6f = p[("fig6", "f")]
+    expected_cells = {
+        "high_nooverlap_delta",
+        "high_overlap_delta",
+        "low_nooverlap_delta",
+        "low_overlap_delta",
+    }
+    check(
+        "fig6f_primary_10ms_complete_2x2_cells",
+        _numeric_set(fig6f["network_seed"]) == set(EXPECTED_SEEDS)
+        and set(fig6f["cell"]) == expected_cells
+        and set(fig6f["stsp_group"]) == {"low", "high"}
+        and set(fig6f["overlap_group"]) == {"no_overlap", "overlap"}
+        and set(fig6f["early_window_ms"]) == {10}
+        and set(fig6f["endpoint"]) == {"early_firing_delta"}
+        and len(fig6f) == 20 * 4
+        and fig6f.groupby("network_seed")["cell"].nunique().eq(4).all()
+        and np.allclose(
+            pd.to_numeric(
+                fig6f.loc[fig6f["overlap_group"].eq("no_overlap"), "value"],
+                errors="coerce",
+            ),
+            0.0,
+            rtol=0.0,
+            atol=0.0,
+        ),
+    )
+    primary_pivot = fig6f.pivot(
+        index="network_seed",
+        columns="cell",
+        values="value",
+    )
+    reconstructed = (
+        primary_pivot["high_overlap_delta"]
+        - primary_pivot["low_overlap_delta"]
+        - primary_pivot["high_nooverlap_delta"]
+        + primary_pivot["low_nooverlap_delta"]
+    ).sort_index()
+    robustness = pd.read_csv(
+        bundle_root / "fig6/data/panel_f_window_robustness.csv"
+    )
+    observed_10ms = (
+        robustness.loc[robustness["early_window_ms"].eq(10)]
+        .set_index("network_seed")["value"]
+        .sort_index()
+    )
+    check(
+        "fig6f_primary_cells_reconstruct_10ms_interaction",
+        reconstructed.index.equals(observed_10ms.index)
+        and np.allclose(
+            reconstructed.to_numpy(dtype=float),
+            observed_10ms.to_numpy(dtype=float),
+            rtol=1e-10,
+            atol=1e-12,
+        ),
+    )
+    check(
+        "fig6f_window_sweep_auxiliary_only",
+        set(robustness["early_window_ms"]) == {5, 10, 15, 20}
+        and set(robustness["endpoint"]) == {"overlap_gated_stsp_interaction"}
+        and len(robustness) == 20 * 4
+        and robustness.groupby("early_window_ms")["network_seed"]
+        .nunique()
+        .eq(20)
+        .all(),
     )
     return passed
 
 
-def _validate_robustness_statistics(
-    bundle_root: Path,
-) -> list[dict[str, Any]]:
-    plot = pd.read_csv(bundle_root / "fig6/data/panel_f_robustness.csv")
-    statistics_frame = pd.read_csv(
-        bundle_root / "fig6/metrics/panel_f_robustness_statistics.csv"
-    )
-    records: list[dict[str, Any]] = []
-    for keys, part in plot.groupby(
-        ["endpoint", "early_window_ms"], dropna=False, sort=False
-    ):
-        endpoint, window = keys
-        group = f"{endpoint}|{_stringify_group_value(window)}"
-        matches = statistics_frame.loc[
-            statistics_frame["group"].astype(str).eq(group)
-        ]
-        _assert(len(matches) == 1, f"fig6f robustness: missing statistics group {group}")
-        records.append(
-            _compare_summary(
-                figure_id="fig6",
-                panel_id="f_robustness",
-                group=group,
-                values=part,
-                recorded=matches.iloc[0],
-            )
-        )
-    _assert(
-        len(records) == len(statistics_frame) == 3,
-        "fig6f robustness statistics are incomplete",
-    )
-    return records
 
 
 def _validate_fig3d_late_pre_audit(
@@ -1096,7 +1262,7 @@ def validate_final_bundle(
     bundle_root = bundle_root.resolve()
     _assert(bundle_root.is_dir(), f"final bundle does not exist: {bundle_root}")
     panel_index = pd.read_csv(bundle_root / "panel_index.csv")
-    _assert(len(panel_index) == 33, f"expected 33 total panels, observed {len(panel_index)}")
+    _assert(len(panel_index) == 32, f"expected 32 total panels, observed {len(panel_index)}")
     quantitative = panel_index.loc[panel_index["panel_type"].eq("quantitative")]
     schematics = panel_index.loc[panel_index["panel_type"].eq("schematic")]
     _assert(
@@ -1157,18 +1323,33 @@ def validate_final_bundle(
             not plot.duplicated().any(),
             f"{row.figure_id}{row.panel_id}: duplicate full plot-data rows",
         )
+        statistics_plot = plot
+        auxiliary_filename = AUXILIARY_STATISTICS_SOURCES.get(
+            (str(row.figure_id), str(row.panel_id))
+        )
+        if auxiliary_filename is not None:
+            auxiliary_path = figure_dir / "data" / auxiliary_filename
+            _assert(
+                auxiliary_path.is_file(),
+                f"missing {row.figure_id}{row.panel_id} auxiliary statistics CSV: "
+                f"{auxiliary_path}",
+            )
+            auxiliary = pd.read_csv(auxiliary_path)
+            _assert(
+                set(PLOT_BASE_COLUMNS).issubset(auxiliary.columns),
+                f"{row.figure_id}{row.panel_id}: auxiliary statistics schema incomplete",
+            )
+            statistics_plot = pd.concat(
+                [plot, auxiliary], ignore_index=True, sort=False
+            )
         statistics_checks.extend(
             _validate_panel_statistics(
                 str(row.figure_id),
                 str(row.panel_id),
-                plot,
+                statistics_plot,
                 statistics_frame,
             )
         )
-    statistics_checks.extend(_validate_robustness_statistics(bundle_root))
-    statistics_checks.extend(
-        _validate_fig3d_late_pre_audit(repo_root, bundle_root)
-    )
     protocol_checks = _validate_frozen_protocols(bundle_root, plots)
     export_records = _validate_exports(bundle_root, panel_index)
     require_report = _test_require_mode_failure(repo_root, bundle_root)

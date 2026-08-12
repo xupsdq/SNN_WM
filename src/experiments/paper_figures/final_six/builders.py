@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import math
 import re
 from dataclasses import dataclass, field
@@ -88,6 +89,43 @@ def _manifest(
         builder_module=BUILDER_MODULE,
         builder_version=ctx.builder_version,
     )
+
+
+def _selected_source_manifest(
+    ctx: BuilderContext,
+    records: Sequence[dict[str, Any]],
+    selected_rows: Sequence[int],
+    *,
+    output_csvs: Sequence[str],
+) -> pd.DataFrame:
+    if len(records) != len(selected_rows):
+        raise ValueError("source records and selected-row counts must align")
+    frames: list[pd.DataFrame] = []
+    output_csv = ";".join(output_csvs)
+    for record, selected in zip(records, selected_rows):
+        input_rows = int(record["input_rows"])
+        selected_count = int(selected)
+        if selected_count < 0 or selected_count > input_rows:
+            raise ValueError(
+                f"invalid selected-row count {selected_count} for {input_rows} inputs"
+            )
+        excluded_rows = input_rows - selected_count
+        frames.append(
+            finalize_source_records(
+                [record],
+                output_rows=selected_count,
+                excluded_rows=excluded_rows,
+                exclusion_reason=(
+                    "source units outside the frozen schematic selection were excluded"
+                    if excluded_rows
+                    else ""
+                ),
+                output_csv=output_csv,
+                builder_module=BUILDER_MODULE,
+                builder_version=ctx.builder_version,
+            )
+        )
+    return pd.concat(frames, ignore_index=True)[list(SOURCE_MANIFEST_COLUMNS)]
 
 
 def _statistics_values(
@@ -791,26 +829,254 @@ def _build_fig1e(ctx: BuilderContext) -> PanelResult:
     )
 
 
+def _load_mnist_test_images(path: Path, *, panel_label: str) -> np.ndarray:
+    raw_bytes = path.read_bytes()
+    header = np.frombuffer(raw_bytes, dtype=">u4", count=4)
+    expected = (2051, 10000, 28, 28)
+    if tuple(int(value) for value in header) != expected:
+        raise ValueError(
+            f"{panel_label} unexpected MNIST test-image header: {header.tolist()}"
+        )
+    return np.frombuffer(raw_bytes, dtype=np.uint8, offset=16).reshape(
+        int(header[1]),
+        int(header[2]),
+        int(header[3]),
+    )
+
+
+def _stimulus_pixel_frame(
+    *,
+    figure_id: str,
+    panel_id: str,
+    raw_images: np.ndarray,
+    exemplars: Sequence[Mapping[str, Any]],
+) -> pd.DataFrame:
+    pixel_y, pixel_x = np.indices((28, 28), dtype=np.int16)
+    tables: list[pd.DataFrame] = []
+    for exemplar in exemplars:
+        image_id = int(exemplar["image_id"])
+        if image_id < 0 or image_id >= len(raw_images):
+            raise ValueError(
+                f"{figure_id}{panel_id} image_id is outside the MNIST test set: "
+                f"{image_id}"
+            )
+        image = np.asarray(raw_images[image_id], dtype=np.uint8)
+        table = pd.DataFrame(
+            {
+                "pixel_x": pixel_x.ravel(),
+                "pixel_y": pixel_y.ravel(),
+                "pixel_value": image.ravel(),
+                "normalized_intensity": image.astype(np.float64).ravel() / 255.0,
+            }
+        )
+        identifiers = [
+            ("figure_id", figure_id),
+            ("panel_id", panel_id),
+            *list(exemplar.items()),
+        ]
+        for column, value in reversed(identifiers):
+            table.insert(0, column, value)
+        tables.append(table)
+    if not tables:
+        raise ValueError(f"{figure_id}{panel_id} has no schematic stimuli")
+    return pd.concat(tables, ignore_index=True)
+
+
+def _build_fig2a_schematic(ctx: BuilderContext) -> PanelResult:
+    panel_id = "a"
+    asset_relative = "results/paper_figures/outputs/DMS-enhanced.svg"
+    protocol_root = (
+        ctx.repo_root
+        / "results"
+        / "multi_seed_rollout"
+        / "fig2"
+        / "fixed_b_mechanism_confirmatory"
+        / "frozen_protocol"
+    )
+    history_specs_path = protocol_root / "history_specs.csv"
+    history_manifest_path = protocol_root / "history_input_manifest.csv"
+    b_anchor_specs_path = protocol_root / "b_anchor_specs.csv"
+    raw_images_path = ctx.repo_root / "MNIST" / "raw" / "t10k-images-idx3-ubyte"
+    history_specs = pd.read_csv(history_specs_path)
+    history_manifest = pd.read_csv(history_manifest_path)
+    b_anchor_specs = pd.read_csv(b_anchor_specs_path)
+
+    selected = history_specs.loc[
+        history_specs["history_family_id"].eq(1)
+        & history_specs["history_condition"].isin(["A", "C"])
+        & history_specs["prefix_k"].eq(1)
+    ].copy()
+    if set(selected["history_condition"]) != {"A", "C"} or len(selected) != 2:
+        raise ValueError("fig2a requires the frozen family-1 History A/C exemplar pair")
+
+    b_rows = b_anchor_specs.loc[b_anchor_specs["b_anchor_id"].eq(30)]
+    if len(b_rows) != 1:
+        raise ValueError("fig2a requires the unique frozen test B anchor 30")
+    b_row = b_rows.iloc[0]
+    if int(b_row["B_image_id"]) != 3536 or int(b_row["B_label"]) != 0:
+        raise ValueError("fig2a frozen B anchor 30 identity changed")
+
+    exemplars: list[dict[str, Any]] = []
+    for sequence_index, condition in enumerate(("A", "C"), start=1):
+        row = selected.loc[selected["history_condition"].eq(condition)].iloc[0]
+        image_ids = json.loads(str(row["sequence_image_ids"]))
+        labels = json.loads(str(row["sequence_labels"]))
+        if len(image_ids) != 1 or len(labels) != 1:
+            raise ValueError(f"fig2a History {condition} is not a one-item history")
+        image_id = int(image_ids[0])
+        label = int(labels[0])
+        manifest_rows = history_manifest.loc[
+            history_manifest["image_id"].eq(image_id)
+            & history_manifest["label"].eq(label)
+        ]
+        if len(manifest_rows) != 1:
+            raise ValueError(
+                f"fig2a History {condition} exemplar is ambiguous in frozen manifest"
+            )
+        manifest_row = manifest_rows.iloc[0]
+        exemplars.append(
+            {
+                "stimulus_role": condition,
+                "sequence_index": sequence_index,
+                "protocol_context": f"history_{condition}",
+                "protocol_row_id": int(row["history_row_id"]),
+                "image_id": image_id,
+                "label": label,
+                "encoding_seed": int(manifest_row["encoding_seed"]),
+                "image_sha256": str(manifest_row["image_sha256"]),
+                "render_occurrences": 1,
+            }
+        )
+    exemplars.append(
+        {
+            "stimulus_role": "B",
+            "sequence_index": 3,
+            "protocol_context": "fixed_B",
+            "protocol_row_id": int(b_row["b_anchor_id"]),
+            "image_id": int(b_row["B_image_id"]),
+            "label": int(b_row["B_label"]),
+            "encoding_seed": int(b_row["encoding_seed"]),
+            "image_sha256": str(b_row["B_image_sha256"]),
+            "render_occurrences": 2,
+        }
+    )
+    raw_images = _load_mnist_test_images(raw_images_path, panel_label="fig2a")
+    stimulus_frame = _stimulus_pixel_frame(
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+        raw_images=raw_images,
+        exemplars=exemplars,
+    )
+
+    source_specs = (
+        (
+            asset_relative,
+            "fig2.a.layout_reference",
+            "manual_asset",
+            "DMS layout reference",
+            "design_reference_only",
+            "scientific identities come from frozen CSV sources",
+            "manual DMS composition -> layout reference only",
+        ),
+        (
+            history_specs_path.relative_to(ctx.repo_root).as_posix(),
+            "fig2.a.history_specs",
+            "frozen_protocol",
+            "frozen History A/C identities",
+            "history_family_id=1; prefix_k=1; conditions=A,C",
+            "one-item histories; protocol seed 20260724",
+            "frozen history identities -> selected image IDs",
+        ),
+        (
+            history_manifest_path.relative_to(ctx.repo_root).as_posix(),
+            "fig2.a.history_input_manifest",
+            "validated_artifact",
+            "encoded-history row and hash manifest",
+            "selected A/C image IDs and labels",
+            "persisted encoding seeds and image hashes",
+            "selected IDs -> validated history stimulus metadata",
+        ),
+        (
+            b_anchor_specs_path.relative_to(ctx.repo_root).as_posix(),
+            "fig2.a.fixed_b_anchor",
+            "frozen_protocol",
+            "frozen exact-B anchor identities",
+            "b_anchor_id=30; test row",
+            "one byte-identical B is rendered in both counterfactual lanes",
+            "frozen B identity -> shared schematic stimulus",
+        ),
+        (
+            raw_images_path.relative_to(ctx.repo_root).as_posix(),
+            "fig2.a.raw_input_images",
+            "dataset",
+            "raw MNIST test stimuli selected by the frozen protocol",
+            "image IDs 9301, 9589, and 3536",
+            "pixel values are not transformed beyond normalization to [0,1]",
+            "raw MNIST pixels -> schematic stimulus tiles",
+        ),
+    )
+    source_row_counts = {
+        "fig2.a.layout_reference": (1, 1),
+        "fig2.a.history_specs": (len(history_specs), len(selected)),
+        "fig2.a.history_input_manifest": (
+            len(history_manifest),
+            len(selected),
+        ),
+        "fig2.a.fixed_b_anchor": (len(b_anchor_specs), len(b_rows)),
+        "fig2.a.raw_input_images": (len(raw_images), len(exemplars)),
+    }
+    source_records = []
+    for (
+        relative_path,
+        key,
+        source_level,
+        producer_task,
+        filters,
+        held_fixed,
+        aggregation_path,
+    ) in source_specs:
+        descriptor = SourceDescriptor(
+            key=key,
+            pattern=relative_path,
+            source_level=source_level,
+            producer_task=producer_task,
+            filters=filters,
+            held_fixed=held_fixed,
+            aggregation_path=aggregation_path,
+            seeded=False,
+        )
+        source_records.append(
+            record_file_source(
+                repo_root=ctx.repo_root,
+                figure_id=ctx.figure_id,
+                panel_id=panel_id,
+                descriptor=descriptor,
+                path=ctx.repo_root / relative_path,
+                input_rows=int(source_row_counts[key][0]),
+            )
+        )
+    manifest = _selected_source_manifest(
+        ctx,
+        source_records,
+        [source_row_counts[spec[1]][1] for spec in source_specs],
+        output_csvs=(f"{ctx.figure_id}/data/panel_a_input_stimuli.csv",),
+    )
+    return PanelResult(
+        panel_id=panel_id,
+        panel_type="schematic",
+        plot_data=None,
+        statistics=schematic_statistics(ctx.figure_id, panel_id),
+        source_manifest=manifest,
+        extra_data={"panel_a_input_stimuli.csv": stimulus_frame},
+    )
+
+
 def build_fig2(ctx: BuilderContext) -> list[PanelResult]:
     return [
-        _asset_panel(
-            ctx,
-            "a",
-            relative_path="results/paper_figures/outputs/DMS-enhanced.svg",
-            role="one-step exact-B DMS direction",
-            semantics=(
-                "History A/C -> inherited L1 u/x -> identical B -> L1 processing -> "
-                "L2 successor update -> early output"
-            ),
-            allowed_cleanup=(
-                "font normalization; whitespace normalization; vector-preserving containment; "
-                "do not introduce K5 or distinct B identities"
-            ),
-        ),
+        _build_fig2a_schematic(ctx),
         _build_fig2b(ctx),
         _build_fig2c(ctx),
         _build_fig2d(ctx),
-        _build_fig2e(ctx),
     ]
 
 
@@ -1216,39 +1482,52 @@ def _fig2_event_component_source(
 def _build_fig2c(ctx: BuilderContext) -> PanelResult:
     panel_id = "c"
     source = _fixed_scalar_source(ctx, panel_id)
-    endpoints = (
+    source_endpoints = (
         "same_B_common_update_cosine",
         "processing_residual_gamma_energy_fraction",
     )
     selected = source.frame.loc[
-        source.frame["prefix_k"].eq(1) & source.frame["endpoint"].isin(endpoints)
+        source.frame["prefix_k"].eq(1)
+        & source.frame["endpoint"].isin(source_endpoints)
     ].copy()
     threshold_by_endpoint = (
         selected.groupby("endpoint")["threshold"].first().astype(float).to_dict()
     )
-    expected_thresholds = {
+    expected_source_thresholds = {
         "same_B_common_update_cosine": 0.5,
         "processing_residual_gamma_energy_fraction": 0.05,
     }
-    for endpoint, expected in expected_thresholds.items():
+    for endpoint, expected in expected_source_thresholds.items():
         observed = float(threshold_by_endpoint.get(endpoint, math.nan))
         if not np.isclose(observed, expected, rtol=0.0, atol=1e-12):
             raise ValueError(
                 f"fig2c: endpoint {endpoint} threshold {observed} != frozen {expected}"
             )
+    selected["source_endpoint"] = selected["endpoint"].astype(str)
+    selected["display_endpoint"] = selected["source_endpoint"].replace(
+        {
+            "processing_residual_gamma_energy_fraction": (
+                "processing_residual_gamma_norm_ratio"
+            )
+        }
+    )
     plot = make_plot_data(
         selected,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
         record_type="network_metric",
-        endpoint="endpoint",
+        endpoint="display_endpoint",
         condition="prefix_k1",
         value="value",
         unit="dimensionless",
-        dimensions=("prefix_k",),
+        dimensions=("prefix_k", "source_endpoint"),
     )
-    plot["endpoint"] = selected["endpoint"].to_numpy()
+    plot["endpoint"] = selected["display_endpoint"].to_numpy()
     plot = plot.sort_values(["network_seed", "endpoint"], kind="mergesort")
+    expected_thresholds = {
+        "same_B_common_update_cosine": 0.5,
+        "processing_residual_gamma_norm_ratio": 0.05,
+    }
     values = _statistics_values(
         plot,
         group_columns=("condition",),
@@ -1272,121 +1551,79 @@ def _build_fig2c(ctx: BuilderContext) -> PanelResult:
 
 def _build_fig2d(ctx: BuilderContext) -> PanelResult:
     panel_id = "d"
-    scalar_source = _fixed_scalar_source(ctx, panel_id)
-    component_source = _fig2_event_component_source(ctx, panel_id)
-    endpoint = "full_trace_event_gamma_enrichment"
-    selected = scalar_source.frame.loc[
-        scalar_source.frame["prefix_k"].eq(1)
-        & scalar_source.frame["endpoint"].eq(endpoint)
+    source = _fig2_event_component_source(ctx, panel_id)
+    selected = source.frame.loc[
+        source.frame["prefix_k"].eq(1)
+        & source.frame["valid"].astype(bool)
     ].copy()
-    if len(selected) != len(EXPECTED_SEEDS):
-        raise ValueError(
-            "fig2d: formal enrichment endpoint must have one row per network; "
-            f"observed={len(selected)}"
-        )
-    enrichment_plot = make_plot_data(
-        selected,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="network_metric",
-        endpoint=endpoint,
-        condition="prefix_k1",
-        value="value",
-        unit="enrichment_index",
-        dimensions=("prefix_k",),
-    ).sort_values(["network_seed"], kind="mergesort")
-    enrichment_values = _statistics_values(
-        enrichment_plot,
-        group_columns=("condition",),
-        status="predeclared_recomputed",
-        null_by_endpoint={endpoint: 0.0},
-    )
-    enrichment_values["contrast"] = "event_gamma_enrichment_vs_zero"
-
-    component_rows = component_source.frame.loc[
-        component_source.frame["prefix_k"].eq(1)
-        & component_source.frame["valid"].eq(1)
-    ].copy()
-    if component_rows.empty:
-        raise ValueError("fig2d: no valid K1 event-component rows remain")
-    component_columns = {
-        "matched_random": "matched_random_gamma_mean_abs",
-        "changed_events": "changed_coordinate_gamma_mean_abs",
-    }
-    network_components = (
-        component_rows.groupby("network_seed", as_index=False)[
-            list(component_columns.values())
+    if selected.empty:
+        raise ValueError("fig2d: no valid K1 event-analysis cells remain")
+    network = selected.groupby("network_seed", as_index=False)[
+        [
+            "changed_coordinate_gamma_mean_abs",
+            "matched_random_gamma_mean_abs",
         ]
-        .mean()
-        .melt(
-            id_vars="network_seed",
-            value_vars=list(component_columns.values()),
-            var_name="component_field",
-            value_name="residual_magnitude",
-        )
+    ].mean()
+    network["prefix_k"] = 1
+    long = network.melt(
+        id_vars=("network_seed", "prefix_k"),
+        value_vars=(
+            "matched_random_gamma_mean_abs",
+            "changed_coordinate_gamma_mean_abs",
+        ),
+        var_name="source_condition",
+        value_name="residual_magnitude",
     )
-    condition_by_field = {
-        field: condition for condition, field in component_columns.items()
-    }
-    network_components["condition"] = network_components["component_field"].map(
-        condition_by_field
+    long["condition_name"] = long["source_condition"].map(
+        {
+            "matched_random_gamma_mean_abs": "matched_random",
+            "changed_coordinate_gamma_mean_abs": "changed_events",
+        }
     )
-    network_components["prefix_k"] = 1
-    if network_components["condition"].isna().any():
-        raise ValueError("fig2d: failed to map event-component conditions")
-    paired_counts = network_components.groupby("network_seed")["condition"].nunique()
-    if not paired_counts.eq(len(component_columns)).all():
-        bad = paired_counts.loc[~paired_counts.eq(len(component_columns))]
-        raise ValueError(
-            "fig2d: every network must contain both paired conditions; "
-            f"bad={bad.to_dict()}"
-        )
-    component_plot = make_plot_data(
-        network_components,
+    plot = make_plot_data(
+        long,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
-        record_type="paired_network_component",
-        endpoint="event_residual_magnitude",
-        condition="condition",
+        record_type="paired_network_condition",
+        endpoint="residual_magnitude",
+        condition="condition_name",
         value="residual_magnitude",
-        unit="dimensionless",
-        dimensions=("prefix_k",),
+        unit="mean_absolute_residual",
+        dimensions=("prefix_k", "source_condition"),
     )
-    component_plot["condition"] = network_components["condition"].to_numpy()
-    component_plot = component_plot.sort_values(
-        ["network_seed", "condition"], kind="mergesort"
-    )
-    component_values = _statistics_values(
-        component_plot,
+    plot["condition"] = long["condition_name"].to_numpy()
+    plot = plot.sort_values(["network_seed", "condition"], kind="mergesort")
+    descriptive = _statistics_values(
+        plot,
         group_columns=("condition",),
         status="descriptive_only",
-        null_by_endpoint={"event_residual_magnitude": 0.0},
     )
-    plot = pd.concat(
-        [component_plot, enrichment_plot],
-        ignore_index=True,
-        sort=False,
-    ).sort_values(
-        ["network_seed", "endpoint", "condition"],
-        kind="mergesort",
+    paired = network.loc[:, ["network_seed"]].copy()
+    paired["value"] = (
+        pd.to_numeric(
+            network["changed_coordinate_gamma_mean_abs"], errors="coerce"
+        )
+        - pd.to_numeric(network["matched_random_gamma_mean_abs"], errors="coerce")
+    )
+    inference = _contrast_statistics_values(
+        paired,
+        endpoint="residual_magnitude",
+        contrast="changed_events_minus_matched_random",
+        unit="mean_absolute_residual",
+        p_adjust_family="fig2d_event_residual",
     )
     statistics = build_statistics(
-        pd.concat(
-            [enrichment_values, component_values],
-            ignore_index=True,
-            sort=False,
-        ),
+        pd.concat([descriptive, inference], ignore_index=True, sort=False),
         figure_id=ctx.figure_id,
         panel_id=panel_id,
     )
-    source_records = scalar_source.records + component_source.records
     return _finalize_quantitative_panel(
         ctx,
         panel_id,
         plot,
         statistics,
-        source_records,
-        input_rows=len(scalar_source.frame) + len(component_source.frame),
+        source.records,
+        input_rows=len(source.frame),
         unique_key=(
             "figure_id",
             "panel_id",
@@ -1394,12 +1631,10 @@ def _build_fig2d(ctx: BuilderContext) -> PanelResult:
             "endpoint",
             "condition",
         ),
-        extra_data={
-            "panel_d_enrichment_network_values.csv": enrichment_plot,
-        },
         exclusion_reason=(
-            "K5, invalid analysis cells, and unrelated endpoint rows excluded; "
-            "cell-level components were averaged within network before display"
+            "K5 and invalid event-analysis cells excluded; changed-event and "
+            "within-cell size-matched-random magnitudes are displayed directly, "
+            "with no ratio or fold transformation"
         ),
     )
 
@@ -1453,9 +1688,22 @@ def build_fig3(ctx: BuilderContext) -> list[PanelResult]:
         _build_fig3a(ctx),
         _build_fig3b(ctx),
         _build_fig3c(ctx),
-        _build_fig3d(ctx),
+        _build_fig3d_necessity(ctx),
         _build_fig3e(ctx),
-        _build_fig3f(ctx),
+        _build_fig3f_successor(ctx),
+        _asset_panel(
+            ctx,
+            "g",
+            relative_path="src/plotting/paper_fig/assets/fig3_state_evolution.svg",
+            role="Fig.3-end conceptual synthesis of iterative inherited-state updating",
+            semantics=(
+                "illustrative state-transition summary; quantitative evidence remains "
+                "in Fig.3a-f"
+            ),
+            allowed_cleanup=(
+                "typography, spacing, rounded-card styling, and embedded stimulus rendering"
+            ),
+        ),
     ]
 
 
@@ -1654,23 +1902,28 @@ def _build_fig3c(ctx: BuilderContext) -> PanelResult:
     source = _competition_source(
         ctx,
         panel_id,
-        key="fig3.transitions",
-        filename="panel_b_transition_summary_by_group.csv",
-        source_level="trial",
+        key="fig3.transitions_30ms",
+        filename="panel_b_early_firing_transition_metrics.csv",
+        source_level="unit",
         filters=(
-            "early_window_ms=15; endpoints=P_advance,P_recruit,P_loss; "
+            "first_spike_dynamic/static restricted to [0,30) ms; "
+            "endpoints=P_advance,P_recruit,P_loss; "
             "groups=overlap_dominant,probe_only_dominant,random_matched"
         ),
-        held_fixed="balanced and unchanged excluded from main panel",
-        aggregation_path="units -> trial transition probability -> network group probability",
+        held_fixed=(
+            "dt=1 ms; descriptive 30-ms window; balanced and unchanged "
+            "excluded from the main panel"
+        ),
+        aggregation_path=(
+            "unit first-spike pair -> trial transition probability -> "
+            "network group probability"
+        ),
         required_columns=(
             "network_seed",
             "trial_id",
             "unit_group",
-            "early_window_ms",
-            "P_advance",
-            "P_recruit",
-            "P_loss",
+            "first_spike_dynamic",
+            "first_spike_static",
         ),
     )
     display_groups = (
@@ -1679,21 +1932,49 @@ def _build_fig3c(ctx: BuilderContext) -> PanelResult:
         "random_matched",
     )
     selected = source.frame.loc[
-        source.frame["early_window_ms"].eq(15)
-        & source.frame["unit_group"].isin(display_groups)
+        source.frame["unit_group"].isin(display_groups)
     ].copy()
+    dynamic = pd.to_numeric(
+        selected["first_spike_dynamic"],
+        errors="coerce",
+    ).fillna(-1)
+    static = pd.to_numeric(
+        selected["first_spike_static"],
+        errors="coerce",
+    ).fillna(-1)
+    dynamic = dynamic.where(dynamic.ge(0) & dynamic.lt(30), -1)
+    static = static.where(static.ge(0) & static.lt(30), -1)
+    transitions = pd.Series(
+        "unchanged",
+        index=selected.index,
+        dtype=object,
+    )
+    transitions.loc[
+        dynamic.ge(0) & static.ge(0) & dynamic.lt(static)
+    ] = "advance"
+    transitions.loc[dynamic.ge(0) & static.lt(0)] = "recruit"
+    transitions.loc[dynamic.lt(0) & static.ge(0)] = "loss"
+    selected["P_advance"] = transitions.eq("advance").astype(float)
+    selected["P_recruit"] = transitions.eq("recruit").astype(float)
+    selected["P_loss"] = transitions.eq("loss").astype(float)
+    trial = selected.groupby(
+        ["network_seed", "trial_id", "unit_group"],
+        as_index=False,
+    )[["P_advance", "P_recruit", "P_loss"]].mean()
     network = (
-        selected.groupby(["network_seed", "unit_group", "early_window_ms"], as_index=False)[
-            ["P_advance", "P_recruit", "P_loss"]
-        ]
+        trial.groupby(
+            ["network_seed", "unit_group"],
+            as_index=False,
+        )[["P_advance", "P_recruit", "P_loss"]]
         .mean()
         .melt(
-            id_vars=("network_seed", "unit_group", "early_window_ms"),
+            id_vars=("network_seed", "unit_group"),
             value_vars=("P_advance", "P_recruit", "P_loss"),
             var_name="endpoint_name",
             value_name="probability",
         )
     )
+    network["early_window_ms"] = 30
     network["probability_percent"] = (
         pd.to_numeric(network["probability"], errors="coerce") * 100.0
     )
@@ -1719,26 +2000,8 @@ def _build_fig3c(ctx: BuilderContext) -> PanelResult:
         group_columns=("unit_group", "early_window_ms"),
         status="descriptive_only",
     )
-    contrasts: list[pd.DataFrame] = []
-    for endpoint in ("P_advance", "P_recruit", "P_loss"):
-        pivot = plot.loc[plot["endpoint"].eq(endpoint)].pivot(
-            index="network_seed",
-            columns="unit_group",
-            values="value",
-        )
-        for control in display_groups[1:]:
-            values = (pivot["overlap_dominant"] - pivot[control]).rename("value").reset_index()
-            contrasts.append(
-                _contrast_statistics_values(
-                    values,
-                    endpoint=endpoint,
-                    contrast=f"overlap_dominant_minus_{control}",
-                    unit="percentage_points",
-                    p_adjust_family="fig3c_transition_controls",
-                )
-            )
     statistics = build_statistics(
-        pd.concat([descriptive, *contrasts], ignore_index=True, sort=False),
+        descriptive,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
     )
@@ -1758,149 +2021,14 @@ def _build_fig3c(ctx: BuilderContext) -> PanelResult:
             "early_window_ms",
         ),
         exclusion_reason=(
-            "balanced group and P_unchanged excluded from the frozen main-panel plot data"
+            "spikes at or after 30 ms, the balanced group, and P_unchanged "
+            "excluded from the main-panel plot data"
         ),
     )
 
 
-def _build_fig3d(ctx: BuilderContext) -> PanelResult:
+def _build_fig3d_necessity(ctx: BuilderContext) -> PanelResult:
     panel_id = "d"
-    trace_source = _competition_source(
-        ctx,
-        panel_id,
-        key="fig3.event_trace",
-        filename="panel_c_event_trace_summary.csv",
-        source_level="network_metric",
-        filters="trace_type in winner_delta_v,loser_delta_v",
-        held_fixed="event-aligned dynamic-minus-static delta V",
-        aggregation_path="event -> trial -> network trajectory (validated producer summary)",
-        required_columns=(
-            "network_seed",
-            "time_ms",
-            "trace_type",
-            "mean_value",
-            "n_events",
-            "n_trials",
-        ),
-    )
-    contrast_source = _competition_source(
-        ctx,
-        panel_id,
-        key="fig3.winner_loser_contrast",
-        filename="panel_c_winner_loser_network_summary.csv",
-        source_level="network_metric",
-        filters="primary window=-8..-1 ms",
-        held_fixed="late-pre -4..-1 ms descriptive only",
-        aggregation_path="event -> trial -> network full-pre contrast",
-        required_columns=(
-            "network_seed",
-            "primary_window_start_ms",
-            "primary_window_end_ms",
-            "aggregation",
-            "winner_minus_loser_full_pre_delta_v_mean",
-            "winner_minus_loser_late_pre_delta_v_mean",
-        ),
-    )
-    trace = trace_source.frame.loc[
-        trace_source.frame["trace_type"].isin(["winner_delta_v", "loser_delta_v"])
-    ].copy()
-    if trace.groupby(["network_seed", "time_ms", "trace_type"]).size().max() != 1:
-        raise ValueError("fig3d: trace parent is not unique at network x time x trace")
-    trace_plot = make_plot_data(
-        trace,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="event_aligned_trace",
-        endpoint="dynamic_minus_static_delta_v",
-        condition="trace_type",
-        value="mean_value",
-        unit="voltage",
-        dimensions=("time_ms", "trace_type", "n_events", "n_trials"),
-    )
-    trace_plot["condition"] = trace["trace_type"].to_numpy()
-    contrast = contrast_source.frame.copy()
-    if not contrast["primary_window_start_ms"].eq(-8).all() or not contrast[
-        "primary_window_end_ms"
-    ].eq(-1).all():
-        raise ValueError("fig3d: parent primary window is not frozen -8..-1 ms")
-    aggregation_text = ";".join(sorted(contrast["aggregation"].astype(str).unique()))
-    if "network" not in aggregation_text.lower():
-        raise ValueError(f"fig3d: aggregation metadata lacks network level: {aggregation_text}")
-    contrast_plot = make_plot_data(
-        contrast,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="paired_network_contrast",
-        endpoint="winner_minus_loser_full_pre",
-        condition="minus8_to_minus1_ms",
-        value="winner_minus_loser_full_pre_delta_v_mean",
-        unit="voltage",
-        dimensions=("primary_window_start_ms", "primary_window_end_ms"),
-    )
-    combined = pd.concat([trace_plot, contrast_plot], ignore_index=True, sort=False)
-    combined = combined.sort_values(
-        ["network_seed", "record_type", "condition", "time_ms"],
-        kind="mergesort",
-        na_position="last",
-    )
-    descriptive = _statistics_values(
-        trace_plot,
-        group_columns=("condition", "time_ms"),
-        status="descriptive_only",
-    )
-    inference = _statistics_values(
-        contrast_plot,
-        group_columns=("condition",),
-        status="predeclared_recomputed",
-        null_by_endpoint={"winner_minus_loser_full_pre": 0.0},
-    )
-    inference["contrast"] = "winner_minus_loser_full_pre_vs_zero"
-    late_audit = contrast.loc[
-        :, ["network_seed", "winner_minus_loser_late_pre_delta_v_mean"]
-    ].rename(columns={"winner_minus_loser_late_pre_delta_v_mean": "value"})
-    late_audit["endpoint"] = "winner_minus_loser_late_pre"
-    late_audit["contrast"] = "descriptive_minus4_to_minus1_ms"
-    late_audit["group"] = "winner_minus_loser_late_pre"
-    late_audit["null_value"] = 0.0
-    late_audit["unit"] = "voltage"
-    late_audit["statistics_status"] = "descriptive_only"
-    late_audit["p_adjust_family"] = ""
-    statistics = build_statistics(
-        pd.concat([descriptive, inference, late_audit], ignore_index=True, sort=False),
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    records = trace_source.records + contrast_source.records
-    input_rows = len(trace_source.frame) + len(contrast_source.frame)
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        combined,
-        statistics,
-        records,
-        input_rows=input_rows,
-        unique_key=(
-            "figure_id",
-            "panel_id",
-            "network_seed",
-            "record_type",
-            "endpoint",
-            "condition",
-            "time_ms",
-        ),
-        extra_data={
-            "panel_d_trace.csv": trace_plot,
-            "panel_d_contrast.csv": contrast_plot,
-        },
-        exclusion_reason=(
-            "loser-inhibition and winner-minus-loser trace diagnostics excluded; "
-            "late-pre contrast retained as descriptive statistics only"
-        ),
-    )
-
-
-def _build_fig3f(ctx: BuilderContext) -> PanelResult:
-    panel_id = "f"
     descriptor = SourceDescriptor(
         key="fig3.l1_stsp_unit_transitions",
         pattern=(
@@ -1976,7 +2104,7 @@ def _build_fig3f(ctx: BuilderContext) -> PanelResult:
             )
             partials.append(partial)
         if not partials:
-            raise ValueError(f"fig3f: no included rows in {path}")
+            raise ValueError(f"fig3d: no included rows in {path}")
         trial_counts = (
             pd.concat(partials, ignore_index=True)
             .groupby(["network_seed", "trial_id", "condition"], as_index=False)[["sum", "count"]]
@@ -2036,7 +2164,7 @@ def _build_fig3f(ctx: BuilderContext) -> PanelResult:
             "dynamic_minus_attenuation": 0.0,
             "dynamic_minus_reset": 0.0,
         },
-        p_adjust_family="fig3f_stsp_necessity",
+        p_adjust_family="fig3d_stsp_necessity",
     )
     values["contrast"] = values["endpoint"]
     statistics = build_statistics(values, figure_id=ctx.figure_id, panel_id=panel_id)
@@ -2171,6 +2299,63 @@ def _build_fig3e(ctx: BuilderContext) -> PanelResult:
             "endpoint",
             "condition",
             "history_status",
+        ),
+    )
+
+
+def _build_fig3f_successor(ctx: BuilderContext) -> PanelResult:
+    panel_id = "f"
+    source = _fixed_scalar_source(ctx, panel_id)
+    endpoint = "layer1_only_layer2_update_donor_transfer"
+    selected = source.frame.loc[
+        source.frame["prefix_k"].eq(1)
+        & source.frame["endpoint"].eq(endpoint)
+    ].copy()
+    if len(selected) != len(EXPECTED_SEEDS):
+        raise ValueError(
+            "fig3f: the K1 Layer-1-only to Layer-2 donor-transfer endpoint "
+            f"must contain one value per network; observed={len(selected)}"
+        )
+    plot = make_plot_data(
+        selected,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+        record_type="paired_network_contrast",
+        endpoint=endpoint,
+        condition="layer1_only_ux_swap",
+        value="value",
+        unit="donor_transfer_index",
+        dimensions=("prefix_k",),
+    ).sort_values(["network_seed"], kind="mergesort")
+    values = _statistics_values(
+        plot,
+        group_columns=("condition",),
+        status="predeclared_recomputed",
+        null_by_endpoint={endpoint: 0.0},
+        p_adjust_family="fig3f_successor_formation",
+    )
+    values["contrast"] = "layer1_only_layer2_successor_transfer_vs_zero"
+    statistics = build_statistics(
+        values,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+    )
+    return _finalize_quantitative_panel(
+        ctx,
+        panel_id,
+        plot,
+        statistics,
+        source.records,
+        input_rows=len(source.frame),
+        unique_key=(
+            "figure_id",
+            "panel_id",
+            "network_seed",
+            "endpoint",
+        ),
+        exclusion_reason=(
+            "K5, early Layer-3 consequences, all-layer swaps, and robustness "
+            "endpoints remain outside the main panel"
         ),
     )
 
@@ -2352,8 +2537,11 @@ def _attach_persisted_summary(
     return merged
 
 
-def _build_fig4a_accumulated(ctx: BuilderContext) -> PanelResult:
-    panel_id = "a"
+def _build_fig4a_accumulated(
+    ctx: BuilderContext,
+    *,
+    panel_id: str = "a",
+) -> PanelResult:
     data = _fig4_accumulated_source(
         ctx,
         panel_id,
@@ -2470,13 +2658,18 @@ def _build_fig4a_accumulated(ctx: BuilderContext) -> PanelResult:
         [*data.records, *descriptive.records, *inference.records],
         input_rows=len(data.frame) + len(descriptive.frame) + len(inference.frame),
         unique_key=("figure_id", "panel_id", "network_seed", "condition", "stage_k"),
-        extra_metrics={"panel_a_recurrence_inference.csv": inference_statistics},
+        extra_metrics={
+            f"panel_{panel_id}_recurrence_inference.csv": inference_statistics
+        },
         exclusion_reason="u-only and x-only trajectories are retained outside the main artwork",
     )
 
 
-def _build_fig4b_accumulated(ctx: BuilderContext) -> PanelResult:
-    panel_id = "b"
+def _build_fig4b_accumulated(
+    ctx: BuilderContext,
+    *,
+    panel_id: str = "b",
+) -> PanelResult:
     data = _fig4_accumulated_source(
         ctx,
         panel_id,
@@ -2605,8 +2798,8 @@ def _build_fig4b_accumulated(ctx: BuilderContext) -> PanelResult:
         input_rows=len(data.frame) + len(descriptive.frame) + len(inference.frame),
         unique_key=("figure_id", "panel_id", "network_seed", "prefix_k", "outcome_type"),
         extra_metrics={
-            "panel_b_depth_inference.csv": depth_statistics,
-            "panel_b_excluded_audit_statistics.csv": audit,
+            f"panel_{panel_id}_depth_inference.csv": depth_statistics,
+            f"panel_{panel_id}_excluded_audit_statistics.csv": audit,
         },
         exclusion_reason=(
             "K5 relation contrasts and depth-by-relation interactions are excluded from artwork"
@@ -2614,651 +2807,197 @@ def _build_fig4b_accumulated(ctx: BuilderContext) -> PanelResult:
     )
 
 
-def _build_fig4c_accumulated(ctx: BuilderContext) -> PanelResult:
-    panel_id = "c"
-    data = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="data",
-        filename="fig4c_e_k5_fixed_b_network_scalars.csv",
-        required_columns=(
-            "network_seed",
-            "endpoint",
-            "prefix_k",
-            "value",
-            "threshold",
-        ),
-        filters="prefix_k=5; common update and history residual only",
-        aggregation_path="validated fixed-B network scalar",
-    )
-    inference = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="metrics",
-        filename="fig4_candidate_inference.csv",
-        required_columns=(
-            "panel",
-            "endpoint",
-            "n_networks",
-            "mean",
-            "ci95_low",
-            "ci95_high",
-            "null_value",
-            "p_value",
-        ),
-        filters="panel=c; supplied confirmatory K5 inference",
-        aggregation_path="authoritative fixed-B confirmatory network inference",
-    )
-    endpoints = (
-        "same_B_common_update_cosine",
-        "processing_residual_gamma_energy_fraction",
-    )
-    selected = data.frame.loc[
-        data.frame["prefix_k"].eq(5) & data.frame["endpoint"].isin(endpoints)
-    ].copy().reset_index(drop=True)
-    plot = make_plot_data(
-        selected,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="network_metric",
-        endpoint="endpoint",
-        condition="K5",
-        value="value",
-        unit="dimensionless",
-        dimensions=("prefix_k", "threshold"),
-    )
-    plot["endpoint"] = selected["endpoint"].to_numpy()
-    plot["condition"] = "K5"
-    infer = inference.frame.loc[
-        inference.frame["panel"].eq("c")
-        & inference.frame["endpoint"].isin(endpoints)
-    ].copy()
-    infer["plot_group"] = infer["endpoint"].astype(str) + "|K5"
-    plot = _attach_persisted_summary(plot, infer, keys=("endpoint",)).sort_values(
-        ["network_seed", "endpoint"], kind="mergesort"
-    )
-    statistics = _candidate_inference_statistics(
-        infer,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        [*data.records, *inference.records],
-        input_rows=len(data.frame) + len(inference.frame),
-        unique_key=("figure_id", "panel_id", "network_seed", "endpoint"),
-        exclusion_reason="all non-common/non-residual K5 endpoints excluded",
-    )
+
+C5_ROOT = "results/causal_closure_multi_seed_20260803/c5_l2_successor"
 
 
-def _build_fig4d_accumulated(ctx: BuilderContext) -> PanelResult:
-    panel_id = "d"
-    data = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="data",
-        filename="fig4d_k5_event_network_metrics.csv",
-        required_columns=(
-            "network_seed",
-            "changed_events",
-            "matched_random",
-            "changed_minus_random",
-        ),
-        filters="K5 changed events and within-cell count-matched random coordinates",
-        aggregation_path="valid event-analysis cells -> paired network condition means",
-    )
-    descriptive = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="metrics",
-        filename="fig4_candidate_descriptive.csv",
-        required_columns=(
-            "panel",
-            "endpoint",
-            "condition",
-            "n_networks",
-            "mean",
-            "ci95_low",
-            "ci95_high",
-        ),
-        filters="panel=d; matched random and changed-event level summaries",
-        aggregation_path="20 paired network condition values -> bootstrap mean and CI",
-    )
-    inference = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="metrics",
-        filename="fig4_candidate_inference.csv",
-        required_columns=(
-            "panel",
-            "endpoint",
-            "n_networks",
-            "mean",
-            "ci95_low",
-            "ci95_high",
-            "p_value",
-        ),
-        filters="K5 changed-events-minus-matched-random inference",
-        aggregation_path="paired network difference -> exact sign-flip and Holm",
-    )
-    long = data.frame.melt(
-        id_vars=("network_seed",),
-        value_vars=("matched_random", "changed_events"),
-        var_name="event_condition",
-        value_name="residual_magnitude",
-    ).reset_index(drop=True)
-    plot = make_plot_data(
-        long,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="paired_network_component",
-        endpoint="K5_residual_magnitude",
-        condition="event_condition",
-        value="residual_magnitude",
-        unit="mean_absolute_residual",
-        dimensions=("event_condition",),
-    )
-    plot["condition"] = long["event_condition"].to_numpy()
-    desc = descriptive.frame.loc[
-        descriptive.frame["panel"].eq("d")
-        & descriptive.frame["endpoint"].eq("K5_residual_magnitude")
-        & descriptive.frame["condition"].isin(["matched_random", "changed_events"])
-    ].copy()
-    desc["plot_group"] = desc["endpoint"].astype(str) + "|" + desc["condition"].astype(str)
-    plot = _attach_persisted_summary(
-        plot,
-        desc,
-        keys=("endpoint", "condition"),
-    ).sort_values(["network_seed", "condition"], kind="mergesort")
-    statistics = _candidate_descriptive_statistics(
-        desc,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    difference = inference.frame.loc[
-        inference.frame["panel"].eq("d")
-        & inference.frame["endpoint"].eq("K5_changed_events_minus_matched_random")
-    ].copy()
-    difference["plot_group"] = difference["endpoint"].astype(str)
-    difference_statistics = _candidate_inference_statistics(
-        difference,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        [*data.records, *descriptive.records, *inference.records],
-        input_rows=len(data.frame) + len(descriptive.frame) + len(inference.frame),
-        unique_key=("figure_id", "panel_id", "network_seed", "condition"),
-        extra_metrics={"panel_d_event_difference_inference.csv": difference_statistics},
-        exclusion_reason="enrichment ratio is retained outside artwork",
-    )
-
-
-def _build_fig4e_accumulated(ctx: BuilderContext) -> PanelResult:
-    panel_id = "e"
-    data = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="data",
-        filename="fig4c_e_k5_fixed_b_network_scalars.csv",
-        required_columns=("network_seed", "endpoint", "prefix_k", "value"),
-        filters="prefix_k=5; L1-only donor transfer to L2 update and early score",
-        aggregation_path="validated fixed-B donor-swap network scalar",
-    )
-    inference = _fig4_accumulated_source(
-        ctx,
-        panel_id,
-        subdir="metrics",
-        filename="fig4_candidate_inference.csv",
-        required_columns=(
-            "panel",
-            "endpoint",
-            "n_networks",
-            "mean",
-            "ci95_low",
-            "ci95_high",
-            "p_value",
-        ),
-        filters="panel=e; supplied confirmatory K5 donor-transfer inference",
-        aggregation_path="authoritative fixed-B confirmatory network inference",
-    )
-    endpoints = (
-        "layer1_only_layer2_update_donor_transfer",
-        "layer1_only_early_class_score_donor_transfer",
-    )
-    selected = data.frame.loc[
-        data.frame["prefix_k"].eq(5) & data.frame["endpoint"].isin(endpoints)
-    ].copy().reset_index(drop=True)
-    plot = make_plot_data(
-        selected,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="network_metric",
-        endpoint="endpoint",
-        condition="K5",
-        value="value",
-        unit="donor_transfer_index",
-        dimensions=("prefix_k",),
-    )
-    plot["endpoint"] = selected["endpoint"].to_numpy()
-    plot["condition"] = "K5"
-    infer = inference.frame.loc[
-        inference.frame["panel"].eq("e")
-        & inference.frame["endpoint"].isin(endpoints)
-    ].copy()
-    infer["plot_group"] = infer["endpoint"].astype(str) + "|K5"
-    plot = _attach_persisted_summary(plot, infer, keys=("endpoint",)).sort_values(
-        ["network_seed", "endpoint"], kind="mergesort"
-    )
-    statistics = _candidate_inference_statistics(
-        infer,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        [*data.records, *inference.records],
-        input_rows=len(data.frame) + len(inference.frame),
-        unique_key=("figure_id", "panel_id", "network_seed", "endpoint"),
-        exclusion_reason="non-donor K5 endpoints excluded",
-    )
-
-
-def build_fig4(ctx: BuilderContext) -> list[PanelResult]:
-    return [
-        _build_fig4a_accumulated(ctx),
-        _build_fig4b_accumulated(ctx),
-        _build_fig4c_accumulated(ctx),
-        _build_fig4d_accumulated(ctx),
-        _build_fig4e_accumulated(ctx),
-    ]
-
-
-def _build_fig4a(ctx: BuilderContext) -> PanelResult:
-    panel_id = "a"
-    contract_path = (
-        ctx.repo_root
-        / "docs/paper/results_state_transition_program/fig4_panel_contract.md"
-    )
-    descriptor = SourceDescriptor(
-        key="fig4.protocol_contract",
-        pattern="docs/paper/results_state_transition_program/fig4_panel_contract.md",
-        source_level="protocol_contract",
-        producer_task="frozen Fig.4 panel contract",
-        filters="protocol schematic only; no model data",
-        held_fixed="common parent; observed input; equal-time passive; k=2..10",
-        aggregation_path="protocol contract -> nodes and directed edges",
-        seeded=False,
-    )
-    source_record = record_file_source(
-        repo_root=ctx.repo_root,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        descriptor=descriptor,
-        path=contract_path,
-    )
-    nodes = pd.DataFrame(
-        [
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "parent",
-                "label": "Common parent",
-                "math_label": "S_{k-1}",
-                "x_mm": 16.0,
-                "y_mm": 24.0,
-                "role": "parent_state",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "observed_input",
-                "label": "Input I_k",
-                "math_label": "I_k",
-                "x_mm": 50.0,
-                "y_mm": 35.0,
-                "role": "observed_input",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "observed_state",
-                "label": "Observed",
-                "math_label": "S_k^obs",
-                "x_mm": 84.0,
-                "y_mm": 35.0,
-                "role": "observed_state",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "passive_wait",
-                "label": "Equal time",
-                "math_label": "Delta t_k",
-                "x_mm": 50.0,
-                "y_mm": 13.0,
-                "role": "passive_branch",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "passive_state",
-                "label": "Passive",
-                "math_label": "S_k^passive",
-                "x_mm": 84.0,
-                "y_mm": 13.0,
-                "role": "passive_state",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "contrast",
-                "label": "Observed-passive",
-                "math_label": "Delta D_k",
-                "x_mm": 120.0,
-                "y_mm": 24.0,
-                "role": "contrast",
-                "stage_rule": "k=2..10",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "node_id": "repeat",
-                "label": "Repeat k=2..10",
-                "math_label": "k=2...10",
-                "x_mm": 151.0,
-                "y_mm": 24.0,
-                "role": "repeat_rule",
-                "stage_rule": "open sequence; no learning loop",
-            },
-        ]
-    )
-    edges = pd.DataFrame(
-        [
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "parent_to_input",
-                "source_node": "parent",
-                "target_node": "observed_input",
-                "branch": "observed",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "input_to_observed",
-                "source_node": "observed_input",
-                "target_node": "observed_state",
-                "branch": "observed",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "parent_to_wait",
-                "source_node": "parent",
-                "target_node": "passive_wait",
-                "branch": "matched_passive",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "wait_to_passive",
-                "source_node": "passive_wait",
-                "target_node": "passive_state",
-                "branch": "matched_passive",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "observed_to_contrast",
-                "source_node": "observed_state",
-                "target_node": "contrast",
-                "branch": "comparison",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "passive_to_contrast",
-                "source_node": "passive_state",
-                "target_node": "contrast",
-                "branch": "comparison",
-                "label": "",
-            },
-            {
-                "figure_id": "fig4",
-                "panel_id": "a",
-                "edge_id": "contrast_to_repeat",
-                "source_node": "contrast",
-                "target_node": "repeat",
-                "branch": "repeat",
-                "label": "",
-            },
-        ]
-    )
-    manifest = _manifest(
-        ctx,
-        panel_id,
-        [source_record],
-        output_rows=len(nodes) + len(edges),
-        input_rows=1,
-        output_csvs=[
-            "fig4/data/panel_a_protocol_nodes.csv",
-            "fig4/data/panel_a_protocol_edges.csv",
-            "fig4/meta/panel_a_source_manifest.csv",
-        ],
-    )
-    return PanelResult(
-        panel_id=panel_id,
-        panel_type="schematic",
-        plot_data=None,
-        statistics=schematic_statistics(ctx.figure_id, panel_id),
-        source_manifest=manifest,
-        extra_data={
-            "panel_a_protocol_nodes.csv": nodes,
-            "panel_a_protocol_edges.csv": edges,
-        },
-        panel_meta={"protocol_source_manifest": manifest.copy()},
-    )
-
-
-def _progressive_source(
+def _load_c5_population_sources(
     ctx: BuilderContext,
     panel_id: str,
-    *,
-    key: str,
-    filename: str,
-    required_columns: Sequence[str],
-    filters: str,
-    aggregation_path: str,
-) -> LoadedSource:
-    return _load(
+) -> tuple[LoadedSource, LoadedSource]:
+    effects = _load(
         ctx,
         panel_id,
         SourceDescriptor(
-            key=key,
-            pattern=(
-                "results/paper_figure_multi_seed/new_results_reanalysis/metrics/"
-                f"{filename}"
+            key=f"fig4.{panel_id}.c5_network_effects",
+            pattern=f"{C5_ROOT}/aggregate/data/metrics/c5_network_effects.csv",
+            source_level="network_metric",
+            producer_task="C5 Layer-2 successor closure",
+            filters="screening_pass=1; endpoint-specific; prefix_k in 1,5",
+            held_fixed=(
+                "post-B Layer-2 u/x only; receiver Layer-1/3 u/x preserved; "
+                "fast state reset; identical C"
             ),
-            source_level="validated_artifact",
-            producer_task="new_results_reanalysis progressive Layer 2 metrics",
-            filters=filters,
-            held_fixed="Layer 2; seeds=1000-1019; matched stage parent",
-            aggregation_path=aggregation_path,
+            aggregation_path=(
+                "paired cells -> within-network mean donor-transfer coefficient"
+            ),
             seeded=False,
-            required_columns=required_columns,
+            required_columns=(
+                "network_seed",
+                "prefix_k",
+                "endpoint",
+                "mean_transfer",
+                "screening_pass",
+            ),
         ),
     )
-
-
-def _build_fig4b(ctx: BuilderContext) -> PanelResult:
-    panel_id = "b"
-    source = _progressive_source(
+    inference = _load(
         ctx,
         panel_id,
-        key="fig4.progressive_stage",
-        filename="fig4_layer2_progressive_stage_metrics.csv",
-        required_columns=(
-            "network_seed",
-            "state_variable",
-            "stage_k",
-            "state_displacement",
-            "natural_decay_displacement",
-            "observed_minus_natural_decay",
-        ),
-        filters="state_variable in u,x,ux_joint_mean; stage_k=2..10",
-        aggregation_path=(
-            "sequence -> network x stage observed/matched-passive displacement"
-        ),
-    )
-    selected = source.frame.loc[
-        source.frame["state_variable"].isin(["u", "x", "ux_joint_mean"])
-        & source.frame["stage_k"].isin(range(2, 11))
-    ].copy()
-    long = selected.melt(
-        id_vars=("network_seed", "state_variable", "stage_k"),
-        value_vars=(
-            "state_displacement",
-            "natural_decay_displacement",
-            "observed_minus_natural_decay",
-        ),
-        var_name="source_endpoint",
-        value_name="displacement",
-    )
-    endpoint_map = {
-        "state_displacement": "observed_displacement",
-        "natural_decay_displacement": "matched_passive_displacement",
-        "observed_minus_natural_decay": "observed_minus_passive",
-    }
-    long["endpoint_name"] = long["source_endpoint"].map(endpoint_map)
-    plot = make_plot_data(
-        long,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="network_stage_metric",
-        endpoint="endpoint_name",
-        condition="state_variable",
-        value="displacement",
-        unit="state_displacement",
-        dimensions=("state_variable", "stage_k"),
-    )
-    plot["endpoint"] = long["endpoint_name"].to_numpy()
-    plot["condition"] = long["state_variable"].to_numpy()
-    plot = plot.sort_values(
-        ["network_seed", "state_variable", "stage_k", "endpoint"],
-        kind="mergesort",
-    )
-    descriptive = _statistics_values(
-        plot,
-        group_columns=("state_variable", "stage_k"),
-        status="descriptive_only",
-        null_by_endpoint={
-            "observed_displacement": 0.0,
-            "matched_passive_displacement": 0.0,
-            "observed_minus_passive": 0.0,
-        },
-    )
-    contrast_plot = plot.loc[plot["endpoint"].eq("observed_minus_passive")]
-    overall = (
-        contrast_plot.groupby(["network_seed", "state_variable"], as_index=False)["value"]
-        .mean()
-    )
-    overall["endpoint"] = "observed_minus_passive"
-    overall["unit"] = "state_displacement"
-    overall["contrast"] = overall["state_variable"].map(
-        lambda value: f"{value}_mean_stage2_to10_vs_zero"
-    )
-    overall["group"] = overall["contrast"]
-    overall["null_value"] = 0.0
-    overall["statistics_status"] = "predeclared_recomputed"
-    overall["p_adjust_family"] = "fig4b_state_variables"
-    statistics = build_statistics(
-        pd.concat([descriptive, overall], ignore_index=True, sort=False),
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        source.records,
-        input_rows=len(source.frame),
-        unique_key=(
-            "figure_id",
-            "panel_id",
-            "network_seed",
-            "state_variable",
-            "stage_k",
-            "endpoint",
+        SourceDescriptor(
+            key=f"fig4.{panel_id}.c5_population_inference",
+            pattern=f"{C5_ROOT}/aggregate/data/metrics/c5_population_inference.csv",
+            source_level="population_inference",
+            producer_task="C5 20-network exact sign-flip and bootstrap inference",
+            filters="cohort=all_20; endpoint-specific; prefix_k in 1,5",
+            held_fixed=(
+                "independent unit=independently trained network; Holm family=four "
+                "endpoint-by-K cells"
+            ),
+            aggregation_path="network effects -> bootstrap CI and exact sign-flip test",
+            seeded=False,
+            required_columns=(
+                "cohort",
+                "endpoint",
+                "prefix_k",
+                "n_networks",
+                "mean_transfer",
+                "median_transfer",
+                "sd_across_networks",
+                "min_network_transfer",
+                "max_network_transfer",
+                "bootstrap_ci95_low",
+                "bootstrap_ci95_high",
+                "p_one_sided_exact_sign_flip",
+                "holm_adjusted_p",
+            ),
         ),
     )
+    return effects, inference
 
 
-def _build_fig4c(ctx: BuilderContext) -> PanelResult:
-    panel_id = "c"
-    source = _fixed_scalar_source(ctx, panel_id)
-    endpoints = (
-        "layer1_only_layer2_update_donor_transfer",
-        "layer1_only_early_class_score_donor_transfer",
-    )
-    selected = source.frame.loc[
-        source.frame["prefix_k"].isin([1, 5])
-        & source.frame["endpoint"].isin(endpoints)
+def _c5_statistics(
+    summary: pd.DataFrame,
+    *,
+    figure_id: str,
+    panel_id: str,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for row in summary.itertuples(index=False):
+        n_networks = int(row.n_networks)
+        record = {column: pd.NA for column in STATISTICS_COLUMNS}
+        prefix_label = f"K{int(row.prefix_k)}"
+        record.update(
+            {
+                "figure_id": figure_id,
+                "panel_id": panel_id,
+                "endpoint": str(row.endpoint),
+                "contrast": f"{row.endpoint}_{prefix_label}_vs_zero",
+                "group": f"{row.endpoint}|{prefix_label}",
+                "n_networks": n_networks,
+                "estimate": float(row.mean_transfer),
+                "mean": float(row.mean_transfer),
+                "sd": float(row.sd_across_networks),
+                "sem": float(row.sd_across_networks) / math.sqrt(n_networks),
+                "ci95_low": float(row.bootstrap_ci95_low),
+                "ci95_high": float(row.bootstrap_ci95_high),
+                "median": float(row.median_transfer),
+                "min": float(row.min_network_transfer),
+                "max": float(row.max_network_transfer),
+                "null_value": 0.0,
+                "test_name": "one_sided_exact_sign_flip",
+                "p_value": float(row.p_one_sided_exact_sign_flip),
+                "p_adjust_method": "Holm",
+                "p_adjusted": float(row.holm_adjusted_p),
+                "alternative": "greater",
+                "unit": "donor_transfer_index",
+                "statistics_status": "supplied_confirmatory_bootstrap",
+            }
+        )
+        rows.append(record)
+    return pd.DataFrame(rows, columns=STATISTICS_COLUMNS)
+
+
+def _build_fig4_c5_endpoint(
+    ctx: BuilderContext,
+    *,
+    panel_id: str,
+    endpoint: str,
+) -> PanelResult:
+    effects, inference = _load_c5_population_sources(ctx, panel_id)
+    selected = effects.frame.loc[
+        effects.frame["endpoint"].eq(endpoint)
+        & effects.frame["prefix_k"].isin([1, 5])
+        & effects.frame["screening_pass"].astype(bool)
     ].copy()
+    summary = inference.frame.loc[
+        inference.frame["cohort"].eq("all_20")
+        & inference.frame["endpoint"].eq(endpoint)
+        & inference.frame["prefix_k"].isin([1, 5])
+    ].copy()
+    if len(selected) != len(EXPECTED_SEEDS) * 2 or len(summary) != 2:
+        raise ValueError(
+            f"fig4{panel_id}: incomplete C5 endpoint {endpoint}; "
+            f"effects={len(selected)}, summary={len(summary)}"
+        )
+    selected["prefix_label"] = selected["prefix_k"].map(
+        lambda value: f"K{int(value)}"
+    )
+    summary = summary.assign(
+        prefix_label=summary["prefix_k"].map(lambda value: f"K{int(value)}")
+    )
+    selected = selected.merge(
+        summary.loc[
+            :,
+            [
+                "endpoint",
+                "prefix_k",
+                "mean_transfer",
+                "bootstrap_ci95_low",
+                "bootstrap_ci95_high",
+            ],
+        ].rename(
+            columns={
+                "mean_transfer": "summary_mean",
+                "bootstrap_ci95_low": "summary_ci95_low",
+                "bootstrap_ci95_high": "summary_ci95_high",
+            }
+        ),
+        on=["endpoint", "prefix_k"],
+        how="left",
+        validate="many_to_one",
+    )
     plot = make_plot_data(
         selected,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
-        record_type="network_metric",
-        endpoint="endpoint",
-        condition="prefix_k",
-        value="value",
+        record_type="paired_network_causal_effect",
+        endpoint=endpoint,
+        condition="prefix_label",
+        value="mean_transfer",
         unit="donor_transfer_index",
-        dimensions=("prefix_k",),
+        dimensions=(
+            "prefix_k",
+            "prefix_label",
+            "summary_mean",
+            "summary_ci95_low",
+            "summary_ci95_high",
+        ),
     )
-    plot["endpoint"] = selected["endpoint"].to_numpy()
-    plot["condition"] = selected["prefix_k"].map(lambda value: f"K{int(value)}").to_numpy()
-    plot = plot.sort_values(["network_seed", "endpoint", "prefix_k"], kind="mergesort")
-    values = _statistics_values(
-        plot,
-        group_columns=("prefix_k",),
-        status="predeclared_recomputed",
-        null_by_endpoint={endpoint: 0.0 for endpoint in endpoints},
-        p_adjust_family="fig4c_k1_k5_donor_transfer",
+    plot["condition"] = selected["prefix_label"].to_numpy()
+    plot = plot.sort_values(["network_seed", "prefix_k"], kind="mergesort")
+    statistics = _c5_statistics(
+        summary,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
     )
-    values["contrast"] = values.apply(
-        lambda row: f"{row['endpoint']}_K{int(row['prefix_k'])}_vs_zero",
-        axis=1,
-    )
-    statistics = build_statistics(values, figure_id=ctx.figure_id, panel_id=panel_id)
     return _finalize_quantitative_panel(
         ctx,
         panel_id,
         plot,
         statistics,
-        source.records,
-        input_rows=len(source.frame),
+        [*effects.records, *inference.records],
+        input_rows=len(effects.frame) + len(inference.frame),
         unique_key=(
             "figure_id",
             "panel_id",
@@ -3267,159 +3006,44 @@ def _build_fig4c(ctx: BuilderContext) -> PanelResult:
             "prefix_k",
         ),
         exclusion_reason=(
-            "common cosine, Gamma, event enrichment, and all-layer controls excluded"
+            "the other C5 endpoint and confirmatory-19 sensitivity rows are retained "
+            "outside this main panel"
         ),
     )
 
 
-def _build_fig4d(ctx: BuilderContext) -> PanelResult:
-    panel_id = "d"
-    source = _progressive_source(
+def _build_fig4a_c5_processing(ctx: BuilderContext) -> PanelResult:
+    return _build_fig4_c5_endpoint(
         ctx,
-        panel_id,
-        key="fig4.progressive_network",
-        filename="fig4_layer2_progressive_network_metrics.csv",
-        required_columns=(
-            "network_seed",
-            "state_variable",
-            "early_mean_k2_k5",
-            "late_mean_k7_k10",
-            "early_minus_late",
-        ),
-        filters="state_variable in u,x,ux_joint_mean",
-        aggregation_path="stage metrics -> per-network early, late, and paired difference",
-    )
-    selected = source.frame.loc[
-        source.frame["state_variable"].isin(["u", "x", "ux_joint_mean"])
-    ].copy()
-    long = selected.melt(
-        id_vars=("network_seed", "state_variable"),
-        value_vars=("early_mean_k2_k5", "late_mean_k7_k10", "early_minus_late"),
-        var_name="phase_summary",
-        value_name="displacement",
-    )
-    phase_map = {
-        "early_mean_k2_k5": "early_k2_k5",
-        "late_mean_k7_k10": "late_k7_k10",
-        "early_minus_late": "early_minus_late",
-    }
-    long["phase_summary"] = long["phase_summary"].map(phase_map)
-    plot = make_plot_data(
-        long,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="paired_network_stage_summary",
-        endpoint="observed_minus_passive",
-        condition="phase_summary",
-        value="displacement",
-        unit="state_displacement",
-        dimensions=("state_variable", "phase_summary"),
-    )
-    plot["condition"] = long["phase_summary"].to_numpy()
-    plot = plot.sort_values(
-        ["network_seed", "state_variable", "phase_summary"],
-        kind="mergesort",
-    )
-    descriptive = _statistics_values(
-        plot.loc[~plot["phase_summary"].eq("early_minus_late")],
-        group_columns=("state_variable", "phase_summary"),
-        status="descriptive_only",
-    )
-    inference = _statistics_values(
-        plot.loc[plot["phase_summary"].eq("early_minus_late")],
-        group_columns=("state_variable", "phase_summary"),
-        status="predeclared_recomputed",
-        null_by_endpoint={"observed_minus_passive": 0.0},
-        p_adjust_family="fig4d_state_variables",
-    )
-    inference["contrast"] = inference["state_variable"].map(
-        lambda value: f"{value}_early_minus_late"
-    )
-    statistics = build_statistics(
-        pd.concat([descriptive, inference], ignore_index=True, sort=False),
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        source.records,
-        input_rows=len(source.frame),
-        unique_key=(
-            "figure_id",
-            "panel_id",
-            "network_seed",
-            "state_variable",
-            "phase_summary",
-        ),
+        panel_id="a",
+        endpoint="early_layer2_event_map_donor_transfer",
     )
 
 
-def _build_fig4e(ctx: BuilderContext) -> PanelResult:
-    panel_id = "e"
-    source = _progressive_source(
+def _build_fig4b_c5_successor(ctx: BuilderContext) -> PanelResult:
+    return _build_fig4_c5_endpoint(
         ctx,
-        panel_id,
-        key="fig4.progressive_repeatability",
-        filename="fig4_layer2_progressive_stage_metrics.csv",
-        required_columns=(
-            "network_seed",
-            "state_variable",
-            "stage_k",
-            "observed_minus_natural_decay",
-        ),
-        filters="state_variable=ux_joint_mean; stage_k=2..10",
-        aggregation_path="sequence -> network x stage joint observed-minus-passive",
+        panel_id="b",
+        endpoint="layer3_successor_ux_donor_transfer",
     )
-    selected = source.frame.loc[
-        source.frame["state_variable"].eq("ux_joint_mean")
-        & source.frame["stage_k"].isin(range(2, 11))
-    ].copy()
-    plot = make_plot_data(
-        selected,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="network_stage_cell",
-        endpoint="observed_minus_passive",
-        condition="ux_joint_mean",
-        value="observed_minus_natural_decay",
-        unit="state_displacement",
-        dimensions=("stage_k",),
-    ).sort_values(["network_seed", "stage_k"], kind="mergesort")
-    values = _statistics_values(
-        plot,
-        group_columns=("stage_k",),
-        status="descriptive_only",
-        null_by_endpoint={"observed_minus_passive": 0.0},
-    )
-    statistics = build_statistics(values, figure_id=ctx.figure_id, panel_id=panel_id)
-    return _finalize_quantitative_panel(
-        ctx,
-        panel_id,
-        plot,
-        statistics,
-        source.records,
-        input_rows=len(source.frame),
-        unique_key=(
-            "figure_id",
-            "panel_id",
-            "network_seed",
-            "endpoint",
-            "stage_k",
-        ),
-        exclusion_reason="u and x component rows excluded from the joint-state repeatability heatmap",
-    )
+
+
+def build_fig4(ctx: BuilderContext) -> list[PanelResult]:
+    return [
+        _build_fig4a_c5_processing(ctx),
+        _build_fig4b_c5_successor(ctx),
+        _build_fig4a_accumulated(ctx, panel_id="c"),
+        _build_fig4b_accumulated(ctx, panel_id="d"),
+    ]
 
 
 def build_fig5(ctx: BuilderContext) -> list[PanelResult]:
     return [
         _build_fig5a(ctx),
         _build_fig5b(ctx),
-        _build_fig5c(ctx),
-        _build_fig5d(ctx),
-        _build_fig5e(ctx),
+        _build_fig5c_neff(ctx),
+        _build_fig5d_latest_item(ctx),
+        _build_fig5e_effective_area(ctx),
         _build_fig5f(ctx),
     ]
 
@@ -3817,13 +3441,13 @@ def _build_fig5c(ctx: BuilderContext) -> PanelResult:
     )
 
 
-def _build_fig5d(ctx: BuilderContext) -> PanelResult:
-    panel_id = "d"
+def _build_fig5c_neff(ctx: BuilderContext) -> PanelResult:
+    panel_id = "c"
     source = _load(
         ctx,
         panel_id,
         SourceDescriptor(
-            key="fig5.multi_network",
+            key="fig5.multi_component_neff",
             pattern=(
                 "results/paper_figure_multi_seed/new_results_reanalysis/metrics/"
                 "fig6_layer2_multi_network_metrics.csv"
@@ -3831,7 +3455,10 @@ def _build_fig5d(ctx: BuilderContext) -> PanelResult:
             source_level="validated_artifact",
             producer_task="new_results_reanalysis Layer 2 multi-item metrics",
             filters="seq_len in 3,5,7,10; endpoint=n_eff",
-            held_fixed="Layer 2 joint u/x; N_eff=K is an upper reference",
+            held_fixed=(
+                "Layer 2 joint u/x; native primary N_eff definition; N_eff is an "
+                "effective component number, not accessible-item count or capacity"
+            ),
             aggregation_path="sequences -> network x sequence-length N_eff",
             seeded=False,
             required_columns=("network_seed", "seq_len", "n_eff"),
@@ -3872,22 +3499,31 @@ def _build_fig5d(ctx: BuilderContext) -> PanelResult:
     )
 
 
-def _build_fig5e(ctx: BuilderContext) -> PanelResult:
-    panel_id = "e"
+def _build_fig5d_latest_item(ctx: BuilderContext) -> PanelResult:
+    panel_id = "d"
     source = _load(
         ctx,
         panel_id,
         SourceDescriptor(
-            key="fig5.multi_item_weights",
+            key="fig5.latest_item_weight",
             pattern=(
                 "results/paper_figure_multi_seed/new_results_reanalysis/metrics/"
                 "fig6_layer2_multi_item_weights.csv"
             ),
             source_level="intermediate",
             producer_task="new_results_reanalysis Layer 2 constituent weights",
-            filters="seq_len in 3,5,7,10; item_position<=seq_len",
-            held_fixed="weights normalized within sequence; unavailable positions remain absent",
-            aggregation_path="item coefficient -> sequence-normalized weight -> network x position mean",
+            filters=(
+                "seq_len in 3,5,7,10; item_position=seq_len after validating all "
+                "within-sequence normalized weights"
+            ),
+            held_fixed=(
+                "native primary constituent-weight definition; the 0.5 line is a "
+                "latest-item-only exclusion reference, not a primacy/recency test"
+            ),
+            aggregation_path=(
+                "item coefficient -> sequence-normalized weight -> latest item -> "
+                "network x K mean"
+            ),
             seeded=False,
             required_columns=(
                 "network_seed",
@@ -3909,32 +3545,28 @@ def _build_fig5e(ctx: BuilderContext) -> PanelResult:
     finite_sums = pd.to_numeric(sums["item_weight"], errors="coerce").dropna()
     if not np.allclose(finite_sums.to_numpy(dtype=float), 1.0, rtol=0.0, atol=1e-6):
         raise ValueError("fig5e: sequence item weights are not normalized to one")
-    network = (
-        selected.groupby(
-            ["network_seed", "seq_len", "item_position"],
-            as_index=False,
-        )["item_weight"]
-        .mean()
-    )
+    latest = selected.loc[selected["item_position"].eq(selected["seq_len"])].copy()
+    network = latest.groupby(
+        ["network_seed", "seq_len"],
+        as_index=False,
+    )["item_weight"].mean()
     plot = make_plot_data(
         network,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
-        record_type="network_heatmap_cell",
-        endpoint="normalized_item_weight",
-        condition="serial_position",
+        record_type="network_metric",
+        endpoint="latest_item_weight",
+        condition="latest_item",
         value="item_weight",
         unit="proportion",
-        dimensions=("seq_len", "item_position"),
+        dimensions=("seq_len",),
     ).sort_values(
-        ["network_seed", "seq_len", "item_position"],
+        ["network_seed", "seq_len"],
         kind="mergesort",
     )
-    if plot["value"].eq(0).any() and (plot["item_position"] > plot["seq_len"]).any():
-        raise ValueError("fig5e: unavailable positions were materialized as zero")
     values = _statistics_values(
         plot,
-        group_columns=("seq_len", "item_position"),
+        group_columns=("seq_len",),
         status="descriptive_only",
     )
     statistics = build_statistics(values, figure_id=ctx.figure_id, panel_id=panel_id)
@@ -3951,7 +3583,82 @@ def _build_fig5e(ctx: BuilderContext) -> PanelResult:
             "network_seed",
             "endpoint",
             "seq_len",
-            "item_position",
+        ),
+        exclusion_reason=(
+            "non-latest positions are used only to validate within-sequence "
+            "normalization and are not displayed; method sensitivity remains in New S6"
+        ),
+    )
+
+
+def _build_fig5e_effective_area(ctx: BuilderContext) -> PanelResult:
+    panel_id = "e"
+    source = _load(
+        ctx,
+        panel_id,
+        SourceDescriptor(
+            key="fig5.layer1_g_effective_area",
+            pattern=(
+                "results/paper_figure_multi_seed/supplementary_v5/"
+                "data/source_data/s6_b.csv"
+            ),
+            source_level="validated_artifact",
+            producer_task="supplementary_v5 S6 coefficient-free morphology analysis",
+            filters="seq_len=3,5,7,10; delay_ms=100,200,400,800",
+            held_fixed=(
+                "Layer 1 g _map28 positive-delta map; entropy effective area "
+                "normalized by 28x28 sites"
+            ),
+            aggregation_path=(
+                "persisted Layer-1 g maps -> positive-delta spatial distribution -> "
+                "network x K x delay effective area"
+            ),
+            seeded=False,
+            required_columns=("network_seed", "seq_len", "delay_ms", "value"),
+        ),
+    )
+    selected = source.frame.loc[
+        source.frame["seq_len"].isin([3, 5, 7, 10])
+        & source.frame["delay_ms"].isin([100, 200, 400, 800])
+    ].copy()
+    plot = make_plot_data(
+        selected,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+        record_type="network_heatmap_cell",
+        endpoint="layer1_g_effective_area",
+        condition="coefficient_free_spatial_footprint",
+        value="value",
+        unit="fraction_of_map_area",
+        dimensions=("seq_len", "delay_ms"),
+    ).sort_values(
+        ["network_seed", "seq_len", "delay_ms"],
+        kind="mergesort",
+    )
+    values = _statistics_values(
+        plot,
+        group_columns=("seq_len", "delay_ms"),
+        status="descriptive_only",
+    )
+    statistics = build_statistics(
+        values,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+    )
+    return _finalize_quantitative_panel(
+        ctx,
+        panel_id,
+        plot,
+        statistics,
+        source.records,
+        input_rows=len(source.frame),
+        unique_key=(
+            "figure_id",
+            "panel_id",
+            "network_seed",
+            "endpoint",
+            "seq_len",
+            "delay_ms",
         ),
     )
 
@@ -3962,53 +3669,64 @@ def _build_fig5f(ctx: BuilderContext) -> PanelResult:
         ctx,
         panel_id,
         SourceDescriptor(
-            key="fig5.morphology_boundary",
+            key="fig5.coefficient_free_morphology_boundary",
             pattern=(
-                "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/"
-                "seed_*/data/metrics/panel_c_morphology_boundary_metrics.csv"
+                "results/paper_figure_multi_seed/supplementary_v5/"
+                "data/source_data/s6_d_cells.csv"
             ),
-            source_level="intermediate",
-            producer_task="multi-item peak landscape morphology boundary",
-            filters=(
-                "layer=layer1; state_variable=g; seq_len=3,5,7,10; "
-                "delay_ms=100,200,400,800"
+            source_level="validated_artifact",
+            producer_task=(
+                "supplementary_v5 S6 coefficient-free morphology analysis"
             ),
-            held_fixed="structural endpoint=N_eff_fraction",
-            aggregation_path="sequence morphology -> network x K x delay mean",
+            filters="seq_len=3,5,7,10; delay_ms=100,200,400,800",
+            held_fixed=(
+                "Layer 1 g maps; equal-weight singleton composite; "
+                "within-cell matched and deranged sequence controls"
+            ),
+            aggregation_path=(
+                "sequence map -> matched/deranged cosine difference -> "
+                "network x K x delay mean"
+            ),
+            seeded=False,
             required_columns=(
                 "network_seed",
-                "sequence_id",
                 "seq_len",
                 "delay_ms",
-                "layer",
-                "state_variable",
-                "N_eff_fraction",
+                "matched_cosine",
+                "deranged_cosine",
+                "value",
             ),
         ),
     )
     selected = source.frame.loc[
-        source.frame["layer"].eq("layer1")
-        & source.frame["state_variable"].eq("g")
-        & source.frame["seq_len"].isin([3, 5, 7, 10])
+        source.frame["seq_len"].isin([3, 5, 7, 10])
         & source.frame["delay_ms"].isin([100, 200, 400, 800])
     ].copy()
-    network = (
-        selected.groupby(
-            ["network_seed", "seq_len", "delay_ms", "layer", "state_variable"],
-            as_index=False,
-        )["N_eff_fraction"]
-        .mean()
+    expected = (
+        pd.to_numeric(selected["matched_cosine"], errors="coerce")
+        - pd.to_numeric(selected["deranged_cosine"], errors="coerce")
     )
+    observed = pd.to_numeric(selected["value"], errors="coerce")
+    if not np.allclose(
+        observed.to_numpy(dtype=float),
+        expected.to_numpy(dtype=float),
+        rtol=0.0,
+        atol=1e-10,
+        equal_nan=False,
+    ):
+        raise ValueError(
+            "fig5f: matched-minus-deranged morphology identity failed"
+        )
     plot = make_plot_data(
-        network,
+        selected,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
         record_type="network_heatmap_cell",
-        endpoint="N_eff_fraction",
-        condition="layer1_g",
-        value="N_eff_fraction",
-        unit="fraction",
-        dimensions=("seq_len", "delay_ms", "layer", "state_variable"),
+        endpoint="matched_minus_deranged_cosine",
+        condition="equal_weight_singleton_composite",
+        value="value",
+        unit="cosine_difference",
+        dimensions=("seq_len", "delay_ms"),
     ).sort_values(
         ["network_seed", "seq_len", "delay_ms"],
         kind="mergesort",
@@ -4018,7 +3736,11 @@ def _build_fig5f(ctx: BuilderContext) -> PanelResult:
         group_columns=("seq_len", "delay_ms"),
         status="descriptive_only",
     )
-    statistics = build_statistics(values, figure_id=ctx.figure_id, panel_id=panel_id)
+    statistics = build_statistics(
+        values,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+    )
     return _finalize_quantitative_panel(
         ctx,
         panel_id,
@@ -4397,7 +4119,10 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
             "seq_len=7; delay_ms=400; state_condition=S_final; "
             "memory_condition=sequence_state"
         ),
-        held_fixed="cue_type in matched,mismatched,unseen; keep_prob=0.5",
+        held_fixed=(
+            "cue_type in matched,mismatched,unseen; keep_prob=0.5; persisted "
+            "mismatched means an out-of-sequence same-label novel exemplar"
+        ),
         aggregation_path=(
             "cue trials -> sequence x target probability -> network x target-position mean"
         ),
@@ -4427,9 +4152,16 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
             atol=1e-12,
         )
     ].copy()
+    selected["cue_condition"] = selected["cue_type"].map(
+        {
+            "matched": "matched",
+            "mismatched": "same_label_novel",
+            "unseen": "unseen",
+        }
+    )
     network_cells = (
         selected.groupby(
-            ["network_seed", "cue_type", "target_position"],
+            ["network_seed", "cue_condition", "target_position"],
             as_index=False,
         )["P_target"]
         .mean()
@@ -4443,24 +4175,28 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
         panel_id=panel_id,
         record_type="network_target_probability",
         endpoint="target_probability",
-        condition="cue_type",
+        condition="cue_condition",
         value="probability_percent",
         unit="percent",
-        dimensions=("cue_type", "target_position"),
+        dimensions=("cue_condition", "target_position"),
     )
-    cells["condition"] = network_cells["cue_type"].to_numpy()
+    cells["condition"] = network_cells["cue_condition"].to_numpy()
     network_cue = (
-        network_cells.groupby(["network_seed", "cue_type"], as_index=False)[
+        network_cells.groupby(["network_seed", "cue_condition"], as_index=False)[
             "probability_percent"
         ]
         .mean()
-        .pivot(index="network_seed", columns="cue_type", values="probability_percent")
+        .pivot(
+            index="network_seed",
+            columns="cue_condition",
+            values="probability_percent",
+        )
     )
     contrast_frame = pd.DataFrame(
         {
             "network_seed": network_cue.index.astype(int),
-            "matched_minus_mismatched": (
-                network_cue["matched"] - network_cue["mismatched"]
+            "matched_minus_same_label_novel": (
+                network_cue["matched"] - network_cue["same_label_novel"]
             ).to_numpy(dtype=float),
             "matched_minus_unseen": (
                 network_cue["matched"] - network_cue["unseen"]
@@ -4468,7 +4204,7 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
         }
     ).melt(
         id_vars=("network_seed",),
-        value_vars=("matched_minus_mismatched", "matched_minus_unseen"),
+        value_vars=("matched_minus_same_label_novel", "matched_minus_unseen"),
         var_name="endpoint_name",
         value_name="contrast_percent",
     )
@@ -4488,7 +4224,7 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
     )
     descriptive = _statistics_values(
         cells,
-        group_columns=("cue_type", "target_position"),
+        group_columns=("cue_condition", "target_position"),
         status="descriptive_only",
     )
     inference = _statistics_values(
@@ -4496,7 +4232,7 @@ def _build_fig6c(ctx: BuilderContext) -> PanelResult:
         group_columns=("condition",),
         status="predeclared_recomputed",
         null_by_endpoint={
-            "matched_minus_mismatched": 0.0,
+            "matched_minus_same_label_novel": 0.0,
             "matched_minus_unseen": 0.0,
         },
         p_adjust_family="fig6c_cue_specificity",
@@ -4633,41 +4369,113 @@ def _build_fig6e(ctx: BuilderContext) -> PanelResult:
         ctx,
         panel_id,
         SourceDescriptor(
-            key="fig6.high_stsp_ablation",
+            key="fig6.high_stsp_ablation_exact_match",
             pattern=(
                 "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/"
-                "seed_*/data/metrics/supp_s11f_high_stsp_ablation_paired_difference.csv"
+                "seed_*/data/metrics/panel_f_high_stsp_overlap_ablation_summary.csv"
             ),
             source_level="intermediate",
             producer_task="high-STSP-overlap ablation",
             filters=(
-                "metric=high_stsp_overlap_minus_matched_loss; "
-                "condition=paired_difference"
+                "early_window_ms=10; loss_condition in high_stsp_overlap,matched_removal; "
+                "retain only trials with exactly equal removed_active_area and "
+                "removed_input_energy"
             ),
-            held_fixed="sequence and probe averaged within network",
-            aggregation_path="sequence x probe paired loss -> network mean contrast",
+            held_fixed=(
+                "same network, sequence, probe, and early window; exact area and "
+                "input-energy matching before within-network aggregation"
+            ),
+            aggregation_path=(
+                "paired per-condition ablation summary -> exact-match trial subset -> "
+                "network condition means and paired difference"
+            ),
             required_columns=(
                 "network_seed",
                 "sequence_id",
                 "probe_id",
-                "metric",
-                "condition",
-                "value",
-                "high_stsp_overlap",
-                "matched_removal",
+                "early_window_ms",
+                "loss_condition",
+                "loss_delta_spike_probability",
+                "removed_active_area",
+                "removed_input_energy",
             ),
         ),
     )
     endpoint = "high_stsp_overlap_minus_matched_loss"
     selected = source.frame.loc[
-        source.frame["metric"].eq(endpoint)
-        & source.frame["condition"].eq("paired_difference")
+        source.frame["early_window_ms"].eq(10)
+        & source.frame["loss_condition"].isin(
+            ["high_stsp_overlap", "matched_removal"]
+        )
     ].copy()
-    network = selected.groupby("network_seed", as_index=False)[
+    identity = ["network_seed", "sequence_id", "probe_id", "early_window_ms"]
+    if selected.duplicated([*identity, "loss_condition"]).any():
+        raise ValueError("fig6e: duplicate condition rows within a paired trial")
+    loss = selected.pivot(
+        index=identity,
+        columns="loss_condition",
+        values="loss_delta_spike_probability",
+    )
+    area = selected.pivot(
+        index=identity,
+        columns="loss_condition",
+        values="removed_active_area",
+    )
+    energy = selected.pivot(
+        index=identity,
+        columns="loss_condition",
+        values="removed_input_energy",
+    )
+    required_conditions = {"high_stsp_overlap", "matched_removal"}
+    for name, frame in (("loss", loss), ("area", area), ("energy", energy)):
+        if not required_conditions.issubset(frame.columns):
+            raise ValueError(f"fig6e: {name} pivot lacks paired conditions")
+    paired = loss.join(
+        area.add_prefix("area_"),
+        how="inner",
+    ).join(
+        energy.add_prefix("energy_"),
+        how="inner",
+    ).reset_index()
+    paired["exact_area_match"] = np.isclose(
+        pd.to_numeric(paired["area_high_stsp_overlap"], errors="coerce"),
+        pd.to_numeric(paired["area_matched_removal"], errors="coerce"),
+        rtol=0.0,
+        atol=0.0,
+    )
+    paired["exact_energy_match"] = np.isclose(
+        pd.to_numeric(paired["energy_high_stsp_overlap"], errors="coerce"),
+        pd.to_numeric(paired["energy_matched_removal"], errors="coerce"),
+        rtol=0.0,
+        atol=0.0,
+    )
+    paired["exact_match"] = (
+        paired["exact_area_match"] & paired["exact_energy_match"]
+    )
+    coverage = paired.groupby("network_seed", as_index=False).agg(
+        n_trials=("exact_match", "size"),
+        n_exact_trials=("exact_match", "sum"),
+        exact_match_fraction=("exact_match", "mean"),
+    )
+    exact = paired.loc[paired["exact_match"]].copy()
+    network = exact.groupby("network_seed", as_index=False)[
         ["high_stsp_overlap", "matched_removal"]
     ].mean()
+    network = network.merge(
+        coverage,
+        on="network_seed",
+        how="left",
+        validate="one_to_one",
+    )
+    if len(network) != len(EXPECTED_SEEDS) or network["n_exact_trials"].le(0).any():
+        raise ValueError("fig6e: exact-match subset lacks one or more networks")
     long = network.melt(
-        id_vars=("network_seed",),
+        id_vars=(
+            "network_seed",
+            "n_trials",
+            "n_exact_trials",
+            "exact_match_fraction",
+        ),
         value_vars=("high_stsp_overlap", "matched_removal"),
         var_name="condition_name",
         value_name="recruitment_loss",
@@ -4684,6 +4492,7 @@ def _build_fig6e(ctx: BuilderContext) -> PanelResult:
         condition="condition_name",
         value="recruitment_loss_percent",
         unit="percent",
+        dimensions=("n_trials", "n_exact_trials", "exact_match_fraction"),
     )
     plot["condition"] = long["condition_name"].to_numpy()
     plot = plot.sort_values(["network_seed", "condition"], kind="mergesort")
@@ -4728,7 +4537,12 @@ def _build_fig6e(ctx: BuilderContext) -> PanelResult:
             "endpoint",
             "condition",
         ),
-        exclusion_reason="sequence and probe rows aggregated within each network",
+        extra_data={"panel_e_exact_match_coverage.csv": coverage},
+        exclusion_reason=(
+            "trials without exact removed-area and removed-input-energy equality are "
+            "excluded before within-network aggregation; all-trial estimates remain "
+            "outside the main panel"
+        ),
     )
 
 
@@ -4747,10 +4561,13 @@ def _build_fig6f(ctx: BuilderContext) -> PanelResult:
             producer_task="overlap-gated STSP recruitment interaction",
             filters=(
                 "stsp_group_quantile=0.50; overlap_threshold=0.05; "
-                "primary early_window_ms=10"
+                "early_window_ms=5,10,15,20"
             ),
-            held_fixed="2x2 high/low STSP x overlap/no-overlap",
-            aggregation_path="sites -> sequence x probe interaction -> network mean",
+            held_fixed="row-wise complete 2x2 high/low STSP x overlap/no-overlap",
+            aggregation_path=(
+                "sites -> sequence x probe interaction -> "
+                "network x early-window mean"
+            ),
             required_columns=(
                 "network_seed",
                 "sequence_id",
@@ -4770,115 +4587,141 @@ def _build_fig6f(ctx: BuilderContext) -> PanelResult:
     )
     selected = source.frame.loc[
         np.isclose(
-            pd.to_numeric(source.frame["stsp_group_quantile"], errors="coerce"),
+            pd.to_numeric(
+                source.frame["stsp_group_quantile"],
+                errors="coerce",
+            ),
             0.50,
             rtol=0.0,
             atol=1e-12,
         )
         & np.isclose(
-            pd.to_numeric(source.frame["overlap_threshold"], errors="coerce"),
+            pd.to_numeric(
+                source.frame["overlap_threshold"],
+                errors="coerce",
+            ),
             0.05,
             rtol=0.0,
             atol=1e-12,
         )
         & source.frame["early_window_ms"].isin([5, 10, 15, 20])
     ].copy()
-    _validate_interaction_identity(selected)
-    main = selected.loc[selected["early_window_ms"].eq(10)].copy()
-    columns = (
+    complete_columns = (
+        "stsp_effect_with_overlap",
+        "stsp_effect_without_overlap",
+        "interaction_delta",
         "high_overlap_delta",
         "low_overlap_delta",
         "high_nooverlap_delta",
         "low_nooverlap_delta",
-        "interaction_delta",
     )
-    network = main.groupby("network_seed", as_index=False)[list(columns)].mean()
-    network.loc[:, list(columns)] = (
-        network.loc[:, list(columns)].apply(pd.to_numeric, errors="coerce") * 100.0
+    complete_rows = (
+        selected.loc[:, list(complete_columns)]
+        .apply(pd.to_numeric, errors="coerce")
+        .notna()
+        .all(axis=1)
     )
-    long = network.melt(
+    selected = selected.loc[complete_rows].copy()
+    if selected.empty:
+        raise ValueError("fig6f: no row-wise complete 2x2 interaction rows remain")
+    _validate_interaction_identity(selected)
+    interaction_network = selected.groupby(
+        ["network_seed", "early_window_ms"],
+        as_index=False,
+    )["interaction_delta"].mean()
+    interaction_network["interaction_percentage_points"] = (
+        pd.to_numeric(
+            interaction_network["interaction_delta"], errors="coerce"
+        )
+        * 100.0
+    )
+    robustness_plot = make_plot_data(
+        interaction_network,
+        figure_id=ctx.figure_id,
+        panel_id=panel_id,
+        record_type="network_interaction",
+        endpoint="overlap_gated_stsp_interaction",
+        condition="overlap_interaction",
+        value="interaction_percentage_points",
+        unit="percentage_points",
+        dimensions=("early_window_ms",),
+    ).sort_values(
+        ["network_seed", "early_window_ms"],
+        kind="mergesort",
+    )
+    main = selected.loc[selected["early_window_ms"].eq(10)].copy()
+    cell_columns = (
+        "high_overlap_delta",
+        "low_overlap_delta",
+        "high_nooverlap_delta",
+        "low_nooverlap_delta",
+    )
+    cell_network = main.groupby("network_seed", as_index=False)[
+        list(cell_columns)
+    ].mean()
+    cell_network.loc[:, list(cell_columns)] = (
+        cell_network.loc[:, list(cell_columns)]
+        .apply(pd.to_numeric, errors="coerce")
+        * 100.0
+    )
+    primary_cells = cell_network.melt(
         id_vars=("network_seed",),
-        value_vars=columns,
-        var_name="cell_or_interaction",
-        value_name="firing_delta",
+        value_vars=cell_columns,
+        var_name="cell",
+        value_name="firing_delta_percentage_points",
     )
-    record_type = np.where(
-        long["cell_or_interaction"].eq("interaction_delta"),
-        "paired_network_interaction",
-        "network_2x2_cell",
+    cell_mapping = {
+        "high_nooverlap_delta": ("high", "no_overlap"),
+        "high_overlap_delta": ("high", "overlap"),
+        "low_nooverlap_delta": ("low", "no_overlap"),
+        "low_overlap_delta": ("low", "overlap"),
+    }
+    primary_cells["stsp_group"] = primary_cells["cell"].map(
+        lambda value: cell_mapping[str(value)][0]
     )
+    primary_cells["overlap_group"] = primary_cells["cell"].map(
+        lambda value: cell_mapping[str(value)][1]
+    )
+    primary_cells["early_window_ms"] = 10
     plot = make_plot_data(
-        long,
+        primary_cells,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
         record_type="network_2x2_cell",
-        endpoint="cell_or_interaction",
-        condition="cell_or_interaction",
-        value="firing_delta",
-        unit="percent",
-        dimensions=("cell_or_interaction",),
+        endpoint="early_firing_delta",
+        condition="cell",
+        value="firing_delta_percentage_points",
+        unit="percentage_points",
+        dimensions=(
+            "cell",
+            "stsp_group",
+            "overlap_group",
+            "early_window_ms",
+        ),
     )
-    plot["record_type"] = record_type
-    plot["endpoint"] = long["cell_or_interaction"].to_numpy()
-    plot["condition"] = long["cell_or_interaction"].to_numpy()
-    plot["early_window_ms"] = 10
-    plot["stsp_group_quantile"] = 0.50
-    plot["overlap_threshold"] = 0.05
+    plot["condition"] = primary_cells["cell"].to_numpy()
     plot = plot.sort_values(
-        ["network_seed", "record_type", "cell_or_interaction"],
+        ["network_seed", "overlap_group", "stsp_group"],
         kind="mergesort",
     )
-    cells = plot.loc[plot["record_type"].eq("network_2x2_cell")]
-    interactions = plot.loc[plot["record_type"].eq("paired_network_interaction")]
     descriptive = _statistics_values(
-        cells,
-        group_columns=("cell_or_interaction",),
+        plot,
+        group_columns=("cell",),
         status="descriptive_only",
     )
-    inference = _statistics_values(
-        interactions,
-        group_columns=("condition",),
-        status="predeclared_recomputed",
-        null_by_endpoint={"interaction_delta": 0.0},
+    primary_interaction = robustness_plot.loc[
+        robustness_plot["early_window_ms"].eq(10),
+        ["network_seed", "value"],
+    ].copy()
+    inference = _contrast_statistics_values(
+        primary_interaction,
+        endpoint="overlap_gated_stsp_interaction",
+        contrast="stsp_effect_with_overlap_minus_without_overlap_at_10ms",
+        unit="percentage_points",
+        p_adjust_family="fig6f_primary_interaction",
     )
-    inference["contrast"] = "stsp_effect_with_overlap_minus_without_overlap"
     statistics = build_statistics(
         pd.concat([descriptive, inference], ignore_index=True, sort=False),
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-    )
-    robustness = (
-        selected.loc[selected["early_window_ms"].isin([5, 15, 20])]
-        .groupby(["network_seed", "early_window_ms"], as_index=False)[
-            "interaction_delta"
-        ]
-        .mean()
-    )
-    robustness["interaction_delta"] = (
-        pd.to_numeric(robustness["interaction_delta"], errors="coerce") * 100.0
-    )
-    robustness_plot = make_plot_data(
-        robustness,
-        figure_id=ctx.figure_id,
-        panel_id=panel_id,
-        record_type="robustness_interaction",
-        endpoint="interaction_delta",
-        condition="early_window_ms",
-        value="interaction_delta",
-        unit="percent",
-        dimensions=("early_window_ms",),
-    )
-    robustness_plot["condition"] = robustness["early_window_ms"].map(
-        lambda value: f"{int(value)}ms"
-    )
-    robustness_values = _statistics_values(
-        robustness_plot,
-        group_columns=("early_window_ms",),
-        status="descriptive_only",
-        null_by_endpoint={"interaction_delta": 0.0},
-    )
-    robustness_statistics = build_statistics(
-        robustness_values,
         figure_id=ctx.figure_id,
         panel_id=panel_id,
     )
@@ -4894,11 +4737,17 @@ def _build_fig6f(ctx: BuilderContext) -> PanelResult:
             "panel_id",
             "network_seed",
             "endpoint",
-            "cell_or_interaction",
+            "cell",
         ),
-        extra_data={"panel_f_robustness.csv": robustness_plot},
-        extra_metrics={"panel_f_robustness_statistics.csv": robustness_statistics},
-        exclusion_reason="5,15,20 ms retained only in robustness CSV; main plot uses 10 ms",
+        extra_data={
+            "panel_f_window_robustness.csv": robustness_plot,
+        },
+        exclusion_reason=(
+            "rows lacking any 2x2 cell, effect, or interaction value were excluded "
+            "before aggregation; the main plot displays the prespecified 10-ms 2x2 "
+            "cells, while 5-, 15-, and 20-ms interactions remain auxiliary robustness "
+            "data and inference remains restricted to 10 ms"
+        ),
     )
 
 

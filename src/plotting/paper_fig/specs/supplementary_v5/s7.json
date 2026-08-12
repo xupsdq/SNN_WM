@@ -1,0 +1,181 @@
+{
+  "figure_id": "s7",
+  "canvas_mm": [165.0, 152.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0],
+    "e": [2.0, 102.0, 79.5, 48.0],
+    "f": [83.5, 102.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d", "e", "f"],
+  "reader_contract": {
+    "version": "supplementary_s7_function_reader_v1",
+    "status": "frozen",
+    "figure_question": "Does the bounded conditional-function result survive exact removal matching, early-window choice, overlap-definition variation, incomplete coverage, and spatial-score shuffling?",
+    "terminal_inference": "The targeted removal effect persists in the exact area-and-energy subset, the overlap interaction remains positive across tested windows and definitions where estimable, and the observed spatial score exceeds its shuffled control.",
+    "forbidden_inferences": [
+      "Retained STSP alone determines firing or the final readout label.",
+      "No-overlap structural zeros are evidence for a general effect outside the tested pathway.",
+      "q=0.50 and threshold=0.05 are optimized parameters.",
+      "This figure accesses or validates the morphology defined in Fig.5."
+    ],
+    "semantic_units": [
+      {"unit_id": "removal", "panels": ["a"], "role": "all-versus-exact matching", "reader_task": "Compare all-trial and exact-match targeted-removal effects within network."},
+      {"unit_id": "exact_coverage", "panels": ["b"], "role": "exact-subset estimability", "reader_task": "Inspect area-and-energy exact-match coverage across networks."},
+      {"unit_id": "window", "panels": ["c"], "role": "early-window sensitivity", "reader_task": "Inspect the interaction across 5-20 ms windows."},
+      {"unit_id": "definition", "panels": ["d"], "role": "q-by-threshold effect", "reader_task": "Inspect effect magnitude across prespecified definitions."},
+      {"unit_id": "coverage", "panels": ["e"], "role": "q-by-threshold coverage", "reader_task": "Check estimability for the corresponding effect cells."},
+      {"unit_id": "shuffle", "panels": ["f"], "role": "spatial identity control", "reader_task": "Compare observed, shuffled, and within-network difference endpoints."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "matching_control", "panels": ["a", "b"]},
+        {"node_id": "B", "kind": "window_control", "panels": ["c"]},
+        {"node_id": "C", "kind": "definition_control", "panels": ["d", "e"]},
+        {"node_id": "D", "kind": "spatial_null", "panels": ["f"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "I", "relation": "closes_incomplete_matching_alternative"},
+        {"from": "B", "to": "I", "relation": "closes_window_choice_alternative"},
+        {"from": "C", "to": "I", "relation": "closes_parameter_and_coverage_alternatives"},
+        {"from": "D", "to": "I", "relation": "closes_arbitrary_score_map_alternative"}
+      ]
+    },
+    "comparison_obligations": [
+      {"comparison_id": "removal_subset", "panels": ["a", "b"], "reader_action": "Read the paired effect first and the exact-match coverage second.", "required": ["same_networks", "paired_lines_in_effect", "coverage_as_separate_endpoint"], "not_required": ["all_vs_exact_independent_test"]},
+      {"comparison_id": "effect_coverage", "panels": ["d", "e"], "reader_action": "Read each q-by-threshold effect cell with its corresponding coverage cell.", "required": ["identical_cell_order", "independent_color_scales"], "not_required": ["dual_encoding"]}
+    ],
+    "topology_invariants": [
+      "Removal matching and exact coverage occupy the first row.",
+      "Window sensitivity and effect-definition grid occupy the second row.",
+      "Coverage grid and score shuffle occupy the third row.",
+      "All six panels remain atomic and use equal two-column slots."
+    ],
+    "topology_freedoms": ["Heatmap cell annotations and network jitter may be optically adjusted inside frozen slots."]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "paired_subset_effect",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.5, 10.0, 64.5, 30.0],
+      "xlabel": "Trial subset",
+      "ylabel": "Loss difference (%)",
+      "x_order": ["All trials", "Exact match"],
+      "ylim": [0.0, 4.5],
+      "yticks": [0.0, 1.0, 2.0, 3.0, 4.0],
+      "reference": 0.0
+    },
+    "b": {
+      "panel_type": "vertical_estimation",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [96.0, 10.0, 64.5, 30.0],
+      "xlabel": "Area + energy",
+      "ylabel": "Exact match (%)",
+      "ylim": [0.0, 100.0],
+      "yticks": [0.0, 25.0, 50.0, 75.0, 100.0],
+      "color_role": "sample_probe_overlap"
+    },
+    "c": {
+      "panel_type": "network_trajectory",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.5, 64.0, 64.5, 28.0],
+      "xlabel": "Window (ms)",
+      "ylabel": "Interaction (%)",
+      "x_order": [5, 10, 15, 20],
+      "ylim": [0.0, 20.5],
+      "yticks": [0.0, 5.0, 10.0, 15.0, 20.0],
+      "anchor": 10,
+      "color_role": "dynamic"
+    },
+    "d": {
+      "panel_type": "annotated_heatmap",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [96.0, 64.0, 64.5, 28.0],
+      "colorbar_bbox_mm": [96.0, 59.5, 64.5, 2.0],
+      "xlabel": "q",
+      "ylabel": "Overlap threshold",
+      "row_order": [0.02, 0.05, 0.1],
+      "column_order": [0.2, 0.3, 0.4, 0.5],
+      "colorbar_label": "Interaction (%)",
+      "vmin": 0.0,
+      "vmax": 23.0,
+      "decimals": 2,
+      "anchor": [0.5, 0.05],
+      "cmap_role": "stsp_support"
+    },
+    "e": {
+      "panel_type": "annotated_heatmap",
+      "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.5, 114.0, 64.5, 28.0],
+      "colorbar_bbox_mm": [14.5, 109.5, 64.5, 2.0],
+      "xlabel": "q",
+      "ylabel": "Overlap threshold",
+      "row_order": [0.02, 0.05, 0.1],
+      "column_order": [0.2, 0.3, 0.4, 0.5],
+      "colorbar_label": "Coverage (%)",
+      "vmin": 0.0,
+      "vmax": 100.0,
+      "decimals": 1,
+      "anchor": [0.5, 0.05],
+      "cmap_role": "update_count"
+    },
+    "f": {
+      "panel_type": "three_endpoint_estimation",
+      "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [96.0, 114.0, 64.5, 28.0],
+      "xlabel": "",
+      "ylabel": "Interaction (%)",
+      "x_order": ["Observed", "Shuffled", "Difference"],
+      "ylim": [-1.0, 18.0],
+      "yticks": [0.0, 5.0, 10.0, 15.0],
+      "anchor": "Observed",
+      "reference": 0.0
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "removal", "panels": ["a"], "role": "all-trial versus exact-match removal effect"},
+      {"unit_id": "exact_coverage", "panels": ["b"], "role": "area-and-energy exact-match coverage"},
+      {"unit_id": "window", "panels": ["c"], "role": "early-window sensitivity"},
+      {"unit_id": "definition", "panels": ["d"], "role": "q-by-threshold effect grid"},
+      {"unit_id": "coverage", "panels": ["e"], "role": "q-by-threshold coverage grid"},
+      {"unit_id": "shuffle", "panels": ["f"], "role": "spatial score-map shuffle"}
+    ],
+    "comparison_groups": [
+      {"group_id": "removal_matching", "panels": ["a", "b"], "comparison_basis": "same 10-ms paired removal assay", "reader_task": "compare effect stability and exact-subset coverage without combining their scales"},
+      {"group_id": "effect_coverage", "panels": ["d", "e"], "comparison_basis": "identical q-by-threshold cell centers", "reader_task": "read effect and estimability cell by cell without dual encoding"}
+    ],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d", "e", "f"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "row1_plots", "panels": ["a", "b"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned removal-control row", "comparison_basis": "effect and coverage arise from the same paired removal assay"},
+      {"group_id": "row2_plots", "panels": ["c", "d"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned parameter-control row", "comparison_basis": "both constrain the overlap interaction"},
+      {"group_id": "row3_plots", "panels": ["e", "f"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned estimability and null-control row", "comparison_basis": "both close alternatives to the conditional-function endpoint"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "paired subset estimation", "category_slots": 2, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "high"},
+      "b": {"chart_family": "one-dimensional estimation", "category_slots": 1, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "c": {"chart_family": "ordered trajectory", "category_slots": 4, "natural_aspect": [2.1, 2.8], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "d": {"chart_family": "annotated heatmap", "category_slots": 4, "natural_aspect": [2.3, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "e": {"chart_family": "annotated heatmap", "category_slots": 4, "natural_aspect": [2.3, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "f": {"chart_family": "three-endpoint estimation", "category_slots": 3, "natural_aspect": [2.1, 2.8], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["removal", "exact_coverage", "window", "definition", "coverage", "shuffle"], "rationale": "matching closure precedes parameter and spatial-null controls"},
+    "hard_constraints": [
+      "165x152 mm canvas",
+      "three equal 48 mm rows with two equal slots per row",
+      "all paired-removal effects are computed before within-network aggregation",
+      "effect and coverage heatmaps use independent color scales",
+      "q 0.50 and threshold 0.05 is an anchor, not an optimum"
+    ],
+    "soft_targets": ["keep annotated cells legible", "keep the paired subset comparison visually dominant in row one"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

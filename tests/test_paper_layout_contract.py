@@ -9,6 +9,12 @@ def _valid_spec():
         "layout_contract": {
             "version": "practical_layout_v1",
             "status": "candidate",
+            "grid_policy": {
+                "equal_row_heights": True,
+                "equal_width_within_row": True,
+                "panel_atomicity": True,
+            },
+            "approved_exceptions": [],
             "semantic_units": [
                 {"unit_id": "entry", "panels": ["A"], "role": "entry"},
                 {"unit_id": "comparison", "panels": ["B"], "role": "evidence"},
@@ -83,3 +89,36 @@ def test_semantic_units_must_cover_panels_once():
     assert not report.ok
     assert any("multiple semantic units" in failure for failure in report.failures)
     assert any("missing from semantic units" in failure for failure in report.failures)
+
+
+def test_grid_policy_requires_every_preferred_default():
+    spec = _valid_spec()
+    spec["layout_contract"]["grid_policy"]["equal_width_within_row"] = False
+    report = validate_layout_contract(spec)
+    assert not report.ok
+    assert any("grid_policy must enable" in failure for failure in report.failures)
+
+
+def test_approved_exception_requires_exact_known_panels():
+    spec = _valid_spec()
+    spec["layout_contract"]["approved_exceptions"] = [
+        {
+            "approved_exception": True,
+            "scope": "figX.row_1",
+            "panels": ["A", "C"],
+            "released_constraint": "equal_width",
+            "rationale": "A recorded local exception.",
+        }
+    ]
+    report = validate_layout_contract(spec)
+    assert not report.ok
+    assert any("unknown panels" in failure for failure in report.failures)
+
+
+def test_legacy_contract_warns_without_failing():
+    spec = _valid_spec()
+    spec["layout_contract"].pop("grid_policy")
+    spec["layout_contract"].pop("approved_exceptions")
+    report = validate_layout_contract(spec)
+    assert report.ok, report.failures
+    assert any("legacy layout_contract" in warning for warning in report.warnings)
