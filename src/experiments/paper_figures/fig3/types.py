@@ -46,6 +46,16 @@ class Fig3Config:
     weak_probe_memory_scope: str = "final_only"
     num_sequences: int = 40
     batch_size: int = 16
+    progressive_max_sequences: int = 20
+    progressive_natural_decay: bool = True
+    formation_sequence_length: int = 10
+    formation_max_sequences: int = 20
+    formation_terminal_stage: int = 7
+    formation_mask_mode: str = "encoded_spike"
+    formation_attenuation: float = 0.5
+    formation_weak_probe_keep_fraction: float = 0.20
+    formation_weak_probe_repeats: int = 20
+    formation_n_shuffle: int = 20
     peak_q: float = 0.20
     valley_q: float = 0.20
     n_null: int = 100

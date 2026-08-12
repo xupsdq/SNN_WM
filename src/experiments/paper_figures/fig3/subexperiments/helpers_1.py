@@ -45,6 +45,33 @@ def concat_named_boundaries(
             out[layer_key][key] = torch.cat([part[layer_key][key] for part in sliced], dim=0)
     return out
 
+def stsp_boundary_from_bank(
+    bank: MultiItemSequenceLandscapeBank,
+    sequence_id: int,
+    state_condition: str,
+) -> dict[str, dict[str, torch.Tensor]]:
+    boundary = {
+        layer: {
+            key: value.detach().clone()
+            for key, value in state.items()
+        }
+        for layer, state in bank.boundary_for(int(sequence_id), "S0").items()
+    }
+    for layer, layer_state in boundary.items():
+        for key in ("u", "x"):
+            value = bank.get(
+                int(sequence_id),
+                str(state_condition),
+                layer,
+                key,
+            )
+            layer_state[key] = torch.as_tensor(
+                value,
+                dtype=layer_state[key].dtype,
+                device=layer_state[key].device,
+            ).reshape_as(layer_state[key])
+    return boundary
+
 def _weak_probe_memory_specs_for_target(
     ctx: ExperimentContext,
     bank: MultiItemSequenceLandscapeBank,

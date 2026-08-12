@@ -1,0 +1,137 @@
+{
+  "figure_id": "s5",
+  "canvas_mm": [165.0, 102.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d"],
+  "reader_contract": {
+    "version": "supplementary_s5_recurrence_reader_v1",
+    "status": "frozen",
+    "figure_question": "Does sequence-associated state displacement recur across networks, stages, and both STSP variables rather than being driven by a minority of cells or one variable?",
+    "terminal_inference": "Observed state displacement exceeds the persisted passive benchmark across all measured network-stage cells, remains positive at each network's weakest stage, and is present in both u and x trajectories.",
+    "forbidden_inferences": [
+      "The persisted passive benchmark contains complete equal-time passive T0 boundary arrays.",
+      "Every stage reproduces the C5 intervention closure.",
+      "The stage trajectory establishes necessity or complete mediation.",
+      "Recurrence causally generates Fig.5 morphology or Fig.6 conditional function."
+    ],
+    "semantic_units": [
+      {"unit_id": "prevalence", "panels": ["a"], "role": "network-by-stage breadth", "reader_task": "Inspect every observed network-stage cell."},
+      {"unit_id": "worst", "panels": ["b"], "role": "conservative network endpoint", "reader_task": "Inspect each network's minimum displacement across stages."},
+      {"unit_id": "u", "panels": ["c"], "role": "u-resolved recurrence", "reader_task": "Follow u displacement across stages."},
+      {"unit_id": "x", "panels": ["d"], "role": "x-resolved recurrence", "reader_task": "Follow x displacement across stages."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "prevalence", "panels": ["a"]},
+        {"node_id": "B", "kind": "conservative_endpoint", "panels": ["b"]},
+        {"node_id": "C", "kind": "variable_decomposition", "panels": ["c", "d"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "B", "relation": "tests_minority_stage_alternative"},
+        {"from": "A", "to": "C", "relation": "tests_single_variable_alternative"},
+        {"from": "B", "to": "I", "relation": "supports_network_breadth"},
+        {"from": "C", "to": "I", "relation": "supports_variable_breadth"}
+      ]
+    },
+    "comparison_obligations": [
+      {"comparison_id": "variable_trajectories", "panels": ["c", "d"], "reader_action": "Compare stage coverage while respecting the independent u and x scales.", "required": ["same_stage_positions", "separate_y_scales"], "not_required": ["u_vs_x_magnitude_test"]}
+    ],
+    "topology_invariants": [
+      "Network-by-stage prevalence precedes the per-network minimum.",
+      "u and x trajectories occupy corresponding lower-row slots.",
+      "The passive-lineage limitation remains in the reader contract and metadata."
+    ],
+    "topology_freedoms": ["Network tick density may be reduced for final-size legibility."]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "network_stage_heatmap",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 14.0, 64.5, 28.0],
+      "colorbar_bbox_mm": [14.0, 9.5, 64.5, 1.5],
+      "xlabel": "Network",
+      "ylabel": "Stage",
+      "colorbar_label": "Joint displacement",
+      "vmin": 0.0,
+      "vmax": 0.65,
+      "cmap_role": "stsp_support"
+    },
+    "b": {
+      "panel_type": "horizontal_strip",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 14.0, 64.5, 28.0],
+      "xlabel": "Minimum displacement",
+      "row_label": "Stage\nmin.",
+      "xlim": [0.0, 0.55],
+      "xticks": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+      "reference": 0.0,
+      "color_role": "layer2"
+    },
+    "c": {
+      "panel_type": "stage_trajectory",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 60.0, 64.5, 30.0],
+      "xlabel": "Stage",
+      "ylabel": "u displacement",
+      "x_order": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "ylim": [0.0, 0.45],
+      "yticks": [0.0, 0.1, 0.2, 0.3, 0.4],
+      "color_role": "layer2",
+      "marker": "o"
+    },
+    "d": {
+      "panel_type": "stage_trajectory",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 60.0, 64.5, 30.0],
+      "xlabel": "Stage",
+      "ylabel": "x displacement",
+      "x_order": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "ylim": [0.0, 0.95],
+      "yticks": [0.0, 0.2, 0.4, 0.6, 0.8],
+      "color_role": "layer3",
+      "marker": "s"
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "prevalence", "panels": ["a"], "role": "raw network-by-stage prevalence"},
+      {"unit_id": "worst", "panels": ["b"], "role": "per-network worst-stage endpoint"},
+      {"unit_id": "u", "panels": ["c"], "role": "u-resolved progressive displacement"},
+      {"unit_id": "x", "panels": ["d"], "role": "x-resolved progressive displacement"}
+    ],
+    "comparison_groups": [
+      {"group_id": "variables", "panels": ["c", "d"], "comparison_basis": "same stages and observed-minus-passive definition", "reader_task": "verify recurrence in both variables while respecting independent y scales"}
+    ],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "variable_stage_axes", "panels": ["c", "d"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned stage positions", "comparison_basis": "same discrete stage axis but explicitly different y scales"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "dense heatmap", "category_slots": 20, "natural_aspect": [2.0, 2.6], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "b": {"chart_family": "one-dimensional estimation", "category_slots": 1, "natural_aspect": [2.0, 2.6], "decoration_sides": ["left", "bottom"], "visual_weight": "low"},
+      "c": {"chart_family": "ordered trajectory", "category_slots": 9, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "d": {"chart_family": "ordered trajectory", "category_slots": 9, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["prevalence", "worst", "u", "x"], "rationale": "prevalence and conservative endpoint precede variable decomposition"},
+    "hard_constraints": [
+      "165x102 mm canvas",
+      "upper data regions share 28 mm height",
+      "b retains its categorical stage-minimum row label",
+      "c and d retain independent y scales",
+      "the persisted passive benchmark is not represented as complete passive T0 arrays"
+    ],
+    "soft_targets": ["keep dense heatmap labels sparse"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

@@ -12,7 +12,7 @@ def compute_overlap_gated_stsp_recruitment(ctx: ExperimentContext, bank: PeakAmp
     rows: list[dict[str, Any]] = []
     interaction_rows: list[dict[str, Any]] = []
     encode_cache: dict[tuple[Any, ...], Any] = {}
-    q = float(ctx.cfg.stsp_group_quantile)
+    q = float(ctx.cfg.fig6e_stsp_group_quantile)
     requested_overlap_threshold = float(ctx.cfg.overlap_threshold)
     for r in _progress(bank.probe_trials.itertuples(index=False), total=len(bank.probe_trials), desc="fig6 overlap-gated STSP", enabled=ctx.cfg.show_progress):
         seq_idx = _sequence_index(bank, int(r.sequence_id))

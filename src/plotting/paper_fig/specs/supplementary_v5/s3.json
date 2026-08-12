@@ -1,0 +1,122 @@
+{
+  "figure_id": "s3",
+  "canvas_mm": [165.0, 102.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [83.5, 52.0, 79.5, 48.0],
+    "d": [2.0, 52.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d"],
+  "reader_contract": {
+    "version": "supplementary_s3_local_transition_reader_v1",
+    "status": "frozen",
+    "figure_question": "Is the local transition-and-competition interpretation robust to analysis window, winner cap, spatial distance, and intervention-resolved winner fate?",
+    "terminal_inference": "The local transition effect exceeds its comparators across the tested analysis choices, and intervention changes the fate of outcome-defined winners in the predicted direction.",
+    "forbidden_inferences": [
+      "Outcome-defined winners are prospectively identifiable before the later input.",
+      "The robustness analyses establish complete mediation or necessity.",
+      "The tested window, cap, or distance values exhaust all valid analysis definitions.",
+      "Winner fate establishes a causal relation to Fig.5 morphology or Fig.6 conditional function."
+    ],
+    "semantic_units": [
+      {"unit_id": "window", "panels": ["a"], "role": "window and comparator robustness", "reader_task": "Compare probe-only and random controls across the tested transition windows."},
+      {"unit_id": "cap", "panels": ["b"], "role": "winner-cap robustness", "reader_task": "Inspect the winner-minus-loser voltage endpoint under three cap definitions."},
+      {"unit_id": "distance", "panels": ["c"], "role": "distance robustness", "reader_task": "Inspect the same endpoint under three spatial-distance limits."},
+      {"unit_id": "fate", "panels": ["d"], "role": "outcome-conditioned fate decomposition", "reader_task": "Inspect lost, delayed, and preserved fates under attenuation and reset."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "window_control", "panels": ["a"]},
+        {"node_id": "B", "kind": "definition_controls", "panels": ["b", "c"]},
+        {"node_id": "C", "kind": "fate_decomposition", "panels": ["d"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "I", "relation": "closes_window_choice_alternative"},
+        {"from": "B", "to": "I", "relation": "closes_definition_choice_alternative"},
+        {"from": "C", "to": "I", "relation": "links_intervention_to_outcome_conditioned_fates"}
+      ]
+    },
+    "topology_invariants": [
+      "The clockwise path remains window, cap, distance, then fate.",
+      "Panels b and c retain one shared voltage scale.",
+      "The outcome-conditioned status of winner analyses remains explicit."
+    ]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "comparator_trajectory",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 12.0, 64.5, 28.0],
+      "xlabel": "Window (ms)",
+      "ylabel": "Transition gain (%)",
+      "x_order": [5, 10, 15, 20, 30],
+      "series_order": ["Probe-only", "Random"],
+      "ylim": [0.0, 25.5],
+      "yticks": [0.0, 5.0, 10.0, 15.0, 20.0, 25.0],
+      "reference": 0.0
+    },
+    "b": {
+      "panel_type": "horizontal_point_range",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 12.0, 64.5, 28.0],
+      "xlabel": "ΔV (mV)",
+      "row_order": ["Top 1", "Top 2", "Top 3"],
+      "xlim": [-0.2, 0.5],
+      "xticks": [-0.2, 0.0, 0.2, 0.4],
+      "reference": 0.0
+    },
+    "c": {
+      "panel_type": "horizontal_point_range",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 62.0, 64.5, 28.0],
+      "xlabel": "ΔV (mV)",
+      "row_order": ["≤2", "≤4", "≤6"],
+      "xlim": [-0.2, 0.5],
+      "xticks": [-0.2, 0.0, 0.2, 0.4],
+      "reference": 0.0
+    },
+    "d": {
+      "panel_type": "stacked_fate",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 62.0, 64.5, 28.0],
+      "xlabel": "",
+      "ylabel": "Winner fate (%)",
+      "x_order": ["Attenuate", "Reset"],
+      "fate_order": ["Lost", "Delayed", "Preserved"],
+      "ylim": [0.0, 102.0],
+      "yticks": [0.0, 25.0, 50.0, 75.0, 100.0]
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "window", "panels": ["a"], "role": "true-window and comparator robustness"},
+      {"unit_id": "cap", "panels": ["b"], "role": "winner-cap robustness"},
+      {"unit_id": "distance", "panels": ["c"], "role": "distance-threshold robustness"},
+      {"unit_id": "fate", "panels": ["d"], "role": "original-winner fate under intervention"}
+    ],
+    "comparison_groups": [
+      {"group_id": "competition_definitions", "panels": ["b", "c"], "comparison_basis": "same winner-minus-loser voltage endpoint", "reader_task": "compare two independent analysis-definition sensitivities without treating them as doses"}
+    ],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "competition_plot", "panels": ["b", "c"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "direct definition comparison", "comparison_basis": "identical voltage scale and forest grammar"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "ordered trajectory", "category_slots": 5, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "b": {"chart_family": "horizontal point-range", "category_slots": 3, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "c": {"chart_family": "horizontal point-range", "category_slots": 3, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "d": {"chart_family": "stacked composition", "category_slots": 2, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "panel d stacked composition", "tradeoff": "bar width is local to the two conditions"},
+    "topology": {"reading_direction": "explicit", "unit_sequence": ["window", "cap", "distance", "fate"], "rationale": "clockwise path keeps the two definition panels vertically adjacent"},
+    "hard_constraints": ["165x102 mm canvas", "clockwise equal-slot mapping", "b and c share the resolved -0.2 to 0.5 mV range"],
+    "soft_targets": ["keep fate legend compact and centered"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

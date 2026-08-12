@@ -498,7 +498,10 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--model-path", default=None)
     parser.add_argument("--model-path-glob", default=DEFAULT_MODEL_PATH_GLOB)
     parser.add_argument("--dataset-root", default=DEFAULT_DATASET_ROOT)
-    parser.add_argument("--output-root", default="results/fig3_fig6_shared_sequence_root")
+    parser.add_argument(
+        "--output-root",
+        default="results/multi_seed_rollout/shared_sequence_root",
+    )
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--network-seed", type=int, required=True)
     parser.add_argument("--device", default=DEFAULT_PROJECT_DEFAULTS.runtime.device, choices=["auto", "cpu", "cuda"])

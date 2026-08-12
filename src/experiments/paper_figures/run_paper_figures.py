@@ -24,7 +24,7 @@ from src.pipelines.common import candidate_has_required_modules, discover_python
 
 
 DEFAULT_MODEL_PATH_GLOB = "results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_*/net_final.pth"
-DEFAULT_OUTPUT_ROOT = "results/paper_experiments"
+DEFAULT_OUTPUT_ROOT = "results/paper_figure_multi_seed"
 DEFAULT_DATASET_ROOT = str(DEFAULT_PROJECT_DEFAULTS.paths.dataset_root)
 REQUIRED_RUNTIME_MODULES = ("torch", "numpy", "pandas", "matplotlib", "scipy", "sklearn", "tqdm")
 NETWORK_SEED_RE = re.compile(r"seed[_-]?(\d+)", re.IGNORECASE)

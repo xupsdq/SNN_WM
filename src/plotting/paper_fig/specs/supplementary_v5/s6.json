@@ -1,0 +1,183 @@
+{
+  "figure_id": "s6",
+  "canvas_mm": [165.0, 152.0],
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0],
+    "e": [2.0, 102.0, 79.5, 48.0],
+    "f": [83.5, 102.0, 79.5, 48.0]
+  },
+  "reading_order": ["a", "b", "c", "d", "e", "f"],
+  "reader_contract": {
+    "version": "supplementary_s6_morphology_reader_v1",
+    "status": "frozen",
+    "figure_question": "Do the multi-component and terminal-morphology conclusions survive an alternative constituent definition and multiple coefficient-free spatial endpoints?",
+    "terminal_inference": "Multiple effective components and exclusion of latest-item-only collapse persist under NNLS- and similarity-based definitions, while coefficient-free Layer-1 g maps retain load-delay-dependent amplitude, spatial topology, and sequence-specific composition in every tested network-grid minimum.",
+    "forbidden_inferences": [
+      "N_eff is a capacity, accessible-item count, or lossless recall measure.",
+      "The figure establishes a method-independent primacy or recency direction.",
+      "Layer-1 g morphology and Layer-2 u/x constituent weights are one longitudinal state coordinate.",
+      "Fig.4 causally generated these morphologies or Fig.6 accessed them."
+    ],
+    "semantic_units": [
+      {"unit_id": "neff", "panels": ["a"], "role": "constituent-definition sensitivity", "reader_task": "Compare effective component counts under NNLS and similarity definitions."},
+      {"unit_id": "latest", "panels": ["b"], "role": "latest-only sensitivity", "reader_task": "Compare latest-item weights under both definitions against the 0.5 exclusion reference."},
+      {"unit_id": "amplitude", "panels": ["c"], "role": "coefficient-free amplitude", "reader_task": "Inspect mean Layer-1 g change across the K-by-delay grid."},
+      {"unit_id": "topology", "panels": ["d"], "role": "coefficient-free topology", "reader_task": "Inspect K10 Moran excess across delay."},
+      {"unit_id": "identity", "panels": ["e"], "role": "full composition grid", "reader_task": "Inspect matched-minus-deranged composition across all 16 cells."},
+      {"unit_id": "minimum", "panels": ["f"], "role": "network-minimum closure", "reader_task": "Inspect each network's weakest composition cell."}
+    ],
+    "task_graph": {
+      "nodes": [
+        {"node_id": "A", "kind": "definition_sensitivity", "panels": ["a", "b"]},
+        {"node_id": "B", "kind": "spatial_amplitude", "panels": ["c"]},
+        {"node_id": "C", "kind": "spatial_topology", "panels": ["d"]},
+        {"node_id": "D", "kind": "sequence_identity", "panels": ["e"]},
+        {"node_id": "E", "kind": "minimum_closure", "panels": ["f"]},
+        {"node_id": "I", "kind": "terminal_inference"}
+      ],
+      "edges": [
+        {"from": "A", "to": "I", "relation": "excludes_single_NNLS_definition"},
+        {"from": "B", "to": "C", "relation": "tests_single_spatial_metric_alternative"},
+        {"from": "C", "to": "D", "relation": "tests_sequence_identity"},
+        {"from": "D", "to": "E", "relation": "tests_weakest_network_cell"},
+        {"from": "E", "to": "I", "relation": "closes_network_minimum_alternative"}
+      ]
+    },
+    "comparison_obligations": [
+      {"comparison_id": "definition_pair", "panels": ["a", "b"], "reader_action": "Compare NNLS and similarity trajectories within each endpoint.", "required": ["same_K_positions", "line_style_and_marker_redundancy"], "not_required": ["method_equivalence_test"]},
+      {"comparison_id": "composition_grid_minimum", "panels": ["e", "f"], "reader_action": "Read the complete grid before its per-network minimum reduction.", "required": ["same_underlying_16_cells", "zero_reference_in_minimum"], "not_required": ["independent_samples"]}
+    ],
+    "topology_invariants": [
+      "Definition sensitivity occupies the first row.",
+      "Coefficient-free amplitude and topology occupy the second row.",
+      "Full composition and network-minimum closure occupy the third row.",
+      "All rows use two equal slots and no internal facets."
+    ],
+    "topology_freedoms": ["Tick density and raw-line alpha may be reduced at final size."]
+  },
+  "panels": {
+    "a": {
+      "panel_type": "definition_trajectory",
+      "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 12.0, 64.5, 28.0],
+      "xlabel": "Load",
+      "ylabel": "Effective components",
+      "x_order": [3, 5, 7, 10],
+      "series_order": ["NNLS", "Similarity"],
+      "ylim": [0.0, 10.5],
+      "yticks": [0.0, 2.0, 4.0, 6.0, 8.0, 10.0],
+      "reference": 1.0
+    },
+    "b": {
+      "panel_type": "definition_trajectory",
+      "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 12.0, 64.5, 28.0],
+      "xlabel": "Load",
+      "ylabel": "Latest weight",
+      "x_order": [3, 5, 7, 10],
+      "series_order": ["NNLS", "Similarity"],
+      "ylim": [0.0, 0.55],
+      "yticks": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+      "reference": 0.5
+    },
+    "c": {
+      "panel_type": "annotated_heatmap",
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 64.0, 64.5, 28.0],
+      "colorbar_bbox_mm": [14.0, 59.5, 64.5, 1.5],
+      "xlabel": "Delay (ms)",
+      "ylabel": "Load",
+      "row_order": [3, 5, 7, 10],
+      "column_order": [100, 200, 400, 800],
+      "colorbar_label": "Mean Δg",
+      "vmin": 0.0,
+      "vmax": 0.13,
+      "decimals": 3,
+      "cmap_role": "stsp_support"
+    },
+    "d": {
+      "panel_type": "network_trajectory",
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 64.0, 64.5, 28.0],
+      "xlabel": "Delay (ms)",
+      "ylabel": "Moran excess",
+      "x_order": [100, 200, 400, 800],
+      "ylim": [0.0, 0.95],
+      "yticks": [0.0, 0.2, 0.4, 0.6, 0.8],
+      "color_role": "dynamic",
+      "reference": 0.0
+    },
+    "e": {
+      "panel_type": "annotated_heatmap",
+      "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 114.0, 64.5, 28.0],
+      "colorbar_bbox_mm": [14.0, 109.5, 64.5, 1.5],
+      "xlabel": "Delay (ms)",
+      "ylabel": "Load",
+      "row_order": [3, 5, 7, 10],
+      "column_order": [100, 200, 400, 800],
+      "colorbar_label": "Cosine difference",
+      "vmin": 0.0,
+      "vmax": 0.45,
+      "decimals": 3,
+      "cmap_role": "stsp_support"
+    },
+    "f": {
+      "panel_type": "horizontal_strip",
+      "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 114.0, 64.5, 28.0],
+      "xlabel": "Minimum cosine difference",
+      "row_label": "Grid\nmin.",
+      "xlim": [-0.01, 0.17],
+      "xticks": [0.0, 0.05, 0.10, 0.15],
+      "color_role": "sample_probe_overlap",
+      "reference": 0.0
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "frozen",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "neff", "panels": ["a"], "role": "effective-component definition sensitivity"},
+      {"unit_id": "latest", "panels": ["b"], "role": "latest-weight definition sensitivity"},
+      {"unit_id": "amplitude", "panels": ["c"], "role": "coefficient-free full-map amplitude"},
+      {"unit_id": "topology", "panels": ["d"], "role": "Moran spatial topology at K10"},
+      {"unit_id": "identity", "panels": ["e"], "role": "full matched-versus-deranged grid"},
+      {"unit_id": "minimum", "panels": ["f"], "role": "per-network grid-minimum closure"}
+    ],
+    "comparison_groups": [
+      {"group_id": "definition_sensitivity", "panels": ["a", "b"], "comparison_basis": "same K values and two constituent definitions", "reader_task": "compare definition robustness without treating different endpoints as one scale"},
+      {"group_id": "composition_closure", "panels": ["e", "f"], "comparison_basis": "same 16 composition cells before and after network-minimum reduction", "reader_task": "progress from the complete grid to the conservative endpoint"}
+    ],
+    "alignment_groups": [
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d", "e", "f"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "row1_plots", "panels": ["a", "b"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "matched definition-sensitivity geometry", "comparison_basis": "same K positions and legend structure"},
+      {"group_id": "row2_plots", "panels": ["c", "d"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned coefficient-free morphology row", "comparison_basis": "same K10/delay evidence family with independent axes"},
+      {"group_id": "row3_plots", "panels": ["e", "f"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned composition closure row", "comparison_basis": "complete grid and its per-network minimum"}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "two-definition trajectory", "category_slots": 4, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "b": {"chart_family": "two-definition trajectory", "category_slots": 4, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "c": {"chart_family": "annotated heatmap", "category_slots": 4, "natural_aspect": [2.0, 2.6], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "d": {"chart_family": "ordered trajectory", "category_slots": 4, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
+      "e": {"chart_family": "annotated heatmap", "category_slots": 4, "natural_aspect": [2.0, 2.6], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high"},
+      "f": {"chart_family": "one-dimensional estimation", "category_slots": 1, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "low"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "no bar panels", "tradeoff": "not applicable"},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["neff", "latest", "amplitude", "topology", "identity", "minimum"], "rationale": "definition sensitivity precedes coefficient-free spatial and composition closure"},
+    "hard_constraints": [
+      "165x152 mm canvas",
+      "three equal 48 mm rows with two equal slots per row",
+      "all visible data regions are 64.5x28 mm",
+      "NNLS and similarity definitions use line-style and marker redundancy",
+      "Layer-1 g and Layer-2 u/x endpoints are not drawn as one longitudinal coordinate"
+    ],
+    "soft_targets": ["keep heatmap values readable", "keep both definition legends centered above their panels"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

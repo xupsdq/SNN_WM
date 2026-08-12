@@ -47,7 +47,11 @@ def _write_summary_csv(path: Path, records: list[dict[str, Any]]) -> Path:
 
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train multiple SDNN networks from scratch with different seeds.")
-    parser.add_argument("--output-dir", type=str, default="results/sdnn_ensemble")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20",
+    )
     parser.add_argument("--dataset-root", type=str, default="./MNIST")
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--num-networks", type=int, default=20)

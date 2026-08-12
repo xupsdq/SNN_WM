@@ -22,6 +22,8 @@ TASK_EXEMPLAR_DECODER_SUMMARY = "exemplar_decoder_summary"
 TASK_MORPHOLOGY_FUNCTION_COUPLING = "morphology_function_coupling"
 TASK_BOUNDARY_SUMMARY = "boundary_summary"
 TASK_PROGRESSIVE_UPDATE = "progressive_update"
+TASK_FORMATION_INTERVENTION_SPECS = "formation_intervention_specs"
+TASK_FORMATION_NECESSITY = "formation_necessity"
 TASK_PEAK_VALLEY_LANDSCAPE = "peak_valley_landscape"
 TASK_NEUTRAL_PING = "neutral_ping"
 TASK_WEAK_PROBE = "weak_probe"
@@ -46,6 +48,8 @@ TASK_IDS = (
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_BOUNDARY_SUMMARY,
     TASK_PROGRESSIVE_UPDATE,
+    TASK_FORMATION_INTERVENTION_SPECS,
+    TASK_FORMATION_NECESSITY,
     TASK_PEAK_VALLEY_LANDSCAPE,
     TASK_NEUTRAL_PING,
     TASK_WEAK_PROBE,
@@ -67,6 +71,88 @@ SEQUENCE_SPEC_FILES = {
     "sequence_trials": "sequence_trials.csv",
     "singleton_reference_trials": "singleton_reference_trials.csv",
     "partial_cue_trials": "partial_cue_trials.csv",
+}
+
+FORMATION_INTERVENTION_SPEC_FILES = {
+    "formation_intervention_specs": "formation_intervention_specs.csv",
+}
+
+FORMATION_INTERVENTION_SPEC_REQUIRED_COLUMNS = (
+    "network_seed",
+    "sequence_id",
+    "seq_len",
+    "delay_ms",
+    "stage_k",
+    "condition",
+    "intervention_class",
+    "selected_flat_indices",
+    "selected_site_count",
+    "target_site_count",
+    "target_support_mass",
+    "selected_support_mass",
+    "target_incoming_energy",
+    "selected_incoming_energy",
+    "support_match_error",
+    "incoming_match_error",
+    "selection_valid",
+)
+
+FORMATION_RESULT_FILES = {
+    "formation_stage_readout": "formation_stage_readout.csv",
+    "formation_access_readout": "formation_access_readout.csv",
+    "formation_pair_specificity": "formation_pair_specificity.csv",
+    "formation_condition_summary": "formation_condition_summary.csv",
+}
+
+FORMATION_RESULT_REQUIRED_COLUMNS = {
+    "formation_stage_readout": (
+        "network_seed",
+        "sequence_id",
+        "stage_k",
+        "condition",
+        "pre_b_retention",
+        "b_pred_is_target",
+        "state_fidelity_cosine",
+    ),
+    "formation_access_readout": (
+        "network_seed",
+        "sequence_id",
+        "stage_k",
+        "condition",
+        "cue_role",
+        "cue_repeat",
+        "cue_pred_is_target",
+        "N_eff",
+    ),
+    "formation_pair_specificity": (
+        "network_seed",
+        "sequence_id",
+        "stage_k",
+        "condition",
+        "dual_constituent_similarity",
+        "pair_composite_similarity",
+        "WPRI",
+        "pair_residual_specificity",
+        "residual_true_pair",
+        "residual_shuffled_pair_mean",
+    ),
+    "formation_condition_summary": (
+        "network_seed",
+        "condition",
+        "mean_pre_b_retention",
+        "mean_b_accuracy",
+        "mean_pair_residual_specificity",
+        "mean_stage2_pair_residual_specificity",
+        "mean_terminal_pair_residual_specificity",
+        "mean_stage2_dual_constituent_similarity",
+        "mean_stage2_WPRI",
+        "mean_stage2_N_eff",
+        "mean_stage2_nnls_relative_error",
+        "mean_old_item_cue_accuracy",
+        "mean_new_item_cue_accuracy",
+        "mean_joint_item_cue_accuracy",
+        "mean_terminal_N_eff",
+    ),
 }
 
 SEQUENCE_SPEC_MANIFEST_COLUMNS = TABLE_MANIFEST_COLUMNS

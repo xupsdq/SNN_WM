@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+import sys as _early_sys
+
+_early_args = _early_sys.argv[1:]
+if __name__ == "__main__" and (
+    "--task=final-statistics" in _early_args
+    or any(
+        value == "--task"
+        and index + 1 < len(_early_args)
+        and _early_args[index + 1] == "final-statistics"
+        for index, value in enumerate(_early_args)
+    )
+):
+    from src.experiments.paper_figures.final_six.pipeline import (
+        canonical_runner_main as _final_statistics_main,
+    )
+
+    raise SystemExit(_final_statistics_main("fig3", _early_args))
+
 import argparse
 import shutil
 import sys
@@ -41,6 +59,8 @@ from src.experiments.paper_figures.fig3.cache_keys import (
     build_boundary_summary_cache_key,
     build_cue_specificity_access_cache_key,
     build_cue_specificity_specs_cache_key,
+    build_formation_intervention_specs_cache_key,
+    build_formation_necessity_cache_key,
     build_morphology_decomposition_cache_key,
     build_morphology_function_coupling_cache_key,
     build_neutral_ping_access_cache_key,
@@ -57,6 +77,10 @@ from src.experiments.paper_figures.fig3.schemas import (
     CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS,
     FUNCTIONAL_BOUNDARY_REQUIRED_COLUMNS,
     MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS,
+    FORMATION_INTERVENTION_SPEC_FILES,
+    FORMATION_INTERVENTION_SPEC_REQUIRED_COLUMNS,
+    FORMATION_RESULT_FILES,
+    FORMATION_RESULT_REQUIRED_COLUMNS,
     REUSE_MODES,
     TASK_ACCESS_JOB_SPECS,
     TASK_ALL,
@@ -69,6 +93,8 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_EXEMPLAR_DECODER_SPECS,
     TASK_EXEMPLAR_DECODER_STATE_BANK,
     TASK_EXEMPLAR_DECODER_SUMMARY,
+    TASK_FORMATION_INTERVENTION_SPECS,
+    TASK_FORMATION_NECESSITY,
     TASK_MORPHOLOGY_DECOMPOSITION,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_IDS,
@@ -99,6 +125,10 @@ from src.experiments.paper_figures.fig3.subexperiments.exemplar_decoder import (
     get_exemplar_decoder_specs,
     get_exemplar_decoder_state_bank,
     run_exemplar_decoder_summary,
+)
+from src.experiments.paper_figures.fig3.subexperiments.formation_necessity import (
+    build_formation_intervention_specs,
+    run_formation_necessity,
 )
 from src.experiments.paper_figures.fig3.subexperiments.functional_access import run_neutral_ping_access, run_weak_cue_access
 from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition, write_morphology_fit_outputs
@@ -135,6 +165,11 @@ EXEMPLAR_DECODER_SEED_TASK_IDS = frozenset(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--task" in raw_argv and "final-statistics" in raw_argv:
+        from src.experiments.paper_figures.final_six.pipeline import canonical_runner_main
+
+        return canonical_runner_main("fig3", raw_argv)
     args = _parse_args(argv)
     mode = normalize_reuse_mode(args.reuse_artifacts)
     if args.task == TASK_EXEMPLAR_DECODER_SUMMARY:
@@ -402,7 +437,56 @@ def _run_task(
         _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root)
         return
     if task_id == TASK_PROGRESSIVE_UPDATE:
-        compute_progressive_update_metrics(ctx, _get_state_bank(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash, shared_sequence_root=shared_sequence_root))
+        condition_artifact = _get_boundary_condition_specs(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+        )
+        boundary_artifact = _get_boundary_state_bank(
+            ctx,
+            sequence_trials,
+            condition_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        compute_progressive_update_metrics(ctx, boundary_artifact.bank)
+        return
+    if task_id in {TASK_FORMATION_INTERVENTION_SPECS, TASK_FORMATION_NECESSITY}:
+        condition_artifact = _get_boundary_condition_specs(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+        )
+        boundary_artifact = _get_boundary_state_bank(
+            ctx,
+            sequence_trials,
+            condition_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        formation_specs = _get_formation_intervention_specs(
+            ctx,
+            boundary_artifact,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+        )
+        if task_id == TASK_FORMATION_NECESSITY:
+            _get_formation_necessity(
+                ctx,
+                boundary_artifact,
+                formation_specs,
+                mode=mode,
+                artifact_root=artifact_root,
+            )
         return
     if task_id == TASK_PEAK_VALLEY_LANDSCAPE:
         condition_artifact = _get_boundary_condition_specs(ctx, sequence_trials, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
@@ -442,6 +526,7 @@ def _run_task(
         _get_boundary_summary(ctx, morphology_artifact, weak_cue_artifact, neutral_ping_artifact, coupling_artifact, mode=mode, artifact_root=artifact_root)
         cue_specs_artifact = _get_cue_specificity_specs(ctx, sequence_trials, access_artifact, mode=mode, artifact_root=artifact_root, specs_hash=specs_hash)
         _get_cue_specificity_access(ctx, cue_specs_artifact, boundary_artifact, mode=mode, artifact_root=artifact_root)
+        compute_progressive_update_metrics(ctx, boundary_artifact.bank)
         return
     raise ValueError(f"Unsupported Fig.3 task: {task_id}")
 
@@ -508,6 +593,114 @@ def _get_state_bank_artifact(
     bank = run_multiitem_sequence_state_bank(ctx, sequence_trials, write_compat_outputs=write_compat_outputs)
     artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
     _set_artifact_metadata(ctx, "state_bank", "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+
+
+def _get_formation_intervention_specs(
+    ctx: ExperimentContext,
+    boundary_artifact: StateBankArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+    specs_hash: str,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_FORMATION_INTERVENTION_SPECS)
+    expected_key = build_formation_intervention_specs_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        specs_hash=specs_hash,
+    )
+    expected_columns = {
+        "formation_intervention_specs": FORMATION_INTERVENTION_SPEC_REQUIRED_COLUMNS,
+    }
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(
+            task_dir,
+            expected_key=expected_key,
+            expected_names=FORMATION_INTERVENTION_SPEC_FILES.keys(),
+            expected_columns=expected_columns,
+        )
+        _copy_formation_specs_to_bundle(ctx, task_dir)
+        _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(
+            task_dir,
+            expected_key=expected_key,
+            expected_names=FORMATION_INTERVENTION_SPEC_FILES.keys(),
+            expected_columns=expected_columns,
+        )
+        _copy_formation_specs_to_bundle(ctx, task_dir)
+        _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    table = build_formation_intervention_specs(ctx, boundary_artifact.bank)
+    tables = {"formation_intervention_specs": table}
+    if mode == "off":
+        _write_formation_specs_to_bundle(ctx, table)
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(
+        task_dir,
+        tables=tables,
+        filenames=FORMATION_INTERVENTION_SPEC_FILES,
+        cache_key=expected_key,
+    )
+    _copy_formation_specs_to_bundle(ctx, task_dir)
+    _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "built", task_dir, artifact.digest, expected_key)
+    return artifact
+
+
+def _get_formation_necessity(
+    ctx: ExperimentContext,
+    boundary_artifact: StateBankArtifact,
+    specs_artifact: TableBundleArtifact,
+    *,
+    mode: str,
+    artifact_root: Path,
+) -> TableBundleArtifact:
+    task_dir = task_artifact_dir(artifact_root, TASK_FORMATION_NECESSITY)
+    expected_key = build_formation_necessity_cache_key(
+        ctx.cfg,
+        boundary_state_digest=boundary_artifact.digest,
+        intervention_specs_digest=specs_artifact.digest,
+    )
+    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+        artifact = load_table_bundle_artifact(
+            task_dir,
+            expected_key=expected_key,
+            expected_names=FORMATION_RESULT_FILES.keys(),
+            expected_columns=FORMATION_RESULT_REQUIRED_COLUMNS,
+        )
+        _copy_formation_tables_to_bundle(ctx, task_dir)
+        _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    if mode == "require":
+        artifact = load_table_bundle_artifact(
+            task_dir,
+            expected_key=expected_key,
+            expected_names=FORMATION_RESULT_FILES.keys(),
+            expected_columns=FORMATION_RESULT_REQUIRED_COLUMNS,
+        )
+        _copy_formation_tables_to_bundle(ctx, task_dir)
+        _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "loaded", task_dir, artifact.digest, expected_key)
+        return artifact
+    tables = run_formation_necessity(
+        ctx,
+        boundary_artifact.bank,
+        specs_artifact.tables["formation_intervention_specs"],
+    )
+    if mode == "off":
+        _write_formation_tables_to_bundle(ctx, tables)
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+    artifact = save_table_bundle_artifact(
+        task_dir,
+        tables=tables,
+        filenames=FORMATION_RESULT_FILES,
+        cache_key=expected_key,
+    )
+    _copy_formation_tables_to_bundle(ctx, task_dir)
+    _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "built", task_dir, artifact.digest, expected_key)
     return artifact
 
 
@@ -972,6 +1165,63 @@ def _write_state_bank_compat_outputs(ctx: ExperimentContext, task_dir: Path) -> 
         ctx.output_files["state_bank_manifest"] = legacy._rel(dst, ctx.seed_dir)
 
 
+def _copy_formation_specs_to_bundle(
+    ctx: ExperimentContext,
+    task_dir: Path,
+) -> None:
+    source = task_dir / FORMATION_INTERVENTION_SPEC_FILES[
+        "formation_intervention_specs"
+    ]
+    destination = ctx.trial_specs_dir / "formation_intervention_specs.csv"
+    shutil.copy2(source, destination)
+    ctx.output_files[destination.stem] = legacy._rel(destination, ctx.seed_dir)
+    ctx.completed_modules[TASK_FORMATION_INTERVENTION_SPECS] = True
+
+
+def _write_formation_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
+    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "formation_intervention_specs.csv")
+    ctx.completed_modules[TASK_FORMATION_INTERVENTION_SPECS] = True
+
+
+def _copy_formation_tables_to_bundle(
+    ctx: ExperimentContext,
+    task_dir: Path,
+) -> None:
+    destinations = {
+        "formation_stage_readout": ctx.raw_dir / "formation_stage_readout.csv",
+        "formation_access_readout": ctx.raw_dir / "formation_access_readout.csv",
+        "formation_pair_specificity": (
+            ctx.metrics_dir / "formation_pair_specificity.csv"
+        ),
+        "formation_condition_summary": (
+            ctx.metrics_dir / "formation_condition_summary.csv"
+        ),
+    }
+    for name, destination in destinations.items():
+        shutil.copy2(task_dir / FORMATION_RESULT_FILES[name], destination)
+        ctx.output_files[destination.stem] = legacy._rel(
+            destination,
+            ctx.seed_dir,
+        )
+    ctx.completed_modules[TASK_FORMATION_NECESSITY] = True
+
+
+def _write_formation_tables_to_bundle(
+    ctx: ExperimentContext,
+    tables: Mapping[str, pd.DataFrame],
+) -> None:
+    mapping = {
+        "formation_stage_readout": ctx.raw_dir / "formation_stage_readout.csv",
+        "formation_access_readout": ctx.raw_dir / "formation_access_readout.csv",
+        "formation_pair_specificity": ctx.metrics_dir / "formation_pair_specificity.csv",
+        "formation_condition_summary": ctx.metrics_dir / "formation_condition_summary.csv",
+    }
+    for name, path in mapping.items():
+        if name in tables:
+            legacy._save_csv(ctx, tables[name], path)
+    ctx.completed_modules[TASK_FORMATION_NECESSITY] = True
+
+
 def _write_boundary_condition_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
     legacy._save_csv(ctx, table, ctx.trial_specs_dir / "boundary_condition_specs.csv")
     ctx.completed_modules["boundary_condition_specs"] = True
@@ -1283,7 +1533,21 @@ def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
             ctx.metrics_dir / "panel_c_cue_specificity_memory_gain.csv",
             ctx.metrics_dir / "panel_c_cue_specificity_serial_summary.csv",
         ],
-        "progressive_update": [ctx.metrics_dir / "panel_b_progressive_update_metrics.csv"],
+        TASK_FORMATION_INTERVENTION_SPECS: [
+            ctx.trial_specs_dir / "formation_intervention_specs.csv",
+        ],
+        TASK_FORMATION_NECESSITY: [
+            ctx.raw_dir / "formation_stage_readout.csv",
+            ctx.raw_dir / "formation_access_readout.csv",
+            ctx.metrics_dir / "formation_pair_specificity.csv",
+            ctx.metrics_dir / "formation_condition_summary.csv",
+        ],
+        "progressive_update": [
+            ctx.metrics_dir / "panel_b_progressive_update_metrics.csv",
+            ctx.metrics_dir / "panel_b_prefix_trajectory_metrics.csv",
+            ctx.metrics_dir / "panel_b_prefix_trajectory_summary.csv",
+            ctx.metrics_dir / "panel_b_prefix_item_weights.csv",
+        ],
         "peak_valley_landscape": [ctx.metrics_dir / "panel_c_example_landscape_summary.csv"],
         "neutral_ping": [ctx.raw_dir / "panel_d_neutral_ping_trial_readout.csv", ctx.metrics_dir / "panel_d_ping_summary.csv"],
         "weak_probe": [ctx.raw_dir / "panel_e_weak_probe_trial_readout.csv", ctx.metrics_dir / "panel_e_weak_probe_metrics.csv"],
@@ -1374,6 +1638,20 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         weak_probe_memory_scope=str(args.weak_probe_memory_scope),
         num_sequences=4 if smoke else int(args.num_sequences),
         batch_size=min(int(args.batch_size), 2) if smoke else int(args.batch_size),
+        progressive_max_sequences=min(int(args.progressive_max_sequences), 4) if smoke else int(args.progressive_max_sequences),
+        progressive_natural_decay=bool(args.progressive_natural_decay),
+        formation_sequence_length=int(args.formation_sequence_length),
+        formation_max_sequences=min(int(args.formation_max_sequences), 4) if smoke else int(args.formation_max_sequences),
+        formation_terminal_stage=int(args.formation_terminal_stage),
+        formation_mask_mode=str(args.formation_mask_mode),
+        formation_attenuation=float(args.formation_attenuation),
+        formation_weak_probe_keep_fraction=float(args.formation_weak_probe_keep_fraction),
+        formation_weak_probe_repeats=(
+            2
+            if smoke
+            else int(args.formation_weak_probe_repeats)
+        ),
+        formation_n_shuffle=min(int(args.formation_n_shuffle), 3) if smoke else int(args.formation_n_shuffle),
         peak_q=float(args.peak_q),
         valley_q=float(args.valley_q),
         n_null=8 if smoke else int(args.n_null),
@@ -1455,6 +1733,20 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--primary-sequence-length", type=int, default=7)
     parser.add_argument("--main-sequence-length", type=int, default=10)
     parser.add_argument("--main-only-seq-len-10", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--progressive-max-sequences", type=int, default=20)
+    parser.add_argument("--progressive-natural-decay", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--formation-sequence-length", type=int, default=10)
+    parser.add_argument("--formation-max-sequences", type=int, default=20)
+    parser.add_argument("--formation-terminal-stage", type=int, default=7)
+    parser.add_argument("--formation-mask-mode", default="encoded_spike", choices=["encoded_spike", "foreground"])
+    parser.add_argument("--formation-attenuation", type=float, default=0.5)
+    parser.add_argument("--formation-weak-probe-keep-fraction", type=float, default=0.20)
+    parser.add_argument(
+        "--formation-weak-probe-repeats",
+        type=int,
+        default=20,
+    )
+    parser.add_argument("--formation-n-shuffle", type=int, default=20)
     parser.add_argument("--boundary-sequence-lengths", default="3,5,7,10")
     parser.add_argument("--boundary-delay-grid-ms", default="100,200,300,400,600,800,1200,1500")
     parser.add_argument("--morphology-layer", default="layer1", choices=["layer1", "layer2", "layer3"])
