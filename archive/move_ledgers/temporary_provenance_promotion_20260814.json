@@ -1,0 +1,112 @@
+{
+  "schema": "net_torch_temporary_provenance_promotion_v1",
+  "generated_at": "2026-08-14T05:10:31.715856+00:00",
+  "batch_id": "20260814_batch2_low_risk",
+  "status": "completed_verified",
+  "promotion": {
+    "source_path": ".codex/tmp/fig4_candidate_statistics_20260731_KEEP/build_fig4_candidate_statistics.py",
+    "source_sha256": "302df6fc58490223374deef19318c9a1c035a91527523440caaa4059382b7ba9",
+    "target_path": "src/experiments/runners/fig4_accumulated_history_statistics.py",
+    "target_sha256": "ca53a1d8246651b46f1b071b5d08a1715eea75ca2a90f95e6bd1ec6dd722b3e2",
+    "target_role": "canonical runner for the promoted Fig.4 accumulated-history statistics parent bundle",
+    "scientific_logic_change": "none",
+    "operational_changes": [
+      "default output now targets results/paper_figure_multi_seed/fig4_accumulated_history_statistics",
+      "missing historical formal-Fig.2b path has a SHA-256-pinned fallback to the byte-identical current authority bundle"
+    ],
+    "formal_fig2b_expected_sha256": "6516038495c5a90a5b59733dc12fdbb41a2c25fa5a77d7abb35fb01566ffd7bf",
+    "formal_fig2b_fallback_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2/data/panel_b_plot_data.csv"
+  },
+  "stable_bundle": {
+    "path": "results/paper_figure_multi_seed/fig4_accumulated_history_statistics",
+    "artifact_manifest_sha256": "ac26b71cb281b3fe9865120f398d8609cc6c177ac5997c0632d7288debe32165",
+    "temporary_bundle_common_files": 16,
+    "temporary_bundle_unique_file": "build_fig4_candidate_statistics.py",
+    "common_science_and_receipt_files_byte_identical_except": [
+      "artifact_manifest.json",
+      "run_config.json"
+    ]
+  },
+  "validation": {
+    "command": "python -m src.experiments.runners.fig4_accumulated_history_statistics --output-dir tmp/second_batch_validation/fig4_accumulated_history_statistics",
+    "status": "pass",
+    "science_outputs_compared": 10,
+    "science_outputs": [
+      {
+        "relative_path": "data/fig4a_progressive_network_stage.csv",
+        "sha256": "c78efeaa81e1c76766c2f7c7dda7bcf503c064e645f34595524d805ff3884a62",
+        "bytes": 19883
+      },
+      {
+        "relative_path": "data/fig4b_behavior_depth_network_rates.csv",
+        "sha256": "bc63e028f2da61e8f645fb2b82f26d23c76006a14a0cbd9c336ec38b0bb8d309",
+        "bytes": 2620
+      },
+      {
+        "relative_path": "data/fig4b_behavior_network_contrasts.csv",
+        "sha256": "e5c8f7104752d2cffbf753570d03774bf005e2a6fda4b699717181f171a04285",
+        "bytes": 5086
+      },
+      {
+        "relative_path": "data/fig4b_behavior_network_rates.csv",
+        "sha256": "be6c5454acba0ce6d90eb5130b439e6f24ea088ba49f560667e197687faac790",
+        "bytes": 7394
+      },
+      {
+        "relative_path": "data/fig4c_e_k5_fixed_b_network_scalars.csv",
+        "sha256": "2c135d216e01724021e92c0c46863c76d1e983115ba941aaddec52d828f1395e",
+        "bytes": 16280
+      },
+      {
+        "relative_path": "data/fig4d_k5_event_network_metrics.csv",
+        "sha256": "ab0d40b7126dbc2b6bf2e1d6e284056e586d46cef410a6154ae059420d919b24",
+        "bytes": 1515
+      },
+      {
+        "relative_path": "metrics/authoritative_k5_inference.csv",
+        "sha256": "1c2cf20a8e70f54d9502519da595998d032b64cda6e60f99e00a874ae2ca8533",
+        "bytes": 2711
+      },
+      {
+        "relative_path": "metrics/candidate_inference_new.csv",
+        "sha256": "8faf57dd2152d69550fa293bcb339004857740eb55ee4ab73414dd68b5116146",
+        "bytes": 10075
+      },
+      {
+        "relative_path": "metrics/fig4_candidate_descriptive.csv",
+        "sha256": "9e24f363dd99c7553af619cf1ae5e6200308f065c4794a57e0b29ca982837d4d",
+        "bytes": 10994
+      },
+      {
+        "relative_path": "metrics/fig4_candidate_inference.csv",
+        "sha256": "88096c9d14308b42c4cd713e25775d3b2f6e500b64c33e851a42cc16105fac9e",
+        "bytes": 12559
+      }
+    ],
+    "expected_metadata_differences": [
+      "artifact_manifest.json",
+      "meta/source_manifest.csv",
+      "run_config.json"
+    ],
+    "summary_readme_and_log_match_stable": true,
+    "parent_hashes_unchanged": true
+  },
+  "retained_not_promoted": [
+    {
+      "path": "tmp/paper_methods_audit/build_supplementary_copy.py",
+      "sha256": "0beba1808d5c931d024816cc9a022b3750df7f7ef73075154b60460ed2814093",
+      "classification": "protected_one_off_author_workflow_until_V6_1_and_supplementary_QA_close",
+      "active_reference_count_found": 0,
+      "canonical_reader_facing_builder": "scripts/build_supplementary_information.py",
+      "canonical_builder_sha256": "f14900a1bd760ee247998371984c2bc9966c6b136afdbc7f02076b42ac87728f"
+    }
+  ],
+  "explicit_exclusions": [
+    ".codex/tmp/** (no deletion)",
+    "cache/**",
+    "cache_data/**",
+    "data/MNIST/**",
+    "docs/paper active manuscripts",
+    ".pi/manuscript_review/**"
+  ]
+}

@@ -1,0 +1,4 @@
+# Normalize source-controlled governance tables without touching ignored result data.
+docs/**/*.md text eol=lf
+docs/paper/revisions/*.csv text eol=lf
+archive/move_ledgers/*.csv text eol=lf

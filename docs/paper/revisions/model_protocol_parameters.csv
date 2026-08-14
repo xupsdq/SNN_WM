@@ -1,0 +1,31 @@
+group,parameter,value,source
+architecture,layers,"3-layer feedforward: L1 2->30 (5x5 k, pad2, stride1), L2 30->150 (3x3 k, pad2, stride1), L3 10 classes x 20 neurons (input spatial size 8)",src/core/network.py:SDNN_Network.__init__
+architecture,pooling,2x2 max-pooling after L1 and L2,src/core/network.py:SDNN_Network.__init__
+architecture,competition,"top-k WTA per layer: k=5 (L1), k=10 (L2), k=1 (L3)",src/core/network.py:SDNN_Network.__init__
+architecture,lateral inhibition,"Gaussian lateral inhibition, strength 20 mV (L1,L2), 10 mV (L3); tau_inh=10 ms",src/core/network.py
+neuron,V_reset,-60 mV,src/core/network.py:BaseLIFLayer
+neuron,V_L,-70 mV,src/core/network.py:BaseLIFLayer
+neuron,V_E,0 mV,src/core/network.py:BaseLIFLayer
+neuron,C_m,0.1 nF,src/core/network.py:BaseLIFLayer
+neuron,g_m,10 nS,src/core/network.py:BaseLIFLayer
+neuron,tau_e,5 ms,src/core/network.py:BaseLIFLayer
+neuron,refractory,20 ms,src/core/network.py:BaseLIFLayer (tau_rp)
+neuron,dt,1 ms,src/core/network.py:BaseLIFLayer
+stsp,U,0.2,src/core/network.py:BaseLIFLayer
+stsp,tau_D,100 ms,src/core/network.py:BaseLIFLayer
+stsp,tau_F,1000 ms,src/core/network.py:BaseLIFLayer
+stsp,init,"u=U, x=1; valid interval constraints",src/core/network.py:BaseLIFLayer.reset_state
+stsp,training,STSP disabled during training (enable_stsp=False),results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_run_config.json
+stsp,gain compensation,weights scaled by 1/U = 5 at load to preserve baseline drive,src/experiments/common/model_io.py:compensate_stsp_gain
+encoding,preprocess,"ON/OFF DoG kernels 7x7, sigma1=1.0, sigma2=2.0, threshold=0.05, per-channel max normalization",src/data/encoding.py:DoGTransform
+encoding,latency,rank-based latency within 20-step window,src/data/encoding.py:DoGSpikeEncoder
+encoding,theta/gamma,"theta 5 Hz, gamma 50 Hz; active gamma indices 0,3,6",src/data/encoding.py:DoGSpikeEncoder
+encoding,input,28x28 MNIST grayscale; resize+tensor only,src/data/encoding.py:build_mnist_skeleton_loader
+dataset,split,"MNIST 60,000 train / 10,000 test; no validation split",src/data/encoding.py:build_mnist_skeleton_loader
+training,batch_size,512,results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_run_config.json
+training,epochs,"L1: 2, L2: 10, L3: 100",results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_run_config.json
+training,learning,"L1/L2: lr=0.001; L3: lr=0.01; tau_plus=20 ms; tau_elig=20 ms; wmin=0, wmax=1 nS; target trace 0.5; reward/punish max 1.0",src/core/network.py
+training,weights init,L1/L2: 0.6 nS; L3: 0.8 nS,src/core/network.py:SDNN_Network.__init__
+ensemble,n,"20 networks, seeds 1000-1019",results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_summary.csv
+ensemble,test accuracy,"mean 91.158%, 95% CI 90.998-91.318%, range 90.76-91.90%",results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/ensemble_summary.csv
+readout,L3 decision,earliest eligible Layer 3 spike at t mod 60 ms == 20 ms,src/core/network.py:RSTDPLayer.forward_step

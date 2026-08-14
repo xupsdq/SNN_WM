@@ -1,0 +1,53 @@
+{
+  "schema": "net_torch_cleanup_execution_v1",
+  "batch_id": "20260814_batch2_low_risk",
+  "started_at": "2026-08-14T05:26:34.298342+00:00",
+  "completed_at": "2026-08-14T05:28:02.353398+00:00",
+  "status": "completed_verified",
+  "approval_scope": "temporary-provenance-promotion plus low-risk cleanup; exclude .codex/tmp, cache, cache_data, data/MNIST, active manuscripts and .pi/manuscript_review",
+  "plan_path": "archive/move_ledgers/cleanup_plan_20260814_batch2.json",
+  "plan_sha256": "09ab8b03b25cd7eee28d4aa808556ceebef8c715196d3cfc0730dd10bd02236f",
+  "files_deleted": 1966,
+  "bytes_deleted": 82970052,
+  "empty_roots_deleted": 4,
+  "protected_files_preserved": 4,
+  "forbidden_targets_deleted": 0,
+  "whole_tree_targets": [
+    "__pycache__",
+    "tools",
+    ".mplconfig",
+    "tmp/pdf_deps",
+    "tmp/second_batch_validation"
+  ],
+  "selective_root": ".pytest_tmp",
+  "empty_tree_targets": [
+    "--help",
+    ".agents",
+    ".codex-tmp",
+    "output"
+  ],
+  "excluded_targets": [
+    ".codex/tmp",
+    "cache",
+    "cache_data",
+    "data/MNIST",
+    "docs/paper",
+    ".pi/manuscript_review"
+  ],
+  "staged_files": 1966,
+  "staged_bytes": 82970052,
+  "pytest_empty_directories_pruned": 489,
+  "receipt_enriched_at": "2026-08-14T05:40:37.787886+00:00",
+  "excluded_targets_verification": {
+    "status": "unchanged_verified",
+    "before_path": "archive/move_ledgers/cleanup_exclusions_before_20260814_batch2.json",
+    "before_sha256": "ed4794e2f550499af9b05d7a45da6f7fcef84b81620f5ab3afa7b0197c44b7b9",
+    "after_path": "archive/move_ledgers/cleanup_exclusions_after_20260814_batch2.json",
+    "after_sha256": "c45685494fe95751c083b486802d95d706738e9bce6ab4c4e1ca3a9d8af0ee68"
+  },
+  "temporary_provenance_promotion": {
+    "path": "archive/move_ledgers/temporary_provenance_promotion_20260814.json",
+    "sha256": "37efd555464b8ac4ffcfd0692ddcb1abdf8463189791e12e8b39be54606a0282",
+    "status": "completed_verified"
+  }
+}

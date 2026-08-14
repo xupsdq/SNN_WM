@@ -1,0 +1,215 @@
+{
+  "schema": "net_torch_paper_authority_v1",
+  "updated_at": "2026-08-14T14:00:35+08:00",
+  "status": "active_working_cycle",
+  "authority_order": [
+    "explicit_user_decision",
+    "docs/paper/PAPER_AUTHORITY.json",
+    "docs/paper/CORE_SCIENTIFIC_LOGIC_CONTRACT.md",
+    "docs/paper/RESULTS_EVIDENCE_BOUNDARIES.md",
+    "current DOCX embedded artwork and the bundle identities recorded here",
+    "current panel contracts and source manifests",
+    "revision plans and historical material"
+  ],
+  "manuscript": {
+    "main_baseline": {
+      "path": "docs/paper/v6.docx",
+      "status": "formal_v6_baseline",
+      "role": "Stable baseline for the current author-confirmed V6.1 construction cycle; not the final submission artifact.",
+      "sha256": "64b05e8bb85de598676b3a451526273dd215c3ca19d112be2816c6789f8bc90d",
+      "embedded_figure_mapping": [
+        {
+          "figure": "Fig.1",
+          "media_part": "word/media/image1.png",
+          "source_path": "results/paper_figure_redesign_20260811/figures/fig1.png",
+          "sha256": "31c43207f7048296b1cd5ad3eb1928b4fbf4b18654d24f908500bf3c2e8f36b0"
+        },
+        {
+          "figure": "Fig.2",
+          "media_part": "word/media/image2.png",
+          "source_path": "results/paper_figure_redesign_20260811/figures/fig2.png",
+          "sha256": "ef84adea88882c18cafca22bdaf46d8598a47f2f13a62ba6d1fcc6cef6b92833"
+        },
+        {
+          "figure": "Fig.3",
+          "media_part": "word/media/image3.png",
+          "source_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2/figures/fig2.png",
+          "sha256": "2484f057b8ef5cb5c692d823f4a90b6097d0174d74cd35a9c4b736bcacf03394"
+        },
+        {
+          "figure": "Fig.4",
+          "media_part": "word/media/image4.png",
+          "source_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig3/figures/fig3.png",
+          "sha256": "7b334339ade946f59bec8762500ca560d549c20011319de28c385510b87abf43"
+        },
+        {
+          "figure": "Fig.5",
+          "media_part": "word/media/image5.png",
+          "source_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4/figures/fig4.png",
+          "sha256": "5c7d7c11bcf1a777fad4691ee9923f16afefdfa7fe28671ac83bcd80394e1fad"
+        },
+        {
+          "figure": "Fig.6",
+          "media_part": "word/media/image6.png",
+          "source_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig5/figures/fig5.png",
+          "sha256": "70eed24b605a4a2ab5199d7d7a242e9395b6e751a07c2f50c3d520e3fe13a773"
+        },
+        {
+          "figure": "Fig.7",
+          "media_part": "word/media/image7.png",
+          "source_path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig6/figures/fig6.png",
+          "sha256": "16b34a5de20b70de1be0cfcce785523a2cba7ce65f3d6a3fb6993da8348c4365"
+        }
+      ]
+    },
+    "main_working": {
+      "path": "docs/paper/v6_1.docx",
+      "status": "in_progress_author_confirmed_merge",
+      "role": "Current V6.1 working copy built only from individually confirmed replacements.",
+      "sha256": null,
+      "hash_policy": "Do not freeze or promote while docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md still has pending items."
+    },
+    "main_candidate_source": {
+      "path": "docs/paper/v6 - 副本.docx",
+      "status": "candidate_source_not_current",
+      "role": "Selective revision source; never promote wholesale without author review.",
+      "sha256": "ad04a205bd01f6e0a320d489584b20930ca548aefa1f1e5fbcb083a0876e1494"
+    },
+    "supplementary_baseline": {
+      "path": "docs/paper/supplementary_information.docx",
+      "status": "formal_supplementary_baseline",
+      "role": "Stable supplementary baseline pending author-confirmed V6.1 integration.",
+      "sha256": "f870105554c82da02b3780c043c562b5c830aa758780d274f53c09794d795443",
+      "embedded_figure_mapping": [
+        {
+          "figure": "Supplementary Fig. S1",
+          "media_part": "word/media/image1.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s1.png",
+          "sha256": "13dd85e9ac1c9248b2e936ffafbda43dc7ad8c12d26543b3648eb375adb7ea4f"
+        },
+        {
+          "figure": "Supplementary Fig. S2",
+          "media_part": "word/media/image2.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s2.png",
+          "sha256": "fc4afd5f2ea34b64f541ba4ee6e384da4917590ca6edd4eb0f12d3aa00e0a07d"
+        },
+        {
+          "figure": "Supplementary Fig. S3",
+          "media_part": "word/media/image3.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s3.png",
+          "sha256": "ce7c21140fb0059d73679ecab0400392f0fd4187f5556840ea1467fa70ae070b"
+        },
+        {
+          "figure": "Supplementary Fig. S4",
+          "media_part": "word/media/image4.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s4.png",
+          "sha256": "1ce7f6f8039e0106aa6fb704215a732dea635b325043ae3dece0dc149442262d"
+        },
+        {
+          "figure": "Supplementary Fig. S5",
+          "media_part": "word/media/image5.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s5.png",
+          "sha256": "3daf03992dfb471648c3d1a7b5ec81696f5c24cd5f11bfa0336e015749f7781e"
+        },
+        {
+          "figure": "Supplementary Fig. S6",
+          "media_part": "word/media/image6.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s6.png",
+          "sha256": "f0a2f9b7851a580f05d5940aa69edd5ba574cdc3f606b5c0b545deb859609f43"
+        },
+        {
+          "figure": "Supplementary Fig. S7",
+          "media_part": "word/media/image7.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/figures/supp_fig_s7.png",
+          "sha256": "f59898383e8f6492ff38ee61e908808a284df9e49bd204f6d686bd767dce0ad5"
+        }
+      ]
+    },
+    "supplementary_candidate_source": {
+      "path": "docs/paper/supplementary_information - 副本.docx",
+      "status": "candidate_source_not_current",
+      "role": "Selective Methods/Supplementary revision source; contains unresolved submission blockers and must not replace the baseline wholesale.",
+      "sha256": "4089a74bcadbab61a06df13a38d6a5dc765362fc8b34d51e84672da3d2c4bf7e"
+    }
+  },
+  "evidence": {
+    "redesign_bundle": {
+      "path": "results/paper_figure_redesign_20260811",
+      "role": "Current manuscript Fig.1 mechanism artwork and Fig.2 relabelled inherited-state artwork.",
+      "artifact_manifest_sha256": "bc04e14bc788962c8556d04b05b74ebcec6bf6c59f05a6a5a041cd607516b0ac"
+    },
+    "redesign_parent_bundle": {
+      "path": "results/paper_figure_multi_seed/final_six_figures",
+      "role": "Pinned parent data used by the current Fig.2 redesign bundle."
+    },
+    "main_statistics_bundle": {
+      "path": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810",
+      "role": "Current manuscript Fig.3-Fig.7 data, statistics, artwork, and source manifests; internal bundle fig2-fig6 map to manuscript Fig.3-Fig.7.",
+      "artifact_manifest_sha256": "9a7c170704d38ecb5488880d9d78a7adf588ec0edfb5804969cdef18e3e272a0"
+    },
+    "supplementary_s1_s6_bundle": {
+      "path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2",
+      "role": "Current Supplementary Fig. S1-S6 data, statistics, and artwork.",
+      "artifact_manifest_sha256": "5fa77fde5454704a95cec721b02ccdc3e02b620b037c128d2f250add77aca70c"
+    },
+    "supplementary_s7_bundle": {
+      "path": "results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1",
+      "role": "Current complete-paired-row Supplementary Fig. S7 correction.",
+      "artifact_manifest_sha256": "83655ad6e0c5643ae6a4978ef695c21f5e8ccf36e3077c7c9cd3a5e5597100c8"
+    },
+    "direct_parent_roots": [
+      "results/causal_closure_multi_seed_20260803",
+      "results/multi_seed_rollout/fig1_time_binned_firing",
+      "results/multi_seed_rollout/fig2",
+      "results/paper_figure_multi_seed/fig1_functional_stsp_substrate",
+      "results/paper_figure_multi_seed/fig2_fixed_b_mechanism_confirmatory",
+      "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state",
+      "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape",
+      "results/paper_figure_multi_seed/fig4_accumulated_history_statistics",
+      "results/paper_figure_multi_seed/fig4_overlap_reentry",
+      "results/paper_figure_multi_seed/fig5_local_support_competition",
+      "results/paper_figure_multi_seed/fig6_peak_amplified_reentry",
+      "results/paper_figure_multi_seed/new_results_reanalysis",
+      "results/paper_figure_multi_seed/supplementary_v5",
+      "results/paper_figures/outputs",
+      "MNIST"
+    ],
+    "lineage_status": {
+      "status": "open_upstream_gap",
+      "register": "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json",
+      "expected_unique_missing_files": 40,
+      "expected_unique_missing_bytes": 1660149353,
+      "frozen_bundle_mutation_allowed": false
+    }
+  },
+  "contracts": {
+    "core_scientific_logic": {
+      "path": "docs/paper/CORE_SCIENTIFIC_LOGIC_CONTRACT.md",
+      "sha256": "523b3cd3b12bbb78797efceafc991fd2ef69c8c3ce9c8f2892aa56274309ca44"
+    },
+    "results_evidence_boundaries": {
+      "path": "docs/paper/RESULTS_EVIDENCE_BOUNDARIES.md",
+      "sha256": "389fa6bc2e42b1e0fcc4d691a280bf96c5f4c978caf6e693c1b745db72a07135"
+    },
+    "panel_contract_root": "docs/paper/results_state_transition_program",
+    "working_confirmation_log": "docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md"
+  },
+  "naming_boundary": {
+    "manuscript_figure_ids": "Fig.1-Fig.7",
+    "runtime_and_final_six_internal_ids": "fig1-fig6",
+    "rule": "Do not rename historical result roots or runtime task IDs to match manuscript numbering; use the explicit mapping above."
+  },
+  "reproducibility_policy": {
+    "pre_submission_level": "full_dag",
+    "decision": "Preserve results/multi_seed_rollout, results/multi_snn, current direct parents, datasets, and frozen bundles in place until a later explicit cold-archive decision.",
+    "archive_by_mtime_alone": false,
+    "scientific_artifact_deletion_authorized": false,
+    "regenerable_cleanup": {
+      "status": "batch2_completed_verified",
+      "receipt": "archive/move_ledgers/cleanup_execution_20260814_batch2.json",
+      "files_deleted": 1966,
+      "bytes_deleted": 82970052,
+      "remaining_high_risk_targets_authorized": false
+    }
+  }
+}

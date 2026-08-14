@@ -130,16 +130,64 @@ sandbox_document.xml
 # 10) Local agent / scratch workspaces
 # =========================
 .codex/
-docs/
-reviews/
+.codex-tmp/
+.tmp/
 tmp/
+tmp_audit/
+.playwright-mcp/
+.pi/
 .claude/
-!docs/archive/
-!docs/archive/**
-!docs/evidence/
-!docs/evidence/logs/
-!docs/evidence/logs/**
-docs/evidence/generated/
+reviews/
 fig/
 tools/
-scripts/
+
+# =========================
+# 11) Track governance/control files while keeping bulk artifacts ignored
+# =========================
+# docs/: version the active control plane, not DOCX/PDF/ZIP packages or deep history.
+!docs/
+docs/*
+!docs/README.md
+!docs/INVENTORY.md
+!docs/DOCUMENTATION_ARCHITECTURE.md
+!docs/experiments/
+!docs/experiments/**
+!docs/paper/
+docs/paper/*
+!docs/paper/README.md
+!docs/paper/*.md
+!docs/paper/*.json
+!docs/paper/results_state_transition_program/
+!docs/paper/results_state_transition_program/**
+!docs/paper/review_standard/
+!docs/paper/review_standard/*.md
+!docs/paper/revisions/
+docs/paper/revisions/*
+!docs/paper/revisions/*.md
+!docs/paper/revisions/*.csv
+!docs/archive/
+docs/archive/*
+!docs/archive/README.md
+
+# results/: only navigation and archive policy are source-controlled here.
+!results/
+results/*
+!results/README.md
+!results/archive/
+results/archive/*
+!results/archive/README.md
+
+# root archive/: keep bulk history ignored but version the index and move ledgers.
+!archive/
+archive/*
+!archive/README.md
+!archive/move_ledgers/
+!archive/move_ledgers/**
+
+# Maintenance scripts and source-owned manual assets are live project inputs.
+!scripts/
+!scripts/**
+scripts/**/__pycache__/
+scripts/**/*.py[cod]
+!src/plotting/paper_fig/assets/
+!src/plotting/paper_fig/assets/**

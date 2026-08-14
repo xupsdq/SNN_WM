@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1560" height="420" viewBox="0 0 1560 420">
+  <defs>
+    <marker id="arrow-input" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#0072B2"/></marker>
+    <marker id="arrow-firing" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#4D91B8"/></marker>
+    <marker id="arrow-decay" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#B08B50"/></marker>
+    <marker id="arrow-later" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#7380AF"/></marker>
+    <clipPath id="img-previous"><rect x="167" y="62" width="96" height="96" rx="9"/></clipPath>
+    <clipPath id="img-current"><rect x="537" y="62" width="96" height="96" rx="9"/></clipPath>
+    <clipPath id="img-later"><rect x="1277" y="62" width="96" height="96" rx="9"/></clipPath>
+    <symbol id="state-k" viewBox="0 0 180 180">
+      <g fill="#009E73" stroke="#FFFFFF" stroke-width="2.2">
+        <circle cx="35" cy="48" r="10"/><circle cx="90" cy="30" r="8"/><circle cx="142" cy="51" r="7"/>
+        <circle cx="58" cy="82" r="6"/><circle cx="108" cy="66" r="11"/><circle cx="151" cy="94" r="8"/>
+        <circle cx="31" cy="124" r="9"/><circle cx="78" cy="116" r="8"/><circle cx="122" cy="130" r="7"/>
+        <circle cx="154" cy="148" r="8"/><circle cx="54" cy="153" r="6"/><circle cx="100" cy="97" r="9"/>
+      </g>
+    </symbol>
+    <symbol id="state-k1" viewBox="0 0 180 180">
+      <g fill="#009E73" fill-opacity=".72" stroke="#FFFFFF" stroke-width="2.2">
+        <circle cx="35" cy="48" r="6"/><circle cx="90" cy="30" r="5"/><circle cx="142" cy="51" r="4"/>
+        <circle cx="58" cy="82" r="4"/><circle cx="108" cy="66" r="7"/><circle cx="151" cy="94" r="5"/>
+        <circle cx="31" cy="124" r="5"/><circle cx="78" cy="116" r="5"/><circle cx="122" cy="130" r="4"/>
+        <circle cx="154" cy="148" r="5"/><circle cx="54" cy="153" r="4"/><circle cx="100" cy="97" r="5"/>
+      </g>
+    </symbol>
+    <symbol id="spike-set-c" viewBox="0 0 180 180">
+      <g fill="#0072B2" stroke="#FFFFFF" stroke-width="2.2">
+        <circle cx="90" cy="30" r="10"/><circle cx="58" cy="82" r="8"/><circle cx="108" cy="66" r="13"/>
+      </g>
+    </symbol>
+    <symbol id="spike-set-next" viewBox="0 0 180 180">
+      <g fill="#0072B2" stroke="#FFFFFF" stroke-width="2.2">
+        <circle cx="90" cy="30" r="7"/><circle cx="108" cy="66" r="9"/><circle cx="122" cy="130" r="6"/>
+      </g>
+    </symbol>
+  </defs>
+  <rect width="1560" height="420" fill="#FFFFFF"/>
+  <g font-family="Arial, 'DejaVu Sans', sans-serif" text-anchor="middle" font-size="17" font-weight="700">
+    <text x="215" y="27" fill="#287D69">Previous input → inherited state</text>
+    <text x="585" y="27" fill="#246F99">Sparse firing → immediate gain</text>
+    <text x="955" y="27" fill="#8A6A35">Inter-input decay</text>
+    <text x="1325" y="27" fill="#626FA3">Later firing → immediate gain</text>
+  </g>
+  <rect x="40" y="40" width="350" height="350" rx="16" fill="#F0F8F5" stroke="#76B6A4" stroke-width="2.2"/>
+  <rect x="410" y="40" width="350" height="350" rx="16" fill="#F0F7FB" stroke="#7FB3D0" stroke-width="2.2"/>
+  <rect x="780" y="40" width="350" height="350" rx="16" fill="#FBF7EF" stroke="#D2B47D" stroke-width="2.2"/>
+  <rect x="1150" y="40" width="350" height="350" rx="16" fill="#F4F5FA" stroke="#9EA9CF" stroke-width="2.2"/>
+  <rect x="163" y="58" width="104" height="104" rx="12" fill="#172027"/>
+  <image x="167" y="62" width="96" height="96" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAA9klEQVR42mNgGGiQWFs7+f87A6xy7n/+AsFCJqySjSC5N8ZY5RTvgySfqWGTa3jz90nd3r9/e7DJ/fy7xTT5y9+/P5sx5Hxf/H2sxDARbKsymlz4z7+PzRgYuA+DZDPQJC+C5RgYHA79/ftCFFWu4uffBghL7+/fV7aokh///lWAsHhCX/z9EYwmuY0Txu74+zcPWS7o19/ZcA7Xrr8nkCVTfv+NRPDc/n5AM3YFK5yTjyb55O9fcxYoO+3G3/koknov/v6t5gOxWDRu/P2ki+qXlK9//97uB4LFf//+mYUetrov/0LBi0zMWNFdBpZ6Vq0zoCkVAEXWh5oFUB7EAAAAAElFTkSuQmCC" image-rendering="pixelated" clip-path="url(#img-previous)"/>
+  <rect x="533" y="58" width="104" height="104" rx="12" fill="#172027"/>
+  <image x="537" y="62" width="96" height="96" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAAjklEQVR42mNgGAQg6H8WTjnGxX8n4JSU//v3qTAuycJ/B5VYcMg5vPvXhdPUD39fV+OU/Pk3DqfchL+4JeU//L0ihkvS5u/fRpymdv/9G41T8tS/v+G45Ng+/L3MgUsy9O/f0zhNjf/377M6LskdeHRq/fj37wwuyaZ/f//h9KbLhd//9HEnEednLAOeTAHIpzlrYDG+sAAAAABJRU5ErkJggg==" image-rendering="pixelated" clip-path="url(#img-current)"/>
+  <rect x="903" y="58" width="104" height="104" rx="12" fill="#172027"/>
+  <rect x="907" y="62" width="96" height="96" rx="9" fill="#000000"/>
+  <rect x="1273" y="58" width="104" height="104" rx="12" fill="#172027"/>
+  <image x="1277" y="62" width="96" height="96" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAAxklEQVR42mNgoA6Qv/B/Jy45ydN//27HISd06u/fv/EYwpZgcuvfv1/CGDEkm0AE7+G/f8/hsnHl37+XlXHINf/5+7cWhxzrTKBrxHBIqgPldnJjl5M99vfvQxxyDLFAjcUgBrviRj1OLJIuIMYEIGOVO1ZJ9gm/gIy/HzSwSSoCqfW1f//qYpPc+PfvN2877JLCR/7+nWx3Cl1S6drfv7sW7fsLBaiSDA1/kcB5KVRJ9sabCMmJGOGglJycfB4s98OSYQgCAGvDiUqPuJvFAAAAAElFTkSuQmCC" image-rendering="pixelated" clip-path="url(#img-later)"/>
+  <rect x="112" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#58A68F" stroke-width="2.4"/>
+  <rect x="482" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#579AC1" stroke-width="2.4"/>
+  <rect x="852" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#B9975C" stroke-width="2.4"/>
+  <rect x="1222" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#7E8BBC" stroke-width="2.4"/>
+  <use href="#state-k" x="125" y="176" width="180" height="180"/>
+  <use href="#state-k" x="495" y="176" width="180" height="180"/>
+  <use href="#spike-set-c" x="495" y="176" width="180" height="180"/>
+  <use href="#state-k1" x="865" y="176" width="180" height="180"/>
+  <use href="#state-k1" x="1235" y="176" width="180" height="180"/>
+  <use href="#spike-set-next" x="1235" y="176" width="180" height="180"/>
+  <path d="M215 164V174" fill="none" stroke="#0072B2" stroke-width="3.6" marker-end="url(#arrow-input)"/>
+  <path d="M585 164V174" fill="none" stroke="#0072B2" stroke-width="3.6" marker-end="url(#arrow-input)"/>
+  <path d="M955 164V174" fill="none" stroke="#B08B50" stroke-width="3.6" stroke-dasharray="3 2" marker-end="url(#arrow-decay)"/>
+  <path d="M1325 164V174" fill="none" stroke="#0072B2" stroke-width="3.6" marker-end="url(#arrow-input)"/>
+  <path d="M330 266H470" fill="none" stroke="#4D91B8" stroke-width="4" marker-end="url(#arrow-firing)"/>
+  <path d="M700 266H840" fill="none" stroke="#B08B50" stroke-width="4" marker-end="url(#arrow-decay)"/>
+  <path d="M1070 266H1210" fill="none" stroke="#7380AF" stroke-width="4" marker-end="url(#arrow-later)"/>
+  <g font-family="Arial, 'DejaVu Sans', sans-serif" text-anchor="middle" font-size="16.5" font-weight="700">
+    <text x="215" y="371" fill="#287D69">Inherited state S<tspan baseline-shift="sub" font-size="11">k</tspan></text>
+    <text x="585" y="371" fill="#246F99">Spiking under S<tspan baseline-shift="sub" font-size="11">k</tspan></text>
+    <text x="955" y="371" fill="#8A6A35">Successor S<tspan baseline-shift="sub" font-size="11">k+1</tspan></text>
+    <text x="1325" y="371" fill="#626FA3">Spiking under S<tspan baseline-shift="sub" font-size="11">k+1</tspan></text>
+  </g>
+</svg>

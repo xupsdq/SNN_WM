@@ -1,0 +1,33 @@
+{
+  "collection": "Tabler Icons",
+  "version": "3.46.0",
+  "repository": "https://github.com/tabler/tabler-icons",
+  "license": "MIT",
+  "license_file": "LICENSE",
+  "icons": [
+    {
+      "name": "target-arrow",
+      "file": "target-arrow.svg",
+      "source": "https://github.com/tabler/tabler-icons/blob/v3.46.0/icons/outline/target-arrow.svg",
+      "sha256": "a4849dde7384523b8f68f26ed69d38b49d9af51be3ccb0f833ceb7591ad5e689"
+    },
+    {
+      "name": "matrix",
+      "file": "matrix.svg",
+      "source": "https://github.com/tabler/tabler-icons/blob/v3.46.0/icons/outline/matrix.svg",
+      "sha256": "4227d71ff15c2c10bfad6e1cd8cb27242b71720bcab4a1a8fc309edde593d2f4"
+    },
+    {
+      "name": "hierarchy-3",
+      "file": "hierarchy-3.svg",
+      "source": "https://github.com/tabler/tabler-icons/blob/v3.46.0/icons/outline/hierarchy-3.svg",
+      "sha256": "71c1f1c35c974f759ec233b4f932379149f838a8890dc5858da4660936ad0d11"
+    },
+    {
+      "name": "replace",
+      "file": "replace.svg",
+      "source": "https://github.com/tabler/tabler-icons/blob/v3.46.0/icons/outline/replace.svg",
+      "sha256": "c6ac985739b5e14531647302ad8fc34a6e82f465fa7c56793cdc8d7525651dee"
+    }
+  ]
+}

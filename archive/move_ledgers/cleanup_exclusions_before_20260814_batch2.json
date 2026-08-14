@@ -1,0 +1,44 @@
+{
+  "schema": "net_torch_cleanup_exclusion_snapshot_v1",
+  "captured_at": "2026-08-14T05:20:13.598583+00:00",
+  "phase": "before_batch2_cleanup",
+  "paths": {
+    ".codex/tmp": {
+      "exists": true,
+      "file_count": 37437,
+      "total_bytes": 9370839904,
+      "symlink_count": 34,
+      "scan_errors": 0
+    },
+    "cache": {
+      "exists": true,
+      "file_count": 2902,
+      "total_bytes": 158300929,
+      "symlink_count": 0,
+      "scan_errors": 0,
+      "tree_sha256": "315f4d62e7ccc9310274b5974b1e4fdc7d814341bd44e8c2648fd96d47307a5b"
+    },
+    "cache_data": {
+      "exists": true,
+      "file_count": 2,
+      "total_bytes": 220083402,
+      "symlink_count": 0,
+      "scan_errors": 0,
+      "tree_sha256": "1a202b87c8aa157dbc5d635d3cc9cb2051185f1903a004f5c9657557853b54a0"
+    },
+    "data/MNIST": {
+      "exists": true,
+      "file_count": 6,
+      "total_bytes": 54983471,
+      "symlink_count": 0,
+      "scan_errors": 0,
+      "tree_sha256": "84fc321f4d1cbc60daed0497f81d3bfa0639b4e9aa12f774ce0a503c75ede864"
+    }
+  },
+  "sentinels": {
+    ".codex/tmp/fig4_candidate_statistics_20260731_KEEP/build_fig4_candidate_statistics.py": "302df6fc58490223374deef19318c9a1c035a91527523440caaa4059382b7ba9",
+    "docs/paper/v6.docx": "64b05e8bb85de598676b3a451526273dd215c3ca19d112be2816c6789f8bc90d",
+    "docs/paper/supplementary_information.docx": "f870105554c82da02b3780c043c562b5c830aa758780d274f53c09794d795443",
+    "tmp/paper_methods_audit/build_supplementary_copy.py": "0beba1808d5c931d024816cc9a022b3750df7f7ef73075154b60460ed2814093"
+  }
+}
