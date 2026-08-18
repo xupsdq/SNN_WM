@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
+
 
 FIGURE_IDS = {
     "fig1": "fig1_functional_stsp_substrate",
@@ -37,6 +39,7 @@ SHARED_SEQUENCE_TASK = "shared_sequence_root_bank"
 DEFAULT_WARMUP_OUTPUT_ROOT = Path("results/paper_figure_warm_cache")
 MULTI_SEED_ROLLOUT_OUTPUT_ROOT = Path("results/multi_seed_rollout")
 MULTI_SEED_ROLLOUT_SEEDS = tuple(range(1000, 1020))
+DEFAULT_DATASET_ROOT = str(DEFAULT_PROJECT_DEFAULTS.paths.dataset_root)
 
 PRESETS = ("core", "extended", "fig3_fig6", "fig4", "multi_seed_rollout")
 REUSE_MODES = ("auto", "force")
@@ -229,7 +232,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         help="Output root. Defaults to results/multi_seed_rollout for --preset multi_seed_rollout, otherwise results/paper_figure_warm_cache.",
     )
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
-    parser.add_argument("--dataset-root", default="MNIST")
+    parser.add_argument("--dataset-root", default=DEFAULT_DATASET_ROOT)
     parser.add_argument("--model-path-glob", default="results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_*/net_final.pth")
     parser.add_argument("--split", default="test", choices=["train", "test"])
     parser.add_argument("--batch-size", type=int, default=None, help="Optional batch size forwarded to figure-local and shared sequence-root tasks.")

@@ -24,7 +24,7 @@ def build_default_path_config() -> PathConfig:
     results_root = repo_root / "results"
     return PathConfig(
         repo_root=repo_root,
-        dataset_root=repo_root / "MNIST",
+        dataset_root=repo_root / "data" / "MNIST",
         results_root=results_root,
         model_path=results_root / "sdnn_deep_final" / "net_final.pth",
     )

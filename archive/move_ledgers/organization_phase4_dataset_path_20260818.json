@@ -1,0 +1,66 @@
+{
+  "schema": "net_torch_dataset_path_migration_v1",
+  "batch_id": "organization_phase4_dataset_path_20260818",
+  "status": "completed_verified",
+  "executed_at": "2026-08-18",
+  "canonical_dataset_root": "data/MNIST",
+  "legacy_compatibility_root": "MNIST",
+  "physical_file_moves": 0,
+  "files_deleted": 0,
+  "canonical_raw_file_count": 6,
+  "canonical_raw_bytes": 54983471,
+  "canonical_raw_files": [
+    {
+      "path": "data/MNIST/raw/t10k-images-idx3-ubyte",
+      "bytes": 7840016,
+      "sha256": "0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7"
+    },
+    {
+      "path": "data/MNIST/raw/t10k-labels-idx1-ubyte",
+      "bytes": 10008,
+      "sha256": "ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2"
+    },
+    {
+      "path": "data/MNIST/raw/t10k-labels-idx1-ubyte.gz",
+      "bytes": 4542,
+      "sha256": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+    },
+    {
+      "path": "data/MNIST/raw/train-images-idx3-ubyte",
+      "bytes": 47040016,
+      "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+    },
+    {
+      "path": "data/MNIST/raw/train-labels-idx1-ubyte",
+      "bytes": 60008,
+      "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+    },
+    {
+      "path": "data/MNIST/raw/train-labels-idx1-ubyte.gz",
+      "bytes": 28881,
+      "sha256": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c"
+    }
+  ],
+  "legacy_raw_equivalence": {
+    "legacy_root": "MNIST/raw",
+    "canonical_root": "data/MNIST/raw",
+    "matching_files": 6,
+    "comparison": "relative filenames, sizes and SHA-256 match"
+  },
+  "updated_code_paths": [
+    "src/config/paths.py",
+    "src/data/encoding.py",
+    "src/training/train_sdnn.py",
+    "src/training/train_sdnn_ensemble.py",
+    "src/experiments/paper_figures/fig6b_order_specificity/types.py",
+    "src/experiments/paper_figures/fig6b_order_specificity/run_task.py",
+    "src/experiments/paper_figures/run_upstream_artifact_warmup.py",
+    "src/experiments/paper_figures/final_six/builders.py",
+    "scripts/capture_formal_run_provenance.py",
+    "scripts/repository_archive_audit.py"
+  ],
+  "historical_artifacts_rewritten": 0,
+  "compatibility_policy": "Explicit dataset-root=MNIST remains supported; historical manifests and result bundles are preserved as provenance.",
+  "residual_risk": "New canonical dataset-root values produce new artifact cache-key identities; old require-mode bundles must use the explicit legacy root or be regenerated under a new version.",
+  "audit_report": "tmp/organization_phase4_dataset_path_20260818.md"
+}

@@ -16,7 +16,7 @@ from typing import Iterable
 
 DEFAULT_MODEL_PATH_GLOB = "results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20/seed_*/net_final.pth"
 DEFAULT_OUTPUT_ROOT = "results/paper_figure_multi_seed"
-DEFAULT_DATASET_ROOT = "MNIST"
+DEFAULT_DATASET_ROOT = "data/MNIST"
 DEFAULT_HASH_ROOTS = (
     "src/experiments/paper_figures",
     "src/experiments/common",

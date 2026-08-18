@@ -1,0 +1,24 @@
+flowchart LR
+  authority["PAPER_AUTHORITY.json"]
+  runtime["Runtime DAGs\nfig1–fig6 + shared root"]
+  legacy["Legacy 20-seed bundles"]
+  aux["Runners / reanalysis / C5"]
+  final["final-statistics\nload-only bundles"]
+  redesign["Fig.1–Fig.2 redesign"]
+  plots["Plot-only leaves\nFig.1–Fig.7 + S1–S7"]
+  warmup["artifact warmup"]
+  batch["run_paper_figures"]
+  warmup -->|orchestrates| runtime
+  batch -->|orchestrates| legacy
+  final -->|consumes| legacy
+  final -->|consumes| aux
+  redesign -->|consumes| final
+  plots -->|presents| final
+  plots -->|presents| redesign
+  runtime -.->|aliases| legacy
+  classDef authority fill:#F5F3FF,stroke:#7C3AED,color:#111827
+  classDef producer fill:#DBEAFE,stroke:#1D4ED8,color:#111827
+  classDef current fill:#DCFCE7,stroke:#15803D,color:#111827
+  class authority authority
+  class runtime,legacy,aux,warmup,batch producer
+  class final,redesign,plots current

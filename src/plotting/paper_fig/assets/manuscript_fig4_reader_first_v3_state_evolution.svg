@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1500" height="430" viewBox="0 0 1500 430">
+<defs><marker id="arrow-neutral" viewBox="0 0 10 10" markerWidth="3.8" markerHeight="3.8" refX="8.2" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#666666"/></marker><clipPath id="clip-previous"><rect x="164.0" y="58.0" width="112.0" height="112.0" rx="10"/></clipPath><clipPath id="clip-current"><rect x="332.0" y="58.0" width="112.0" height="112.0" rx="10"/></clipPath></defs>
+<rect width="1500" height="430" fill="#FFFFFF"/>
+<g font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" fill="#222222"><circle cx="1110" cy="29" r="9" fill="#009E73"/><text x="1130" y="39" text-anchor="start">STSP state</text><line x1="1320" y1="18" x2="1320" y2="40" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/><text x="1340" y="39" text-anchor="start">firing</text></g>
+<g font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" text-anchor="middle" fill="#222222"><text x="220.0" y="38">Previous A</text><text x="388.0" y="38">Current B</text></g>
+<image id="input-previous" data-image-id="9301" x="164.0" y="58.0" width="112.0" height="112.0" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHAAAABwCAAAAADji6uXAAAA8klEQVR4nO3XsUmEURRE4U9ZTEwV1gLEfAswMdlYrMMGbMZU7EAEMbQFTQURNDQVgx8LeDdQ3mVOPhyY4cJ7hBBCCGGnGtziFhu8DOR2q8Iq/YWravAU+ziQDSOMMMIII4wwwn8Xlt808IXPwUz/Sufa8APPg5n+lc6z4YVlw1H6VzrPhnu4K+T6VzrHhldYF4X9K51jwyPLHVboX+kcG/7yUMj0r3SuDd8Kmf6VRhjhMKU73Fhu8L2Q7V/pHBueWP6GhzjDzUC2f6VzbAjHeML5YK5/pfNs+I1L3A/m+lc6x4aPeMV1Idu/0j8XhhBCCIEfgjgVtzjIJJcAAAAASUVORK5CYII=" image-rendering="pixelated" clip-path="url(#clip-previous)"/>
+<image id="input-current" data-image-id="3536" x="332.0" y="58.0" width="112.0" height="112.0" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHAAAABwCAAAAADji6uXAAACOUlEQVR4nO3ZTYiNURwG8J8xJWZDphQbhYZoFpQyCyMbJQtNIk0pKQszS0VKBks1+UgSo6ylLCxQs1B2okZsTRYaNGmYfOQjFuedZrpz33tfo6bT6Tybez6e8z/1PP3P/9z3kJGRkZGRkbFgLosOY1XRXoF+fMROjDRZ2zKXDf8H6W/Y+q8LduFGzdhv3MeLCuvTlzR+D7vqjE3gMv5UWJ++pHF7uBqH6oz/wOeKMdKXdN43rFwPB4S6txTvcB070F3MX8TxCnHSlzTOPBzAyYL8oOh3YusMTj++4XSTWOlLGl8e7sFNtGMM2zGKS+ir4U4Ivr5uEC99SePy8ABuC/k3hh48LeaW4CG21azpE87ZMqQvaVwejmCj2f5NoRvnTd9Vx7Gp+C1D+pLGUw9PoKNoD5ntHzwW6uDzot+C9XjSYMP0JY0nDz+hrWivwZsSXht244pQM3+hF3dL+OlLGk8eTuER3jeY/4I72CL8t2jFygb89CWNw8MeLC7ab/G9QqBz2Cx8M+0V8rIe0pc0Dg+XmT5khysG+ooLgocdDXjpSxqHh0MYFGrdXqG2/awQbEMFTvqSxuEhTAoe7hP8fCa8T5ThKI4V7XsNeOlLGs+9tFO4z7QX/TPC28RkDW8h1gm+rRXO1C68LImbvqTxeAhHBN8WFf1R4Z1wJtpxcEb/lpCTZUhf0rg8JHx3GcbyJrxxnMW1Jrz0JY3PQ4KPp7C/ztwHXBXO0lcVYqUv6bxvmJGRkZGRkcFffjBT+tk1GjYAAAAASUVORK5CYII=" image-rendering="pixelated" clip-path="url(#clip-current)"/>
+<rect x="164.0" y="58.0" width="112.0" height="112.0" rx="10" fill="none" stroke="#D9D9D9" stroke-width="2.0"/>
+<rect x="332.0" y="58.0" width="112.0" height="112.0" rx="10" fill="none" stroke="#D9D9D9" stroke-width="2.0"/>
+<rect class="stage-box" data-stage="inherited" data-template="upstream" x="80.0" y="220.0" width="280.0" height="170.0" rx="12" fill="#FFFFFF" stroke="#009E73" stroke-width="2.6"/>
+<text class="stage-label" data-stage="inherited" x="220.0" y="254.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#009E73">Inherited STSP</text>
+<rect class="stage-box" data-stage="selected" data-template="upstream" x="415.0" y="220.0" width="280.0" height="170.0" rx="12" fill="#FFFFFF" stroke="#0072B2" stroke-width="2.6"/>
+<text class="stage-label" data-stage="selected" x="555.0" y="254.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#0072B2">Selected firing</text>
+<rect class="stage-box" data-stage="downstream" data-template="downstream" x="805.0" y="220.0" width="280.0" height="170.0" rx="12" fill="#FFFFFF" stroke="#56B4E9" stroke-width="2.6"/>
+<text class="stage-label" data-stage="downstream" x="945.0" y="254.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#56B4E9">Downstream firing</text>
+<rect class="stage-box" data-stage="successor" data-template="downstream" x="1140.0" y="220.0" width="280.0" height="170.0" rx="12" fill="#FFFFFF" stroke="#009E73" stroke-width="2.6"/>
+<text class="stage-label" data-stage="successor" x="1280.0" y="254.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#009E73">Successor STSP</text>
+<path class="input-arrow" d="M220.0 170.0 V220.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<path class="input-arrow" d="M388.0 170.0 V288.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M360.0 305.0 H371.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<circle class="merge-node" cx="388.0" cy="305.0" r="16" fill="#FFFFFF" stroke="#666666" stroke-width="3.0"/>
+<text x="388.0" y="316.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="30" font-weight="700" fill="#666666">+</text>
+<path class="causal-arrow" d="M405.0 305.0 H415.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M695.0 305.0 H805.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M1085.0 305.0 H1140.0" fill="none" stroke="#666666" stroke-width="5.0" marker-end="url(#arrow-neutral)"/>
+<circle class="state-dot" data-stage="inherited" cx="163.30" cy="300.80" r="8.20" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="228.20" cy="290.00" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="289.56" cy="302.60" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="190.44" cy="321.20" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="249.44" cy="311.60" r="9.02" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="300.18" cy="328.40" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="158.58" cy="346.40" r="7.38" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="214.04" cy="341.60" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="265.96" cy="350.00" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="303.72" cy="360.80" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="185.72" cy="363.80" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="inherited" cx="240.00" cy="330.20" r="7.38" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<line class="firing-tick" data-stage="selected" x1="563.20" y1="280.50" x2="563.20" y2="299.50" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="selected" x1="584.44" y1="302.10" x2="584.44" y2="321.10" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="selected" x1="600.96" y1="340.50" x2="600.96" y2="359.50" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="897.74" y1="299.70" x2="897.74" y2="318.70" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="962.64" y1="288.90" x2="962.64" y2="307.90" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1024.00" y1="301.50" x2="1024.00" y2="320.50" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="924.88" y1="320.10" x2="924.88" y2="339.10" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="983.88" y1="310.50" x2="983.88" y2="329.50" stroke="#56B4E9" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1034.62" y1="327.30" x2="1034.62" y2="346.30" stroke="#56B4E9" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="893.02" y1="345.30" x2="893.02" y2="364.30" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="948.48" y1="340.50" x2="948.48" y2="359.50" stroke="#56B4E9" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1000.40" y1="348.90" x2="1000.40" y2="367.90" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1038.16" y1="359.70" x2="1038.16" y2="378.70" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="920.16" y1="362.70" x2="920.16" y2="381.70" stroke="#56B4E9" stroke-width="5.2" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="974.44" y1="329.10" x2="974.44" y2="348.10" stroke="#0072B2" stroke-width="5.2" stroke-linecap="round"/>
+<circle class="state-dot" data-stage="successor" cx="1232.74" cy="309.20" r="8.20" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1297.64" cy="298.40" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1359.00" cy="311.00" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1259.88" cy="329.60" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1318.88" cy="320.00" r="9.02" fill="#009E73" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1369.62" cy="336.80" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1228.02" cy="354.80" r="7.38" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1283.48" cy="350.00" r="6.56" fill="#009E73" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1335.40" cy="358.40" r="6.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1373.16" cy="369.20" r="6.56" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1255.16" cy="372.20" r="6.00" fill="#009E73" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.4"/>
+<circle class="state-dot" data-stage="successor" cx="1309.44" cy="338.60" r="7.38" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.4"/>
+</svg>

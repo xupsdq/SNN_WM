@@ -1,0 +1,146 @@
+{
+  "schema": "fig6b_order_specificity_formal_analysis_spec_v1",
+  "status": "frozen_before_formal_scoring",
+  "purpose": "20-network manuscript-candidate confirmation of fixed-set, fixed-latest temporal-order identification",
+  "user_facing_figure": "Fig.6b",
+  "formal_output_root": "results/paper_figure_candidates/manuscript_fig6b_order_specificity_formal",
+  "pilot_provenance": {
+    "bundle": "results/paper_figure_candidates/manuscript_fig6b_order_specificity_pilot",
+    "bundle_summary_sha256": "4fbe09d4bd2a76291fb719f6aae39a39699c920ff00af0f3c9e9fcacf49fa01d",
+    "decision": "GO-to-expand only",
+    "method_selection_rule": "The formal primary analysis remains the pilot primary analysis; pilot outcomes do not authorize endpoint, threshold, seed, K, delay, set, or scoring changes."
+  },
+  "question": "With item set, sequence length, latest input, timing and delay fixed, does the terminal Layer-2 joint u/x state identify the temporal order of the preceding items?",
+  "design": {
+    "network_seeds": [
+      1000,
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008,
+      1009,
+      1010,
+      1011,
+      1012,
+      1013,
+      1014,
+      1015,
+      1016,
+      1017,
+      1018,
+      1019
+    ],
+    "inference_unit": "independently trained network",
+    "n_networks": 20,
+    "n_sets_per_network": 12,
+    "sequence_length": 4,
+    "item_roles": ["A", "B", "C", "D"],
+    "latest_item": "D",
+    "latest_temporal_slot": 4,
+    "preceding_orders": [
+      "A-B-C-D",
+      "A-C-B-D",
+      "B-A-C-D",
+      "B-C-A-D",
+      "C-A-B-D",
+      "C-B-A-D"
+    ],
+    "n_trials_per_network": 72,
+    "sample_ms": 200,
+    "delay_ms": 200,
+    "dt_ms": 1.0,
+    "dataset_split": "MNIST test",
+    "stimulus_spec_seed": 20260814,
+    "stimulus_identity_lock": {
+      "pilot_sequence_specs_sha256": "f13a413d6e0d96e3aec1f9b04dcd572e961af10200311c316fe68c6b9bcdb02b",
+      "pilot_singleton_reference_specs_sha256": "23261adce8dba5fe33057da73fc11034559168ab9fdaf463c8592ff5a863169a",
+      "formal_expansion_rule": "Reuse the same 12 sets, image IDs, labels, roles, six orders and reference definitions; add identical per-network rows for seeds 1003-1019 only."
+    }
+  },
+  "state_endpoint": {
+    "layer": "Layer 2",
+    "variables": ["u", "x"],
+    "terminal_time": "after the delay following item D",
+    "vector": "concat(Sfinal_u, Sfinal_x) - concat(S0_u, S0_x)",
+    "S0": "fresh-state zero-input baseline with matched total elapsed time"
+  },
+  "primary_analysis": {
+    "name": "leave-one-set-out generative candidate matching",
+    "outer_split": "hold out one complete four-item set at a time within each network",
+    "position_weight_fit": "least-squares global position weights fitted only on the other 11 sets",
+    "candidate_components": "held-out set singleton item-by-temporal-slot references",
+    "target_self_inclusion": false,
+    "candidate_rule": "All six candidates contain the same four items, D at slot 4 and the same parameter count; only the A/B/C-to-slot assignment differs.",
+    "score": "centered cosine",
+    "prediction": "candidate with the highest score; exact numerical ties use the existing deterministic lowest-index argmax and are counted and reported",
+    "primary_endpoint": "exact six-way temporal-order identification accuracy",
+    "chance_accuracy": 0.16666666666666666,
+    "aggregation": "First aggregate 72 trials to one accuracy per network; then summarize the 20 network accuracies.",
+    "no_threshold": true
+  },
+  "primary_inference": {
+    "central_estimate": "unweighted mean of 20 network accuracies",
+    "interval": "two-sided 95% Student-t confidence interval across 20 network accuracies",
+    "planned_test": "two-sided one-sample Student-t test of network accuracy minus 1/6",
+    "reporting": "Report all 20 networks, the mean, confidence interval, effect relative to chance and exact direction count; do not treat 1,440 trials as independent replicates.",
+    "multiplicity": "One primary endpoint in this formal experiment; any manuscript-wide BH adjustment is applied downstream without changing this estimate or test family."
+  },
+  "secondary_analyses": {
+    "true_order_margin": "true-order centered-cosine score minus best-wrong-order score, aggregated within network",
+    "confusion_matrix": "complete 6x6 matrix with explicit zero cells; row-normalize within true order after equal network weighting",
+    "set_accuracy": "descriptive only",
+    "equal_weight_additive_comparator": {
+      "status": "pre-existing secondary mechanistic comparator; not promoted to primary after the pilot",
+      "weights": "four equal scalar weights",
+      "claim_use": "Assess whether item-by-temporal-slot additive composition is sufficient for order identification."
+    },
+    "label_permutation_null": {
+      "scheme": "within-set permutation of the six true order labels with predictions fixed",
+      "draws_per_network": 10000,
+      "rng_seed": 20260815,
+      "p_value": "(null accuracies >= observed + 1)/(draws + 1), implemented as (exceedances + 1)/(draws + 1)",
+      "minimum_attainable_p": 0.00009999000099990001,
+      "role": "secondary calibration, not a replacement inference unit"
+    },
+    "latest_only_reference": {
+      "status": "analytical design reference, not an empirical predictor",
+      "reason": "D and temporal slot 4 are identical in all six candidates, so latest-only information cannot rank the preceding orders.",
+      "expected_accuracy": 0.16666666666666666
+    }
+  },
+  "validation_and_failure_policy": {
+    "required_networks": "exactly seeds 1000-1019",
+    "required_trials": "exactly 72 valid order trials per network",
+    "required_candidates": "exactly six equal-complexity candidates per trial",
+    "required_references": "exactly 10 singleton item-by-slot references per set",
+    "image_disjoint_across_sets": true,
+    "rng_order_label_independence": true,
+    "missing_stale_or_corrupt_parent": "fail loudly; do not regenerate during load-only analysis",
+    "network_exclusion": "none after scoring; any unavailable network makes the formal bundle incomplete",
+    "tie_reporting": "report tie count per network and overall",
+    "structural_checks": "derive pass/fail from persisted stimulus, score and fold rows; never hard-code pass",
+    "parent_hashes": "record before and after formal analysis and require equality"
+  },
+  "prohibited_post_pilot_changes": [
+    "changing K, delay, sample duration, item sets or order set",
+    "selecting networks by observed performance",
+    "changing centered-cosine scoring or the primary endpoint",
+    "promoting equal-weight performance to the primary endpoint",
+    "adding a threshold or tuning parameters against formal outcomes",
+    "treating sets, orders, candidates, state dimensions or trials as independent biological replicates"
+  ],
+  "allowed_conclusion": "With the item set and latest input held fixed, the terminal Layer-2 joint u/x state identifies the preceding temporal order; secondary equal-weight analysis can establish whether this identification is consistent with additive item-by-temporal-slot organization.",
+  "forbidden_conclusions": [
+    "behavioral temporal-order recall",
+    "working-memory capacity or accessible-item count",
+    "functional cue readout",
+    "method-independent primacy or recency",
+    "a unique nonlinear binding code",
+    "generalization to unseen images without same-set singleton references",
+    "necessity or uniqueness of this mechanism in biological working memory"
+  ]
+}

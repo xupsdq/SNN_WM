@@ -1,0 +1,165 @@
+{
+  "schema": "net_torch_dataset_legacy_delete_v1",
+  "operation": "delete_legacy_dataset_root",
+  "status": "completed_verified",
+  "authorization": "User explicitly approved deletion after confirming current src is the only required scope.",
+  "source_root": "MNIST",
+  "canonical_root": "data/MNIST",
+  "source_file_count": 16,
+  "source_bytes": 164916990,
+  "source_tree_sha256": "3712d358e404e18ba3e57b66c1b32ce7cba141e9e9e6ad21d5327dfb4c1ca341",
+  "all_source_files_byte_identical_to_canonical_raw": true,
+  "equivalence_mappings": [
+    {
+      "source": "MNIST/MNIST/raw/t10k-images-idx3-ubyte",
+      "canonical": "data/MNIST/raw/t10k-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/raw/t10k-images-idx3-ubyte",
+      "canonical": "data/MNIST/raw/t10k-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/MNIST/raw/t10k-labels-idx1-ubyte",
+      "canonical": "data/MNIST/raw/t10k-labels-idx1-ubyte"
+    },
+    {
+      "source": "MNIST/raw/t10k-labels-idx1-ubyte",
+      "canonical": "data/MNIST/raw/t10k-labels-idx1-ubyte"
+    },
+    {
+      "source": "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz",
+      "canonical": "data/MNIST/raw/t10k-labels-idx1-ubyte.gz"
+    },
+    {
+      "source": "MNIST/raw/t10k-labels-idx1-ubyte.gz",
+      "canonical": "data/MNIST/raw/t10k-labels-idx1-ubyte.gz"
+    },
+    {
+      "source": "MNIST/MNIST/raw/train-images-idx3-ubyte",
+      "canonical": "data/MNIST/raw/train-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/raw/train-images-idx3-ubyte",
+      "canonical": "data/MNIST/raw/train-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/MNIST/raw/train-labels-idx1-ubyte",
+      "canonical": "data/MNIST/raw/train-labels-idx1-ubyte"
+    },
+    {
+      "source": "MNIST/raw/train-labels-idx1-ubyte",
+      "canonical": "data/MNIST/raw/train-labels-idx1-ubyte"
+    },
+    {
+      "source": "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz",
+      "canonical": "data/MNIST/raw/train-labels-idx1-ubyte.gz"
+    },
+    {
+      "source": "MNIST/raw/train-labels-idx1-ubyte.gz",
+      "canonical": "data/MNIST/raw/train-labels-idx1-ubyte.gz"
+    },
+    {
+      "source": "MNIST/t10k-images.idx3-ubyte",
+      "canonical": "data/MNIST/raw/t10k-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/t10k-labels.idx1-ubyte",
+      "canonical": "data/MNIST/raw/t10k-labels-idx1-ubyte"
+    },
+    {
+      "source": "MNIST/train-images.idx3-ubyte",
+      "canonical": "data/MNIST/raw/train-images-idx3-ubyte"
+    },
+    {
+      "source": "MNIST/train-labels.idx1-ubyte",
+      "canonical": "data/MNIST/raw/train-labels-idx1-ubyte"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "MNIST/MNIST/raw/t10k-images-idx3-ubyte",
+      "bytes": 7840016,
+      "sha256": "0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7"
+    },
+    {
+      "path": "MNIST/MNIST/raw/t10k-labels-idx1-ubyte",
+      "bytes": 10008,
+      "sha256": "ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2"
+    },
+    {
+      "path": "MNIST/MNIST/raw/t10k-labels-idx1-ubyte.gz",
+      "bytes": 4542,
+      "sha256": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+    },
+    {
+      "path": "MNIST/MNIST/raw/train-images-idx3-ubyte",
+      "bytes": 47040016,
+      "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+    },
+    {
+      "path": "MNIST/MNIST/raw/train-labels-idx1-ubyte",
+      "bytes": 60008,
+      "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+    },
+    {
+      "path": "MNIST/MNIST/raw/train-labels-idx1-ubyte.gz",
+      "bytes": 28881,
+      "sha256": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c"
+    },
+    {
+      "path": "MNIST/raw/t10k-images-idx3-ubyte",
+      "bytes": 7840016,
+      "sha256": "0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7"
+    },
+    {
+      "path": "MNIST/raw/t10k-labels-idx1-ubyte",
+      "bytes": 10008,
+      "sha256": "ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2"
+    },
+    {
+      "path": "MNIST/raw/t10k-labels-idx1-ubyte.gz",
+      "bytes": 4542,
+      "sha256": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+    },
+    {
+      "path": "MNIST/raw/train-images-idx3-ubyte",
+      "bytes": 47040016,
+      "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+    },
+    {
+      "path": "MNIST/raw/train-labels-idx1-ubyte",
+      "bytes": 60008,
+      "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+    },
+    {
+      "path": "MNIST/raw/train-labels-idx1-ubyte.gz",
+      "bytes": 28881,
+      "sha256": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c"
+    },
+    {
+      "path": "MNIST/t10k-images.idx3-ubyte",
+      "bytes": 7840016,
+      "sha256": "0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7"
+    },
+    {
+      "path": "MNIST/t10k-labels.idx1-ubyte",
+      "bytes": 10008,
+      "sha256": "ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2"
+    },
+    {
+      "path": "MNIST/train-images.idx3-ubyte",
+      "bytes": 47040016,
+      "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+    },
+    {
+      "path": "MNIST/train-labels.idx1-ubyte",
+      "bytes": 60008,
+      "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+    }
+  ],
+  "historical_records_preserved": true,
+  "historical_replay_policy": "Old MNIST-root commands and require-mode replay are intentionally retired; result and provenance records are not rewritten.",
+  "deleted_file_count": 16,
+  "deleted_bytes": 164916990,
+  "postcondition": "source_root_absent_and_canonical_root_present"
+}

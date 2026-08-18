@@ -13,13 +13,17 @@ from src.experiments.paper_figures.paper_fig1_fig2_redesign import (
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Materialize source data for the candidate model/STSP Fig.1 and "
+            "Materialize source data for the formal model/STSP Fig.1 and "
             "the compressed activity-silent-state Fig.2 from persisted "
             "artifacts."
         ),
         allow_abbrev=False,
     )
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("results/paper_figures/outputs/provenance/fig1_fig2"),
+    )
     parser.add_argument(
         "--source-bundle",
         type=Path,

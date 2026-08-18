@@ -12,12 +12,16 @@ from src.plotting.paper_fig.paper_fig1_fig2_redesign import (
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Plot-only renderer for the candidate model/STSP Fig.1 and "
+            "Plot-only renderer for the formal model/STSP Fig.1 and "
             "compressed activity-silent-state Fig.2."
         ),
         allow_abbrev=False,
     )
-    parser.add_argument("--input-dir", type=Path, required=True)
+    parser.add_argument(
+        "--input-dir",
+        type=Path,
+        default=Path("results/paper_figures/outputs/provenance/fig1_fig2"),
+    )
     return parser.parse_args()
 
 

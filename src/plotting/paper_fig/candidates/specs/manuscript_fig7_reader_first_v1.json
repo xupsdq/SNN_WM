@@ -1,0 +1,313 @@
+{
+  "schema": "paper_figure_reader_first_candidate_spec_v1",
+  "candidate_version": "manuscript_fig7_reader_first_v1",
+  "status": "candidate",
+  "figure_id": "manuscript_fig7",
+  "display_name": "Fig.7",
+  "canvas_mm": [165.0, 152.0],
+  "dpi": 300,
+  "parent_bundle": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig6",
+  "approved_exception": "panel a retains the author-approved Target A/Target B internal split inside a single panel slot; all other panels use one data coordinate system",
+  "reader_contract": {
+    "figure_question": "When an incomplete later input or cue arrives, does retained STSP support selective access to history components, and how is that functional expression constrained by cue content, sequence load, delay and pathway overlap?",
+    "terminal_inference": "Pair and sequence states support multi-component access; history-supported content is the main cue boundary and the exact experienced exemplar adds a smaller advantage within the same class; functional expression depends jointly on sequence length and retention delay; high-STSP-overlap pathways make a targeted causal contribution to later recruitment and control early firing expression.",
+    "forbidden_inferences": [
+      "perfect recall, capacity decoding, or unlimited load",
+      "monotonic maintenance of access at all delays",
+      "STSP alone predicts the final class",
+      "removal establishes sole encoding or a per-synapse route",
+      "the mechanism is unique or necessary in biological systems",
+      "the two panel-c gains are equal-strength all-or-none cue specificity"
+    ],
+    "semantic_units": {
+      "a": "pair state jointly supports partial-cue recovery of A and B",
+      "b": "sequence state raises target access across serial positions",
+      "c": "history-supported content is the main cue boundary, with a modest exact-exemplar advantage",
+      "d": "functional rescue depends jointly on sequence length and delay",
+      "e": "high-STSP-overlap sites make a targeted causal contribution to recruitment",
+      "f": "STSP changes early firing only along overlapping pathways"
+    },
+    "task_graph": {
+      "nodes": ["a", "b", "c", "d", "e", "f"],
+      "edges": [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"], ["e", "f"]]
+    },
+    "comparison_obligations": [
+      {
+        "panels": ["a", "b"],
+        "comparison_basis": "pair access (a) generalizes to multi-item access (b); both use slot-matched singleton and cue-only/no-memory references",
+        "reader_task": "read the two-item joint access result first, then the multi-item generalization"
+      },
+      {
+        "panels": ["c", "d"],
+        "comparison_basis": "content selectivity (c) is bounded by the joint load-by-delay operating region (d)",
+        "reader_task": "read the content boundary next to the load-by-delay boundary without merging them"
+      },
+      {
+        "panels": ["e", "f"],
+        "comparison_basis": "targeted removal (e) and the overlap interaction (f) both isolate the pathway-overlap route",
+        "reader_task": "connect the perturbation loss to the overlap-gated firing expression"
+      }
+    ],
+    "topology_invariants": [
+      "a | b over c | d over e | f in exact 2 mm grid",
+      "one continuous quantitative coordinate system per panel; panel a alone contains the approved Target A/B internal split",
+      "network_seed is the independent replication unit (20 networks, seeds 1000-1019)",
+      "panel c displays two network-level paired matched-cue gains, not three serial-position trajectories",
+      "panel f displays network-level means, 95% CIs and summary lines; the raw 20-network point cloud is removed",
+      "no monotonic delay or load claim is made for panel d"
+    ],
+    "topology_freedoms": ["optical padding inside each frozen slot"]
+  },
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0],
+    "e": [2.0, 102.0, 79.5, 48.0],
+    "f": [83.5, 102.0, 79.5, 48.0]
+  },
+  "panels": {
+    "a": {
+      "chart": "partial_cue_split",
+      "source": "data/panel_a_plot_data.csv",
+      "statistics": "metrics/panel_a_statistics.csv",
+      "auc_contrasts": "data/panel_a_auc_contrasts.csv",
+      "role": "pair state jointly supports partial-cue recovery of A and B",
+      "approved_internal_split": true,
+      "plot_bbox_mm": [2.0, 10.0, 79.5, 30.0],
+      "child_plot_bboxes_mm": [[13.0, 10.0, 31.0, 30.0], [47.0, 10.0, 31.0, 30.0]],
+      "target_field": "target_item",
+      "target_order": ["A", "B"],
+      "condition_field": "condition",
+      "condition_order": ["S0", "S_A", "S_B", "S_AB"],
+      "condition_labels": {"S0": "No memory", "S_A": "Item A", "S_AB": "Pair", "S_B": "Item B"},
+      "colors": {"S0": "baseline_control", "S_A": "first_item_reference", "S_B": "second_item_reference", "S_AB": "true_pair"},
+      "foreground_condition": "S_AB",
+      "x_field": "keep_prob",
+      "x_order": [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0],
+      "x_label": "Keep probability",
+      "y_label": "Target recovery (%)",
+      "y_limits": [0.0, 100.0],
+      "y_ticks": [0.0, 50.0, 100.0],
+      "legend_anchor": [0.5, 1.08],
+      "legend_ncol": 4,
+      "legend_owner": "panel",
+      "show_right_y_axis": false,
+      "line_width": {"S0": 1.05, "S_A": 1.05, "S_B": 1.05, "S_AB": 1.6},
+      "ci_band_alpha": {"S0": 0.10, "S_A": 0.10, "S_B": 0.10, "S_AB": 0.14},
+      "marker_size": {"S0": 2.8, "S_A": 2.8, "S_B": 2.8, "S_AB": 3.6},
+      "audit_targets": {
+        "SAB_vs_S0_auc_gain": {"A": 0.421, "B": 0.497},
+        "SAB_vs_relevant_single_auc_gain": {"A": 0.0558, "B": 0.0100}
+      },
+      "inference": "frozen AUC contrasts versus no-memory and versus the corresponding singleton, per target"
+    },
+    "b": {
+      "chart": "ordered_lines",
+      "source": "data/panel_b_absolute_access.csv",
+      "statistics": "metrics/panel_b_absolute_access_statistics.csv",
+      "gain_statistics": "metrics/panel_b_statistics.csv",
+      "role": "sequence state raises target access across serial positions",
+      "plot_bbox_mm": [94.5, 10.0, 65.5, 30.0],
+      "hue_field": "endpoint",
+      "hue_order": ["P_target_sequence_state", "P_target_single_item_memory", "P_target_cue_only"],
+      "hue_labels": {"P_target_sequence_state": "Sequence", "P_target_single_item_memory": "Singleton", "P_target_cue_only": "Cue only"},
+      "colors": {"P_target_sequence_state": "sequence_state", "P_target_single_item_memory": "single_item_memory", "P_target_cue_only": "cue_only"},
+      "foreground_endpoint": "P_target_sequence_state",
+      "line_width": {"P_target_sequence_state": 1.6, "P_target_single_item_memory": 1.05, "P_target_cue_only": 1.05},
+      "x_field": "target_position",
+      "numeric_x": true,
+      "x_limits": [0.5, 10.5],
+      "x_ticks": [1, 2, 4, 6, 8, 10],
+      "x_label": "Serial position",
+      "y_label": "Target access (%)",
+      "y_limits": [0.0, 100.0],
+      "y_ticks": [0.0, 50.0, 100.0],
+      "legend_owner": "panel",
+      "legend_ncol": 3,
+      "frozen_condition": "sequence length K = 10, delay = 400 ms, keep probability = 0.5",
+      "audit_targets": {"network_level_mean_gain": 27.57, "ci95": [25.98, 29.16]},
+      "inference": "frozen network-level mean sequence-minus-singleton gain across positions"
+    },
+    "c": {
+      "chart": "paired_contrast_bars",
+      "source": "data/panel_c_position_profiles.csv",
+      "statistics": "metrics/panel_c_statistics.csv",
+      "position_statistics": "metrics/panel_c_position_statistics.csv",
+      "role": "history-supported content is the main cue boundary, with a modest exact-exemplar advantage",
+      "plot_bbox_mm": [13.0, 60.0, 65.5, 30.0],
+      "x_order": ["same_label_novel", "unseen"],
+      "x_labels": {"same_label_novel": "Same class", "unseen": "Unseen"},
+      "colors": {"same_label_novel": "single_item_memory", "unseen": "cue_only"},
+      "y_label": "Matched-cue gain (%)",
+      "y_limits": [0.0, 55.0],
+      "y_ticks": [0.0, 10.0, 20.0, 30.0, 40.0, 50.0],
+      "bar_width": 0.48,
+      "show_network_points": false,
+      "points_removed": "author-approved removal of the 20-network point cloud; bars show network means with 95% CIs",
+      "value_decimals": 2,
+      "label_pad_units": 0.8,
+      "position_count": 7,
+      "aggregation": "equal-weight mean over the 7 serial positions per network before the paired difference",
+      "audit_targets": {"matched_minus_same_label_novel": {"mean": 5.05, "ci95": [3.50, 6.60], "positive_networks": 20, "range": [0.43, 10.29]}, "matched_minus_unseen": {"mean": 42.45, "ci95": [40.53, 44.37], "positive_networks": 20, "range": [35.0, 51.0]}},
+      "inference": "two network-level paired contrasts (matched minus same-class novel; matched minus unseen) with frozen BH-adjusted P"
+    },
+    "d": {
+      "chart": "heatmap",
+      "source": "data/panel_d_plot_data.csv",
+      "statistics": "metrics/panel_d_statistics.csv",
+      "role": "functional rescue depends jointly on sequence length and delay",
+      "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0],
+      "x_field": "seq_len",
+      "x_order": [3, 5, 7, 10],
+      "x_label": "Items (K)",
+      "y_field": "delay_ms",
+      "y_order": [800, 400, 200, 100],
+      "y_label": "Delay (ms)",
+      "aggregate": "mean",
+      "cmap": "stsp_support",
+      "vmin": 0.0,
+      "vmax": 1.0,
+      "annotate_cells": true,
+      "annotation_decimals": 2,
+      "cell_edges": false,
+      "unavailable_color": "#FFFFFF",
+      "colorbar_orientation": "horizontal_top",
+      "colorbar_label": "Rescued fraction",
+      "colorbar_label_position": "top",
+      "colorbar_label_pad_pt": 1.0,
+      "colorbar_ticks_position": "top",
+      "colorbar_height_mm": 1.4,
+      "colorbar_gap_mm": 0.8,
+      "legend_owner": "colorbar",
+      "audit_targets": {"standardized_seq_len_x_delay_interaction": -0.0664, "ci95": [-0.0739, -0.0590]},
+      "inference": "frozen within-network standardized sequence-length-by-delay interaction; no monotonic claim"
+    },
+    "e": {
+      "chart": "ordered_bars",
+      "source": "data/panel_e_plot_data.csv",
+      "statistics": "metrics/panel_e_statistics.csv",
+      "role": "high-STSP-overlap sites make a targeted causal contribution to recruitment",
+      "plot_bbox_mm": [13.0, 110.0, 65.5, 30.0],
+      "category_field": "condition",
+      "category_order": ["high_stsp_overlap", "matched_removal"],
+      "category_labels": {"high_stsp_overlap": "High-STSP overlap", "matched_removal": "Matched"},
+      "x_label": "Removed sites",
+      "y_label": "Recruitment loss (%)",
+      "y_limits": [0.0, 4.5],
+      "y_ticks": [0.0, 1.0, 2.0, 3.0, 4.0],
+      "bar_width": 0.48,
+      "colors": {"high_stsp_overlap": "high_stsp", "matched_removal": "baseline_control"},
+      "annotate_values": true,
+      "value_decimals": 2,
+      "legend_owner": "none",
+      "show_network_points": false,
+      "audit_targets": {"high_stsp_overlap": {"mean": 3.31, "ci95": [3.29, 3.34]}, "matched_removal": {"mean": 0.79, "ci95": [0.76, 0.83]}, "paired_contrast": {"mean": 2.52, "ci95": [2.48, 2.56]}},
+      "inference": "frozen paired high-STSP-overlap-minus-matched recruitment-loss contrast"
+    },
+    "f": {
+      "chart": "grouped_bars",
+      "source": "data/panel_f_plot_data.csv",
+      "statistics": "metrics/panel_f_statistics.csv",
+      "window_robustness": "data/panel_f_window_robustness.csv",
+      "role": "STSP changes early firing only along overlapping pathways",
+      "plot_bbox_mm": [94.5, 110.0, 65.5, 30.0],
+      "x_field": "overlap_group",
+      "x_order": ["no_overlap", "overlap"],
+      "x_labels": {"no_overlap": "No overlap", "overlap": "Overlap"},
+      "hue_field": "stsp_group",
+      "hue_order": ["low", "high"],
+      "hue_labels": {"low": "Low STSP", "high": "High STSP"},
+      "colors": {"low": "low_stsp", "high": "high_stsp"},
+      "primary_window_ms": 10,
+      "show_raw_points": false,
+      "show_summary_lines": false,
+      "encoding": "grouped bars; author-approved replacement of the marker-and-line 2x2 encoding; zero-overlap bars are structural zeros",
+      "bar_width": 0.38,
+      "series_offset": 0.21,
+      "y_label": "Firing change (%)",
+      "y_limits": [0.0, 20.0],
+      "y_ticks": [0.0, 5.0, 10.0, 15.0, 20.0],
+      "legend_owner": "panel",
+      "legend_ncol": 2,
+      "structural_zeros": ["high_nooverlap_delta", "low_nooverlap_delta"],
+      "audit_targets": {"high_overlap": {"mean": 16.66, "ci95": [16.60, 16.72]}, "low_overlap": {"mean": 0.66, "ci95": [0.63, 0.69]}, "interaction": {"mean": 15.997, "ci95": [15.927, 16.067]}},
+      "inference": "frozen primary 10-ms overlap-by-STSP interaction in percentage points"
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [
+      {
+        "approved_exception": true,
+        "panels": ["a"],
+        "rationale": "The author-approved Target A/B split is retained inside panel a; all outer panel slots remain equal within each row.",
+        "released_constraint": "panel_atomicity",
+        "scope": "manuscript_fig7.panel_a.target_pair"
+      }
+    ],
+    "semantic_units": [
+      {"unit_id": "pair_access", "panels": ["a"], "role": "pair state jointly supports partial-cue recovery of A and B"},
+      {"unit_id": "multi_item_access", "panels": ["b"], "role": "sequence state raises target access across serial positions"},
+      {"unit_id": "content_boundary", "panels": ["c"], "role": "show the two matched-cue network-level paired gains"},
+      {"unit_id": "load_delay_boundary", "panels": ["d"], "role": "map the joint load-by-delay operating region"},
+      {"unit_id": "targeted_removal", "panels": ["e"], "role": "establish targeted causal contribution of high-STSP-overlap sites"},
+      {"unit_id": "overlap_gate", "panels": ["f"], "role": "show overlap-gated firing expression with structural zeros"}
+    ],
+    "comparison_groups": [
+      {
+        "group_id": "access_generalization",
+        "panels": ["a", "b"],
+        "comparison_basis": "pair access generalizes to multi-item access with the same singleton/cue-only reference logic",
+        "reader_task": "read the two-item joint access result, then the multi-item generalization"
+      },
+      {
+        "group_id": "content_and_boundary",
+        "panels": ["c", "d"],
+        "comparison_basis": "content selectivity and the load-by-delay operating region are adjacent constraints",
+        "reader_task": "read the content boundary next to the load-by-delay boundary without merging the two contrasts"
+      },
+      {
+        "group_id": "circuit_route",
+        "panels": ["e", "f"],
+        "comparison_basis": "targeted removal and the overlap interaction isolate the same pathway-overlap route",
+        "reader_task": "connect the perturbation loss to overlap-gated firing expression"
+      }
+    ],
+    "alignment_groups": [
+      {"group_id": "row_1_slots", "panels": ["a", "b"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep pair and multi-item access in one equal-height row."},
+      {"group_id": "row_2_slots", "panels": ["c", "d"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep the two constraint panels in one equal-height row."},
+      {"group_id": "row_3_slots", "panels": ["e", "f"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep the two causal-route panels in one equal-height row."},
+      {"group_id": "row_1_plot_axes", "panels": ["a", "b"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "panel a's two child axes align with panel b's plot area.", "rationale": "Keep the opening functional row visually aligned."},
+      {"group_id": "row_2_plot_axes", "panels": ["c", "d"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "c and d share the same plot-region geometry while retaining distinct y scales.", "rationale": "Keep content and boundary panels aligned."},
+      {"group_id": "row_3_plot_axes", "panels": ["e", "f"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "e and f share the same plot-region geometry while retaining distinct y scales.", "rationale": "Keep the causal-route panels aligned."}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "partial_cue_split", "category_slots": 7, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [2.0, 10.0, 79.5, 30.0], "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0], "visual_weight": "medium"},
+      "b": {"chart_family": "ordered_lines", "category_slots": 10, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom", "top"], "plot_bbox_mm": [94.5, 10.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0], "visual_weight": "medium"},
+      "c": {"chart_family": "paired_contrast_bars", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [13.0, 60.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0], "visual_weight": "high"},
+      "d": {"chart_family": "heatmap", "category_slots": 4, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0], "visual_weight": "high"},
+      "e": {"chart_family": "ordered_bars", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [13.0, 110.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0], "visual_weight": "medium"},
+      "f": {"chart_family": "grouped_bars", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom", "top"], "plot_bbox_mm": [94.5, 110.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "Bars are compared within each panel; no cross-panel physical bar-width constraint is needed.", "tradeoff": "Scientific comparison and readable plot area take precedence."},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["pair_access", "multi_item_access", "content_boundary", "load_delay_boundary", "targeted_removal", "overlap_gate"], "rationale": "Follow the frozen panel sequence and argument DAG: access, then constraints, then the circuit route."},
+    "hard_constraints": [
+      "165 mm x 152 mm canvas",
+      "exact 2 mm margins, 2 mm gutters, three 48 mm-high rows, 79.5 mm-wide equal slots per row",
+      "equal row heights and equal widths within every row",
+      "9 pt text and 12 pt bold lowercase panel letters",
+      "no panel titles, grid, significance stars, P values, sample-size sentences or explanatory paragraphs in the artwork",
+      "panel a alone contains the approved Target A/B internal split",
+      "only frozen persisted results and statistics are read; no forward replay"
+    ],
+    "soft_targets": ["balanced optical weight within each row", "centered frameless legends owned by one panel"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

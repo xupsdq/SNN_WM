@@ -1,0 +1,176 @@
+flowchart LR
+  %% Maintained non-DAG execution nodes; detailed runtime tasks live in family graphs
+  n_anchor_runtime_sequence_root["sequence_root runtime DAG"]
+  n_anchor_runtime_fig6["fig6 runtime DAG"]
+  n_anchor_runtime_fig5["fig5 runtime DAG"]
+  n_anchor_runtime_fig4["fig4 runtime DAG"]
+  n_anchor_runtime_fig3["fig3 runtime DAG"]
+  n_anchor_runtime_fig2["fig2 runtime DAG"]
+  n_anchor_runtime_fig1["fig1 runtime DAG"]
+  n_anchor_artifacts["persisted artifacts / datasets"]
+  subgraph g_n_Orchestrator["Orchestrator"]
+    n_orchestrator_run_paper_figures["orchestrator.run_paper_figures\n[conflicted]"]
+    n_orchestrator_run_upstream_artifact_warmup["orchestrator.run_upstream_artifact_warmup\n[operational-only]"]
+    n_orchestrator_fig1_run["orchestrator.fig1.run\n[operational-only]"]
+    n_orchestrator_fig2_run["orchestrator.fig2.run\n[operational-only]"]
+    n_orchestrator_fig3_run["orchestrator.fig3.run\n[operational-only]"]
+    n_orchestrator_fig4_run["orchestrator.fig4.run\n[operational-only]"]
+    n_orchestrator_fig5_run["orchestrator.fig5.run\n[operational-only]"]
+    n_orchestrator_fig6_run["orchestrator.fig6.run\n[operational-only]"]
+  end
+  subgraph g_n_Runner_Experiment["Runner Experiment"]
+    n_runner_legacy_fig1["runner.legacy.fig1\n[bounded]"]
+    n_runner_legacy_fig2["runner.legacy.fig2\n[bounded]"]
+    n_runner_legacy_fig3["runner.legacy.fig3\n[bounded]"]
+    n_runner_legacy_fig4["runner.legacy.fig4\n[bounded]"]
+    n_runner_legacy_fig5["runner.legacy.fig5\n[bounded]"]
+    n_runner_legacy_fig6["runner.legacy.fig6\n[bounded]"]
+    n_runner_c5_l2_successor_closure["runner.c5_l2_successor_closure\n[supported]"]
+  end
+  subgraph g_n_Materializer["Materializer"]
+    n_final_six_fig1_final_statistics["final_six.fig1.final-statistics\n[supported]"]
+    n_final_six_fig2_final_statistics["final_six.fig2.final-statistics\n[supported]"]
+    n_final_six_fig3_final_statistics["final_six.fig3.final-statistics\n[supported]"]
+    n_final_six_fig4_final_statistics["final_six.fig4.final-statistics\n[supported]"]
+    n_final_six_fig5_final_statistics["final_six.fig5.final-statistics\n[supported]"]
+    n_final_six_fig6_final_statistics["final_six.fig6.final-statistics\n[supported]"]
+    n_materializer_fig4_accumulated_history_statistics["materializer.fig4_accumulated_history_statistics\n[bounded]"]
+    n_materializer_new_results_reanalysis["materializer.new_results_reanalysis\n[bounded]"]
+    n_materializer_paper_fig1_fig2_redesign["materializer.paper_fig1_fig2_redesign\n[supported]"]
+    n_materializer_supplementary_v5["materializer.supplementary_v5\n[supported]"]
+    n_materializer_final_six_all["materializer.final_six.all\n[supported]"]
+  end
+  subgraph g_n_Aggregator["Aggregator"]
+    n_validator_final_six["validator.final_six\n[operational-only]"]
+  end
+  subgraph g_n_Plot_Consumer["Plot Consumer"]
+    n_plot_paper_fig1_fig2_redesign["plot.paper_fig1_fig2_redesign\n[operational-only]"]
+    n_plot_supplementary_v5["plot.supplementary_v5\n[operational-only]"]
+    n_plot_final_six_fig1["plot.final_six.fig1\n[operational-only]"]
+    n_plot_final_six_fig2["plot.final_six.fig2\n[operational-only]"]
+    n_plot_final_six_fig3["plot.final_six.fig3\n[operational-only]"]
+    n_plot_final_six_fig4["plot.final_six.fig4\n[operational-only]"]
+    n_plot_final_six_fig5["plot.final_six.fig5\n[operational-only]"]
+    n_plot_final_six_fig6["plot.final_six.fig6\n[operational-only]"]
+  end
+  n_final_six_fig1_final_statistics -->|consumes| n_anchor_runtime_fig1
+  n_final_six_fig1_final_statistics -->|consumes| n_anchor_artifacts
+  n_final_six_fig2_final_statistics -->|consumes| n_anchor_runtime_fig2
+  n_final_six_fig2_final_statistics -->|consumes| n_anchor_artifacts
+  n_final_six_fig3_final_statistics -->|consumes| n_anchor_runtime_fig4
+  n_final_six_fig3_final_statistics -->|consumes| n_anchor_runtime_fig5
+  n_final_six_fig3_final_statistics -->|consumes| n_anchor_runtime_fig2
+  n_final_six_fig3_final_statistics -->|consumes| n_anchor_artifacts
+  n_final_six_fig4_final_statistics -->|consumes| n_runner_c5_l2_successor_closure
+  n_final_six_fig4_final_statistics -->|consumes| n_materializer_fig4_accumulated_history_statistics
+  n_final_six_fig5_final_statistics -->|consumes| n_anchor_runtime_fig2
+  n_final_six_fig5_final_statistics -->|consumes| n_materializer_new_results_reanalysis
+  n_final_six_fig5_final_statistics -->|consumes| n_materializer_supplementary_v5
+  n_final_six_fig6_final_statistics -->|consumes| n_anchor_runtime_fig2
+  n_final_six_fig6_final_statistics -->|consumes| n_anchor_runtime_fig3
+  n_final_six_fig6_final_statistics -->|consumes| n_anchor_runtime_fig6
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig1
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig2
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig3
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig4
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig5
+  n_orchestrator_run_paper_figures -->|orchestrates| n_runner_legacy_fig6
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig1
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig2
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig3
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig4
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig5
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_fig6
+  n_orchestrator_run_upstream_artifact_warmup -->|orchestrates| n_anchor_runtime_sequence_root
+  n_orchestrator_fig1_run -->|requires| n_orchestrator_run_paper_figures
+  n_orchestrator_fig2_run -->|requires| n_orchestrator_run_paper_figures
+  n_orchestrator_fig3_run -->|requires| n_orchestrator_run_paper_figures
+  n_orchestrator_fig4_run -->|requires| n_orchestrator_run_paper_figures
+  n_orchestrator_fig5_run -->|requires| n_orchestrator_run_paper_figures
+  n_orchestrator_fig6_run -->|requires| n_orchestrator_run_paper_figures
+  n_runner_legacy_fig1 -->|consumes| n_anchor_artifacts
+  n_runner_legacy_fig2 -->|consumes| n_anchor_artifacts
+  n_runner_legacy_fig3 -->|consumes| n_anchor_artifacts
+  n_runner_legacy_fig4 -->|consumes| n_anchor_artifacts
+  n_runner_legacy_fig5 -->|consumes| n_anchor_artifacts
+  n_runner_legacy_fig6 -->|consumes| n_anchor_artifacts
+  n_runner_c5_l2_successor_closure -->|consumes| n_anchor_runtime_fig2
+  n_materializer_fig4_accumulated_history_statistics -->|consumes| n_runner_legacy_fig3
+  n_materializer_fig4_accumulated_history_statistics -->|consumes| n_runner_legacy_fig4
+  n_materializer_fig4_accumulated_history_statistics -->|consumes| n_runner_legacy_fig5
+  n_materializer_fig4_accumulated_history_statistics -->|consumes| n_anchor_runtime_fig2
+  n_materializer_new_results_reanalysis -->|consumes| n_runner_legacy_fig1
+  n_materializer_new_results_reanalysis -->|consumes| n_runner_legacy_fig2
+  n_materializer_new_results_reanalysis -->|consumes| n_runner_legacy_fig3
+  n_materializer_new_results_reanalysis -->|consumes| n_runner_legacy_fig5
+  n_materializer_paper_fig1_fig2_redesign -->|consumes| n_final_six_fig1_final_statistics
+  n_materializer_paper_fig1_fig2_redesign -->|consumes| n_anchor_artifacts
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig1
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig2
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig3
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig4
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig5
+  n_materializer_supplementary_v5 -->|consumes| n_runner_legacy_fig6
+  n_materializer_supplementary_v5 -->|consumes| n_runner_c5_l2_successor_closure
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig1_final_statistics
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig2_final_statistics
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig3_final_statistics
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig4_final_statistics
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig5_final_statistics
+  n_materializer_final_six_all -->|orchestrates| n_final_six_fig6_final_statistics
+  n_validator_final_six -->|consumes| n_materializer_final_six_all
+  n_validator_final_six -->|consumes| n_plot_final_six_fig1
+  n_validator_final_six -->|consumes| n_plot_final_six_fig2
+  n_validator_final_six -->|consumes| n_plot_final_six_fig3
+  n_validator_final_six -->|consumes| n_plot_final_six_fig4
+  n_validator_final_six -->|consumes| n_plot_final_six_fig5
+  n_validator_final_six -->|consumes| n_plot_final_six_fig6
+  n_plot_paper_fig1_fig2_redesign -->|presents| n_materializer_paper_fig1_fig2_redesign
+  n_plot_supplementary_v5 -->|presents| n_materializer_supplementary_v5
+  n_plot_final_six_fig1 -->|presents| n_final_six_fig1_final_statistics
+  n_plot_final_six_fig2 -->|presents| n_final_six_fig2_final_statistics
+  n_plot_final_six_fig3 -->|presents| n_final_six_fig3_final_statistics
+  n_plot_final_six_fig4 -->|presents| n_final_six_fig4_final_statistics
+  n_plot_final_six_fig5 -->|presents| n_final_six_fig5_final_statistics
+  n_plot_final_six_fig6 -->|presents| n_final_six_fig6_final_statistics
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_final_six_fig1_final_statistics supported
+  class n_final_six_fig2_final_statistics supported
+  class n_final_six_fig3_final_statistics supported
+  class n_final_six_fig4_final_statistics supported
+  class n_final_six_fig5_final_statistics supported
+  class n_final_six_fig6_final_statistics supported
+  class n_orchestrator_run_paper_figures conflicted
+  class n_orchestrator_run_upstream_artifact_warmup operational_only
+  class n_orchestrator_fig1_run operational_only
+  class n_orchestrator_fig2_run operational_only
+  class n_orchestrator_fig3_run operational_only
+  class n_orchestrator_fig4_run operational_only
+  class n_orchestrator_fig5_run operational_only
+  class n_orchestrator_fig6_run operational_only
+  class n_runner_legacy_fig1 bounded
+  class n_runner_legacy_fig2 bounded
+  class n_runner_legacy_fig3 bounded
+  class n_runner_legacy_fig4 bounded
+  class n_runner_legacy_fig5 bounded
+  class n_runner_legacy_fig6 bounded
+  class n_runner_c5_l2_successor_closure supported
+  class n_materializer_fig4_accumulated_history_statistics bounded
+  class n_materializer_new_results_reanalysis bounded
+  class n_materializer_paper_fig1_fig2_redesign supported
+  class n_materializer_supplementary_v5 supported
+  class n_materializer_final_six_all supported
+  class n_validator_final_six operational_only
+  class n_plot_paper_fig1_fig2_redesign operational_only
+  class n_plot_supplementary_v5 operational_only
+  class n_plot_final_six_fig1 operational_only
+  class n_plot_final_six_fig2 operational_only
+  class n_plot_final_six_fig3 operational_only
+  class n_plot_final_six_fig4 operational_only
+  class n_plot_final_six_fig5 operational_only
+  class n_plot_final_six_fig6 operational_only
+  linkStyle default stroke:#64748B,stroke-width:1.1px

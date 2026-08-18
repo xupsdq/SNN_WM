@@ -1,0 +1,174 @@
+{
+  "schema": "paper_figure_review_candidate_spec_v1",
+  "candidate_version": "manuscript_fig3_reader_first_v4",
+  "status": "review_only_candidate",
+  "figure_id": "manuscript_fig3",
+  "display_name": "Fig.3",
+  "canvas_mm": [165.0, 102.0],
+  "dpi": 300,
+  "parent_bundle": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2",
+  "decomposition_parent_root": "results/paper_figure_multi_seed/fig2_fixed_b_mechanism_confirmatory",
+  "reader_contract": {
+    "figure_question": "Do different silent inherited histories cause an identical current input B to be processed differently?",
+    "terminal_inference": "The identical B drives a shared update while inherited history alters Rescue/Loss behavior and leaves a history-dependent effect enriched at changed spike events.",
+    "forbidden_inferences": [
+      "history replaces the current input in determining the answer",
+      "comparison rows are independent inferential replicates",
+      "the joint mean coordinate establishes correlation or trade-off",
+      "this figure establishes a local overlap mechanism",
+      "this figure establishes inter-layer causal transfer",
+      "this figure establishes reuse by the next input",
+      "event enrichment is causal"
+    ],
+    "semantic_units": {
+      "a": "define the paired exact-B counterfactual",
+      "b": "show paired Rescue and Loss effects",
+      "c": "show the two-dimensional network-mean coordinate of shared update and history effect",
+      "d": "localize the history-dependent effect to changed spike events"
+    },
+    "task_graph": {
+      "nodes": ["a", "b", "c", "d"],
+      "edges": [["a", "b"], ["b", "c"], ["c", "d"]]
+    },
+    "comparison_obligations": [],
+    "topology_invariants": [
+      "a-d reading order",
+      "1+3 topology",
+      "two independent exact-B lanes in panel a",
+      "one data coordinate system per quantitative panel",
+      "network-balanced two-dimensional mean coordinate in panel c"
+    ],
+    "topology_freedoms": ["optical padding inside frozen slots"]
+  },
+  "slots": {
+    "a": [2.0, 2.0, 161.0, 48.0],
+    "b": [2.0, 52.0, 52.333, 48.0],
+    "c": [56.333, 52.0, 52.334, 48.0],
+    "d": [110.667, 52.0, 52.333, 48.0]
+  },
+  "panels": {
+    "a": {
+      "chart": "exact_b_paired_counterfactual",
+      "source": "data/panel_a_input_stimuli.csv",
+      "plot_bbox_mm": [4.5, 4.5, 156.0, 44.0],
+      "role": "define the paired exact-B counterfactual",
+      "labels": {
+        "history_1": "History 1",
+        "history_2": "History 2",
+        "no_input": "No input",
+        "delay": "200 ms",
+        "inherited_state": "Inherited state",
+        "same_b": "Same B",
+        "state_after_b": "State after B",
+        "choice_after_b": "Choice after B"
+      },
+      "colors": {
+        "history_1": "ink",
+        "history_2": "neutral_dark",
+        "inherited_state": "mechanism_teal",
+        "current_b": "dynamic",
+        "post_b_state": "dynamic",
+        "choice": "ink"
+      },
+      "schematic_layout": {
+        "content_bounds": [0.0, 0.0, 156.0, 44.0],
+        "content_shift_x": 6.1,
+        "header_y": 43.2,
+        "lane_y": {"A": 31.8, "C": 12.2},
+        "history_bbox": {"A": [1.0, 25.55, 12.5, 12.5], "C": [1.0, 5.95, 12.5, 12.5]},
+        "history_label_y": {"A": 43.2, "C": 20.7},
+        "delay_bbox": {"A": [21.0, 25.55, 19.0, 12.5], "C": [21.0, 5.95, 19.0, 12.5]},
+        "inherited_bbox": {"A": [48.0, 25.55, 15.5, 12.5], "C": [48.0, 5.95, 15.5, 12.5]},
+        "b_bbox": {"A": [74.0, 25.55, 12.5, 12.5], "C": [74.0, 5.95, 12.5, 12.5]},
+        "post_bbox": {"A": [98.5, 25.55, 15.5, 12.5], "C": [98.5, 5.95, 15.5, 12.5]},
+        "choice_center": {"A": [133.0, 31.8], "C": [133.0, 12.2]},
+        "equality": {"bracket_x": 89.0, "equals_center_x": 92.5, "equals_center_y": 22.0}
+      }
+    },
+    "b": {
+      "chart": "horizontal_diverging_effect",
+      "source": "data/panel_b_plot_data.csv",
+      "statistics_source": "metrics/panel_b_statistics.csv",
+      "plot_bbox_mm": [14.0, 60.0, 37.333, 30.0],
+      "role": "show paired Rescue and Loss effects",
+      "contrast": "aligned_minus_mismatched",
+      "endpoint_order": ["rescue", "loss"],
+      "endpoint_labels": {"rescue": "Rescue", "loss": "Loss"},
+      "x_label": "Aligned − mismatched (%)",
+      "x_limits": [-22.0, 22.0],
+      "x_ticks": [-20.0, -10.0, 0.0, 10.0, 20.0],
+      "colors": {"rescue": "dynamic", "loss": "comparison_coral"}
+    },
+    "c": {
+      "chart": "joint_mean_projection",
+      "source_pattern": "seed_{seed}/data/metrics/fixed_b_decomposition_cell_metrics.csv",
+      "statistics_source": "metrics/panel_c_statistics.csv",
+      "plot_bbox_mm": [67.333, 60.0, 38.334, 30.0],
+      "role": "show the two-dimensional network-mean coordinate",
+      "x_field": "same_B_common_update_cosine",
+      "y_field": "processing_residual_gamma_energy_fraction",
+      "x_label": "Update similarity",
+      "y_label": "History effect",
+      "x_limits": [0.5, 0.96],
+      "y_limits": [0.05, 0.45],
+      "x_ticks": [0.5, 0.7, 0.9],
+      "y_ticks": [0.05, 0.2, 0.4],
+      "x_criterion": 0.5,
+      "y_criterion": 0.05,
+      "criterion_label": "criterion",
+      "uncertainty": "frozen_network_95_ci",
+      "projection_color": "neutral_mid",
+      "mean_color": "dynamic"
+    },
+    "d": {
+      "chart": "category_bars",
+      "source": "data/panel_d_plot_data.csv",
+      "statistics_source": "metrics/panel_d_statistics.csv",
+      "plot_bbox_mm": [121.667, 60.0, 38.333, 30.0],
+      "role": "localize the history-dependent effect to changed spike events",
+      "condition_order": ["matched_random", "changed_events"],
+      "condition_labels": {"matched_random": "Matched\ncontrol", "changed_events": "Changed\nspikes"},
+      "y_label": "History effect",
+      "y_limits": [0.0, 0.05],
+      "y_ticks": [0.0, 0.02, 0.04],
+      "colors": {"matched_random": "neutral_mid", "changed_events": "fused_state"}
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "unit_a", "panels": ["a"], "role": "paired exact-B counterfactual"},
+      {"unit_id": "unit_b", "panels": ["b"], "role": "paired Rescue and Loss effects"},
+      {"unit_id": "unit_c", "panels": ["c"], "role": "two-dimensional exact-B network mean"},
+      {"unit_id": "unit_d", "panels": ["d"], "role": "changed-spike-event association"}
+    ],
+    "comparison_groups": [],
+    "alignment_groups": [
+      {"group_id": "row_1_slot", "panels": ["a"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Reserve the first full-width row for the exact-B protocol."},
+      {"group_id": "row_2_slots", "panels": ["b", "c", "d"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep behavioral, joint-update, and event evidence in one reading row."},
+      {"group_id": "row_2_plot", "panels": ["b", "c", "d"], "target": "plot_area", "edges": ["top", "bottom"], "rationale": "Use one shared quantitative-row baseline.", "comparison_basis": "All three panels use 30 mm data-region heights with independent scales."}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "schematic", "category_slots": 2, "natural_aspect": [2.5, 5.0], "decoration_sides": [], "visual_weight": "high", "slot_bbox_mm": [2.0, 2.0, 161.0, 48.0], "plot_bbox_mm": [4.5, 4.5, 156.0, 44.0]},
+      "b": {"chart_family": "diverging_effect", "category_slots": 2, "natural_aspect": [1.1, 2.0], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium", "slot_bbox_mm": [2.0, 52.0, 52.333, 48.0], "plot_bbox_mm": [14.0, 60.0, 37.333, 30.0]},
+      "c": {"chart_family": "joint_mean_projection", "category_slots": 1, "natural_aspect": [1.0, 1.8], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "high", "slot_bbox_mm": [56.333, 52.0, 52.334, 48.0], "plot_bbox_mm": [67.333, 60.0, 38.334, 30.0]},
+      "d": {"chart_family": "category_bars", "category_slots": 2, "natural_aspect": [1.1, 2.0], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium", "slot_bbox_mm": [110.667, 52.0, 52.333, 48.0], "plot_bbox_mm": [121.667, 60.0, 38.333, 30.0]}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "Panels b and d use independent within-panel mark widths.", "tradeoff": "Reader-first magnitude and direction take precedence over cross-panel physical bar width."},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["unit_a", "unit_b", "unit_c", "unit_d"], "rationale": "Exact-B counterfactual → Rescue/Loss → joint network-mean coordinate → changed-spike-event association.", "released_alignment_edges": []},
+    "hard_constraints": [
+      "165 mm x 102 mm canvas",
+      "1+3 topology with 48 mm rows and 2 mm gutters",
+      "9 pt normal text and 12 pt bold lowercase panel labels",
+      "no grid, dual axis, random jitter, decorative point cloud, hatch, or significance stars",
+      "panel b uses frozen paired 95% confidence intervals without raw marks",
+      "panel c shows the equal-weight 20-network mean coordinate with frozen horizontal and vertical 95% confidence intervals",
+      "panel d does not show raw network points"
+    ],
+    "soft_targets": ["balanced optical weight across the lower row", "single dominant two-dimensional mean point with restrained axis projections", "criterion labels remain legible without full-span threshold lines", "optically balanced left/right whitespace in panel a", "clear grayscale redundancy"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

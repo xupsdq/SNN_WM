@@ -645,6 +645,42 @@ def _s3_point_range(
     style_axis(axis)
 
 
+def _s3_intervention_distribution(
+    fig: Figure,
+    spec: Mapping[str, Any],
+    statistics: pd.DataFrame,
+    data: pd.DataFrame,
+    panel_id: str,
+) -> None:
+    panel = spec["panels"][panel_id]
+    axis = add_plot_axis(fig, spec, panel_id)
+    order = list(panel["x_order"])
+    endpoint = str(data["endpoint"].iloc[0])
+    color = color_for_role(str(panel["color_role"]))
+    for index, condition in enumerate(order):
+        part = data.loc[data["condition"].eq(condition)].sort_values("network_seed")
+        if len(part) != 20:
+            raise ValueError(f"S3{panel_id} expected 20 network values for {condition}")
+        jitter = deterministic_jitter(part["network_seed"], width=0.12, salt=430 + index)
+        axis.scatter(
+            index + jitter,
+            part["value"],
+            s=8.0,
+            color=color,
+            alpha=0.52,
+            linewidths=0,
+            zorder=2,
+        )
+        row = statistic_row(statistics, "s3", panel_id, condition=condition, endpoint=endpoint)
+        vertical_mean_ci(axis, index, row, color=color, marker="D")
+    axis.set_xticks(range(len(order)))
+    axis.set_xticklabels(list(panel.get("x_labels", order)), rotation=0, ha="center")
+    axis.set_xlim(-0.45, len(order) - 0.55)
+    apply_axis_spec(axis, panel)
+    draw_reference(axis, float(panel.get("reference", 0.0)))
+    style_axis(axis)
+
+
 def render_s3(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.DataFrame) -> Figure:
     fig = figure_from_spec(spec)
     panel = spec["panels"]["a"]
@@ -688,8 +724,24 @@ def render_s3(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.D
         columnspacing=1.1,
         borderaxespad=0.0,
     )
-    _s3_point_range(fig, spec, statistics, _panel_data(input_dir, "s3", "b"), "b", key="cap", labels={1: "Top 1", 2: "Top 2", 3: "Top 3"})
-    _s3_point_range(fig, spec, statistics, _panel_data(input_dir, "s3", "c"), "c", key="distance_limit", labels={2: "≤2", 4: "≤4", 6: "≤6"})
+    _s3_point_range(
+        fig,
+        spec,
+        statistics,
+        _panel_data(input_dir, "s3", "b"),
+        "b",
+        key="cap",
+        labels={1: "Top 1", 2: "Top 2", 3: "Top 3"},
+    )
+    _s3_point_range(
+        fig,
+        spec,
+        statistics,
+        _panel_data(input_dir, "s3", "c"),
+        "c",
+        key="distance_limit",
+        labels={2: "≤2", 4: "≤4", 6: "≤6"},
+    )
 
     panel = spec["panels"]["d"]
     data = _panel_data(input_dir, "s3", "d")
@@ -730,6 +782,8 @@ def render_s3(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.D
         columnspacing=0.8,
         borderaxespad=0.0,
     )
+    _s3_intervention_distribution(fig, spec, statistics, _panel_data(input_dir, "s3", "e"), "e")
+    _s3_intervention_distribution(fig, spec, statistics, _panel_data(input_dir, "s3", "f"), "f")
     add_panel_labels(fig, spec)
     return fig
 
@@ -771,77 +825,98 @@ def render_s4(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.D
                 markerfacecolor=color if panel_id == "a" else WHITE,
             )
         axis.set_xticks(range(len(order)))
-        axis.set_xticklabels([f"K{value}" for value in order])
+        axis.set_xticklabels([f"K={value}" for value in order])
         axis.set_xlim(-0.45, len(order) - 0.55)
         apply_axis_spec(axis, panel)
+        if panel.get("title"):
+            axis.set_title(str(panel["title"]), pad=2.0)
         style_axis(axis)
 
     panel = spec["panels"]["c"]
     data = _panel_data(input_dir, "s4", "c")
     axis = add_plot_axis(fig, spec, "c")
-    row_specs = (("L2", 1), ("L2", 5), ("L3", 1), ("L3", 5))
-    endpoint_style = {"L2": (NAVY, "o"), "L3": (TEAL, "s")}
-    for index, (endpoint, prefix_k) in enumerate(row_specs):
-        y = len(row_specs) - 1 - index
-        color, marker = endpoint_style[endpoint]
-        confirm = data.loc[
-            data["endpoint"].eq(endpoint)
-            & data["prefix_k"].eq(prefix_k)
-            & data["cohort"].eq("Confirm. 19")
-        ].sort_values("network_seed")
-        if len(confirm) != 19:
-            raise ValueError(f"S4c expected 19 confirmatory networks for {endpoint} K{prefix_k}")
-        jitter = deterministic_jitter(confirm["network_seed"], width=0.10, salt=570 + index)
+    endpoint_order = list(panel["x_order"])
+    for index, endpoint in enumerate(endpoint_order):
+        part = data.loc[data["endpoint"].eq(endpoint)].sort_values("network_seed")
+        if len(part) != 20:
+            raise ValueError(f"S4c expected 20 networks for {endpoint}")
+        jitter = deterministic_jitter(part["network_seed"], width=0.11, salt=570 + index)
+        color = color_for_role("layer2" if endpoint == "Input response" else "layer3")
+        marker = "o" if endpoint == "Input response" else "s"
         axis.scatter(
-            confirm["value"],
-            y + jitter,
+            index + jitter,
+            part["value"],
             s=8.0,
+            color=color,
             marker=marker,
-            facecolors=color,
-            edgecolors=color,
-            linewidths=0.45,
-            alpha=0.48,
+            alpha=0.50,
+            linewidths=0,
             zorder=2,
         )
-        confirm_stats = statistic_row(
-            statistics,
-            "s4",
-            "c",
-            endpoint=endpoint,
-            prefix_k=prefix_k,
-            cohort="Confirm. 19",
-            role="display",
-        )
-        horizontal_mean_ci(axis, y, confirm_stats, color=color, marker=marker)
-        full_stats = statistic_row(
-            statistics,
-            "s4",
-            "c",
-            endpoint=endpoint,
-            prefix_k=prefix_k,
-            cohort="Full 20",
-            role="reference",
-        )
-        axis.plot(
-            [float(full_stats["mean"])],
-            [y],
-            marker=marker,
-            markersize=6.0,
-            markerfacecolor=WHITE,
-            markeredgecolor=NEUTRAL_MID,
-            markeredgewidth=0.9,
-            linestyle="none",
-            zorder=6,
-        )
-    axis.set_yticks(range(len(row_specs)))
-    axis.set_yticklabels(list(reversed(panel["row_order"])))
-    axis.set_ylim(-0.45, len(row_specs) - 0.55)
+        row = statistic_row(statistics, "s4", "c", endpoint=endpoint, transition="Following transition")
+        vertical_mean_ci(axis, index, row, color=color, marker=marker)
+    axis.set_xticks(range(len(endpoint_order)))
+    axis.set_xticklabels(list(panel.get("x_labels", endpoint_order)))
+    axis.set_xlim(-0.45, len(endpoint_order) - 0.55)
+    apply_axis_spec(axis, panel)
+    style_axis(axis)
+
+    panel = spec["panels"]["d"]
+    data = _panel_data(input_dir, "s4", "d")
+    axis = add_plot_axis(fig, spec, "d")
+    endpoints = list(panel["x_order"])
+    states = list(panel["state_order"])
+    offsets = {states[0]: -0.16, states[1]: 0.16}
+    endpoint_colors = {"Input response": color_for_role("layer2"), "Successor state": color_for_role("layer3")}
+    state_markers = {states[0]: "o", states[1]: "o"}
+    for index, endpoint in enumerate(endpoints):
+        subset = data.loc[data["endpoint"].eq(endpoint)]
+        pivot = subset.pivot(index="network_seed", columns="state", values="value").reindex(columns=states)
+        if pivot.shape != (20, 2) or bool(pivot.isna().any().any()):
+            raise ValueError(f"S4d expected paired 20-network values for {endpoint}")
+        color = endpoint_colors[endpoint]
+        for seed, values in pivot.iterrows():
+            axis.plot(
+                [index + offsets[states[0]], index + offsets[states[1]]],
+                values.to_numpy(dtype=float),
+                color=NEUTRAL_LIGHT,
+                linewidth=0.55,
+                alpha=0.65,
+                zorder=1,
+            )
+        for state in states:
+            part = subset.loc[subset["state"].eq(state)].sort_values("network_seed")
+            position = index + offsets[state]
+            jitter = deterministic_jitter(part["network_seed"], width=0.055, salt=650 + index * 10 + states.index(state))
+            axis.scatter(
+                position + jitter,
+                part["value"],
+                s=8.0,
+                marker=state_markers[state],
+                facecolors=color if state == states[0] else WHITE,
+                edgecolors=color,
+                linewidths=0.6,
+                alpha=0.58,
+                zorder=2,
+            )
+            row = statistic_row(statistics, "s4", "d", endpoint=endpoint, state=state)
+            vertical_mean_ci(
+                axis,
+                position,
+                row,
+                color=color,
+                marker="D",
+                markerfacecolor=color if state == states[0] else WHITE,
+            )
+    axis.set_xticks(range(len(endpoints)))
+    axis.set_xticklabels(endpoints)
+    axis.set_xlim(-0.48, len(endpoints) - 0.52)
     apply_axis_spec(axis, panel)
     style_axis(axis)
     axis.legend(
         handles=[
-            Line2D([0], [0], color=INK, marker="o", markerfacecolor=INK, linewidth=0, markersize=4.5, label="Confirm. 19"),
-            Line2D([0], [0], color=NEUTRAL_MID, marker="o", markerfacecolor=WHITE, linewidth=0, markersize=4.5, label="Full 20"),
+            Line2D([0], [0], color=INK, marker="o", markerfacecolor=INK, linewidth=0, markersize=4.5, label=states[0]),
+            Line2D([0], [0], color=INK, marker="o", markerfacecolor=WHITE, linewidth=0, markersize=4.5, label=states[1]),
         ],
         loc="lower center",
         bbox_to_anchor=(0.5, 1.02),
@@ -852,32 +927,6 @@ def render_s4(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.D
         columnspacing=0.7,
         borderaxespad=0.0,
     )
-
-    panel = spec["panels"]["d"]
-    data = _panel_data(input_dir, "s4", "d")
-    rows = list(panel["row_order"])
-    columns = list(panel["column_order"])
-    matrix = (
-        data.pivot_table(index="prefix_k", columns="gate", values="value", aggfunc="mean")
-        .reindex(index=rows, columns=columns)
-        .to_numpy(dtype=float)
-    )
-    if matrix.shape != (2, 6) or not np.allclose(matrix, 100.0):
-        raise ValueError("S4d identity gate matrix must contain twelve 100% pass cells")
-    axis = add_plot_axis(fig, spec, "d")
-    image = draw_matrix(
-        axis,
-        matrix,
-        cmap_role=str(panel["cmap_role"]),
-        vmin=float(panel["vmin"]),
-        vmax=float(panel["vmax"]),
-        xlabels=list(panel.get("column_labels", columns)),
-        ylabels=[f"K{value}" for value in rows],
-        annotate_decimals=int(panel["decimals"]),
-    )
-    axis.set_xlabel(panel["xlabel"])
-    axis.set_ylabel(panel["ylabel"])
-    add_top_colorbar(fig, spec, panel, image, ticks=[0.0, 50.0, 100.0])
 
     add_panel_labels(fig, spec)
     return fig
@@ -912,17 +961,25 @@ def render_s5(input_dir: BundleReader, spec: Mapping[str, Any], statistics: pd.D
     add_top_colorbar(fig, spec, panel, image, ticks=[0.0, 0.3, 0.6])
 
     panel = spec["panels"]["b"]
-    data = _panel_data(input_dir, "s5", "b")
+    data = _panel_data(input_dir, "s5", "b").sort_values("network_seed")
+    networks = data["network_seed"].astype(int).tolist()
     axis = add_plot_axis(fig, spec, "b")
-    jitter = deterministic_jitter(data["network_seed"], width=0.14, salt=610)
-    axis.scatter(data["value"], jitter, s=9.0, color=CYAN, alpha=0.55, linewidths=0)
-    row = statistic_row(statistics, "s5", "b")
-    horizontal_mean_ci(axis, 0.0, row, color=NAVY, marker="D")
-    axis.set_yticks([0.0])
-    axis.set_yticklabels([str(panel["row_label"])])
-    axis.set_ylim(-0.45, 0.45)
+    axis.scatter(
+        range(len(networks)),
+        data["value"],
+        s=13.0,
+        marker="o",
+        color=NAVY,
+        alpha=0.78,
+        linewidths=0,
+        zorder=2,
+    )
+    shown = [0, 5, 10, 15, 19]
+    axis.set_xticks(shown)
+    axis.set_xticklabels([str(networks[index]) for index in shown])
+    axis.set_xlim(-0.5, len(networks) - 0.5)
     apply_axis_spec(axis, panel)
-    draw_reference(axis, float(panel["reference"]), orientation="vertical")
+    draw_reference(axis, float(panel["reference"]), orientation="horizontal")
     style_axis(axis)
 
     _network_trajectory(fig, spec, statistics, _panel_data(input_dir, "s5", "c"), "s5", "c", x_column="stage_k")

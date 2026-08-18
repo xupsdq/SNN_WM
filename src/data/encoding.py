@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -268,13 +270,23 @@ def visualize_encoding_pipeline():
 
 
 # ???
-def build_mnist_skeleton_loader(root="./MNIST", batch_size=128, input_size=28, num_workers=0):
+def _resolve_torchvision_mnist_root(root):
+    root_path = Path(root)
+    if (root_path / "MNIST" / "raw").is_dir():
+        return str(root_path)
+    if root_path.name.lower() == "mnist" and (root_path / "raw").is_dir():
+        return str(root_path.parent)
+    return str(root_path)
+
+
+def build_mnist_skeleton_loader(root="./data/MNIST", batch_size=128, input_size=28, num_workers=0):
     transform_pipeline = transforms.Compose([
         transforms.Resize((input_size, input_size)),
         transforms.ToTensor(),
     ])
-    train_dataset = datasets.MNIST(root=root, train=True, download=True, transform=transform_pipeline)
-    test_dataset = datasets.MNIST(root=root, train=False, download=True, transform=transform_pipeline)
+    torchvision_root = _resolve_torchvision_mnist_root(root)
+    train_dataset = datasets.MNIST(root=torchvision_root, train=True, download=True, transform=transform_pipeline)
+    test_dataset = datasets.MNIST(root=torchvision_root, train=False, download=True, transform=transform_pipeline)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return train_loader, None, test_loader

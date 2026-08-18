@@ -1,29 +1,25 @@
 # Fig.4 面板与布局契约
 
-## 当前权威修订（2026-08-10）
+## 当前权威修订（2026-08-17）
 
-本节覆盖下方历史合同；下方内容只保留为设计记录，不再约束当前主图。
+本文件保留 internal fig4 的数据身份，但当前稿件展示身份为 **manuscript Fig.5**。本节覆盖下方全部历史合同；历史内容只保留为设计记录，不再约束当前 artwork、正文或 Source Data。
 
-- 面板集合：a–d，共四个定量面板；Fig.4 不再包含示意图。
-- 唯一问题：相同的 input-driven、history-conditioned transition 能否在连续输入和更深历史中反复成立，并产生累积行为后果。
+- 面板集合：a–e，共五个定量面板；不包含 schematic、protocol key 或 micro-panel。
+- 唯一问题：post-input successor 是否可被下一输入复用，并通过选择性入口和进一步 transition 形成可重复的 working-memory state evolution。
 - 论证链：
-  `a early Layer-2 donor transfer → b post-C Layer-3 successor transfer → c recurrence breadth → d accumulated behavioral cost`。
-- a：K1/K5 下的 C5 early Layer-2 processing donor-transfer index。
-- b：K1/K5 下的 C5 post-C Layer-3 successor donor-transfer index。
-- c：stage 2–10 的 Observed 与 Persisted passive state displacement。
-- d：K1/K5 relation-balanced Rescue/Loss。
-- 原 successor-reuse/swap 示意图从 Fig.4 artwork 删除。C5 干预身份、B→C mapping、receiver/donor 约束与 selective transplant 仍由图注、Methods、Source Data 和 provenance 承担，不再占用主图面板。
-- 状态演化的唯一概念综合位于 Fig.3g；Fig.4 只展示该原则的递归证据与累积后果。
-- 画布：`165 mm × 102 mm`。
-- slot：
-  - a：`[2.000, 2.000, 79.500, 48.000] mm`；
-  - b：`[83.500, 2.000, 79.500, 48.000] mm`；
-  - c：`[2.000, 52.000, 79.500, 48.000] mm`；
-  - d：`[83.500, 52.000, 79.500, 48.000] mm`。
-- 科学边界：20 个独立 network（1000–1019）；plot-only 只读取既有 final bundle，不新增训练、模拟或 forward replay。
-- 推断边界：donor transfer 不能升级为 necessity、complete mediation 或 uniqueness；stage recurrence 不表示每个 stage 都重复了完整 C5 transplant protocol。
+  `a across-depth reuse → b overlap-selective entry → c following-transition propagation → d natural recurrence → e behavioral consequence`。
+- a：one, five or ten items before B 下的 input-response 与 successor-state donor-transfer indices。
+- b：ten-item history 下 overlap-aligned removal 对 input-response 与 post-input-state effects 的 attenuation；non-overlap/random controls 固定为零且只作描述。
+- c：five-item history 下 next response 只作描述；following response 与 new successor 为确认性传播端点。
+- d：transition stages 2–10 的 observed-minus-equal-time-no-input recurrence；passive branch 每阶段从对应完整 observed preceding boundary 重新生成。
+- e：one-to-five-item history 下 Behavioral Rescue 与 Loss 的独立 opportunity-denominator changes；不计算 Rescue-minus-Loss。
+- Supplementary Figs. S3–S5 分别给出 spatial selectivity、network-wide persistence 和 network/variable-resolved recurrence 的独立补充结论。
+- 画布：`165 mm × 102 mm`，2+3 布局；a–b 为 79.5 mm slots，c–e 为 52.333 mm slots。
+- 科学边界：20 个独立 network（1000–1019）；只读取既有 persisted artifacts，不新增训练、模拟或 forward replay。
+- 推断边界：donor transfer 只支持 tested conditions 下的 bounded sufficiency；不推断 necessity、complete mediation、uniqueness、cross-depth trend、panel-b-versus-c comparison 或 Rescue-minus-Loss contrast。
+- 正式实现：`src/plotting/paper_fig/candidates/manuscript_fig5_reader_first_v3.py` 及 `results/paper_figures/outputs/provenance/fig5/`。
 
-当前状态：`four_panel_recurrence_chain_validated_plot_ready`。
+当前状态：`five_panel_successor_reuse_chain_promoted`。
 
 ## 历史状态（2026-08-01，已被上节覆盖）
 

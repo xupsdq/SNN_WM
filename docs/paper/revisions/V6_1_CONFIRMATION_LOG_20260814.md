@@ -275,32 +275,54 @@
 
 **作者选择：C（重构，不采用 26-column 内部 registry）**
 
-- S2A：四项 Fig. 2 descriptive endpoints。
-- S2B：M01–M33、S01 与 SF01–SF04 的 endpoint、eligible set/window、\(n\)、estimate、unit 和 95% CI。
-- S2C：对应 null、test/alternative/CI、statistic/df、raw \(P\)、adjustment 和 adjusted \(P\)。未由 frozen aggregate 持久化的 family member lists 不作推测；以 figure legends 与 Source Data 为权威，并在内部 provenance 中记录缺口。
-- 主文 Fig. 5c/d 三个 endpoints 纳入主表；minimum-across-stages 单列为 sensitivity；Supplementary Fig. S2 四个 inferential contrasts 恢复。
-- 删除 `not encoded`、内部路径、status、snake_case 和 figure-offset 说明；完整 provenance 保存在 `.pi/manuscript_review/supplementary_v6_1_table_s2_resolved.json`。
-- 26 列裁切问题已消除；最终三张读者表分别为 4、7、7 列。
+- S2A：D01–D06 descriptive endpoints，含 Fig.5b 零值 controls 与 Fig.5c next-response gate。
+- S2B：M01–M39、S01 与 SF01–SF04 的 endpoint、eligible set/window、\(n\)、estimate、unit 和 95% CI。
+- S2C：对应 null、test/alternative/CI、statistic/df、raw \(P\)、adjustment 和 adjusted \(P\)。未由 frozen aggregate 持久化的 family member lists 不作推测；以 figure legends 与 Source Data 为权威。
+- M16–M19 保留原四端点 transfer family；M34–M39 保留 ten-item reuse、overlap attenuation 和 following-transition propagation 三个两端点 families；S01 保留正式 recurrence sensitivity 记录。
+- 删除 `not encoded`、内部路径、status、snake_case 和 figure-offset 说明；26 列裁切问题已消除；最终三张读者表分别为 4、7、7 列。
+
+### S5 — Five-panel Fig.5 and independent Supplementary Fig. S3–S5 conclusions
+
+**作者选择：确认同步。**
+
+- Fig.5b 的 Holm-adjusted \(P\) 值明确归属于两个 overlap-specific attenuation endpoints；non-overlap/random controls 固定为零且只作描述。
+- 主文以三个独立短句分别报告 S3 的 spatial selectivity、S4 的 cross-network/following-transition persistence 和 S5 的 network/variable-resolved recurrence，不与 Fig.5 共用同一括号结论。
+- Statistics 段只增加 `overlap-attenuation`，其余锁定统计文字与 OMML 不变。
+- S3–S5 legends 改为解释各自补充结论，不再写成 Fig.5 的 extension。
+- S5b 使用 persisted S01 confirmatory record：mean 0.4890，95% CI 0.481787–0.496191，one-sided exact sign-flip，Holm-adjusted \(P=1.907\times10^{-5}\)。S5b artwork 只显示 network points，因此图像无需改变；重新导出的 PNG/PDF/SVG 哈希与原图完全一致。
 
 ## 当前构建与 QA
 
-- 主文确认稿 SHA-256：`5f7aab33f48b6943e794ccb3ce63294e55139b480e55c18795df2aa356083593`
-- 补充材料确认稿 SHA-256：`24c9b5c0c44963ea7d41c9297f49d27263cd7dc8e96cf404e6f484026bebe74b`
-- 主文 PDF：28 页，无空白页、无页面外文字；70 个 OMML objects，display Equations 仅保留 (1)–(5)；6 条 comments 与 7 个 media 保持。
-- 补充 PDF：22 页，无空白页、无页面外文字；107 个 OMML objects，Supplementary Equations (S1)–(S17) 连续完整；7 个 media 与副本逐项哈希一致。
-- 补充表结构：Table S1 = 25 × 3；Table S2A = 5 × 4；Table S2B = 39 × 7；Table S2C = 39 × 7。
+- 主文确认稿 SHA-256：`c3199d710812cbd6db60cdee560c6270b5dbec3e1a81ce9a2427c9b93a73239a`
+- 补充材料确认稿 SHA-256：`44b10b6d221e8af25d1a99a48c4f2d70b7eba0595be00fb2bf2021bebedd0722`
+- 主文 PDF：29 页，无空白页、无页面外文字；`word/document.xml` 中 65 个 OMML `oMath` elements 与修改前一致，display Equations 仅保留 (1)–(5)；6 条作者批注已按明确指示全部移除，当前 comments = 0，7 个 media 保持。
+- 补充 PDF：24 页，无空白页、无页面外文字；`word/document.xml` 中 96 个 OMML `oMath` elements 与修改前一致，Supplementary Equations (S1)–(S17) 连续完整；7 个 media 保持。
+- 补充表结构：Table S1 = 25 × 3；Table S2A = 7 × 4；Table S2B = 45 × 7；Table S2C = 45 × 7。
+- 当前工作投稿包：`communications_biology_v6_1_reader_first_candidate_r2/`；Article/SI、Fig.1–Fig.7、Fig.5a–e Source Data、Supplementary Figs. S1–S7 Source Data 与 416 项 checksum 已核对通过，仍保持 `submission_ready=false`。
 - 正式基线 `v6.docx`（`64b05e...`）、正式补充材料（`f87010...`）及两个副本均未改变。
 
-## 单独延后处理
+## 部分完成、图件单独处理
 
 ### L1 — 层间 successor-state 机制全文联动
 
-**状态：DEFERRED；尚未写入 `v6_1.docx`。**
+**作者决定：接受 Fig. 4g 之外的全部文字修改；Fig. 4g caption 与 artwork 暂不参与本轮，并作为同一图件包处理。**
 
-范围包括 R10/P054、Abstract P005、Introduction P009/P010、Results P012/P033/P038/P039、Fig. 4g caption 与 artwork、Discussion P055。先完成其余逐项审查，再整体返回。
+已写入 `v6_1.docx`：
+
+- Abstract：删除同层 self-rewrite，改为 processing 形成携带 history 的 downstream synaptic state。
+- Introduction：问题段保持读者当前概念层级；研究概述自然表达 inherited STSP → processing → state formed downstream，不插入定义式 successor 段。
+- Results roadmap：第二问改为 processing 如何改变被带入后续的 synaptic state。
+- Fig. 4 Results 收束：采用相对层间关系，不在概念综合中重复具体 Layer 编号。
+- Fig. 5 sequence 收束：`rewriting` 改为 `updating`，并写成 one transition → next-input processing → next state。
+- Discussion：中心段保持 working-memory continuity 为主角；下一段恢复 maintenance → continuous processing 的领域意义。
+
+继续单独处理：
+
+- **L1.6 Fig. 4g caption + L1.7 artwork**：二者均保留现状，待图件方案确认后同批修改；当前不存在人为制造的 caption–artwork 不一致。
 
 详细清单：`docs/paper/revisions/V6_1_DEFERRED_INTERLAYER_LINKAGE_20260814.md`
 
 ## 待确认
 
-- 全文端点、单位与术语一致性修订
+- L1.6 Fig. 4g caption + L1.7 artwork
+- **本轮 Fig.6b order-identification integration（2026-08-16）**：主文 Results 句子、Fig.6 legend、Morphology Methods、Supplementary Table S2 的 M20 行和正式 Fig.1–Fig.7 artwork 已写入工作稿；待作者确认后再冻结哈希并提升投稿状态。

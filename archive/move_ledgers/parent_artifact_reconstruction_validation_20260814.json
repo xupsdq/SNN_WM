@@ -1,0 +1,804 @@
+{
+  "schema": "net_torch_parent_artifact_reconstruction_validation_v1",
+  "generated_at": "2026-08-14T07:23:30.418514+00:00",
+  "mode": "check_only_disposable_scratch",
+  "repo_root": "Y:\\python_project\\Net_torch",
+  "register": "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json",
+  "register_sha256": "cbd78cb3b9526825c48dfe06718e84c099122d5b6426ed46e8a97df9115e5f5f",
+  "seeds_requested": [
+    1000,
+    1001,
+    1002,
+    1003,
+    1004,
+    1005,
+    1006,
+    1007,
+    1008,
+    1009,
+    1010,
+    1011,
+    1012,
+    1013,
+    1014,
+    1015,
+    1016,
+    1017,
+    1018,
+    1019
+  ],
+  "seed_count": 20,
+  "verified_seed_count": 20,
+  "verified_output_count": 40,
+  "status": "completed_verified",
+  "safety": {
+    "canonical_parent_files_written": 0,
+    "canonical_parent_files_deleted": 0,
+    "protected_manuscripts_modified": 0,
+    "scratch_policy": "system temporary directory removed after hashes were recorded"
+  },
+  "results": [
+    {
+      "seed": 1000,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1000/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1000/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1000/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "b10736febea1ef1e9f74c8f9746094cf8b956d33e1937b0e7093d9d6b0dce955",
+        "branch_traces": "86140b842af8cf22f21e11ee12d16ced5c5c38289044fbd273f44ac3efddb584",
+        "run_config": "d61e9d02eccc9b471b7fffddf35fd8e1dc6a99ace2ea98e4e0fa3f932708c75b"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1000/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22682754,
+          "expected_bytes": 22682754,
+          "actual_sha256": "6672f61a721aadd9d8308e3453931b85481a9b103ecc66f34686f8245240b04c",
+          "expected_sha256": "6672f61a721aadd9d8308e3453931b85481a9b103ecc66f34686f8245240b04c",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1000/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 474384,
+          "actual_bytes": 60037763,
+          "expected_bytes": 60037763,
+          "actual_sha256": "11d0f6c1e0c380e2f76e5d8057c3a5071859b3d81deb307fcad7a90528527863",
+          "expected_sha256": "11d0f6c1e0c380e2f76e5d8057c3a5071859b3d81deb307fcad7a90528527863",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1001,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1001/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1001/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1001/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "6defe4c6ecf4c39e2d3cee3b77a536f6d67508a33a5f65328dc08d886e000f7d",
+        "branch_traces": "8fd8a724dc2767aee8fcc075e1eb94cc9b71c14de0f175b1000e3663657684e0",
+        "run_config": "4a18deecdeceffdbaec6589e0427346a7a3919a7c5b0a9d868423d98c77ecc24"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1001/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22688537,
+          "expected_bytes": 22688537,
+          "actual_sha256": "2d1a86f9baf112bb39e59bd5d38b574c3938d290690395f6b66d474c8f879237",
+          "expected_sha256": "2d1a86f9baf112bb39e59bd5d38b574c3938d290690395f6b66d474c8f879237",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1001/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477048,
+          "actual_bytes": 60390331,
+          "expected_bytes": 60390331,
+          "actual_sha256": "e81705b702a9fefc52b26fa12e594bc113f65a194e4828d18e58c52abb99081c",
+          "expected_sha256": "e81705b702a9fefc52b26fa12e594bc113f65a194e4828d18e58c52abb99081c",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1002,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1002/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1002/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1002/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "2cb7da30932df6d0c8d73efae01d51b6cdbed7dc36a8368f06575c0afb019d03",
+        "branch_traces": "fc8112c3d3c4330f4c562ce02f74fb8b6535ed89936f4e0902fdcfc0ffc37519",
+        "run_config": "68bfc772d83010d8a1b6d706600d33ff73d8fa51df705e6f09acf582f1f8e4a5"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1002/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22678736,
+          "expected_bytes": 22678736,
+          "actual_sha256": "a5dc48a8f0345024d4c76d81ac4dc186efcf9e1e85600e1d3f5990ee13ab24ab",
+          "expected_sha256": "a5dc48a8f0345024d4c76d81ac4dc186efcf9e1e85600e1d3f5990ee13ab24ab",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1002/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 474234,
+          "actual_bytes": 60024641,
+          "expected_bytes": 60024641,
+          "actual_sha256": "9842b497c65d4798121dd75df27181bc5e2abb9d468f6ab412ac2fa9965c9c62",
+          "expected_sha256": "9842b497c65d4798121dd75df27181bc5e2abb9d468f6ab412ac2fa9965c9c62",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1003,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1003/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1003/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1003/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "43eae8e898be4f14550e2bd606167fe478d16fff44a86b9809df47ea03271fc3",
+        "branch_traces": "fca3cc6c9ed67634d4a533aadb6662b88e00e50f92f1493428f649c826456858",
+        "run_config": "a8f9a5016594448a7b40f1d191590f608bd42d1fa5dcdde03d1a89e7b397d73c"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1003/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22679578,
+          "expected_bytes": 22679578,
+          "actual_sha256": "febf96e8aac16c16595df0e71dc28d9daebb5fc65c036ad9e237a6bc773cbe72",
+          "expected_sha256": "febf96e8aac16c16595df0e71dc28d9daebb5fc65c036ad9e237a6bc773cbe72",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1003/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477492,
+          "actual_bytes": 60431956,
+          "expected_bytes": 60431956,
+          "actual_sha256": "046394bec714974b853d1cbfe1c13e05c6debd260526de75cf7fdab5d19a40a7",
+          "expected_sha256": "046394bec714974b853d1cbfe1c13e05c6debd260526de75cf7fdab5d19a40a7",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1004,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1004/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1004/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1004/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "93fcd5f8e30c6ccff51124aa0d2913ab2c2d6a23d946ea7e90c30b5944d8b799",
+        "branch_traces": "7ba391b513ce55a4bd3a8d70eaf372baed52a0ef7e04fc04f01fa61bd6d71222",
+        "run_config": "a0e6a46b34f5235d57b198a2c604c5f191fccf18c0f9cb7e53fbe0daa0b963cb"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1004/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22689152,
+          "expected_bytes": 22689152,
+          "actual_sha256": "82d44845de9d0fa05064cf2c38fedbcaed17d9c9dd765ba46e67fb554202ab7d",
+          "expected_sha256": "82d44845de9d0fa05064cf2c38fedbcaed17d9c9dd765ba46e67fb554202ab7d",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1004/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477453,
+          "actual_bytes": 60436184,
+          "expected_bytes": 60436184,
+          "actual_sha256": "603cec3f6881ef8775247ba673e53db648365d186341e79a8fe0aec9ce7d1fe5",
+          "expected_sha256": "603cec3f6881ef8775247ba673e53db648365d186341e79a8fe0aec9ce7d1fe5",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1005,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1005/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1005/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1005/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "bba2df43b1f36bdff6d0cf9f10cdd7ea68a858f8f52327a3ae0dc5f3a1c53784",
+        "branch_traces": "f6f6515b896dc4f0f8cd56d6cf84207c819522f109a3b523076662977d4afbe3",
+        "run_config": "045dda0f4d9e5c6d1de4843341520e1ccef3fd379516bcc5ffe4ee3273c8f67c"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1005/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22694888,
+          "expected_bytes": 22694888,
+          "actual_sha256": "21ae4d54c863f875ee23baae3db47da8b4a8b37fc9af4c3bf7d57e9f64eec660",
+          "expected_sha256": "21ae4d54c863f875ee23baae3db47da8b4a8b37fc9af4c3bf7d57e9f64eec660",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1005/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477525,
+          "actual_bytes": 60431279,
+          "expected_bytes": 60431279,
+          "actual_sha256": "5e52fe325b2de05398cf250bc8a554f572386e10c27c93577dd1509277feea5d",
+          "expected_sha256": "5e52fe325b2de05398cf250bc8a554f572386e10c27c93577dd1509277feea5d",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1006,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1006/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1006/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1006/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "d3901b6a30b19c2a6be031b06721a3748ab6e5dc51354be7a792ee8210a78877",
+        "branch_traces": "3fb3f534b4800aa8aa0214a9d7380373ed4dc6a6cd9073e815626ba127b1d89a",
+        "run_config": "c06265386634902d4733af48995d315ac33d828ce9305800cdc43bf93f3b73c9"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1006/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22689521,
+          "expected_bytes": 22689521,
+          "actual_sha256": "e7186cbaec9c6a1e4911cecf673d5e8c66cb4af689fd7db2cdb5fdbc3b2fe072",
+          "expected_sha256": "e7186cbaec9c6a1e4911cecf673d5e8c66cb4af689fd7db2cdb5fdbc3b2fe072",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1006/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477066,
+          "actual_bytes": 60381269,
+          "expected_bytes": 60381269,
+          "actual_sha256": "56cf53d9241408a2225263faf7508bba9c1cad8703d1d42e9a11dcff6f4745a1",
+          "expected_sha256": "56cf53d9241408a2225263faf7508bba9c1cad8703d1d42e9a11dcff6f4745a1",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1007,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1007/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1007/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1007/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "1dc651560ac9c5f34f6fe55c8efb50d77556a3005fe04b77967bee25fc770128",
+        "branch_traces": "86024f4fac9ee74a7c65a78c934d760c81f929c1344c49844e94a503a792a24d",
+        "run_config": "12e8cab82d81ea15f6b1b8d5112c456b9d0e9860a461c22dd56b15f5b558b55b"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1007/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22697728,
+          "expected_bytes": 22697728,
+          "actual_sha256": "c22ea61dc4ba8f2d72226a78ebb86d140daa9db9f4a03c39c959b7dc2c85a622",
+          "expected_sha256": "c22ea61dc4ba8f2d72226a78ebb86d140daa9db9f4a03c39c959b7dc2c85a622",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1007/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 478227,
+          "actual_bytes": 60542141,
+          "expected_bytes": 60542141,
+          "actual_sha256": "0de8371a38abba69b16e32b00503932208f49f8ea22410291d645e45b8af3290",
+          "expected_sha256": "0de8371a38abba69b16e32b00503932208f49f8ea22410291d645e45b8af3290",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1008,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1008/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1008/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1008/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "bb47b03e6d2300508422acc8c7e8668fa126ee8d19fcff1cc7497fefe033a4cc",
+        "branch_traces": "5e8228b54930d804770b88a5abefcb498ed1fb5320bc48f72d14881f90d18a61",
+        "run_config": "f9370e0c532252102ffc6970eedbd58079181c994b1ee1e30485c0b5572ea720"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1008/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22679102,
+          "expected_bytes": 22679102,
+          "actual_sha256": "3238a90e84eb993c8333ddfe3d85f10c29556e0acfc0f450eacd51bd9bb2e670",
+          "expected_sha256": "3238a90e84eb993c8333ddfe3d85f10c29556e0acfc0f450eacd51bd9bb2e670",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1008/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 475056,
+          "actual_bytes": 60131444,
+          "expected_bytes": 60131444,
+          "actual_sha256": "45b6ef4d803645a4cc0d5b653335405078d1f32db93ba0dbd75b3fac9d4d8cdc",
+          "expected_sha256": "45b6ef4d803645a4cc0d5b653335405078d1f32db93ba0dbd75b3fac9d4d8cdc",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1009,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1009/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1009/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1009/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "86061f525f045b8a80125de76d6037a85a2284646dfb6768012daa5394e0f4e7",
+        "branch_traces": "bc6df19f3ee7a990ff3e7c48660f63c363fe0884285c8014f880a69254de08ca",
+        "run_config": "a64eaed341d4bcdebcd4b069bb9d53d4ba234a47869b30533dcc8660881a2c68"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1009/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22689664,
+          "expected_bytes": 22689664,
+          "actual_sha256": "14ec9870f3c9851d62d94364bf4bf5d566f78407ba34aa6d89155219af3840b6",
+          "expected_sha256": "14ec9870f3c9851d62d94364bf4bf5d566f78407ba34aa6d89155219af3840b6",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1009/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 480270,
+          "actual_bytes": 60790289,
+          "expected_bytes": 60790289,
+          "actual_sha256": "de39c3d3ea35e9e5947dd86a04017e94f6062a74ed1c309182dbb61f922bed6c",
+          "expected_sha256": "de39c3d3ea35e9e5947dd86a04017e94f6062a74ed1c309182dbb61f922bed6c",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1010,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1010/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1010/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1010/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "55e7c75b5aa2a1f8ecf31045ea64eff8d0c86c3de11176263c5c3e36e1c5322f",
+        "branch_traces": "7845d38410acb7f8d1ce07c20e5e19905c184a017f56def39c1ab6596d748992",
+        "run_config": "91b76332c08993d616c1eae5be594cfd2c8228e0202a416ff5059eb63a122142"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1010/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22685415,
+          "expected_bytes": 22685415,
+          "actual_sha256": "385806a5d060d0e166edf0d0a2b98829800bbe9c07faaa90654f23d38aba5ae5",
+          "expected_sha256": "385806a5d060d0e166edf0d0a2b98829800bbe9c07faaa90654f23d38aba5ae5",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1010/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 478557,
+          "actual_bytes": 60566612,
+          "expected_bytes": 60566612,
+          "actual_sha256": "ffac41ea785916b74acf1fa2289179c040d2db0c75de72ce7192b30a7d28092a",
+          "expected_sha256": "ffac41ea785916b74acf1fa2289179c040d2db0c75de72ce7192b30a7d28092a",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1011,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1011/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1011/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1011/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "32be8a546cfc49a150161196802bffab5c9550ede99f6507e333316b8fe173e7",
+        "branch_traces": "e201478da23a7d56fc8805bfcc2e7eb50fc81f5a5e2d4d47064d155b3e48af82",
+        "run_config": "f262c98f8886b3face90da45b7b9dbe1b8e945030eb324edd00a4ae56ad9904c"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1011/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22682414,
+          "expected_bytes": 22682414,
+          "actual_sha256": "6527637702614bba9ea8c49a8713c73e96e549f476568cf153fc6eff3055c169",
+          "expected_sha256": "6527637702614bba9ea8c49a8713c73e96e549f476568cf153fc6eff3055c169",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1011/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477834,
+          "actual_bytes": 60493638,
+          "expected_bytes": 60493638,
+          "actual_sha256": "ec4191abf74d6b091bf17127f9cefd2d78b6521a966db87e7cba1fb91421892c",
+          "expected_sha256": "ec4191abf74d6b091bf17127f9cefd2d78b6521a966db87e7cba1fb91421892c",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1012,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1012/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1012/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1012/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "f2db1fb3afea4e52ddb119721f25734aadcce98d0b800b3c5a50829edebab50c",
+        "branch_traces": "7aede1e89dd034a245d19c532d3ce4c86627fe6b0ba8887c9538c62730b8f57b",
+        "run_config": "e485855ee897367116d9149041b1bfe1b4e358f6664b41edb6d6388b49e2d351"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1012/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22697535,
+          "expected_bytes": 22697535,
+          "actual_sha256": "6eb6ec43ef6bd29c79e507caf64d921af206359b73aa3c301c385772798f0161",
+          "expected_sha256": "6eb6ec43ef6bd29c79e507caf64d921af206359b73aa3c301c385772798f0161",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1012/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 477594,
+          "actual_bytes": 60474338,
+          "expected_bytes": 60474338,
+          "actual_sha256": "d0bae0e2a8a1f2f6e45d69d76aa84b1480137341ea1aae28bd5d838f1c8d3b58",
+          "expected_sha256": "d0bae0e2a8a1f2f6e45d69d76aa84b1480137341ea1aae28bd5d838f1c8d3b58",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1013,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1013/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1013/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1013/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "1fcb87cfb3fcfe523d42d3ccfa3ebc9a2d521298356fd38112c8de6547d0f424",
+        "branch_traces": "40de9ff2770e440c50d4109449bde37e856be64f9cc7f31d9034b03c07631769",
+        "run_config": "a6115a3664641b7e984e0a5344f78b5a599985121a89d8d8b725e6078fe7da39"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1013/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22687735,
+          "expected_bytes": 22687735,
+          "actual_sha256": "cf8bd9549f49ff5b337eb6294de1ead8174775dbf29cc4b7540cb0331a16521f",
+          "expected_sha256": "cf8bd9549f49ff5b337eb6294de1ead8174775dbf29cc4b7540cb0331a16521f",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1013/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 474516,
+          "actual_bytes": 60077983,
+          "expected_bytes": 60077983,
+          "actual_sha256": "2788b9405588dc7553511f14f8632d007629aa866fb2ff6ed68a6dec36d17db3",
+          "expected_sha256": "2788b9405588dc7553511f14f8632d007629aa866fb2ff6ed68a6dec36d17db3",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1014,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1014/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1014/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1014/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "e68a665c4b0e577f20ad2ebe34ce0be25d348b2b24045a732a65e7171c54ac25",
+        "branch_traces": "2133483645599abbe592951a2ed47d3e965f51cb72e24a5831b1c60151c4d7d1",
+        "run_config": "03f618a729a99ecd4c3317fb01e268b6282e902f5e6c9bd8988a28258a991482"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1014/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22677636,
+          "expected_bytes": 22677636,
+          "actual_sha256": "2c8927ae6b9f23d21774e1b85dfefb9553349ea5e2c113c2fb574afcf51675a8",
+          "expected_sha256": "2c8927ae6b9f23d21774e1b85dfefb9553349ea5e2c113c2fb574afcf51675a8",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1014/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 472572,
+          "actual_bytes": 59819539,
+          "expected_bytes": 59819539,
+          "actual_sha256": "052763ac8d91b66bed0ece1b948cd080c99d393cc85e4e3259f586ac50892e1e",
+          "expected_sha256": "052763ac8d91b66bed0ece1b948cd080c99d393cc85e4e3259f586ac50892e1e",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1015,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1015/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1015/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1015/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "6874ae7a766397d6763e3ef51e09ab45c433688c017f103faa760805e94018af",
+        "branch_traces": "7a010532372c6669535f077c3dbf31e400ade91da3a85e9a99e83cf93a88bd6a",
+        "run_config": "d348f49b5ac23e1f5e170877e681d14a4ea295df823a6e95a49f246a9c20299d"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1015/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22687384,
+          "expected_bytes": 22687384,
+          "actual_sha256": "9f1a213d38af7765237e4d87a019e90f43cbe5bfe59da380dff33d2c887d170d",
+          "expected_sha256": "9f1a213d38af7765237e4d87a019e90f43cbe5bfe59da380dff33d2c887d170d",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1015/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 474828,
+          "actual_bytes": 60105977,
+          "expected_bytes": 60105977,
+          "actual_sha256": "3a9a09fab8c0bb27baf9c1ddbf9e12c10c11430e535ddbed9e16df0d20f7ea8f",
+          "expected_sha256": "3a9a09fab8c0bb27baf9c1ddbf9e12c10c11430e535ddbed9e16df0d20f7ea8f",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1016,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1016/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1016/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1016/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "d063a34b762c415487353f273f7613ccfe073840abb562f2112d638c09493d9f",
+        "branch_traces": "3281f4f29c88e39f6d7fda0e3a9aba36bd09c78b3468e88c7fb2b4d309b90808",
+        "run_config": "823304933fd8f08ac10c447006d9fbfa8e3f9c847dc6e519191d3b4c73a9298e"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1016/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22687258,
+          "expected_bytes": 22687258,
+          "actual_sha256": "a662450908dfcbb9008c396a19f97d59db3c1fef0fb090cf4893094a9996766f",
+          "expected_sha256": "a662450908dfcbb9008c396a19f97d59db3c1fef0fb090cf4893094a9996766f",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1016/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 473697,
+          "actual_bytes": 59981575,
+          "expected_bytes": 59981575,
+          "actual_sha256": "ffaf5dfec3f36bd9831cd410020acef65c490d0b598afe5b3215dd2329c463ca",
+          "expected_sha256": "ffaf5dfec3f36bd9831cd410020acef65c490d0b598afe5b3215dd2329c463ca",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1017,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1017/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1017/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1017/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "4c15dd31f40578bad094f792a11ea6df21d813e8f234f29f89da729e3bb9ef73",
+        "branch_traces": "c37fcec8104bbab27cf02f1d1a5d6adf472acc55c0d755e6bc4932e6a0487bfd",
+        "run_config": "ed137f6c885fb7d60836a3146cc7bb7deb002cf993d2f85c8566bbac296be77a"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1017/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22702228,
+          "expected_bytes": 22702228,
+          "actual_sha256": "3c92bcf68b3214cfe2773f2d689664e1aee639599421aa598a4fd17aac20c619",
+          "expected_sha256": "3c92bcf68b3214cfe2773f2d689664e1aee639599421aa598a4fd17aac20c619",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1017/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 479835,
+          "actual_bytes": 60733292,
+          "expected_bytes": 60733292,
+          "actual_sha256": "77eb281ffc514a0a26715634355c3554c74ce750c67cdf00e0fd2dbbec02d108",
+          "expected_sha256": "77eb281ffc514a0a26715634355c3554c74ce750c67cdf00e0fd2dbbec02d108",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1018,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1018/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1018/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1018/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "40f5207c8b4faab3f35005e5f370cc788d9a30c27b0dd69bac4108971c9e03e8",
+        "branch_traces": "04a3b0a8bde457e20346d5c767449fc11992fa933dfbf6d32469b1e4728743f5",
+        "run_config": "3ffbbf1beeace7ef653dddcf7c596a7fcc556b7c733b785ede806f4868fabd8f"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1018/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22691200,
+          "expected_bytes": 22691200,
+          "actual_sha256": "de3bc1fc386fb57a3d4d92f30db5f2c865ef84afc908dcf3c051da8913fc67b1",
+          "expected_sha256": "de3bc1fc386fb57a3d4d92f30db5f2c865ef84afc908dcf3c051da8913fc67b1",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1018/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 478188,
+          "actual_bytes": 60518074,
+          "expected_bytes": 60518074,
+          "actual_sha256": "89fbdc53cdcb0978d5c57d3ad17a03885b9abb9b52aded4e479817e838d65c13",
+          "expected_sha256": "89fbdc53cdcb0978d5c57d3ad17a03885b9abb9b52aded4e479817e838d65c13",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    },
+    {
+      "seed": 1019,
+      "sources": {
+        "unit_groups": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1019/data/trial_specs/unit_group_definitions.csv",
+        "branch_traces": "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_1019/data/intermediates/preprobe_support_bank/branch_traces.npz",
+        "run_config": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition/seed_1019/config/run_config.json"
+      },
+      "source_sha256": {
+        "unit_groups": "bc50f1e41b230efbaa2e99ed71b14532511ee31bf28db53a1d6c744bc2ad6510",
+        "branch_traces": "ec09e304564a5ada2aba1f28f5fb36aadbdcac3aa72cc311a37169c5855fa132",
+        "run_config": "7613b5f99bf95eba90040159f206801739a0f65697938ac958690c0894047ecb"
+      },
+      "unit_group_rows": 392000,
+      "trial_count": 500,
+      "outputs": {
+        "panel_b": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1019/data/metrics/panel_b_early_firing_transition_metrics.csv",
+          "rows": 392000,
+          "actual_bytes": 22673315,
+          "expected_bytes": 22673315,
+          "actual_sha256": "3afab3104d7b010cf0b950b1583e3da7141d5fb0dc7a60eca0c48da927e5539a",
+          "expected_sha256": "3afab3104d7b010cf0b950b1583e3da7141d5fb0dc7a60eca0c48da927e5539a",
+          "bytes_match": true,
+          "sha256_match": true
+        },
+        "panel_d": {
+          "target_path": "results/paper_figure_multi_seed/fig5_local_support_competition/seed_1019/data/metrics/panel_d_l1_stsp_perturbation_unit_transitions.csv",
+          "rows": 474453,
+          "actual_bytes": 60039248,
+          "expected_bytes": 60039248,
+          "actual_sha256": "7ecdea52d60908a6f06944552be1d9ee20ca5b10e0d546df1e4b85bc13b9b174",
+          "expected_sha256": "7ecdea52d60908a6f06944552be1d9ee20ca5b10e0d546df1e4b85bc13b9b174",
+          "bytes_match": true,
+          "sha256_match": true
+        }
+      },
+      "status": "byte_identical_reconstruction_verified"
+    }
+  ],
+  "register_snapshot": "archive/move_ledgers/parent_artifact_gap_register_pre_restore_20260814.json",
+  "register_snapshot_sha256": "cbd78cb3b9526825c48dfe06718e84c099122d5b6426ed46e8a97df9115e5f5f"
+}

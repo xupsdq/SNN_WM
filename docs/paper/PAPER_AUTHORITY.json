@@ -1,6 +1,6 @@
 {
   "schema": "net_torch_paper_authority_v1",
-  "updated_at": "2026-08-14T14:00:35+08:00",
+  "updated_at": "2026-08-17T18:57:50.991655+08:00",
   "status": "active_working_cycle",
   "authority_order": [
     "explicit_user_decision",
@@ -64,10 +64,56 @@
     },
     "main_working": {
       "path": "docs/paper/v6_1.docx",
-      "status": "in_progress_author_confirmed_merge",
-      "role": "Current V6.1 working copy built only from individually confirmed replacements.",
-      "sha256": null,
-      "hash_policy": "Do not freeze or promote while docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md still has pending items."
+      "status": "in_progress_fig6b_confirmation_pending",
+      "role": "Comment-free V6.1 working copy with the approved five-panel Fig.5, corrected overlap-attenuation inference wording, standalone Supplementary Fig. S3-S5 conclusions and the minimally synchronized Statistics exception.",
+      "sha256": "c3199d710812cbd6db60cdee560c6270b5dbec3e1a81ce9a2427c9b93a73239a",
+      "hash_policy": "Do not freeze or promote while docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md still has pending items.",
+      "embedded_figure_mapping": [
+        {
+          "figure": "Fig.1",
+          "media_part": "word/media/image1.png",
+          "source_path": "results/paper_figures/outputs/fig1/fig1.png",
+          "sha256": "31c43207f7048296b1cd5ad3eb1928b4fbf4b18654d24f908500bf3c2e8f36b0"
+        },
+        {
+          "figure": "Fig.2",
+          "media_part": "word/media/image2.png",
+          "source_path": "results/paper_figures/outputs/fig2/fig2.png",
+          "sha256": "ef84adea88882c18cafca22bdaf46d8598a47f2f13a62ba6d1fcc6cef6b92833"
+        },
+        {
+          "figure": "Fig.3",
+          "media_part": "word/media/image3.png",
+          "source_path": "results/paper_figures/outputs/fig3/fig3.png",
+          "sha256": "4d18e843c98d021c378bc65275117a9bbbbca7c062b37484b0a7628a83f5c23c"
+        },
+        {
+          "figure": "Fig.4",
+          "media_part": "word/media/image4.png",
+          "source_path": "results/paper_figures/outputs/fig4/fig4.png",
+          "sha256": "1c80c6dd56629258aecf589d97f5fce683c66dbc61bd32498b4da26631e20663"
+        },
+        {
+          "figure": "Fig.5",
+          "media_part": "word/media/image5.png",
+          "source_path": "results/paper_figures/outputs/fig5/fig5.png",
+          "sha256": "31dff86613af1a07acf545a7ce779d82c525604ee3e8bd32aad2b336dadfee51"
+        },
+        {
+          "figure": "Fig.6",
+          "media_part": "word/media/image6.png",
+          "source_path": "results/paper_figures/outputs/fig6/fig6.png",
+          "sha256": "5d472aa25a0a0022bd20c2968865e1478adb18d014ef0651b4507f6fcc88de20"
+        },
+        {
+          "figure": "Fig.7",
+          "media_part": "word/media/image7.png",
+          "source_path": "results/paper_figures/outputs/fig7/fig7.png",
+          "sha256": "95a5dbec5bda959f5ae03db081186d61e72a541eafdb4f06fc5d08fe8d9a29f4"
+        }
+      ],
+      "formal_output_root": "results/paper_figures/outputs",
+      "submission_candidate": "docs/paper/submission_packages/communications_biology_v6_1_reader_first_candidate_r2"
     },
     "main_candidate_source": {
       "path": "docs/paper/v6 - 副本.docx",
@@ -130,6 +176,90 @@
       "status": "candidate_source_not_current",
       "role": "Selective Methods/Supplementary revision source; contains unresolved submission blockers and must not replace the baseline wholesale.",
       "sha256": "4089a74bcadbab61a06df13a38d6a5dc765362fc8b34d51e84672da3d2c4bf7e"
+    },
+    "supplementary_working": {
+      "path": "docs/paper/supplementary_information_v6_1.docx",
+      "status": "in_progress_fig6b_and_clean_copy_pending",
+      "role": "Current V6.1 Supplementary Information with synchronized successor-reuse Methods, standalone Supplementary Figs. S3-S5 legends, supplied S5b confirmatory inference and Supplementary Table S2 M01-M39.",
+      "sha256": "44b10b6d221e8af25d1a99a48c4f2d70b7eba0595be00fb2bf2021bebedd0722",
+      "source_of_fig6b_sync": "results/paper_figures/outputs/provenance/fig6 and results/paper_figure_candidates/manuscript_fig6b_order_specificity_formal",
+      "source_of_fig5_supplementary_sync": "results/paper_figures/outputs/supplementary_figures and results/paper_figures/outputs/provenance/supplementary_fig5_support_v2",
+      "embedded_figure_mapping": [
+        {
+          "figure": "Supplementary Fig. S1",
+          "media_part": "word/media/image1.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s1.png",
+          "sha256": "13dd85e9ac1c9248b2e936ffafbda43dc7ad8c12d26543b3648eb375adb7ea4f"
+        },
+        {
+          "figure": "Supplementary Fig. S2",
+          "media_part": "word/media/image2.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s2.png",
+          "sha256": "fc4afd5f2ea34b64f541ba4ee6e384da4917590ca6edd4eb0f12d3aa00e0a07d"
+        },
+        {
+          "figure": "Supplementary Fig. S3",
+          "media_part": "word/media/image3.png",
+          "source_path": "results/paper_figures/outputs/supplementary_figures/s3/supp_fig_s3.png",
+          "sha256": "d33e577f425dc170b2cd69a2c460f53b4789cbc2067e1efe08b05b880af663d6"
+        },
+        {
+          "figure": "Supplementary Fig. S4",
+          "media_part": "word/media/image4.png",
+          "source_path": "results/paper_figures/outputs/supplementary_figures/s4/supp_fig_s4.png",
+          "sha256": "58582e2a0793a49d9721ef853fa947afc3bcd82efc1ed040a634dc6741a80b47"
+        },
+        {
+          "figure": "Supplementary Fig. S5",
+          "media_part": "word/media/image5.png",
+          "source_path": "results/paper_figures/outputs/supplementary_figures/s5/supp_fig_s5.png",
+          "sha256": "972edd6d5e69e57e366e61aa99cf3a9aa90cbbefa346b4527fa2723f07e03921"
+        },
+        {
+          "figure": "Supplementary Fig. S6",
+          "media_part": "word/media/image6.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/supp_fig_s6.png",
+          "sha256": "f0a2f9b7851a580f05d5940aa69edd5ba574cdc3f606b5c0b545deb859609f43"
+        },
+        {
+          "figure": "Supplementary Fig. S7",
+          "media_part": "word/media/image7.png",
+          "source_path": "results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/figures/supp_fig_s7.png",
+          "sha256": "f59898383e8f6492ff38ee61e908808a284df9e49bd204f6d686bd767dce0ad5"
+        }
+      ],
+      "table_s2_sync": {
+        "status": "synchronized_to_five_panel_fig5",
+        "descriptive_ids_added": [
+          "D05",
+          "D06"
+        ],
+        "inferential_ids_remapped": [
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M31",
+          "M32",
+          "M33",
+          "S01"
+        ],
+        "inferential_ids_added": [
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ],
+        "source_metrics": "results/paper_figures/outputs/provenance/fig5/metrics",
+        "inference_boundaries": [
+          "no cross-depth trend test",
+          "no panel-b-versus-panel-c endpoint test",
+          "no Rescue-minus-Loss contrast",
+          "Fig. 5b non-overlap/random controls and Fig. 5c next-response gate remain descriptive"
+        ]
+      }
     }
   },
   "evidence": {
@@ -149,7 +279,7 @@
     },
     "supplementary_s1_s6_bundle": {
       "path": "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2",
-      "role": "Current Supplementary Fig. S1-S6 data, statistics, and artwork.",
+      "role": "Legacy Supplementary Fig. S1-S6 bundle; current working supplement retains S1, S2 and S6 from this bundle, while S3-S5 are superseded by the formal Fig.5-support bundle.",
       "artifact_manifest_sha256": "5fa77fde5454704a95cec721b02ccdc3e02b620b037c128d2f250add77aca70c"
     },
     "supplementary_s7_bundle": {
@@ -175,11 +305,45 @@
       "MNIST"
     ],
     "lineage_status": {
-      "status": "open_upstream_gap",
+      "status": "closed_source_manifest_gap_runtime_incomplete",
       "register": "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json",
-      "expected_unique_missing_files": 40,
-      "expected_unique_missing_bytes": 1660149353,
+      "source_manifest_missing_files": 0,
+      "source_manifest_missing_bytes": 0,
+      "restored_file_count": 40,
+      "restored_bytes": 1660149353,
+      "restoration_receipt": "archive/move_ledgers/parent_artifact_restoration_20260814.json",
+      "runtime_parent_inventory_missing_files": 200,
+      "cleanup_hold": "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json",
       "frozen_bundle_mutation_allowed": false
+    },
+    "current_formal_main_figures": {
+      "path": "results/paper_figures/outputs",
+      "promotion_manifest": "results/paper_figures/outputs/main_figures_promotion_manifest.json",
+      "promotion_manifest_sha256": "c80227d8cfb0864f63e2f18919290241cb3f75c93db44760ec88aca65efc01f4",
+      "scope": [
+        "fig1",
+        "fig2",
+        "fig3",
+        "fig4",
+        "fig5",
+        "fig6",
+        "fig7"
+      ],
+      "docx_integration": "Author-approved five-panel Fig.5 artwork, legend, Results, main Methods and overlap-attenuation Statistics wording are embedded in docs/paper/v6_1.docx; synchronized Supplementary Methods, standalone Supplementary Figs. S3-S5 legends and Table S2 are embedded in docs/paper/supplementary_information_v6_1.docx."
+    },
+    "supplementary_fig5_support": {
+      "path": "results/paper_figures/outputs/supplementary_figures",
+      "role": "Current formal plot-only Supplementary Figs. S3-S5, each carrying a standalone supplementary conclusion; S5b inference is synchronized to the supplied S01 record without changing artwork.",
+      "promotion_manifest": "results/paper_figures/outputs/supplementary_figures/promotion_manifest.json",
+      "promotion_manifest_sha256": "13e93d8fa2d3ea6821894c06553795c6ec30b8da8c9da5bcf726f1fc78672892",
+      "provenance_root": "results/paper_figures/outputs/provenance/supplementary_fig5_support_v2",
+      "provenance_tree_sha256": "7a0aba216b29e5598a01d2a32de2150ee6963c114aff16e7e65721a8f28b3188",
+      "docx_integration": "S3-S5 artwork remains embedded as word/media/image3.png through image5.png with standalone legends; S5b uses the supplied S01 interval/test and Table S2 remains synchronized to the five-panel Fig.5 contract."
+    },
+    "supplementary_source_data": {
+      "path": "results/paper_figure_candidates/supplementary_source_data_v6_1",
+      "role": "Machine-readable network-first Source Data for Supplementary Figs. S1-S7, materialized from persisted artifacts only for the r2 working submission candidate.",
+      "summary_sha256": "72aff19b77f23b636d9e5f9c46bbca3a2fd1f2bd2058325db9e195bd28a28819"
     }
   },
   "contracts": {
@@ -189,10 +353,25 @@
     },
     "results_evidence_boundaries": {
       "path": "docs/paper/RESULTS_EVIDENCE_BOUNDARIES.md",
-      "sha256": "389fa6bc2e42b1e0fcc4d691a280bf96c5f4c978caf6e693c1b745db72a07135"
+      "sha256": "c3d687086c35604811f27821c865ed7ea76082e67ba638b62f24e9c4cf8b723d"
     },
     "panel_contract_root": "docs/paper/results_state_transition_program",
-    "working_confirmation_log": "docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md"
+    "working_confirmation_log": "docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md",
+    "main_figure_story_contract": {
+      "path": "docs/paper/results_state_transition_program/v6_1_main_figure_story_contract.md",
+      "sha256": "77f352d9dd9c1a911014750899cb63f25fa07e08e2b7eab988cc72ac37a5fd72"
+    },
+    "internal_fig4_panel_contract": {
+      "path": "docs/paper/results_state_transition_program/fig4_panel_contract.md",
+      "sha256": "0365d5f26f2fe7bc1d50de54dba161b4562ca027ce5ab3c9cde64ec3272f0f29",
+      "status": "current overlay maps internal fig4 to five-panel manuscript Fig.5; lower sections are historical"
+    },
+    "working_confirmation_log_sha256": "1bc5a8eeeee8e54a71e11d936bd9528910cdf51d6f34496fa899409cbd305368",
+    "historical_internal_sequence_contract": {
+      "path": "docs/paper/results_state_transition_program/main_figure_sequence_contract.md",
+      "sha256": "93aa9a2a919a99462f37c26ecc7b7b6d945b289aa04569e907a14ba2a56323b1",
+      "status": "historical internal-six navigation only; superseded by the V6.1 seven-figure story contract"
+    }
   },
   "naming_boundary": {
     "manuscript_figure_ids": "Fig.1-Fig.7",
@@ -211,5 +390,11 @@
       "bytes_deleted": 82970052,
       "remaining_high_risk_targets_authorized": false
     }
+  },
+  "submission_candidate": {
+    "path": "docs/paper/submission_packages/communications_biology_v6_1_reader_first_candidate_r2",
+    "status": "review_ready_not_submission_ready",
+    "package_status_sha256": "3bcc95db179bbd0deacd1a3e939ebb54604d375ffeec3e76c32708df7f1fe63e",
+    "source_identity_sha256": "a050364a638ea535f70a3a4644dfd5df07a0e6a3196646352387c6f40e26860e"
   }
 }

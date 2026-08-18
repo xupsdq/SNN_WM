@@ -1,0 +1,25 @@
+flowchart LR
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_sequence_root["sequence_root · Fig.4 / Fig.7 输入身份"]
+    n_sequence_root_all["all\n[operational-only]"]
+    n_sequence_root_shared_sequence_specs["shared_sequence_specs\n[operational-only]"]
+    n_sequence_root_shared_sequence_root_bank["shared_sequence_root_bank\n[operational-only]"]
+    n_sequence_root_fig3_state_bank_view["fig3_state_bank_view\n[bounded]"]
+    n_sequence_root_fig6_sequence_bank_view["fig6_sequence_bank_view\n[bounded]"]
+  end
+  n_sequence_root_all -->|orchestrates| n_sequence_root_shared_sequence_specs
+  n_sequence_root_all -->|orchestrates| n_sequence_root_shared_sequence_root_bank
+  n_sequence_root_shared_sequence_root_bank -->|requires| n_sequence_root_shared_sequence_specs
+  n_sequence_root_fig3_state_bank_view -->|aliases| n_sequence_root_shared_sequence_root_bank
+  n_sequence_root_fig6_sequence_bank_view -->|aliases| n_sequence_root_shared_sequence_root_bank
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_sequence_root_all operational_only
+  class n_sequence_root_shared_sequence_specs operational_only
+  class n_sequence_root_shared_sequence_root_bank operational_only
+  class n_sequence_root_fig3_state_bank_view bounded
+  class n_sequence_root_fig6_sequence_bank_view bounded
+  linkStyle default stroke:#64748B,stroke-width:1.2px

@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from src.config.paths import DEFAULT_PATH_CONFIG
 from src.training.train_sdnn import TrainingConfig, train_single_network
 
 
@@ -52,7 +53,7 @@ def build_argparser() -> argparse.ArgumentParser:
         type=str,
         default="results/multi_snn/sdnn_ensemble_20/sdnn_ensemble_20",
     )
-    parser.add_argument("--dataset-root", type=str, default="./MNIST")
+    parser.add_argument("--dataset-root", type=str, default=str(DEFAULT_PATH_CONFIG.dataset_root))
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--num-networks", type=int, default=20)
     parser.add_argument("--seed-start", type=int, default=1000)

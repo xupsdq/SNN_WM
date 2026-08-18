@@ -1,0 +1,184 @@
+{
+  "schema": "paper_figure_reader_first_candidate_spec_v2",
+  "candidate_version": "manuscript_fig5_reader_first_v2",
+  "status": "candidate",
+  "figure_id": "manuscript_fig5",
+  "display_name": "Fig.5",
+  "canvas_mm": [165.0, 152.0],
+  "dpi": 300,
+  "parent_bundles": {
+    "fig5_v1": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4",
+    "successor_extension": "results/successor_extension_v1_confirmatory_20seed/aggregate"
+  },
+  "reader_contract": {
+    "figure_question": "Can a post-input Layer-2 successor continue to condition the following input across history depth, carry its influence through a second transition, and recur in an unmanipulated sequence?",
+    "terminal_inference": "Under the tested single-transplant protocol, the post-B Layer-2 successor redirected the next input and the successor formed from it at K=1, 5 and 10, and the same influence remained detectable through a following transition at K=5. In a separate progressive protocol, input-driven change exceeded equal-time passive continuation across transitions and deeper history altered behavioral Rescue and Loss.",
+    "forbidden_inferences": [
+      "donor transfer establishes necessity, complete mediation, or uniqueness",
+      "K=1, K=5 and K=10 were compared by a prespecified trend test",
+      "the second-transition experiment used a second transplant",
+      "transition number is equivalent to history depth K",
+      "Rescue and Loss share one opportunity denominator",
+      "the schematic depicts one continuously tracked state instance across every protocol"
+    ],
+    "semantic_units": {
+      "a": "define the donor-to-receiver successor transfer, next-input and following-input state-transition process",
+      "b": "show single-transplant transfer across history depths in input response and successor state",
+      "c": "show transfer remains detectable through the second transition at K=5",
+      "d": "show input-driven change persists across unmanipulated transition numbers",
+      "e": "show deeper history changes Rescue and Loss"
+    },
+    "task_graph": {
+      "nodes": ["a", "b", "c", "d", "e"],
+      "edges": [["a", "b"], ["a", "c"], ["a", "d"], ["a", "e"]]
+    },
+    "comparison_obligations": [
+      {
+        "panels": ["b", "c"],
+        "comparison_basis": "both use the donor-transfer index on a shared 0-0.40 scale, while b compares history depth and c compares two endpoints of the second transition",
+        "reader_task": "read depth stability first, then read carry-forward through the following transition",
+        "must_not_imply": "a formal b-versus-c endpoint contrast or a second transplant"
+      },
+      {
+        "panels": ["d", "e"],
+        "comparison_basis": "both are independent progressive-history consequences and use distinct endpoint definitions",
+        "reader_task": "read recurrent state change before its behavioral consequence",
+        "must_not_imply": "transition number and history depth are the same axis"
+      }
+    ],
+    "topology_invariants": [
+      "a is the only full-width schematic and defines reader language before quantitative panels",
+      "b|c is the second row causal-transfer evidence",
+      "d|e is the third row natural recurrence and behavioral consequence",
+      "one continuous quantitative coordinate system per panel",
+      "panel a uses no floating protocol key outside its own atomic panel"
+    ],
+    "topology_freedoms": ["optical padding inside frozen slots"]
+  },
+  "slots": {
+    "a": [2.0, 2.0, 161.0, 48.0],
+    "b": [2.0, 52.0, 79.5, 48.0],
+    "c": [83.5, 52.0, 79.5, 48.0],
+    "d": [2.0, 102.0, 79.5, 48.0],
+    "e": [83.5, 102.0, 79.5, 48.0]
+  },
+  "panels": {
+    "a": {
+      "chart": "successor_transition_schematic",
+      "plot_bbox_mm": [4.0, 6.0, 157.0, 40.0],
+      "role": "define one donor-to-receiver Layer-2 u/x transfer, the following input chain, a passive branch and accumulated history",
+      "labels": {
+        "donor_state": "Donor state",
+        "receiver_state": "Receiver state",
+        "inherited_state": "Inherited state",
+        "transfer": "One-time Layer-2 u/x transfer",
+        "next_input": "Next input C",
+        "following_input": "Following input D",
+        "input_response": "Response",
+        "successor_state": "Successor state",
+        "new_successor": "New successor",
+        "passive": "Passive state",
+        "passive_input": "No input",
+        "natural": "Natural continuation",
+        "history": "Pre-B history: K=1, 5, 10"
+      }
+    },
+    "b": {
+      "chart": "ordered_point_ci",
+      "plot_bbox_mm": [14.0, 62.0, 65.5, 30.0],
+      "source": "data/panel_b_transfer_network_effects.csv",
+      "statistics": "metrics/panel_b_transfer_statistics.csv",
+      "role": "single-transplant transfer across history depth",
+      "x_field": "history_depth",
+      "x_order": [1, 5, 10],
+      "x_label": "History depth (K)",
+      "y_label": "Donor transfer",
+      "y_limits": [0.0, 0.4],
+      "y_ticks": [0.0, 0.1, 0.2, 0.3, 0.4],
+      "endpoint_order": ["input_response_l2", "successor_state_l3"],
+      "endpoint_labels": {"input_response_l2": "Input response", "successor_state_l3": "Successor state"},
+      "endpoint_colors": {"input_response_l2": "layer2", "successor_state_l3": "layer3"}
+    },
+    "c": {
+      "chart": "second_transition_point_ci",
+      "plot_bbox_mm": [94.5, 62.0, 65.5, 30.0],
+      "source": "data/panel_c_second_transition.csv",
+      "statistics": "metrics/panel_c_second_transition_statistics.csv",
+      "role": "carry transfer through the following transition at K=5",
+      "x_order": ["input_response", "successor_state"],
+      "x_label": "Following input",
+      "y_label": "Donor transfer",
+      "y_limits": [0.0, 0.4],
+      "y_ticks": [0.0, 0.1, 0.2, 0.3, 0.4],
+      "endpoint_labels": {"input_response": "Input response", "successor_state": "Successor state"},
+      "endpoint_colors": {"input_response": "layer2", "successor_state": "layer3"}
+    },
+    "d": {
+      "chart": "paired_difference_trajectory",
+      "plot_bbox_mm": [14.0, 112.0, 65.5, 30.0],
+      "source": "data/panel_d_recurrence.csv",
+      "statistics": "metrics/panel_d_recurrence_statistics.csv",
+      "role": "input-driven change across unmanipulated transition numbers",
+      "x_field": "stage_k",
+      "x_order": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "x_label": "Transition number",
+      "y_label": "Input-driven change",
+      "x_limits": [1.8, 10.2],
+      "y_limits": [0.0, 0.65],
+      "x_ticks": [2, 4, 6, 8, 10],
+      "y_ticks": [0.0, 0.2, 0.4, 0.6],
+      "color": "dynamic"
+    },
+    "e": {
+      "chart": "slope_ci",
+      "plot_bbox_mm": [94.5, 112.0, 65.5, 30.0],
+      "source": "data/panel_e_behavior.csv",
+      "statistics": "metrics/panel_e_behavior_statistics.csv",
+      "depth_statistics": "metrics/panel_e_behavior_depth_inference.csv",
+      "role": "behavioral Rescue and Loss across history depth",
+      "x_order": [1, 5],
+      "x_label": "History depth (K)",
+      "y_label": "Outcome rate (%)",
+      "y_limits": [0.0, 70.0],
+      "y_ticks": [0.0, 20.0, 40.0, 60.0],
+      "series": ["rescue", "loss"],
+      "series_labels": {"rescue": "Rescue", "loss": "Loss"},
+      "series_colors": {"rescue": "dynamic", "loss": "donor_trace"}
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {"equal_row_heights": true, "equal_width_within_row": true, "panel_atomicity": true},
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "protocol", "panels": ["a"], "role": "reader-language successor transition schematic"},
+      {"unit_id": "depth_transfer", "panels": ["b"], "role": "depth-stable single-transplant transfer"},
+      {"unit_id": "second_transition", "panels": ["c"], "role": "carry-forward through the following transition"},
+      {"unit_id": "recurrence", "panels": ["d"], "role": "unmanipulated recurrent input-driven change"},
+      {"unit_id": "behavior", "panels": ["e"], "role": "behavioral consequence of deeper history"}
+    ],
+    "comparison_groups": [
+      {"group_id": "causal_transfer", "panels": ["b", "c"], "comparison_basis": "shared donor-transfer axis and semantic endpoint colors", "reader_task": "read depth stability then second-transition carry-forward"},
+      {"group_id": "progressive_consequences", "panels": ["d", "e"], "comparison_basis": "separate progressive-protocol state and behavior endpoints", "reader_task": "read recurrent change before behavioral consequence"}
+    ],
+    "alignment_groups": [
+      {"group_id": "row_2_slots", "panels": ["b", "c"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep causal-transfer endpoints in one equal-height row."},
+      {"group_id": "row_2_plot_areas", "panels": ["b", "c"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "Both use the same donor-transfer scale and data-region height.", "rationale": "Permit direct reading of depth and second-transition transfer."},
+      {"group_id": "row_3_slots", "panels": ["d", "e"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep progressive recurrence and behavioral consequence in one equal-height row."},
+      {"group_id": "row_3_plot_areas", "panels": ["d", "e"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "Both use a 30 mm quantitative data region while retaining endpoint-specific y scales.", "rationale": "Keep the final row visually aligned without implying shared units."}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "schematic", "category_slots": 1, "natural_aspect": [3.0, 5.0], "decoration_sides": [], "plot_bbox_mm": [4.0, 6.0, 157.0, 40.0], "slot_bbox_mm": [2.0, 2.0, 161.0, 48.0], "visual_weight": "high"},
+      "b": {"chart_family": "ordered_point_range", "category_slots": 3, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom", "top"], "plot_bbox_mm": [14.0, 62.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0], "visual_weight": "high"},
+      "c": {"chart_family": "category_point_range", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [94.5, 62.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0], "visual_weight": "high"},
+      "d": {"chart_family": "ordered_line_ribbon", "category_slots": 9, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [14.0, 112.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0], "visual_weight": "medium"},
+      "e": {"chart_family": "slope_point_range", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [94.5, 112.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "No bar panels; point-range and line encodings carry the comparisons.", "tradeoff": "Not applicable."},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["protocol", "depth_transfer", "second_transition", "recurrence", "behavior"], "rationale": "Define the process, then read causal transfer, natural recurrence and behavioral consequence."},
+    "hard_constraints": ["165 mm x 152 mm canvas", "1+2+2 slots with 48 mm rows and 2 mm gutters", "9 pt text and 12 pt lowercase panel labels", "no floating protocol key, grid, dual axis, inset, micro-panel or significance star", "panel a schematic is the only non-quantitative panel", "all quantitative panels use persisted network-level summaries and 20 networks"],
+    "soft_targets": ["shared donor-transfer scale in b and c", "short reader-language labels", "grayscale legibility", "natural process remains visually primary in panel a"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

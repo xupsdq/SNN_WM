@@ -1,6 +1,8 @@
 # 六张主图顺序合同
 
-## 状态
+> **2026-08-17 authority overlay:** 本文件仅保留 internal final-six 的历史数据身份与设计记录，不再作为当前稿件导航。当前稿件使用 Fig.1–Fig.7，权威故事合同为 `v6_1_main_figure_story_contract.md`；其中 manuscript Fig.5 对应 internal fig4，但已正式更新为五面板 `reuse → overlap entry → propagation → recurrence → behavior`。下文“internal Fig.4 四面板”和 bridge 退出等记录不得覆盖当前 artwork、正文、Supplementary Figs. S3–S5 或 Source Data。
+
+## 状态（历史 internal-six）
 
 - Fig.1：角色与面板已冻结。
 - Fig.2：角色、面板与布局保持冻结，不增加 history-rewrite bridge 面板。

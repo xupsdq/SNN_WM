@@ -1,0 +1,296 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1605" height="1196" viewBox="0 0 1605 1196" role="img" aria-labelledby="title desc">
+<title id="title">Execution ecosystem evidence graph</title>
+<desc id="desc">All non-DAG execution nodes in the ledger. Detailed runtime DAG tasks are in family graphs.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="40" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0F172A">Execution ecosystem：orchestrators → runners → materializers → plots</text>
+<text x="40" y="65" font-family="Arial, sans-serif" font-size="12" fill="#475569">Every non-DAG ledger node is shown. Runtime-task parents are expanded in fig1–fig6 / sequence_root graphs.</text>
+<text x="40" y="95" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">Orchestrator</text>
+<text x="345" y="95" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">Runner Experiment</text>
+<text x="650" y="95" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">Materializer</text>
+<text x="955" y="95" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">Aggregator</text>
+<text x="1260" y="95" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">Plot Consumer</text>
+<path d="M 650.0 406.0 C 627.5 406.0, 627.5 320.0, 605.0 320.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="360.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 910.0 406.0 C 780.0 406.0, 780.0 664.0, 650.0 664.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="532.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 910.0 492.0 C 780.0 492.0, 780.0 836.0, 650.0 836.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 910.0 492.0 C 780.0 492.0, 780.0 1008.0, 650.0 1008.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="747.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 406.0, 345.0 406.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="596.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 492.0, 345.0 492.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="639.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 578.0, 345.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="682.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 664.0, 345.0 664.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="725.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 750.0, 345.0 750.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="768.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 793.0 C 322.5 793.0, 322.5 836.0, 345.0 836.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="322.5" y="811.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 300.0 277.0 C 170.0 277.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="532.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 300.0 363.0 C 170.0 363.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 300.0 449.0 C 170.0 449.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="618.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 300.0 535.0 C 170.0 535.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 300.0 621.0 C 170.0 621.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="704.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 300.0 707.0 C 170.0 707.0, 170.0 793.0, 40.0 793.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="170.0" y="747.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">requires</text>
+<path d="M 650.0 664.0 C 627.5 664.0, 627.5 578.0, 605.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="618.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 664.0 C 627.5 664.0, 627.5 664.0, 605.0 664.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 664.0 C 627.5 664.0, 627.5 750.0, 605.0 750.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="704.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 836.0 C 627.5 836.0, 627.5 406.0, 605.0 406.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="618.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 836.0 C 627.5 836.0, 627.5 492.0, 605.0 492.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 836.0 C 627.5 836.0, 627.5 578.0, 605.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="704.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 836.0 C 627.5 836.0, 627.5 750.0, 605.0 750.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="790.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 910.0 922.0 C 780.0 922.0, 780.0 148.0, 650.0 148.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="532.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 406.0, 605.0 406.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="704.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 492.0, 605.0 492.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="747.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 578.0, 605.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="790.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 664.0, 605.0 664.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="833.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 750.0, 605.0 750.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="876.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 836.0, 605.0 836.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="919.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 650.0 1008.0 C 627.5 1008.0, 627.5 320.0, 605.0 320.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="627.5" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 148.0, 650.0 148.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="446.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 234.0, 650.0 234.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="489.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 320.0, 650.0 320.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="532.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 406.0, 650.0 406.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 492.0, 650.0 492.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="618.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 910.0 750.0 C 780.0 750.0, 780.0 578.0, 650.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="780.0" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">orchestrates</text>
+<path d="M 955.0 578.0 C 932.5 578.0, 932.5 750.0, 910.0 750.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="932.5" y="661.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 277.0, 1260.0 277.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="424.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 363.0, 1260.0 363.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="467.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 449.0, 1260.0 449.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="510.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 535.0, 1260.0 535.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="553.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 621.0, 1260.0 621.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="596.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1215.0 578.0 C 1237.5 578.0, 1237.5 707.0, 1260.0 707.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1237.5" y="639.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">consumes</text>
+<path d="M 1260.0 793.0 C 1085.0 793.0, 1085.0 922.0, 910.0 922.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="854.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 879.0 C 1085.0 879.0, 1085.0 1008.0, 910.0 1008.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="940.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 277.0 C 1085.0 277.0, 1085.0 148.0, 910.0 148.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="209.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 363.0 C 1085.0 363.0, 1085.0 234.0, 910.0 234.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="295.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 449.0 C 1085.0 449.0, 1085.0 320.0, 910.0 320.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="381.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 535.0 C 1085.0 535.0, 1085.0 406.0, 910.0 406.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="467.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 621.0 C 1085.0 621.0, 1085.0 492.0, 910.0 492.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="553.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<path d="M 1260.0 707.0 C 1085.0 707.0, 1085.0 578.0, 910.0 578.0" fill="none" stroke="#CBD5E1" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="1085.0" y="639.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64748B">presents</text>
+<g id="n_final_six_fig1_final_statistics" data-canonical-id="final_six.fig1.final-statistics">
+<rect x="650" y="115.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="133.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig1.final-statistics</text>
+<text x="660" y="173.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig2_final_statistics" data-canonical-id="final_six.fig2.final-statistics">
+<rect x="650" y="201.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="219.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig2.final-statistics</text>
+<text x="660" y="259.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig3_final_statistics" data-canonical-id="final_six.fig3.final-statistics">
+<rect x="650" y="287.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="305.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig3.final-statistics</text>
+<text x="660" y="345.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig4_final_statistics" data-canonical-id="final_six.fig4.final-statistics">
+<rect x="650" y="373.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="391.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig4.final-statistics</text>
+<text x="660" y="431.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig5_final_statistics" data-canonical-id="final_six.fig5.final-statistics">
+<rect x="650" y="459.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="477.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig5.final-statistics</text>
+<text x="660" y="517.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig6_final_statistics" data-canonical-id="final_six.fig6.final-statistics">
+<rect x="650" y="545.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="563.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">final_six.fig6.final-statistics</text>
+<text x="660" y="603.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_orchestrator_run_paper_figures" data-canonical-id="orchestrator.run_paper_figures">
+<rect x="40" y="760.0" width="260" height="66" rx="8" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="50" y="778.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.run_paper_figures</text>
+<text x="50" y="818.0" font-family="Arial, sans-serif" font-size="9" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_orchestrator_run_upstream_artifact_warmup" data-canonical-id="orchestrator.run_upstream_artifact_warmup">
+<rect x="40" y="846.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="864.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.run_upstream_artifact</text>
+<text x="50" y="877.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">_warmup</text>
+<text x="50" y="904.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig1_run" data-canonical-id="orchestrator.fig1.run">
+<rect x="40" y="244.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="262.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig1.run</text>
+<text x="50" y="302.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig2_run" data-canonical-id="orchestrator.fig2.run">
+<rect x="40" y="330.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="348.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig2.run</text>
+<text x="50" y="388.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig3_run" data-canonical-id="orchestrator.fig3.run">
+<rect x="40" y="416.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="434.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig3.run</text>
+<text x="50" y="474.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig4_run" data-canonical-id="orchestrator.fig4.run">
+<rect x="40" y="502.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="520.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig4.run</text>
+<text x="50" y="560.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig5_run" data-canonical-id="orchestrator.fig5.run">
+<rect x="40" y="588.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="606.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig5.run</text>
+<text x="50" y="646.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_orchestrator_fig6_run" data-canonical-id="orchestrator.fig6.run">
+<rect x="40" y="674.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="50" y="692.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">orchestrator.fig6.run</text>
+<text x="50" y="732.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_runner_legacy_fig1" data-canonical-id="runner.legacy.fig1">
+<rect x="345" y="373.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="391.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig1</text>
+<text x="355" y="431.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_legacy_fig2" data-canonical-id="runner.legacy.fig2">
+<rect x="345" y="459.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="477.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig2</text>
+<text x="355" y="517.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_legacy_fig3" data-canonical-id="runner.legacy.fig3">
+<rect x="345" y="545.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="563.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig3</text>
+<text x="355" y="603.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_legacy_fig4" data-canonical-id="runner.legacy.fig4">
+<rect x="345" y="631.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="649.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig4</text>
+<text x="355" y="689.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_legacy_fig5" data-canonical-id="runner.legacy.fig5">
+<rect x="345" y="717.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="735.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig5</text>
+<text x="355" y="775.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_legacy_fig6" data-canonical-id="runner.legacy.fig6">
+<rect x="345" y="803.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="355" y="821.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.legacy.fig6</text>
+<text x="355" y="861.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_runner_c5_l2_successor_closure" data-canonical-id="runner.c5_l2_successor_closure">
+<rect x="345" y="287.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="355" y="305.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">runner.c5_l2_successor_closure</text>
+<text x="355" y="345.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_materializer_fig4_accumulated_history_statistics" data-canonical-id="materializer.fig4_accumulated_history_statistics">
+<rect x="650" y="631.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="660" y="649.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">materializer.fig4_accumulated_hist</text>
+<text x="660" y="662.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">ory_statistics</text>
+<text x="660" y="689.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_materializer_new_results_reanalysis" data-canonical-id="materializer.new_results_reanalysis">
+<rect x="650" y="803.0" width="260" height="66" rx="8" fill="#FEF3C7" stroke="#B45309" stroke-width="1.4"/>
+<text x="660" y="821.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">materializer.new_results_reanalysi</text>
+<text x="660" y="834.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">s</text>
+<text x="660" y="861.0" font-family="Arial, sans-serif" font-size="9" fill="#B45309">bounded</text>
+</g>
+<g id="n_materializer_paper_fig1_fig2_redesign" data-canonical-id="materializer.paper_fig1_fig2_redesign">
+<rect x="650" y="889.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="907.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">materializer.paper_fig1_fig2_redes</text>
+<text x="660" y="920.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">ign</text>
+<text x="660" y="947.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_materializer_supplementary_v5" data-canonical-id="materializer.supplementary_v5">
+<rect x="650" y="975.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="993.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">materializer.supplementary_v5</text>
+<text x="660" y="1033.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_materializer_final_six_all" data-canonical-id="materializer.final_six.all">
+<rect x="650" y="717.0" width="260" height="66" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.4"/>
+<text x="660" y="735.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">materializer.final_six.all</text>
+<text x="660" y="775.0" font-family="Arial, sans-serif" font-size="9" fill="#15803D">supported</text>
+</g>
+<g id="n_validator_final_six" data-canonical-id="validator.final_six">
+<rect x="955" y="545.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="965" y="563.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">validator.final_six</text>
+<text x="965" y="603.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_paper_fig1_fig2_redesign" data-canonical-id="plot.paper_fig1_fig2_redesign">
+<rect x="1260" y="760.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="778.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.paper_fig1_fig2_redesign</text>
+<text x="1270" y="818.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_supplementary_v5" data-canonical-id="plot.supplementary_v5">
+<rect x="1260" y="846.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="864.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.supplementary_v5</text>
+<text x="1270" y="904.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig1" data-canonical-id="plot.final_six.fig1">
+<rect x="1260" y="244.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="262.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig1</text>
+<text x="1270" y="302.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig2" data-canonical-id="plot.final_six.fig2">
+<rect x="1260" y="330.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="348.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig2</text>
+<text x="1270" y="388.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig3" data-canonical-id="plot.final_six.fig3">
+<rect x="1260" y="416.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="434.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig3</text>
+<text x="1270" y="474.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig4" data-canonical-id="plot.final_six.fig4">
+<rect x="1260" y="502.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="520.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig4</text>
+<text x="1270" y="560.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig5" data-canonical-id="plot.final_six.fig5">
+<rect x="1260" y="588.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="606.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig5</text>
+<text x="1270" y="646.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_plot_final_six_fig6" data-canonical-id="plot.final_six.fig6">
+<rect x="1260" y="674.0" width="260" height="66" rx="8" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.4"/>
+<text x="1270" y="692.0" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#111827">plot.final_six.fig6</text>
+<text x="1270" y="732.0" font-family="Arial, sans-serif" font-size="9" fill="#1D4ED8">operational-only</text>
+</g>
+</svg>

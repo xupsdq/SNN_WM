@@ -1102,9 +1102,12 @@ def _exact_sign_flip_p(values: np.ndarray, *, alternative: str) -> float:
     if len(array) > 24:
         raise ValueError("Exact sign-flip is bounded to 24 network values")
     sums = np.array([0.0], dtype=np.float64)
+    observed = 0.0
     for value in array:
+        # accumulate the observed statistic in the same order as the
+        # enumeration so the observed sign pattern is always bitwise counted
+        observed += value
         sums = np.concatenate((sums + value, sums - value))
-    observed = float(array.sum())
     tolerance = 1e-15
     if alternative == "greater":
         return float(np.mean(sums >= observed - tolerance))

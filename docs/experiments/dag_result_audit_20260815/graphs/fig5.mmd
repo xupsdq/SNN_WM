@@ -1,0 +1,53 @@
+flowchart LR
+  n_materializer_supplementary_v5["materializer.supplementary_v5"]
+  n_materializer_new_results_reanalysis["materializer.new_results_reanalysis"]
+  n_fig2_morphology["fig2.morphology"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig5["fig5 · Fig.6"]
+    n_fig5_all["all\n[operational-only]"]
+    n_fig5_trial_sampling["trial_sampling\n[operational-only]"]
+    n_fig5_preprobe_support_bank["preprobe_support_bank\n[conflicted]"]
+    n_fig5_preprobe_support["preprobe_support\n[bounded]"]
+    n_fig5_early_firing["early_firing\n[bounded]"]
+    n_fig5_local_events["local_events\n[bounded]"]
+    n_fig5_support_perturbation["support_perturbation\n[bounded]"]
+    n_fig5_supplement["supplement\n[bounded]"]
+    n_fig5_probe_stsp_update_bank["probe_stsp_update_bank\n[conflicted]"]
+    n_fig5_postprobe_stsp_update["postprobe_stsp_update\n[bounded]"]
+    n_final_six_fig5_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig5_all -->|orchestrates| n_fig5_preprobe_support
+  n_fig5_all -->|orchestrates| n_fig5_early_firing
+  n_fig5_all -->|orchestrates| n_fig5_local_events
+  n_fig5_all -->|orchestrates| n_fig5_support_perturbation
+  n_fig5_all -->|orchestrates| n_fig5_supplement
+  n_fig5_all -->|orchestrates| n_fig5_postprobe_stsp_update
+  n_fig5_preprobe_support_bank -->|requires| n_fig5_trial_sampling
+  n_fig5_preprobe_support -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_early_firing -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_local_events -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_support_perturbation -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_supplement -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_probe_stsp_update_bank -->|requires| n_fig5_trial_sampling
+  n_fig5_probe_stsp_update_bank -->|requires| n_fig5_preprobe_support_bank
+  n_fig5_postprobe_stsp_update -->|requires| n_fig5_probe_stsp_update_bank
+  n_final_six_fig5_final_statistics -->|consumes| n_fig2_morphology
+  n_final_six_fig5_final_statistics -->|consumes| n_materializer_new_results_reanalysis
+  n_final_six_fig5_final_statistics -->|consumes| n_materializer_supplementary_v5
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig5_all operational_only
+  class n_fig5_trial_sampling operational_only
+  class n_fig5_preprobe_support_bank conflicted
+  class n_fig5_preprobe_support bounded
+  class n_fig5_early_firing bounded
+  class n_fig5_local_events bounded
+  class n_fig5_support_perturbation bounded
+  class n_fig5_supplement bounded
+  class n_fig5_probe_stsp_update_bank conflicted
+  class n_fig5_postprobe_stsp_update bounded
+  class n_final_six_fig5_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

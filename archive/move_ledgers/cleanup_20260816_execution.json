@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-16",
+  "scope": "AI self-audit garbage cleanup; exclusions: docs/experiments/dag_result_audit_20260815 (user-kept), archive-move items (user-skipped)",
+  "deleted": [
+    ".codex/tmp/ (all except KEEP_* entries)",
+    "tmp/", ".tmp/", "tmp_audit/", "tmp_v6_1_text.txt", "NUL",
+    "docs/paper/SUPPLEMENTARY_FIGURE_ARGUMENT_AUDIT_V5.md",
+    "docs/paper/SUPPLEMENTARY_FIGURE_DECISION_LOG_V5.md",
+    "docs/paper/revisions/V5_FULL_MANUSCRIPT_REVISION_PLAN_20260808.md",
+    "docs/paper/revisions/V5_METHODS_REVISION_PLAN_20260808.md",
+    "docs/paper/revisions/V5_METHODS_TERMINOLOGY_ALIGNMENT_20260808.md",
+    "docs/paper/revisions/V5_READER_FULL_REVIEW_20260808.md",
+    "docs/paper/revisions/V6_COMMENT_LED_REVISION_PROPOSAL_20260813.md",
+    "docs/paper/revisions/V6_COPY_COMPARATIVE_REVIEW_20260814.md",
+    "docs/paper/revisions/V6_1_DEFERRED_INTERLAYER_LINKAGE_20260814.md",
+    "docs/paper/revisions/results_statistics_insertion_plan_20260811.md",
+    "docs/paper/revisions/MAIN_SUPPLEMENT_SENTENCE_MAPPING_20260812.md",
+    "docs/paper/revisions/v5_ai_review_20260802/",
+    ".pi/tmp/", ".pi/subagents/artifacts/", ".pi/manuscript_review/"
+  ],
+  "kept_with_reason": {
+    "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json": "referenced by scripts/audit_parent_artifact_recovery.py + .pi/audit-tools/build_audit.py",
+    "docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md": "referenced by scripts/repository_archive_audit.py",
+    ".pi/audit-tools/": "generator of user-kept dag_result_audit",
+    "docs/paper/PAPER_AUTHORITY.json, RESULTS_EVIDENCE_BOUNDARIES.md, CORE_SCIENTIFIC_LOGIC_CONTRACT.md": "authority/contracts, actively referenced",
+    "docs/paper/revisions/*.csv": "data tables",
+    ".codex/tmp/KEEP_*": "named KEEP"
+  }
+}

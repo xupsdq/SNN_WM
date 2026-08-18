@@ -1,47 +1,49 @@
 {
   "figure_id": "s3",
-  "canvas_mm": [165.0, 102.0],
+  "canvas_mm": [165.0, 152.0],
   "slots": {
     "a": [2.0, 2.0, 79.5, 48.0],
     "b": [83.5, 2.0, 79.5, 48.0],
-    "c": [83.5, 52.0, 79.5, 48.0],
-    "d": [2.0, 52.0, 79.5, 48.0]
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0],
+    "e": [2.0, 102.0, 79.5, 48.0],
+    "f": [83.5, 102.0, 79.5, 48.0]
   },
-  "reading_order": ["a", "b", "c", "d"],
+  "reading_order": ["a", "b", "c", "d", "e", "f"],
   "reader_contract": {
-    "version": "supplementary_s3_local_transition_reader_v1",
+    "version": "supplementary_s3_local_transition_reader_v2",
     "status": "frozen",
-    "figure_question": "Is the local transition-and-competition interpretation robust to analysis window, winner cap, spatial distance, and intervention-resolved winner fate?",
-    "terminal_inference": "The local transition effect exceeds its comparators across the tested analysis choices, and intervention changes the fate of outcome-defined winners in the predicted direction.",
+    "figure_question": "Are local transition and competition effects robust to analysis choices and to K=10 overlap-history intervention?",
+    "terminal_inference": "The existing local-transition evidence is retained, while K=10 overlap-history intervention shows endpoint-specific history contrast removal with non-overlap and random reset controls remaining structural zeros.",
     "forbidden_inferences": [
-      "Outcome-defined winners are prospectively identifiable before the later input.",
-      "The robustness analyses establish complete mediation or necessity.",
-      "The tested window, cap, or distance values exhaust all valid analysis definitions.",
-      "Winner fate establishes a causal relation to Fig.5 morphology or Fig.6 conditional function."
+      "The winner analyses prospectively identify outcome-defined winners.",
+      "The intervention panels establish necessity, complete mediation, or endpoint equivalence.",
+      "Non-overlap and random reset zeros are inferential evidence rather than structural controls.",
+      "The tested definitions exhaust all valid analysis choices."
     ],
     "semantic_units": [
-      {"unit_id": "window", "panels": ["a"], "role": "window and comparator robustness", "reader_task": "Compare probe-only and random controls across the tested transition windows."},
-      {"unit_id": "cap", "panels": ["b"], "role": "winner-cap robustness", "reader_task": "Inspect the winner-minus-loser voltage endpoint under three cap definitions."},
-      {"unit_id": "distance", "panels": ["c"], "role": "distance robustness", "reader_task": "Inspect the same endpoint under three spatial-distance limits."},
-      {"unit_id": "fate", "panels": ["d"], "role": "outcome-conditioned fate decomposition", "reader_task": "Inspect lost, delayed, and preserved fates under attenuation and reset."}
+      {"unit_id": "window", "panels": ["a"], "role": "window and comparator robustness", "reader_task": "Compare the existing probe-only and random controls across transition windows."},
+      {"unit_id": "cap", "panels": ["b"], "role": "winner-cap robustness", "reader_task": "Inspect the existing winner-minus-loser endpoint under cap definitions."},
+      {"unit_id": "distance", "panels": ["c"], "role": "distance robustness", "reader_task": "Inspect the existing endpoint under spatial-distance limits."},
+      {"unit_id": "fate", "panels": ["d"], "role": "outcome-conditioned fate decomposition", "reader_task": "Inspect lost, delayed, and preserved winner fates under intervention."},
+      {"unit_id": "input_intervention", "panels": ["e"], "role": "input-response history intervention", "reader_task": "Inspect network-level contrast removal after overlap, non-overlap, and random reset."},
+      {"unit_id": "successor_intervention", "panels": ["f"], "role": "successor-state history intervention", "reader_task": "Inspect the corresponding successor-state contrast removal and structural controls."}
     ],
     "task_graph": {
       "nodes": [
-        {"node_id": "A", "kind": "window_control", "panels": ["a"]},
-        {"node_id": "B", "kind": "definition_controls", "panels": ["b", "c"]},
-        {"node_id": "C", "kind": "fate_decomposition", "panels": ["d"]},
+        {"node_id": "A", "kind": "existing_local_transition_robustness", "panels": ["a", "b", "c", "d"]},
+        {"node_id": "B", "kind": "k10_overlap_intervention", "panels": ["e", "f"]},
         {"node_id": "I", "kind": "terminal_inference"}
       ],
       "edges": [
-        {"from": "A", "to": "I", "relation": "closes_window_choice_alternative"},
-        {"from": "B", "to": "I", "relation": "closes_definition_choice_alternative"},
-        {"from": "C", "to": "I", "relation": "links_intervention_to_outcome_conditioned_fates"}
+        {"from": "A", "to": "I", "relation": "retains_existing_robustness_evidence"},
+        {"from": "B", "to": "I", "relation": "adds_endpoint_specific_history_intervention_evidence"}
       ]
     },
     "topology_invariants": [
-      "The clockwise path remains window, cap, distance, then fate.",
-      "Panels b and c retain one shared voltage scale.",
-      "The outcome-conditioned status of winner analyses remains explicit."
+      "Panels a-d retain their prior evidence and clockwise placement.",
+      "Panels e and f are the K=10 intervention row.",
+      "Intervention controls are descriptive structural controls, not a new unified inference family."
     ]
   },
   "panels": {
@@ -69,8 +71,8 @@
     },
     "c": {
       "panel_type": "horizontal_point_range",
-      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
-      "plot_bbox_mm": [95.5, 62.0, 64.5, 28.0],
+      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 62.0, 64.5, 28.0],
       "xlabel": "ΔV (mV)",
       "row_order": ["≤2", "≤4", "≤6"],
       "xlim": [-0.2, 0.5],
@@ -79,14 +81,40 @@
     },
     "d": {
       "panel_type": "stacked_fate",
-      "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
-      "plot_bbox_mm": [14.0, 62.0, 64.5, 28.0],
+      "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 62.0, 64.5, 28.0],
       "xlabel": "",
       "ylabel": "Winner fate (%)",
       "x_order": ["Attenuate", "Reset"],
       "fate_order": ["Lost", "Delayed", "Preserved"],
       "ylim": [0.0, 102.0],
       "yticks": [0.0, 25.0, 50.0, 75.0, 100.0]
+    },
+    "e": {
+      "panel_type": "network_distribution",
+      "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [14.0, 109.0, 64.5, 28.0],
+      "xlabel": "Input response",
+      "ylabel": "Contrast removed (%)",
+      "x_order": ["Overlap reset", "Non-overlap reset", "Random reset"],
+      "x_labels": ["Overlap", "Non-overlap", "Random"],
+      "ylim": [-5.0, 105.0],
+      "yticks": [0.0, 50.0, 100.0],
+      "color_role": "layer2",
+      "marker": "o"
+    },
+    "f": {
+      "panel_type": "network_distribution",
+      "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0],
+      "plot_bbox_mm": [95.5, 109.0, 64.5, 28.0],
+      "xlabel": "Successor state",
+      "ylabel": "Contrast removed (%)",
+      "x_order": ["Overlap reset", "Non-overlap reset", "Random reset"],
+      "x_labels": ["Overlap", "Non-overlap", "Random"],
+      "ylim": [-5.0, 105.0],
+      "yticks": [0.0, 50.0, 100.0],
+      "color_role": "layer3",
+      "marker": "o"
     }
   },
   "layout_contract": {
@@ -98,25 +126,31 @@
       {"unit_id": "window", "panels": ["a"], "role": "true-window and comparator robustness"},
       {"unit_id": "cap", "panels": ["b"], "role": "winner-cap robustness"},
       {"unit_id": "distance", "panels": ["c"], "role": "distance-threshold robustness"},
-      {"unit_id": "fate", "panels": ["d"], "role": "original-winner fate under intervention"}
+      {"unit_id": "fate", "panels": ["d"], "role": "original-winner fate under intervention"},
+      {"unit_id": "input_intervention", "panels": ["e"], "role": "input-response history intervention"},
+      {"unit_id": "successor_intervention", "panels": ["f"], "role": "successor-state history intervention"}
     ],
     "comparison_groups": [
-      {"group_id": "competition_definitions", "panels": ["b", "c"], "comparison_basis": "same winner-minus-loser voltage endpoint", "reader_task": "compare two independent analysis-definition sensitivities without treating them as doses"}
+      {"group_id": "competition_definitions", "panels": ["b", "c"], "comparison_basis": "same winner-minus-loser voltage endpoint", "reader_task": "compare independent analysis-definition sensitivities without treating them as doses"},
+      {"group_id": "intervention_endpoints", "panels": ["e", "f"], "comparison_basis": "same three K=10 reset controls with endpoint-specific semantic colors", "reader_task": "compare control structure while respecting endpoint-specific quantities"}
     ],
     "alignment_groups": [
-      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
-      {"group_id": "competition_plot", "panels": ["b", "c"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "direct definition comparison", "comparison_basis": "identical voltage scale and forest grammar"}
+      {"group_id": "panel_labels", "panels": ["a", "b", "c", "d", "e", "f"], "target": "panel_label", "edges": ["left", "top"], "rationale": "constant slot-relative panel-letter placement"},
+      {"group_id": "competition_plot", "panels": ["b", "c"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "direct definition comparison", "comparison_basis": "identical voltage scale and forest grammar"},
+      {"group_id": "intervention_plot", "panels": ["e", "f"], "target": "plot_area", "edges": ["left", "right", "top", "bottom"], "rationale": "aligned reset-condition distributions", "comparison_basis": "same categorical controls and percent scale"}
     ],
     "panel_geometry": {
       "a": {"chart_family": "ordered trajectory", "category_slots": 5, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
       "b": {"chart_family": "horizontal point-range", "category_slots": 3, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
       "c": {"chart_family": "horizontal point-range", "category_slots": 3, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom"], "visual_weight": "medium"},
-      "d": {"chart_family": "stacked composition", "category_slots": 2, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"}
+      "d": {"chart_family": "stacked composition", "category_slots": 2, "natural_aspect": [2.0, 2.7], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "e": {"chart_family": "network distribution", "category_slots": 3, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"},
+      "f": {"chart_family": "network distribution", "category_slots": 3, "natural_aspect": [1.8, 2.5], "decoration_sides": ["left", "bottom", "top"], "visual_weight": "medium"}
     },
     "bar_width_policy": {"mode": "within_panel_only", "scope": "panel d stacked composition", "tradeoff": "bar width is local to the two conditions"},
-    "topology": {"reading_direction": "explicit", "unit_sequence": ["window", "cap", "distance", "fate"], "rationale": "clockwise path keeps the two definition panels vertically adjacent"},
-    "hard_constraints": ["165x102 mm canvas", "clockwise equal-slot mapping", "b and c share the resolved -0.2 to 0.5 mV range"],
-    "soft_targets": ["keep fate legend compact and centered"],
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["window", "cap", "distance", "fate", "input_intervention", "successor_intervention"], "rationale": "use immediate row-major reading and finish with the endpoint-specific intervention row"},
+    "hard_constraints": ["165x152 mm canvas", "row-major placement of panels a-f", "three reset controls in both intervention panels", "non-overlap and random controls remain descriptive zeros"],
+    "soft_targets": ["keep intervention condition labels readable at final size", "retain compact fate legend"],
     "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
   }
 }

@@ -150,6 +150,8 @@ docs/*
 !docs/README.md
 !docs/INVENTORY.md
 !docs/DOCUMENTATION_ARCHITECTURE.md
+!docs/adr/
+!docs/adr/**
 !docs/experiments/
 !docs/experiments/**
 !docs/paper/

@@ -1,0 +1,896 @@
+{
+  "schema": "paper_figure_review_candidate_spec_v1",
+  "candidate_version": "manuscript_fig4_reader_first_v4",
+  "status": "review_only_candidate_v4",
+  "figure_id": "manuscript_fig4",
+  "display_name": "Fig.4",
+  "canvas_mm": [
+    165.0,
+    202.0
+  ],
+  "dpi": 300,
+  "parent_bundle": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig3",
+  "overlap_source_root": "results/paper_figure_multi_seed/fig4_overlap_reentry",
+  "swap_source_root": "results/paper_figure_multi_seed/fig2_fixed_b_mechanism_confirmatory",
+  "g_asset": "src/plotting/paper_fig/assets/manuscript_fig4_reader_first_v4_state_evolution.svg",
+  "g_asset_viewbox": "0 0 1500 430",
+  "reader_contract": {
+    "figure_question": "Through which spatial entry does inherited STSP enter current-input processing, and how does it form the downstream successor?",
+    "terminal_inference": "Overlap-aligned inherited STSP provides a spatially selective causal entry: it changes early events, is necessary for the early conversion (Layer-1 STSP perturbation weakens it), the bias enters Layer-2 updating, and a Layer-1-only substitution can directionally redirect the Layer-2 successor.",
+    "forbidden_inferences": [
+      "unit-by-unit lineage from Layer 1 to Layer 2",
+      "complete mediation or uniqueness of the donor transfer",
+      "the comparison-level histogram is an inferential replication unit",
+      "panel g adds a quantitative endpoint or shows successor reuse by a later input",
+      "the frozen-opportunity condition performs an actual STSP mutation",
+      "absolute bars in panel a support new contrasts beyond the predeclared ones"
+    ],
+    "semantic_units": {
+      "a": "show the four reset-site conditions so that only overlap reset nearly eliminates the accuracy drop",
+      "b": "show pre-input retained support enrichment at overlap-aligned sites",
+      "c": "show the early-event conversion (advance/recruit/spike loss) across conditions without connecting lines",
+      "d": "show Layer-1 STSP necessity for the early conversion, centred on the estimates",
+      "e": "show history-aligned Layer-2 updating and the dynamic-minus-frozen difference-in-differences",
+      "f": "show the donor-directed redirection of the Layer-2 successor as a network-balanced comparison-level distribution",
+      "g": "close the evidence with one left-to-right causal chain from previous input through inherited STSP, selected firing, downstream firing, and successor STSP"
+    },
+    "task_graph": {
+      "nodes": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g"
+      ],
+      "edges": [
+        [
+          "a",
+          "b"
+        ],
+        [
+          "b",
+          "c"
+        ],
+        [
+          "c",
+          "d"
+        ],
+        [
+          "d",
+          "e"
+        ],
+        [
+          "e",
+          "f"
+        ],
+        [
+          "f",
+          "g"
+        ]
+      ]
+    },
+    "comparison_obligations": [
+      {
+        "panels": [
+          "a",
+          "b"
+        ],
+        "comparison_basis": "spatial entry (a) and the support carried by that entry (b) share the overlap teal semantics",
+        "reader_task": "read b as the state carried by the entry localised in a"
+      },
+      {
+        "panels": [
+          "c",
+          "d"
+        ],
+        "comparison_basis": "c shows the conversion at overlap sites, d shows the same early conversion depends on Layer-1 STSP",
+        "reader_task": "read d as the necessity test for the conversion shown in c"
+      },
+      {
+        "panels": [
+          "e",
+          "f"
+        ],
+        "comparison_basis": "e shows history-aligned Layer-2 updating, f shows a Layer-1-only substitution redirects the Layer-2 successor",
+        "reader_task": "read f as the directed-transfer confirmation of the bias in e"
+      }
+    ],
+    "topology_invariants": [
+      "frozen a-g row-major reading order",
+      "2+2+2+1 row structure with frozen slots",
+      "one data coordinate system per quantitative panel",
+      "network-seed is the independent replication unit",
+      "panel g follows all quantitative evidence"
+    ],
+    "topology_freedoms": [
+      "optical padding inside frozen slots",
+      "legend placement inside the slot top band"
+    ]
+  },
+  "slots": {
+    "a": [
+      2.0,
+      2.0,
+      79.5,
+      48.0
+    ],
+    "b": [
+      83.5,
+      2.0,
+      79.5,
+      48.0
+    ],
+    "c": [
+      2.0,
+      52.0,
+      79.5,
+      48.0
+    ],
+    "d": [
+      83.5,
+      52.0,
+      79.5,
+      48.0
+    ],
+    "e": [
+      2.0,
+      102.0,
+      79.5,
+      48.0
+    ],
+    "f": [
+      83.5,
+      102.0,
+      79.5,
+      48.0
+    ],
+    "g": [
+      2.0,
+      152.0,
+      161.0,
+      48.0
+    ]
+  },
+  "panels": {
+    "a": {
+      "chart": "condition_bars_ci",
+      "source": "seed_{seed}/data/metrics/panel_d_l1_stsp_overlap_perturbation_contrast.csv",
+      "plot_bbox_mm": [
+        13.0,
+        10.0,
+        65.5,
+        30.0
+      ],
+      "role": "show the four reset-site conditions; only the overlap reset nearly eliminates the accuracy drop",
+      "value_scale": 100.0,
+      "categories": [
+        {
+          "label": "None",
+          "source_condition": "acc_drop_dynamic",
+          "color": "dynamic"
+        },
+        {
+          "label": "Overlap",
+          "source_condition": "acc_drop_overlap_reset",
+          "color": "mechanism_teal"
+        },
+        {
+          "label": "Non-overlap",
+          "source_condition": "acc_drop_nonoverlap_reset",
+          "color": "non_overlap_control"
+        },
+        {
+          "label": "Matched\nrandom",
+          "source_condition": "acc_drop_random_reset",
+          "color": "random_control"
+        }
+      ],
+      "x_label": "Reset site",
+      "y_label": "Accuracy drop (%)",
+      "y_limits": [
+        0.0,
+        7.0
+      ],
+      "y_ticks": [
+        0.0,
+        2.0,
+        4.0,
+        6.0
+      ],
+      "zero_baseline": true,
+      "ci_source": "network_level_student_t",
+      "expected_audit": {
+        "acc_drop_dynamic": 5.6,
+        "acc_drop_overlap_reset": 0.0,
+        "acc_drop_nonoverlap_reset": 5.6,
+        "acc_drop_random_reset": 1.34
+      }
+    },
+    "b": {
+      "chart": "condition_bars_ci",
+      "source": "data/panel_b_plot_data.csv",
+      "plot_bbox_mm": [
+        94.5,
+        10.0,
+        65.5,
+        30.0
+      ],
+      "role": "show pre-input retained support enrichment at overlap-aligned sites",
+      "categories": [
+        {
+          "label": "Overlap",
+          "source_condition": "overlap_dominant",
+          "color": "mechanism_teal"
+        },
+        {
+          "label": "Input-only",
+          "source_condition": "probe_only_dominant",
+          "color": "probe_only_region"
+        },
+        {
+          "label": "Balanced",
+          "source_condition": "balanced",
+          "color": "balanced_support"
+        }
+      ],
+      "x_label": "",
+      "y_label": "Pre-input support",
+      "y_limits": [
+        0.0,
+        0.35
+      ],
+      "y_ticks": [
+        0.0,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "zero_baseline": true,
+      "ci_source": "frozen_statistics"
+    },
+    "c": {
+      "chart": "grouped_bars_ci",
+      "source": "data/panel_c_plot_data.csv",
+      "plot_bbox_mm": [
+        13.0,
+        60.0,
+        65.5,
+        30.0
+      ],
+      "role": "show advance/recruit/spike-loss conversion across the descriptive early-event endpoint without condition connecting lines",
+      "conditions": [
+        {
+          "label": "Overlap",
+          "source_condition": "overlap_dominant",
+          "color": "mechanism_teal"
+        },
+        {
+          "label": "Input-only",
+          "source_condition": "probe_only_dominant",
+          "color": "probe_only_region"
+        },
+        {
+          "label": "Matched\nrandom",
+          "source_condition": "random_matched",
+          "color": "random_control"
+        }
+      ],
+      "series": [
+        {
+          "label": "Advance",
+          "source_endpoint": "P_advance",
+          "color": "transition_advance"
+        },
+        {
+          "label": "Recruit",
+          "source_endpoint": "P_recruit",
+          "color": "transition_recruit"
+        },
+        {
+          "label": "Spike loss",
+          "source_endpoint": "P_loss",
+          "color": "transition_loss"
+        }
+      ],
+      "window_ms": 30,
+      "x_label": "",
+      "y_label": "Early events (%)",
+      "y_limits": [
+        0.0,
+        30.0
+      ],
+      "y_ticks": [
+        0.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "zero_baseline": true,
+      "ci_source": "frozen_statistics",
+      "legend": {
+        "position": "top_band",
+        "title": ""
+      }
+    },
+    "d": {
+      "chart": "contrast_bars_ci",
+      "source": "data/panel_d_plot_data.csv",
+      "plot_bbox_mm": [
+        94.5,
+        60.0,
+        65.5,
+        30.0
+      ],
+      "role": "show the two Layer-1 STSP perturbation endpoints centred on the estimates",
+      "categories": [
+        {
+          "label": "Attenuate",
+          "source_endpoint": "dynamic_minus_attenuation",
+          "color": "perturb_attenuate"
+        },
+        {
+          "label": "Reset",
+          "source_endpoint": "dynamic_minus_reset",
+          "color": "perturb_reset"
+        }
+      ],
+      "window_ms": 50,
+      "x_label": "",
+      "y_label": "Event reduction (%)",
+      "y_limits": [
+        0.0,
+        42.0
+      ],
+      "y_ticks": [
+        0.0,
+        10.0,
+        20.0,
+        30.0,
+        40.0
+      ],
+      "zero_baseline": true,
+      "hatch": false,
+      "ci_source": "frozen_statistics"
+    },
+    "e": {
+      "chart": "grouped_bars_ci",
+      "source": "data/panel_e_plot_data.csv",
+      "plot_bbox_mm": [
+        13.0,
+        110.0,
+        65.5,
+        30.0
+      ],
+      "role": "show Layer-2 update probability for prior-updated and other synapses under dynamic and frozen-opportunity conditions",
+      "conditions": [
+        {
+          "label": "Dynamic",
+          "source_condition": "dynamic_intact",
+          "color": "dynamic"
+        },
+        {
+          "label": "Frozen opportunity",
+          "source_condition": "static_opportunity",
+          "color": "static_frozen"
+        }
+      ],
+      "series": [
+        {
+          "label": "Previously updated",
+          "source_history": "prior_updated",
+          "color": "prior_updated"
+        },
+        {
+          "label": "Other",
+          "source_history": "not_prior_updated",
+          "color": "not_prior_updated"
+        }
+      ],
+      "x_label": "",
+      "y_label": "L2 updates (%)",
+      "y_limits": [
+        0.0,
+        30.0
+      ],
+      "y_ticks": [
+        0.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "zero_baseline": true,
+      "ci_source": "frozen_statistics",
+      "legend": {
+        "position": "top_band",
+        "title": ""
+      }
+    },
+    "f": {
+      "chart": "network_balanced_histogram",
+      "source": "seed_{seed}/data/metrics/fixed_b_swap_cell_metrics.csv",
+      "plot_bbox_mm": [
+        94.5,
+        110.0,
+        65.5,
+        30.0
+      ],
+      "role": "show the donor-directed Layer-2 successor shift as a network-balanced comparison-level distribution",
+      "filters": "prefix_k=1; swap_scope=layer1_only; endpoint=layer2_update; valid=1",
+      "rows_per_network": 1000,
+      "bin_width": 0.05,
+      "x_label": "Donor transfer",
+      "x_limits": [
+        0.0,
+        1.0
+      ],
+      "x_ticks": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "y_label": "Comparisons (%)",
+      "y_limits": [
+        0.0,
+        30.0
+      ],
+      "y_ticks": [
+        0.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "bar_color": "donor_trace",
+      "bar_alpha": 0.85,
+      "bar_edge": "neutral_light",
+      "mean_marker_color": "ink",
+      "mean_marker_diamond": "comparison_coral",
+      "ci_source": "frozen_statistics",
+      "expected_audit": {
+        "network_mean_of_means": 0.8086319986924897,
+        "n_positive_comparisons": 20000
+      }
+    },
+    "g": {
+      "chart": "svg_asset",
+      "plot_bbox_mm": [
+        8.0,
+        155.0,
+        150.0,
+        43.0
+      ],
+      "role": "close the quantitative evidence with one left-to-right causal chain: inherited STSP, Input, selected firing, downstream firing, and successor STSP",
+      "claim": "Inherited STSP carries prior history into the current Input; Input selects firing; selected firing propagates downstream; downstream firing writes a distinct next-layer successor STSP state",
+      "color_roles": [
+        "mechanism_teal",
+        "dynamic",
+        "probe_only_region",
+        "neutral_dark",
+        "neutral_light",
+        "neutral_mid"
+      ],
+      "legend_owner": "g",
+      "statistics_status": "not_applicable",
+      "glyph_grammar": {
+        "state": "teal circular dots only in the inherited and successor STSP fields",
+        "firing": "vertical spike ticks only in the selected and downstream firing fields",
+        "legend": "one 9-pt semantic legend: circle = STSP state; vertical tick = firing"
+      },
+      "topology": {
+        "main_chain": "Inherited STSP -> Selected firing -> Downstream firing -> Successor STSP",
+        "inputs": "One abstract Input node enters selected firing from above; inherited STSP enters selected firing from the left",
+        "alignment": "all four stage fields share one baseline and outer size; labels sit below the enlarged fields",
+        "forbidden": "no raster images, duplicated handoff tiles, diagonal arrows, upward arrows, card offsets, or mixed state/firing glyph fields"
+      },
+      "stage_grammar": {
+        "inherited": {
+          "label": "Inherited STSP",
+          "template": "upstream",
+          "glyph": "state_dots"
+        },
+        "selected": {
+          "label": "Selected firing",
+          "template": "upstream",
+          "glyph": "firing_ticks"
+        },
+        "downstream": {
+          "label": "Downstream firing",
+          "template": "downstream",
+          "glyph": "firing_ticks"
+        },
+        "successor": {
+          "label": "Successor STSP",
+          "template": "successor",
+          "glyph": "state_dots"
+        }
+      }
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [],
+    "semantic_units": [
+      {
+        "unit_id": "entry",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "role": "spatial causal entry and the retained support it carries"
+      },
+      {
+        "unit_id": "conversion",
+        "panels": [
+          "c",
+          "d"
+        ],
+        "role": "early-event conversion and Layer-1 STSP necessity"
+      },
+      {
+        "unit_id": "successor",
+        "panels": [
+          "e",
+          "f"
+        ],
+        "role": "history-aligned Layer-2 updating and directed successor redirection"
+      },
+      {
+        "unit_id": "synthesis",
+        "panels": [
+          "g"
+        ],
+        "role": "evidence-after-synthesis: one aligned causal chain with one abstract Input and four state/activity fields"
+      }
+    ],
+    "comparison_groups": [
+      {
+        "group_id": "entry",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "comparison_basis": "shared overlap semantics and spatial-entry reading",
+        "reader_task": "identify the entry, then the support it carries"
+      },
+      {
+        "group_id": "conversion",
+        "panels": [
+          "c",
+          "d"
+        ],
+        "comparison_basis": "same early conversion, first as group composition then under perturbation",
+        "reader_task": "verify the early conversion depends on Layer-1 STSP"
+      },
+      {
+        "group_id": "successor",
+        "panels": [
+          "e",
+          "f"
+        ],
+        "comparison_basis": "history-aligned update bias then directed successor shift",
+        "reader_task": "confirm the Layer-2 bias can be directionally redirected"
+      }
+    ],
+    "alignment_groups": [
+      {
+        "group_id": "row_1",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "target": "slot",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "rationale": "Preserve the frozen row-major scientific reading order."
+      },
+      {
+        "group_id": "row_2",
+        "panels": [
+          "c",
+          "d"
+        ],
+        "target": "slot",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "rationale": "Preserve the frozen row-major scientific reading order."
+      },
+      {
+        "group_id": "row_3",
+        "panels": [
+          "e",
+          "f"
+        ],
+        "target": "slot",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "rationale": "Preserve the frozen row-major scientific reading order."
+      },
+      {
+        "group_id": "row_4",
+        "panels": [
+          "g"
+        ],
+        "target": "slot",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "rationale": "Full-width synthesis row after all quantitative evidence."
+      },
+      {
+        "group_id": "row_1_plots",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "target": "plot_area",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "comparison_basis": "same 30-mm plot height in both row-1 slots",
+        "rationale": "Bars and CIs align across the row."
+      },
+      {
+        "group_id": "row_2_plots",
+        "panels": [
+          "c",
+          "d"
+        ],
+        "target": "plot_area",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "comparison_basis": "same 30-mm plot height in both row-2 slots",
+        "rationale": "Bars and CIs align across the row."
+      },
+      {
+        "group_id": "row_3_plots",
+        "panels": [
+          "e",
+          "f"
+        ],
+        "target": "plot_area",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "comparison_basis": "same 30-mm plot height in both row-3 slots",
+        "rationale": "Bars and CIs align across the row."
+      }
+    ],
+    "panel_geometry": {
+      "a": {
+        "chart_family": "condition_bars",
+        "category_slots": 4,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          13.0,
+          10.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          2.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "b": {
+        "chart_family": "condition_bars",
+        "category_slots": 3,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          94.5,
+          10.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          83.5,
+          2.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "c": {
+        "chart_family": "grouped_bars",
+        "category_slots": 9,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          13.0,
+          60.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          52.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "high"
+      },
+      "d": {
+        "chart_family": "contrast_bars",
+        "category_slots": 2,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          94.5,
+          60.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          83.5,
+          52.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "e": {
+        "chart_family": "grouped_bars",
+        "category_slots": 4,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          13.0,
+          110.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          102.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "f": {
+        "chart_family": "histogram",
+        "category_slots": 20,
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "natural_aspect": [
+          1.1,
+          2.6
+        ],
+        "plot_bbox_mm": [
+          94.5,
+          110.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          83.5,
+          102.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "g": {
+        "chart_family": "svg_schematic",
+        "category_slots": 1,
+        "decoration_sides": [],
+        "natural_aspect": [
+          3.3,
+          3.8
+        ],
+        "plot_bbox_mm": [
+          8.0,
+          155.0,
+          150.0,
+          43.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          152.0,
+          161.0,
+          48.0
+        ],
+        "visual_weight": "high"
+      }
+    },
+    "bar_width_policy": {
+      "mode": "within_panel_only",
+      "scope": "No cross-panel physical bar-width constraint is needed.",
+      "tradeoff": "Scientific comparison and readable plot area take precedence."
+    },
+    "topology": {
+      "reading_direction": "row_major",
+      "unit_sequence": [
+        "entry",
+        "conversion",
+        "successor",
+        "synthesis"
+      ],
+      "rationale": "a-b localize the entry, c-d convert state into early events, e-f reach the downstream successor, g synthesizes after the evidence."
+    },
+    "hard_constraints": [
+      "165 mm x 202 mm canvas",
+      "frozen slots and panel order",
+      "equal row heights and equal widths within every row",
+      "9 pt text and 12 pt lowercase panel labels",
+      "no clipping, decorative grid, or dual y axis",
+      "network seed is the only independent replication unit",
+      "all four stage fields share one baseline, outer size, and aligned field grammar",
+      "state uses teal circular dots only; firing uses navy/cyan vertical spike ticks only",
+      "one abstract Input node enters selected firing through a single downward arrow; no diagonal or upward handoff arrows",
+      "successor STSP uses a distinct next-layer internal template rather than reusing the downstream firing template"
+    ],
+    "soft_targets": [
+      "consistent left/right optical padding within each row"
+    ],
+    "qa": {
+      "final_size_render": true,
+      "collision_check": true,
+      "clipping_check": true,
+      "alignment_measurement": true,
+      "grayscale_check": true
+    }
+  }
+}

@@ -1,0 +1,666 @@
+{
+  "schema": "paper_figure_reader_first_candidate_spec_v3",
+  "candidate_version": "manuscript_fig5_reader_first_v3",
+  "status": "candidate",
+  "figure_id": "manuscript_fig5",
+  "display_name": "Fig.5",
+  "canvas_mm": [
+    165.0,
+    102.0
+  ],
+  "dpi": 300,
+  "parent_bundles": {
+    "fig5_v1": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4",
+    "successor_extension": "results/successor_extension_v1_confirmatory_20seed/aggregate"
+  },
+  "reader_contract": {
+    "figure_question": "Can a successor state continue to influence successive inputs across history depth, depend on state-input overlap, propagate through a second transition, recur during natural updating, and alter behavior?",
+    "terminal_inference": "Successor influence remains detectable across K=1,5,10, is selectively attenuated by overlap removal, persists through a following transition and new successor, recurs during unmanipulated updating, and accompanies lower Rescue and higher Loss at deeper history.",
+    "forbidden_inferences": [
+      "donor transfer establishes necessity, complete mediation, or uniqueness",
+      "K=1, K=5 and K=10 imply a prespecified trend test",
+      "transition stage equals history depth",
+      "Rescue and Loss share one opportunity denominator",
+      "overlap attenuation proves complete necessity"
+    ],
+    "semantic_units": {
+      "a": "depth-stable successor reuse",
+      "b": "overlap-specific entry route",
+      "c": "second-transition propagation",
+      "d": "natural recurrent updating",
+      "e": "behavioral consequence"
+    },
+    "task_graph": {
+      "nodes": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e"
+      ],
+      "edges": [
+        [
+          "a",
+          "b"
+        ],
+        [
+          "b",
+          "c"
+        ],
+        [
+          "c",
+          "d"
+        ],
+        [
+          "d",
+          "e"
+        ]
+      ]
+    },
+    "comparison_obligations": [
+      {
+        "panels": [
+          "a"
+        ],
+        "comparison_basis": "each K group is compared with zero donor transfer",
+        "reader_task": "read positive transfer at all depths",
+        "must_not_imply": "cross-K trend"
+      },
+      {
+        "panels": [
+          "b"
+        ],
+        "comparison_basis": "overlap removal versus non-overlap and random controls within each endpoint",
+        "reader_task": "read selective attenuation",
+        "must_not_imply": "endpoint contrast or complete necessity"
+      },
+      {
+        "panels": [
+          "c"
+        ],
+        "comparison_basis": "ordered propagation endpoints against zero donor transfer",
+        "reader_task": "read carry-forward through following response and new successor",
+        "must_not_imply": "second transplant or formal decay trend"
+      },
+      {
+        "panels": [
+          "d"
+        ],
+        "comparison_basis": "input-associated displacement across transition stage against the analytic zero reference",
+        "reader_task": "read recurrent input-driven changes in state morphology",
+        "must_not_imply": "stage equals K"
+      },
+      {
+        "panels": [
+          "e"
+        ],
+        "comparison_basis": "K1 versus K5 within Rescue and within Loss",
+        "reader_task": "read behavioral direction",
+        "must_not_imply": "Rescue-Loss subtraction"
+      }
+    ],
+    "topology_invariants": [
+      "exactly five quantitative panels",
+      "2+3 equal-width rows",
+      "no schematic, inset, micro-panel or floating protocol key",
+      "panel order is reuse, overlap, propagation, recurrence, behavior"
+    ],
+    "topology_freedoms": [
+      "optical padding inside frozen slots"
+    ]
+  },
+  "slots": {
+    "a": [
+      2.0,
+      2.0,
+      79.5,
+      48.0
+    ],
+    "b": [
+      83.5,
+      2.0,
+      79.5,
+      48.0
+    ],
+    "c": [
+      2.0,
+      52.0,
+      52.333,
+      48.0
+    ],
+    "d": [
+      56.333,
+      52.0,
+      52.334,
+      48.0
+    ],
+    "e": [
+      110.667,
+      52.0,
+      52.333,
+      48.0
+    ]
+  },
+  "panels": {
+    "a": {
+      "chart": "grouped_mean_ci_bars",
+      "plot_bbox_mm": [
+        14.0,
+        13.0,
+        65.5,
+        30.0
+      ],
+      "source": "data/panel_a_transfer_network_effects.csv",
+      "statistics": "metrics/panel_a_transfer_statistics.csv",
+      "role": "depth-stable successor reuse",
+      "x_label": "History depth (K)",
+      "y_label": "Donor transfer",
+      "x_order": [
+        1,
+        5,
+        10
+      ],
+      "y_limits": [
+        0.0,
+        0.4
+      ],
+      "y_ticks": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ],
+      "endpoint_order": [
+        "input_response_l2",
+        "successor_state_l3"
+      ],
+      "endpoint_labels": {
+        "input_response_l2": "Input response",
+        "successor_state_l3": "Successor state"
+      },
+      "endpoint_colors": {
+        "input_response_l2": "layer2",
+        "successor_state_l3": "layer3"
+      }
+    },
+    "b": {
+      "chart": "grouped_mean_ci_bars",
+      "plot_bbox_mm": [
+        95.5,
+        13.0,
+        65.5,
+        30.0
+      ],
+      "source": "data/panel_b_overlap_network_effects.csv",
+      "statistics": "metrics/panel_b_overlap_statistics.csv",
+      "role": "overlap-specific history effect attenuation",
+      "y_label": "Effect removed (%)",
+      "endpoint_order": [
+        "input_response",
+        "post_input_state"
+      ],
+      "endpoint_labels": {
+        "input_response": "Input response",
+        "post_input_state": "Post-input state"
+      },
+      "condition_order": [
+        "overlap",
+        "non_overlap",
+        "random"
+      ],
+      "condition_labels": {
+        "overlap": "Overlap",
+        "non_overlap": "Non-overlap",
+        "random": "Random"
+      },
+      "condition_colors": {
+        "overlap": "sample_probe_overlap",
+        "non_overlap": "non_overlap_control",
+        "random": "random_control"
+      },
+      "zero_height_encoding": "colored_bar_cap_at_zero",
+      "interval_policy": {
+        "overlap": "confirmatory_supplied_network_bootstrap",
+        "non_overlap": "candidate_network_bootstrap_20000",
+        "random": "candidate_network_bootstrap_20000"
+      },
+      "y_limits": [
+        -3.0,
+        100.0
+      ],
+      "y_ticks": [
+        0.0,
+        25.0,
+        50.0,
+        75.0,
+        100.0
+      ]
+    },
+    "c": {
+      "chart": "ordered_horizontal_mean_ci_bars",
+      "plot_bbox_mm": [
+        17.0,
+        62.0,
+        34.333,
+        28.0
+      ],
+      "source": "data/panel_c_propagation_network_effects.csv",
+      "statistics": "metrics/panel_c_propagation_statistics.csv",
+      "role": "two-hop propagation",
+      "x_label": "Donor transfer",
+      "y_label": "",
+      "x_order": [
+        "next_response",
+        "following_response",
+        "new_successor"
+      ],
+      "endpoint_order": [
+        "next_response",
+        "following_response",
+        "new_successor"
+      ],
+      "endpoint_labels": {
+        "next_response": "Next\nresponse",
+        "following_response": "Following\nresponse",
+        "new_successor": "New\nsuccessor"
+      },
+      "endpoint_colors": {
+        "next_response": "layer2",
+        "following_response": "layer2",
+        "new_successor": "layer3"
+      },
+      "endpoint_filled": {
+        "next_response": false,
+        "following_response": true,
+        "new_successor": true
+      },
+      "inference_roles": {
+        "next_response": "descriptive_gate",
+        "following_response": "confirmatory_endpoint",
+        "new_successor": "confirmatory_endpoint"
+      },
+      "x_limits": [
+        0.0,
+        0.4
+      ],
+      "x_ticks": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.4
+      ]
+    },
+    "d": {
+      "chart": "mean_trajectory_ci_ribbon",
+      "plot_bbox_mm": [
+        69.333,
+        62.0,
+        36.334,
+        28.0
+      ],
+      "source": "data/panel_d_recurrence.csv",
+      "statistics": "metrics/panel_d_recurrence_statistics.csv",
+      "role": "natural recurrent updating",
+      "x_order": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "x_label": "Transition stage",
+      "y_label": "State displacement",
+      "x_limits": [
+        1.8,
+        10.2
+      ],
+      "x_ticks": [
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "y_limits": [
+        0.0,
+        0.65
+      ],
+      "y_ticks": [
+        0.0,
+        0.2,
+        0.4,
+        0.6
+      ],
+      "condition_order": [
+        "observed"
+      ],
+      "condition_labels": {
+        "observed": "Input"
+      },
+      "condition_colors": {
+        "observed": "dynamic"
+      },
+      "condition_linestyles": {
+        "observed": "-"
+      },
+      "condition_markers": {
+        "observed": "o"
+      }
+    },
+    "e": {
+      "chart": "horizontal_mean_change_arrows",
+      "plot_bbox_mm": [
+        123.667,
+        62.0,
+        36.333,
+        28.0
+      ],
+      "source": "data/panel_e_behavior.csv",
+      "statistics": "metrics/panel_e_behavior_statistics.csv",
+      "depth_statistics": "metrics/panel_e_behavior_depth_inference.csv",
+      "role": "behavioral consequence",
+      "x_label": "Outcome rate (%)",
+      "y_label": "",
+      "series": [
+        "rescue",
+        "loss"
+      ],
+      "series_labels": {
+        "rescue": "Rescue",
+        "loss": "Loss"
+      },
+      "series_colors": {
+        "rescue": "dynamic",
+        "loss": "donor_trace"
+      },
+      "x_limits": [
+        0.0,
+        70.0
+      ],
+      "x_ticks": [
+        0.0,
+        20.0,
+        40.0,
+        60.0
+      ]
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [],
+    "semantic_units": [
+      {
+        "unit_id": "depth",
+        "panels": [
+          "a"
+        ],
+        "role": "depth-stable reuse"
+      },
+      {
+        "unit_id": "overlap",
+        "panels": [
+          "b"
+        ],
+        "role": "overlap-specific attenuation"
+      },
+      {
+        "unit_id": "propagation",
+        "panels": [
+          "c"
+        ],
+        "role": "second-transition propagation"
+      },
+      {
+        "unit_id": "recurrence",
+        "panels": [
+          "d"
+        ],
+        "role": "natural recurrence"
+      },
+      {
+        "unit_id": "behavior",
+        "panels": [
+          "e"
+        ],
+        "role": "behavioral consequence"
+      }
+    ],
+    "comparison_groups": [
+      {
+        "group_id": "row_1",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "comparison_basis": "separate transfer and overlap evidence",
+        "reader_task": "read reuse then entry route"
+      },
+      {
+        "group_id": "row_2",
+        "panels": [
+          "c",
+          "d",
+          "e"
+        ],
+        "comparison_basis": "sequential propagation, recurrence and behavior",
+        "reader_task": "read downstream consequence chain"
+      }
+    ],
+    "alignment_groups": [
+      {
+        "group_id": "row_1_plot",
+        "panels": [
+          "a",
+          "b"
+        ],
+        "target": "plot_area",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "comparison_basis": "same row quantitative data region",
+        "rationale": "align first evidence row"
+      },
+      {
+        "group_id": "row_2_plot",
+        "panels": [
+          "c",
+          "d",
+          "e"
+        ],
+        "target": "plot_area",
+        "edges": [
+          "top",
+          "bottom"
+        ],
+        "comparison_basis": "same row quantitative data regions with shared top and bottom; panel c reserves additional left decoration for y-axis category labels",
+        "rationale": "align the downstream evidence row while keeping panel-c labels on the y-axis and inside its slot",
+        "expected_plot_bbox_mm": {
+          "c": [17.0, 62.0, 34.333, 28.0],
+          "d": [69.333, 62.0, 36.334, 28.0],
+          "e": [123.667, 62.0, 36.333, 28.0]
+        }
+      }
+    ],
+    "panel_geometry": {
+      "a": {
+        "chart_family": "grouped_mean_ci_bars",
+        "category_slots": 3,
+        "natural_aspect": [
+          1.1,
+          2.2
+        ],
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "plot_bbox_mm": [
+          14.0,
+          13.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          2.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "high"
+      },
+      "b": {
+        "chart_family": "grouped_mean_ci_bars",
+        "category_slots": 2,
+        "natural_aspect": [
+          1.1,
+          2.2
+        ],
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "plot_bbox_mm": [
+          95.5,
+          13.0,
+          65.5,
+          30.0
+        ],
+        "slot_bbox_mm": [
+          83.5,
+          2.0,
+          79.5,
+          48.0
+        ],
+        "visual_weight": "high"
+      },
+      "c": {
+        "chart_family": "ordered_horizontal_mean_ci_bars",
+        "category_slots": 3,
+        "natural_aspect": [
+          1.1,
+          2.2
+        ],
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "plot_bbox_mm": [
+          17.0,
+          62.0,
+          34.333,
+          28.0
+        ],
+        "slot_bbox_mm": [
+          2.0,
+          52.0,
+          52.333,
+          48.0
+        ],
+        "visual_weight": "high"
+      },
+      "d": {
+        "chart_family": "mean_trajectory_ci_ribbon",
+        "category_slots": 9,
+        "natural_aspect": [
+          1.1,
+          2.2
+        ],
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "plot_bbox_mm": [
+          69.333,
+          62.0,
+          36.334,
+          28.0
+        ],
+        "slot_bbox_mm": [
+          56.333,
+          52.0,
+          52.334,
+          48.0
+        ],
+        "visual_weight": "medium"
+      },
+      "e": {
+        "chart_family": "horizontal_mean_change_arrows",
+        "category_slots": 2,
+        "natural_aspect": [
+          1.1,
+          2.2
+        ],
+        "decoration_sides": [
+          "left",
+          "bottom",
+          "top"
+        ],
+        "plot_bbox_mm": [
+          123.667,
+          62.0,
+          36.333,
+          28.0
+        ],
+        "slot_bbox_mm": [
+          110.667,
+          52.0,
+          52.333,
+          48.0
+        ],
+        "visual_weight": "medium"
+      }
+    },
+    "bar_width_policy": {
+      "mode": "within_panel_only",
+      "scope": "Panels a and b",
+      "tradeoff": "Bar widths optimized within each panel."
+    },
+    "topology": {
+      "reading_direction": "row_major",
+      "unit_sequence": [
+        "depth",
+        "overlap",
+        "propagation",
+        "recurrence",
+        "behavior"
+      ],
+      "rationale": "Reuse, entry route, propagation, natural recurrence, consequence."
+    },
+    "hard_constraints": [
+      "165 mm x 102 mm canvas",
+      "2+3 slots with 48 mm rows and 2 mm gutters",
+      "9 pt text and 12 pt lowercase panel labels",
+      "exactly five quantitative panels",
+      "no schematic, inset, micro-panel, grid or significance star",
+      "all quantitative panels use persisted network-level summaries and 20 networks"
+    ],
+    "soft_targets": [
+      "shared donor-transfer scale in a and c",
+      "short reader-language labels",
+      "grayscale legibility"
+    ],
+    "qa": {
+      "final_size_render": true,
+      "collision_check": true,
+      "clipping_check": true,
+      "alignment_measurement": true,
+      "grayscale_check": true
+    }
+  }
+}

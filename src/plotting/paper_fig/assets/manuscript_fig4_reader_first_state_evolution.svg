@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1560" height="420" viewBox="0 0 1560 420">
+  <defs>
+    <marker id="arrow-teal" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#009E73"/></marker>
+    <marker id="arrow-navy" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#0072B2"/></marker>
+    <marker id="arrow-cyan" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#56B4E9"/></marker>
+    <marker id="arrow-slate" viewBox="0 0 10 10" markerWidth="3.2" markerHeight="3.2" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#CC79A7"/></marker>
+    <marker id="arrow-navy-wide" viewBox="0 0 10 10" markerWidth="4.5" markerHeight="4.5" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#0072B2"/></marker>
+    <symbol id="state-inherited" viewBox="0 0 180 180">
+      <g fill="#009E73" stroke="#FFFFFF" stroke-width="2.2">
+        <circle cx="35" cy="48" r="10"/><circle cx="90" cy="30" r="8"/><circle cx="142" cy="51" r="7"/>
+        <circle cx="58" cy="82" r="6"/><circle cx="108" cy="66" r="11"/><circle cx="151" cy="94" r="8"/>
+        <circle cx="31" cy="124" r="9"/><circle cx="78" cy="116" r="8"/><circle cx="122" cy="130" r="7"/>
+        <circle cx="154" cy="148" r="8"/><circle cx="54" cy="153" r="6"/><circle cx="100" cy="97" r="9"/>
+      </g>
+    </symbol>
+    <symbol id="state-selected" viewBox="0 0 180 180">
+      <g stroke="#FFFFFF" stroke-width="2.2">
+        <g fill="#009E73">
+          <circle cx="35" cy="48" r="10"/><circle cx="142" cy="51" r="7"/><circle cx="58" cy="82" r="6"/>
+          <circle cx="151" cy="94" r="8"/><circle cx="31" cy="124" r="9"/><circle cx="78" cy="116" r="8"/>
+          <circle cx="154" cy="148" r="8"/><circle cx="54" cy="153" r="6"/><circle cx="100" cy="97" r="9"/>
+        </g>
+        <g fill="#0072B2">
+          <circle cx="90" cy="30" r="9"/><circle cx="108" cy="66" r="12"/><circle cx="122" cy="130" r="8"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="state-downstream" viewBox="0 0 180 180">
+      <g stroke="#FFFFFF" stroke-width="2.2">
+        <g fill="#0072B2">
+          <circle cx="45" cy="72" r="10"/><circle cx="100" cy="54" r="8"/><circle cx="152" cy="75" r="7"/>
+          <circle cx="68" cy="106" r="6"/><circle cx="118" cy="90" r="11"/><circle cx="161" cy="118" r="8"/>
+          <circle cx="41" cy="148" r="9"/><circle cx="88" cy="140" r="8"/><circle cx="132" cy="154" r="7"/>
+          <circle cx="164" cy="172" r="8"/>
+        </g>
+        <g fill="#56B4E9">
+          <circle cx="64" cy="177" r="6"/><circle cx="110" cy="121" r="9"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="state-successor" viewBox="0 0 180 180">
+      <g stroke="#FFFFFF" stroke-width="2.2">
+        <g fill="#CC79A7">
+          <circle cx="42" cy="52" r="8"/><circle cx="88" cy="34" r="7"/><circle cx="138" cy="58" r="6"/>
+          <circle cx="60" cy="88" r="6"/><circle cx="148" cy="100" r="7"/><circle cx="36" cy="126" r="8"/>
+          <circle cx="124" cy="134" r="6"/><circle cx="150" cy="152" r="7"/><circle cx="56" cy="154" r="6"/>
+          <circle cx="98" cy="102" r="7"/>
+        </g>
+        <g fill="#0072B2">
+          <circle cx="104" cy="74" r="10"/><circle cx="80" cy="118" r="7"/>
+        </g>
+        <g fill="#009E73">
+          <circle cx="126" cy="100" r="6"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="tile-previous" viewBox="0 0 104 104">
+      <rect x="0" y="0" width="104" height="104" rx="12" fill="#222222"/>
+      <g fill="#D9D9D9">
+        <rect x="16" y="18" width="13" height="13" rx="2"/><rect x="34" y="18" width="13" height="13" rx="2"/>
+        <rect x="52" y="18" width="13" height="13" rx="2"/><rect x="16" y="36" width="13" height="13" rx="2"/>
+        <rect x="52" y="36" width="13" height="13" rx="2"/><rect x="70" y="36" width="13" height="13" rx="2"/>
+        <rect x="16" y="54" width="13" height="13" rx="2"/><rect x="34" y="54" width="13" height="13" rx="2"/>
+        <rect x="70" y="54" width="13" height="13" rx="2"/><rect x="34" y="72" width="13" height="13" rx="2"/>
+        <rect x="52" y="72" width="13" height="13" rx="2"/><rect x="70" y="72" width="13" height="13" rx="2"/>
+      </g>
+    </symbol>
+    <symbol id="tile-current" viewBox="0 0 104 104">
+      <rect x="0" y="0" width="104" height="104" rx="12" fill="#222222"/>
+      <g fill="#D9D9D9">
+        <rect x="16" y="18" width="13" height="13" rx="2"/><rect x="52" y="18" width="13" height="13" rx="2"/>
+        <rect x="16" y="36" width="13" height="13" rx="2"/><rect x="70" y="36" width="13" height="13" rx="2"/>
+        <rect x="34" y="54" width="13" height="13" rx="2"/><rect x="70" y="54" width="13" height="13" rx="2"/>
+        <rect x="34" y="72" width="13" height="13" rx="2"/><rect x="52" y="72" width="13" height="13" rx="2"/>
+      </g>
+      <g fill="#56B4E9">
+        <rect x="34" y="18" width="13" height="13" rx="2"/><rect x="52" y="36" width="13" height="13" rx="2"/>
+        <rect x="16" y="54" width="13" height="13" rx="2"/>
+      </g>
+      <g fill="#0072B2">
+        <rect x="70" y="18" width="13" height="13" rx="2"/><rect x="16" y="72" width="13" height="13" rx="2"/>
+        <rect x="70" y="72" width="13" height="13" rx="2"/>
+      </g>
+    </symbol>
+  </defs>
+  <rect width="1560" height="420" fill="#FFFFFF"/>
+  <g font-family="Arial, 'DejaVu Sans', sans-serif" text-anchor="middle" font-size="17" font-weight="700">
+    <text x="215" y="27" fill="#009E73">Inherited STSP</text>
+    <text x="585" y="27" fill="#0072B2">Selected firing</text>
+    <text x="955" y="27" fill="#0072B2">Downstream firing</text>
+    <text x="1325" y="27" fill="#CC79A7">Successor STSP</text>
+  </g>
+  <rect x="40" y="40" width="350" height="350" rx="16" fill="#E8F5F1" stroke="#009E73" stroke-width="2.2"/>
+  <rect x="410" y="40" width="350" height="350" rx="16" fill="#EAF4FA" stroke="#0072B2" stroke-width="2.2"/>
+  <rect x="780" y="40" width="350" height="350" rx="16" fill="#EAF4FA" stroke="#56B4E9" stroke-width="2.2"/>
+  <rect x="1150" y="40" width="350" height="350" rx="16" fill="#F7EAF2" stroke="#CC79A7" stroke-width="2.2"/>
+  <use href="#tile-previous" x="163" y="58" width="104" height="104"/>
+  <use href="#tile-current" x="533" y="58" width="104" height="104"/>
+  <rect x="112" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#009E73" stroke-width="2.4"/>
+  <rect x="482" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#0072B2" stroke-width="2.4"/>
+  <rect x="852" y="202" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#56B4E9" stroke-width="2.4"/>
+  <rect x="1222" y="178" width="206" height="166" rx="12" fill="#FFFFFF" stroke="#CC79A7" stroke-width="2.4"/>
+  <use href="#state-inherited" x="125" y="176" width="180" height="180"/>
+  <use href="#state-selected" x="495" y="176" width="180" height="180"/>
+  <use href="#state-downstream" x="871" y="200" width="168" height="168"/>
+  <use href="#state-successor" x="1235" y="176" width="180" height="180"/>
+  <path d="M215 164V174" fill="none" stroke="#009E73" stroke-width="3.6" marker-end="url(#arrow-teal)"/>
+  <path d="M585 164V174" fill="none" stroke="#0072B2" stroke-width="3.6" marker-end="url(#arrow-navy)"/>
+  <path d="M955 96V176" fill="none" stroke="#0072B2" stroke-width="4.5" marker-end="url(#arrow-navy-wide)"/>
+  <path d="M330 266H470" fill="none" stroke="#0072B2" stroke-width="4" marker-end="url(#arrow-navy)"/>
+  <path d="M700 266H840" fill="none" stroke="#56B4E9" stroke-width="4" marker-end="url(#arrow-cyan)"/>
+  <path d="M1070 266H1210" fill="none" stroke="#CC79A7" stroke-width="4" marker-end="url(#arrow-slate)"/>
+</svg>

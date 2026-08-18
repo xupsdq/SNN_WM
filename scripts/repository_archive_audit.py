@@ -224,10 +224,65 @@ def collect_lineage_gaps(root: Path, authority: dict[str, Any]) -> dict[str, Any
             existing["referenced_by"].append(row["referenced_by"])
 
     missing = sorted(grouped.values(), key=lambda row: row["path"])
-    return {
+    recovery_path = root / "archive/move_ledgers/parent_artifact_recovery_audit_20260814.json"
+    runtime_inventory_path = root / "archive/move_ledgers/fig5_runtime_parent_inventory_validation_20260814.json"
+    cleanup_hold_path = root / "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json"
+    recovery = json.loads(recovery_path.read_text(encoding="utf-8")) if recovery_path.is_file() else None
+    runtime_inventory = (
+        json.loads(runtime_inventory_path.read_text(encoding="utf-8"))
+        if runtime_inventory_path.is_file()
+        else None
+    )
+    cleanup_hold = (
+        json.loads(cleanup_hold_path.read_text(encoding="utf-8"))
+        if cleanup_hold_path.is_file()
+        else None
+    )
+    reconstruction_verified = bool(
+        recovery
+        and recovery.get("conclusion", {}).get("byte_identical_reconstruction_verified")
+    )
+    runtime_missing = int(runtime_inventory.get("missing_file_count", 0)) if runtime_inventory else None
+    if missing:
+        status = "open_recoverable_not_restored" if reconstruction_verified else "open"
+    elif runtime_missing:
+        status = "closed_source_manifest_gap_runtime_incomplete"
+    else:
+        status = "closed"
+    if missing and runtime_missing:
+        full_require_status = (
+            "blocked until the source-manifest parents are restored and the remaining runtime-parent inventory gaps are repaired, "
+            "or a versioned lineage contract formally retires full-parent replay"
+        )
+    elif missing:
+        full_require_status = "blocked until the missing parents are restored or the lineage contract is formally revised"
+    elif runtime_missing:
+        full_require_status = (
+            "source-manifest parents restored; still blocked by the remaining runtime-parent inventory gaps unless a versioned "
+            "lineage contract formally retires full-parent replay"
+        )
+    else:
+        full_require_status = "not blocked by this register"
+    required_resolution: list[str] = []
+    if missing:
+        required_resolution.append(
+            "Restore byte-identical source-manifest parents at their recorded paths and verify SHA-256."
+        )
+    if runtime_missing:
+        required_resolution.append(
+            "Repair the remaining runtime-parent inventory gaps, or approve a new versioned lineage contract that explicitly "
+            "retires full-parent replay while preserving the frozen derived bundles."
+        )
+    if cleanup_hold and cleanup_hold.get("status") == "active_hold":
+        required_resolution.append(
+            "Keep every active cleanup hold until its recorded release conditions are satisfied."
+        )
+    if not required_resolution:
+        required_resolution.append("No unresolved action remains in this register.")
+    payload = {
         "schema": "paper_parent_artifact_gap_register_v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "open",
+        "status": status,
         "scope": "Current main-statistics and Supplementary Fig. S1-S6 source manifests",
         "unique_missing_file_count": len(missing),
         "unique_missing_bytes": sum(row["expected_bytes"] for row in missing),
@@ -238,15 +293,44 @@ def collect_lineage_gaps(root: Path, authority: dict[str, Any]) -> dict[str, Any
         "impact": {
             "derived_bundles_present": True,
             "plot_only_replay_from_derived_bundles": "not invalidated by this register",
-            "full_upstream_require_replay": "blocked until the missing parents are restored or the lineage contract is formally revised",
+            "full_upstream_require_replay": full_require_status,
+            "byte_identical_reconstruction_verified": reconstruction_verified,
             "frozen_bundle_mutation_allowed": False,
         },
-        "required_resolution": [
-            "Restore byte-identical parents at their recorded paths and verify SHA-256, or",
-            "approve a new versioned lineage contract that explicitly retires full-parent replay while preserving the frozen derived bundles.",
-        ],
+        "required_resolution": required_resolution,
         "missing_files": missing,
     }
+    if recovery is not None:
+        conclusion = recovery.get("conclusion", {})
+        payload["recovery_audit"] = {
+            "path": recovery_path.relative_to(root).as_posix(),
+            "status": conclusion.get("audit_status"),
+            "existing_byte_identical_copy_found": conclusion.get("byte_identical_existing_copy_found"),
+            "byte_identical_reconstruction_verified": conclusion.get("byte_identical_reconstruction_verified"),
+            "verified_reconstruction_file_count": conclusion.get("verified_reconstruction_file_count"),
+            "verified_reconstruction_bytes": conclusion.get("verified_reconstruction_bytes"),
+            "restoration_completed": conclusion.get("restoration_completed"),
+            "restored_file_count": conclusion.get("restored_file_count"),
+            "restored_bytes": conclusion.get("restored_bytes"),
+            "restoration_receipt": recovery.get("restoration_validation", {}).get("path"),
+            "canonical_gap_status": conclusion.get("canonical_gap_status"),
+        }
+    if runtime_inventory is not None:
+        payload["runtime_parent_inventory"] = {
+            "path": runtime_inventory_path.relative_to(root).as_posix(),
+            "status": runtime_inventory.get("status"),
+            "expected_file_count": runtime_inventory.get("expected_file_count"),
+            "verified_file_count": runtime_inventory.get("verified_file_count"),
+            "missing_file_count": runtime_inventory.get("missing_file_count"),
+            "mismatch_file_count": runtime_inventory.get("mismatch_file_count"),
+        }
+    if cleanup_hold is not None:
+        payload["cleanup_hold"] = {
+            "path": cleanup_hold_path.relative_to(root).as_posix(),
+            "status": cleanup_hold.get("status"),
+            "held_path": cleanup_hold.get("path"),
+        }
+    return payload
 
 
 def verify_docx_media(root: Path, authority: dict[str, Any]) -> list[dict[str, Any]]:
@@ -284,37 +368,26 @@ def verify_docx_media(root: Path, authority: dict[str, Any]) -> list[dict[str, A
     return checks
 
 
-def verify_duplicate_tree(source: Path, canonical: Path) -> int:
-    source_files = {
-        path.relative_to(source).as_posix(): path for path in iter_regular_files(source)
-    }
-    canonical_files = {
-        path.relative_to(canonical).as_posix(): path
-        for path in iter_regular_files(canonical)
-    }
-    if not source_files or set(source_files) != set(canonical_files):
-        raise RuntimeError(
-            f"Duplicate-tree membership mismatch: {source} vs {canonical}"
-        )
-    for relative, source_path in source_files.items():
-        canonical_path = canonical_files[relative]
-        if (
-            source_path.stat().st_size != canonical_path.stat().st_size
-            or sha256_file(source_path) != sha256_file(canonical_path)
-        ):
-            raise RuntimeError(
-                f"Duplicate-tree hash mismatch for {relative}: {source} vs {canonical}"
-            )
-    return len(source_files)
+def load_active_cleanup_hold(root: Path) -> dict[str, Any] | None:
+    path = root / "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json"
+    if not path.is_file():
+        return None
+    hold = json.loads(path.read_text(encoding="utf-8"))
+    if hold.get("status") != "active_hold":
+        return None
+    held_path = str(hold.get("path", ""))
+    if not held_path.startswith(".codex/tmp/"):
+        raise RuntimeError(f"Unexpected active cleanup-hold path: {held_path}")
+    if hold.get("authorization", {}).get("deletion_authorized") is not False:
+        raise RuntimeError("Active cleanup hold must explicitly deny deletion")
+    return hold
 
 
 def archive_candidate_rows(
     root: Path, cutoff_timestamp: float
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    duplicate_mnist_files = verify_duplicate_tree(
-        root / "data/MNIST/raw", root / "MNIST/raw"
-    )
+    cleanup_hold = load_active_cleanup_hold(root)
 
     def add(
         source: str,
@@ -409,19 +482,25 @@ def archive_candidate_rows(
             "files_before_cutoff",
             "Regenerable test outputs.",
         ),
-        ("cache", "whole_path", "Regenerable runtime cache."),
-        ("cache_data", "whole_path", "Unreferenced legacy tensor cache."),
-        (
-            "data/MNIST",
-            "whole_path",
-            f"All {duplicate_mnist_files} files are byte-identical duplicates of canonical MNIST/raw files (membership, size and SHA-256 verified).",
-        ),
+        ("tmp/cache", "whole_path", "Regenerable runtime cache."),
+        ("tmp/cache_data", "whole_path", "Unreferenced legacy tensor cache."),
         ("__pycache__", "whole_path", "Regenerable Python bytecode."),
         ("tools", "whole_path", "Directory contains only regenerable bytecode."),
         (".mplconfig", "whole_path", "Regenerable Matplotlib cache."),
         ("tmp/pdf_deps", "whole_path", "Regenerable temporary PDF dependencies."),
     ]
     for source, age_scope, reason in cleanup_candidates:
+        if source == ".codex/tmp" and cleanup_hold is not None:
+            add(
+                source,
+                "blocked_by_active_cleanup_hold",
+                "",
+                reason + " An active recovery hold protects a required subtree.",
+                "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json",
+                "hold_release_then_explicit_delete_approval",
+                age_scope=age_scope,
+            )
+            continue
         add(
             source,
             "delete_after_explicit_approval",
@@ -448,7 +527,7 @@ def archive_candidate_rows(
     return rows
 
 
-def keep_rows(authority: dict[str, Any]) -> list[dict[str, str]]:
+def keep_rows(root: Path, authority: dict[str, Any]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
 
     def add(path: str, classification: str, reason: str, evidence: str) -> None:
@@ -498,6 +577,14 @@ def keep_rows(authority: dict[str, Any]) -> list[dict[str, str]]:
             "Project AGENTS.md plus current paper authority and source manifests.",
         )
 
+    if (root / "data/MNIST").exists():
+        add(
+            "data/MNIST",
+            "canonical_dataset_input",
+            "Canonical dataset input; current defaults resolve here.",
+            "Phase-4 dataset path migration and current source defaults.",
+        )
+
     evidence = authority["evidence"]
     for key in (
         "redesign_bundle",
@@ -517,13 +604,24 @@ def keep_rows(authority: dict[str, Any]) -> list[dict[str, str]]:
             "Current main/supplementary source-manifest closure.",
         )
 
+    cleanup_hold = load_active_cleanup_hold(root)
+    if cleanup_hold is not None:
+        add(
+            cleanup_hold["path"],
+            "active_cleanup_hold",
+            cleanup_hold["reason"],
+            "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json",
+        )
+
     return rows
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer = csv.DictWriter(
+            handle, fieldnames=fields, extrasaction="ignore", lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -672,7 +770,7 @@ def main() -> None:
     )
 
     archive_rows = archive_candidate_rows(root, cutoff_timestamp)
-    keep_manifest = keep_rows(authority)
+    keep_manifest = keep_rows(root, authority)
     completed_archive = verify_archive_execution_receipt(
         root, output_dir / "archive_execution_20260814.json"
     )
@@ -705,6 +803,10 @@ def main() -> None:
     write_csv(archive_plan_path, archive_rows, archive_fields)
     write_csv(keep_path, keep_manifest, keep_fields)
 
+    runtime_missing = int(
+        gap_register.get("runtime_parent_inventory", {}).get("missing_file_count", 0)
+    )
+    active_hold = gap_register.get("cleanup_hold", {}).get("status") == "active_hold"
     summary = {
         "schema": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -721,8 +823,13 @@ def main() -> None:
         "completed_cleanup_execution": completed_cleanup,
         "authority_path": authority_path.relative_to(root).as_posix(),
         "lineage_gap_register": gap_path.relative_to(root).as_posix(),
+        "lineage_status": gap_register["status"],
         "unique_missing_parent_files": gap_register["unique_missing_file_count"],
         "unique_missing_parent_bytes": gap_register["unique_missing_bytes"],
+        "restored_parent_files": gap_register.get("recovery_audit", {}).get("restored_file_count", 0),
+        "restored_parent_bytes": gap_register.get("recovery_audit", {}).get("restored_bytes", 0),
+        "runtime_parent_inventory_missing_files": runtime_missing,
+        "cleanup_hold": gap_register.get("cleanup_hold"),
         "docx_media_checks": media_checks,
         "docx_media_status": "pass",
         "archive_candidate_rows": sum(
@@ -742,12 +849,22 @@ def main() -> None:
                 "remove_empty_directory_after_approval",
             }
         ),
+        "cleanup_hold_blocked_old_bytes": sum(
+            row["old_bytes"]
+            for row in archive_rows
+            if row["proposed_action"] == "blocked_by_active_cleanup_hold"
+        ),
         "archive_plan": archive_plan_path.relative_to(root).as_posix(),
         "keep_manifest": keep_path.relative_to(root).as_posix(),
         "protected_path_count": len(keep_manifest),
         "next_gate": (
-            "Archive batch 1 and low-risk cleanup batch 2 are complete. Remaining high-risk "
-            "cleanup candidates are not approved and require a new explicit gate."
+            f"The source-manifest parent gap is closed, but full-require replay remains blocked by {runtime_missing} "
+            "missing runtime-parent files. Repair those files or approve a versioned lineage-contract retirement; "
+            "the active cleanup hold forbids deleting its protected .codex/tmp subtree. Other high-risk cleanup "
+            "candidates also remain unapproved."
+            if runtime_missing and active_hold
+            else "Archive batch 1 and low-risk cleanup batch 2 are complete. Remaining high-risk cleanup candidates "
+            "are not approved and require a new explicit gate."
             if completed_cleanup is not None
             else "First archive batch is complete. Remaining cleanup candidates require explicit approval."
             if completed_archive is not None

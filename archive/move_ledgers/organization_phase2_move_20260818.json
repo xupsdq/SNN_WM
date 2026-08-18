@@ -1,0 +1,19 @@
+{
+  "batch_id": "organization_phase2_20260818",
+  "status": "completed_verified",
+  "scope": "low-risk phase-2 root organization",
+  "executed_at": "2026-08-18",
+  "deletions": 0,
+  "rows": [
+    {
+      "source": "CONTEXT.md",
+      "destination": "docs/experiments/EVIDENCE_TRACEABILITY.md",
+      "reason": "Move active experiment evidence-traceability context under the documentation topic that owns it.",
+      "size_bytes": 4143,
+      "sha256_before": "70ad771ba0e1a8ee6fa556c1db6a2d7b243b722edb4709dd20ce5058bbd841f4",
+      "sha256_after": "70ad771ba0e1a8ee6fa556c1db6a2d7b243b722edb4709dd20ce5058bbd841f4",
+      "restore_path": "CONTEXT.md",
+      "verified": true
+    }
+  ]
+}

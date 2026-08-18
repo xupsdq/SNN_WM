@@ -24,21 +24,18 @@ Do not move a root merely because its files are older than one month. Active sou
 
 ### Main manuscript Fig.1–Fig.7
 
-- Fig.1–Fig.2 artwork: `paper_figure_redesign_20260811/`
-- Fig.1–Fig.2 redesign parent: `paper_figure_multi_seed/final_six_figures/`
-- Fig.3–Fig.7 data/statistics/artwork: `paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/`
-  - manuscript Fig.3 maps to internal `fig2`;
-  - manuscript Fig.4 maps to internal `fig3`;
-  - manuscript Fig.5 maps to internal `fig4`;
-  - manuscript Fig.6 maps to internal `fig5`;
-  - manuscript Fig.7 maps to internal `fig6`.
+- Formal artwork: `paper_figures/outputs/fig1/` through `paper_figures/outputs/fig7/`.
+- Formal authority and hashes: `paper_figures/outputs/main_figures_promotion_manifest.json`.
+- Default plot-only bundles: `paper_figures/outputs/provenance/fig1_fig2/` and `paper_figures/outputs/provenance/fig3/` through `fig7/`.
+- Approved source origins remain preserved in `paper_figure_redesign_20260811/` and `paper_figure_candidates/`; the formal provenance copies are the default destinations for future redraws.
+- The author-confirmed Fig.5d draft redraw is in `paper_figure_candidates/manuscript_fig5_reader_first_v3/`: the analytically zero passive series is retained in source data but omitted from artwork. The pre-change bundle is archived at `paper_figures/archive/backups/manuscript_fig5_reader_first_v3_before_passive_removal_20260818/`; formal promotion remains separate.
 
 ### Supplementary Fig. S1–S7
 
 - S1–S6: `paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/`
 - S7: `paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/`
 
-The embedded PNGs in `docs/paper/v6.docx` and `docs/paper/supplementary_information.docx` match these paths byte-for-byte by SHA-256. Exact hashes are recorded in `docs/paper/PAPER_AUTHORITY.json`.
+The formal-output promotion is separate from DOCX embedding. The current embedded PNGs in `docs/paper/v6.docx` and `docs/paper/supplementary_information.docx` remain pinned by `docs/paper/PAPER_AUTHORITY.json` until a separate manuscript-integration decision.
 
 ## Current direct parent roots
 
@@ -61,7 +58,7 @@ paper_figure_multi_seed/supplementary_v5/
 paper_figures/outputs/
 ```
 
-`MNIST/` is also a direct source. `multi_snn/` contains protected checkpoints. These roots remain active even when their latest file is older than the archive cutoff.
+`data/MNIST/` is the canonical dataset source. Historical result metadata may still record `MNIST` or machine-specific absolute dataset roots, but those paths are provenance only. `multi_snn/` contains protected checkpoints. These roots remain active even when their latest file is older than the archive cutoff.
 
 ### Promoted Fig.4 parent producer
 

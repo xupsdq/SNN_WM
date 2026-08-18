@@ -1,0 +1,204 @@
+{
+  "schema": "paper_figure_reader_first_candidate_spec_v1",
+  "candidate_version": "manuscript_fig5_reader_first_v1",
+  "status": "candidate",
+  "figure_id": "manuscript_fig5",
+  "display_name": "Fig.5",
+  "canvas_mm": [165.0, 102.0],
+  "dpi": 300,
+  "parent_bundle": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4",
+  "approved_exception": "author-approved replacement of raw observed/passive trajectories with persisted paired observed-minus-passive endpoint",
+  "reader_contract": {
+    "figure_question": "Can a post-input successor serve as the inherited state for the next input, recur across successive transitions, and carry cumulative behavioral consequences?",
+    "terminal_inference": "Under the tested successor-transplant intervention, the post-B Layer-2 successor is sufficient to redirect early processing of an identical next input and the post-next-input Layer-3 successor; in the independent progressive protocol, input-driven displacement relative to equal-time passive continuation persists across stages and deeper history changes behavioral rescue and loss.",
+    "forbidden_inferences": [
+      "donor transfer establishes necessity, complete mediation, or uniqueness",
+      "transition stage is equivalent to history depth K",
+      "stage-wise recurrence means that every stage repeated the complete transplant protocol",
+      "Rescue and Loss share one opportunity denominator",
+      "the donor-transfer index is a mediation fraction or a percentage",
+      "the progressive recurrence protocol is the same trial sequence as the transplant protocol"
+    ],
+    "semantic_units": {
+      "a": "show successor transfer redirects early processing of the next input at K=1 and K=5",
+      "b": "show the redirected processing continues into the post-next-input successor",
+      "c": "show input-driven displacement as a single paired trajectory beyond equal-time passive continuation",
+      "d": "show cumulative history changes behavioral Rescue and Loss using separate opportunity sets"
+    },
+    "task_graph": {
+      "nodes": ["a", "b", "c", "d"],
+      "edges": [["a", "b"], ["b", "c"], ["c", "d"]]
+    },
+    "comparison_obligations": [
+      {
+        "panels": ["a", "b"],
+        "comparison_basis": "the same K=1/K=5 successor-transplant intervention is read across early processing and the post-next-input successor",
+        "reader_task": "read the successor effect first in the current processing and then in the downstream successor"
+      },
+      {
+        "panels": ["c", "d"],
+        "comparison_basis": "the persistent transition consequence is read alongside accumulated behavioral consequences without merging their protocols or denominators",
+        "reader_task": "connect recurrence breadth to deeper-history Rescue/Loss while keeping stage and K distinct"
+      }
+    ],
+    "topology_invariants": [
+      "a | b over c | d",
+      "one continuous quantitative coordinate system per panel",
+      "network_seed is the independent replication unit",
+      "a/b are category-point endpoints and c is a single ordered trajectory",
+      "c does not display the passive condition as a second artwork trajectory"
+    ],
+    "topology_freedoms": ["optical padding inside each frozen slot"]
+  },
+  "slots": {
+    "a": [2.0, 2.0, 79.5, 48.0],
+    "b": [83.5, 2.0, 79.5, 48.0],
+    "c": [2.0, 52.0, 79.5, 48.0],
+    "d": [83.5, 52.0, 79.5, 48.0]
+  },
+  "panels": {
+    "a": {
+      "chart": "category_points",
+      "source": "data/panel_a_plot_data.csv",
+      "statistics": "metrics/panel_a_statistics.csv",
+      "role": "successor transfer redirects early processing of the next input",
+      "plot_bbox_mm": [13.0, 10.0, 65.5, 30.0],
+      "x_field": "condition",
+      "x_order": ["K1", "K5"],
+      "x_labels": {"K1": "K=1", "K5": "K=5"},
+      "x_label": "History depth",
+      "y_label": "Early processing transfer",
+      "y_limits": [0.0, 0.4],
+      "y_ticks": [0.0, 0.1, 0.2, 0.3, 0.4],
+      "color": "donor_trace",
+      "raw_point_alpha": 0.42,
+      "raw_point_size": 14.0,
+      "jitter_width": 0.12,
+      "mean_marker": "o",
+      "mean_marker_size": 5.0,
+      "numeric_precision": 3,
+      "inference": "each endpoint-by-depth cell versus zero; no K=1 versus K=5 test"
+    },
+    "b": {
+      "chart": "category_points",
+      "source": "data/panel_b_plot_data.csv",
+      "statistics": "metrics/panel_b_statistics.csv",
+      "role": "successor transfer continues into the post-next-input successor",
+      "plot_bbox_mm": [94.5, 10.0, 65.5, 30.0],
+      "x_field": "condition",
+      "x_order": ["K1", "K5"],
+      "x_labels": {"K1": "K=1", "K5": "K=5"},
+      "x_label": "History depth",
+      "y_label": "Successor transfer",
+      "y_limits": [0.0, 0.4],
+      "y_ticks": [0.0, 0.1, 0.2, 0.3, 0.4],
+      "color": "donor_trace",
+      "raw_point_alpha": 0.42,
+      "raw_point_size": 14.0,
+      "jitter_width": 0.12,
+      "mean_marker": "o",
+      "mean_marker_size": 5.0,
+      "numeric_precision": 3,
+      "inference": "each endpoint-by-depth cell versus zero; no K=1 versus K=5 test"
+    },
+    "c": {
+      "chart": "paired_difference_trajectory",
+      "source": "data/panel_c_input_driven_displacement.csv",
+      "statistics": "metrics/panel_c_recurrence_inference.csv",
+      "role": "input-driven displacement persists beyond equal-time passive continuation",
+      "plot_bbox_mm": [13.0, 60.0, 65.5, 30.0],
+      "x_field": "stage_k",
+      "x_order": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "x_label": "Transition stage",
+      "y_label": "Input-driven displacement",
+      "x_limits": [1.8, 10.2],
+      "y_limits": [0.0, 0.65],
+      "x_ticks": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "y_ticks": [0.0, 0.2, 0.4, 0.6],
+      "color": "dynamic",
+      "line_width": 1.3,
+      "marker": "o",
+      "marker_size": 4.0,
+      "ci_line_width": 0.85,
+      "ci_capsize": 2.0,
+      "passive_artwork": false,
+      "paired_endpoint": "Observed displacement - equal-time passive displacement",
+      "inference": "joint observed-minus-passive contrast at each stage from 20 paired networks"
+    },
+    "d": {
+      "chart": "grouped_bars",
+      "source": "data/panel_d_plot_data.csv",
+      "statistics": "metrics/panel_d_statistics.csv",
+      "depth_inference": "metrics/panel_d_depth_inference.csv",
+      "role": "deeper history changes behavioral Rescue and Loss",
+      "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0],
+      "x_field": "prefix_k",
+      "x_order": ["K1", "K5"],
+      "x_labels": {"K1": "K=1", "K5": "K=5"},
+      "x_label": "History depth",
+      "y_label": "Rate (%)",
+      "y_limits": [0.0, 70.0],
+      "y_ticks": [0.0, 20.0, 40.0, 60.0],
+      "series": [
+        {"key": "rescue", "label": "Rescue", "color": "dynamic"},
+        {"key": "loss", "label": "Loss", "color": "donor_trace"}
+      ],
+      "legend_owner": "panel",
+      "opportunity_denominators": "Rescue and Loss use different opportunity sets"
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "next_input_processing", "panels": ["a"], "role": "redirect early processing of the next input"},
+      {"unit_id": "next_successor", "panels": ["b"], "role": "redirect the post-next-input successor"},
+      {"unit_id": "recurrence", "panels": ["c"], "role": "show paired input-driven displacement across transition stages"},
+      {"unit_id": "behavior", "panels": ["d"], "role": "show deeper-history behavioral Rescue and Loss"}
+    ],
+    "comparison_groups": [
+      {
+        "group_id": "successor_reuse_endpoints",
+        "panels": ["a", "b"],
+        "comparison_basis": "same K=1/K=5 successor-transplant intervention across early processing and the post-next-input successor",
+        "reader_task": "read the effect first in processing and then in successor formation"
+      },
+      {
+        "group_id": "recurrence_and_behavior",
+        "panels": ["c", "d"],
+        "comparison_basis": "recurrence breadth and accumulated behavioral consequence are adjacent but protocol-distinct",
+        "reader_task": "connect persistent input-driven displacement to deeper-history behavior without conflating stage with K"
+      }
+    ],
+    "alignment_groups": [
+      {"group_id": "row_1_slots", "panels": ["a", "b"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep the two successor-reuse endpoints in one equal-height row."},
+      {"group_id": "row_2_slots", "panels": ["c", "d"], "target": "slot", "edges": ["top", "bottom"], "rationale": "Keep recurrence and accumulated behavior in one equal-height row."},
+      {"group_id": "row_1_plot_areas", "panels": ["a", "b"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "a and b share the same 0-0.40 scale and plot-region geometry.", "rationale": "Permit direct comparison of the two transfer endpoints."},
+      {"group_id": "row_2_plot_areas", "panels": ["c", "d"], "target": "plot_area", "edges": ["top", "bottom"], "comparison_basis": "c and d share the same row plot-region geometry while retaining their distinct y scales.", "rationale": "Keep the recurrence trajectory and behavioral bars visually aligned."}
+    ],
+    "panel_geometry": {
+      "a": {"chart_family": "category_points", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [13.0, 10.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 2.0, 79.5, 48.0], "visual_weight": "medium"},
+      "b": {"chart_family": "category_points", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [94.5, 10.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 2.0, 79.5, 48.0], "visual_weight": "medium"},
+      "c": {"chart_family": "ordered_lines", "category_slots": 9, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom"], "plot_bbox_mm": [13.0, 60.0, 65.5, 30.0], "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0], "visual_weight": "high"},
+      "d": {"chart_family": "grouped_bars", "category_slots": 2, "natural_aspect": [1.1, 2.2], "decoration_sides": ["left", "bottom", "top"], "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0], "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0], "visual_weight": "medium"}
+    },
+    "bar_width_policy": {"mode": "within_panel_only", "scope": "Grouped bars are compared within panel d; no cross-panel bar-width constraint is needed.", "tradeoff": "Keep d readable without changing the equal 2x2 grid."},
+    "topology": {"reading_direction": "row_major", "unit_sequence": ["next_input_processing", "next_successor", "recurrence", "behavior"], "rationale": "Read successor reuse from a to b, then recurrence in c and accumulated behavioral consequence in d."},
+    "hard_constraints": [
+      "165 mm x 102 mm canvas",
+      "a|b over c|d with exact 2 mm margins and gutters",
+      "equal row heights and equal widths within each row",
+      "9 pt text and 12 pt bold lowercase panel letters",
+      "no panel titles, grid, dual axis, inset, or micro-panel",
+      "only frozen persisted results and statistics are read"
+    ],
+    "soft_targets": ["balanced point-cloud and trajectory visual weight", "aligned data-region top and bottom within each row"],
+    "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}
+  }
+}

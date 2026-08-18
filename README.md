@@ -17,8 +17,12 @@ python --version
 ## 目录结构
 
 ```text
-configs/                    最小可用 YAML 配置
-results/                    主线实验结果目录
+README.md                   项目入口和目录地图
+AGENTS.md                   项目级实验 DAG 规则
+pytest.ini                  测试入口配置
+requirements.txt            Python 运行依赖
+docs/                       当前文档、论文、实验规范和文档归档
+src/                        源码
 src/config/                 路径、默认值、运行时配置、YAML loader
 src/experiments/            实验实现与公共工具
 src/experiments/common/     实验通用能力：数据、模型、结果布局、run_info、seed、统计、DMS helpers
@@ -29,10 +33,20 @@ src/plotting/               绘图实现
 src/plotting/common/        绘图通用能力：style、figure export、CSV validation、panel helpers
 src/plotting/experiments/   主线实验绘图入口
 src/plotting/paper_fig/     论文图 spec/adapters/panels/layouts/QC
+tests/                      pytest 测试
+
+data/                      输入数据目录
+results/                    主线实验结果目录
 scripts/                    结果布局、入口一致性等维护脚本
-archive/                    历史整理材料
-useful_fig_results/         历史图产物缓存，不是主线结果规范
+tmp/                        临时文件和可再生中间产物
+archive/                    历史代码、结果、文档和移动账本
 ```
+
+## 根目录边界
+
+根目录按项目骨架保留 `docs/`、`src/`、`data/`、`results/`、`scripts/` 和 `tmp/`；`tests/`、`archive/`、`pytest.ini` 与 `requirements.txt` 是有明确职责的项目级扩展。运行缓存已统一放在 `tmp/cache/` 和 `tmp/cache_data/`，不是主线结果目录。
+
+当前代码默认使用 canonical `data/MNIST/`。旧根 `MNIST/` 已按明确的当前 `src` 范围决策删除；历史 run_config、cache key 和 provenance 记录保留但不再承诺旧路径 replay。实验证据追踪上下文位于 [`docs/experiments/EVIDENCE_TRACEABILITY.md`](docs/experiments/EVIDENCE_TRACEABILITY.md)。
 
 ## 实验代码边界
 
@@ -107,20 +121,15 @@ results/<experiment_name>/
 - `meta/run_info.json` 由公共 runner 自动生成，记录实验名、git commit、开始/结束时间、状态、输出目录、入口脚本等元信息。
 - 详细约定见 [results/README.md](results/README.md)。
 
-## configs 与优先级
+## 配置与优先级
 
-- `configs/experiment/`：实验级样例配置
-- `configs/model/`：模型路径与 checkpoint 约定
-- `configs/data/`：数据集名称与路径
-- `configs/plotting/`：dpi、格式、风格名
+当前根目录没有活动的 `configs/` 目录，不创建空配置树。公共入口保留可选 `--config` 能力；具体配置文件必须在实际引入时随本层 `README.md` 一起登记。
 
 参数优先级：
 
 ```text
-CLI > YAML > 代码默认值
+CLI > YAML（如提供）> 代码默认值
 ```
-
-当前公共 runner / plotting 入口均支持可选 `--config`。`configs/experiment/*.yaml` 覆盖当前 catalog 注册的主线实验。
 
 ## 结果验证
 
@@ -129,21 +138,28 @@ CLI > YAML > 代码默认值
 对于 paper figures，可使用：
 
 ```powershell
-python -m src.plotting.paper_fig.build --fig fig1 --check-only
+python scripts/promote_main_figures.py --verify-only
 ```
 
 ## 论文图输出
 
-论文图构建入口：
-
-```powershell
-python -m src.plotting.paper_fig.build --fig fig1
-```
-
-默认生成物写入：
+正式主图位于：
 
 ```text
-results/paper_figures/outputs/<figure_id>/
+results/paper_figures/outputs/fig1/ ... fig7/
+```
+
+各 reader-first plot-only 入口默认把完整可复现bundle写入：
+
+```text
+results/paper_figures/outputs/provenance/fig1_fig2/
+results/paper_figures/outputs/provenance/fig3/ ... fig7/
+```
+
+重绘后运行以下命令，将最新bundle中的 PNG/PDF/SVG 同步到正式 `fig1/`–`fig7/` 并重建promotion manifest：
+
+```powershell
+python scripts/promote_main_figures.py
 ```
 
 `src/plotting/paper_fig/` 只保留源码、spec、manual assets 和文档，不作为默认生成物目录。
@@ -212,4 +228,4 @@ Fig.1-Fig.6 可做计算效率优化，但只能减少重复加载、重复编�
 
 - 不建议把关键指标只写在结果根目录或 `logs/`
 - 不建议新的实验继续依赖 legacy 布局创建 `figure/` / `log/`
-- 不建议把 `archive/` 或 `useful_fig_results/` 当作主线结果目录
+- 不建议把 `archive/`、`tmp/`、`tmp/cache/` 或 `tmp/cache_data/` 当作主线结果目录

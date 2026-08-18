@@ -1,0 +1,291 @@
+{
+  "schema": "paper_figure_review_candidate_spec_v1",
+  "candidate_version": "manuscript_fig3_reader_first_v1",
+  "status": "review_only_candidate",
+  "figure_id": "manuscript_fig3",
+  "display_name": "Fig.3",
+  "canvas_mm": [165.0, 152.0],
+  "dpi": 300,
+  "parent_bundle": "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2",
+  "reader_contract": {
+    "figure_question": "Do different silent inherited histories cause an identical current input B to be processed differently?",
+    "terminal_inference": "The identical B sets the main shared update direction, while inherited history changes behavioral selection and leaves a history-dependent effect concentrated at changed spike events.",
+    "forbidden_inferences": [
+      "history replaces the current input in determining the answer",
+      "this figure establishes a local overlap mechanism",
+      "this figure establishes Layer-1-to-Layer-2 successor transfer",
+      "this figure establishes reuse by the next input",
+      "event enrichment is causal"
+    ],
+    "semantic_units": {
+      "a": "define the paired exact-B counterfactual",
+      "b": "show bidirectional behavioral selection effects",
+      "c": "establish the shared current-input update",
+      "d": "establish the distinct history-dependent update",
+      "e": "localize the history-dependent effect to changed spike events"
+    },
+    "task_graph": {
+      "nodes": ["a", "b", "c", "d", "e"],
+      "edges": [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]
+    },
+    "comparison_obligations": [
+      {
+        "panels": ["c", "d"],
+        "reader_task": "Read two complementary but technically distinct native-scale metrics.",
+        "must_not_imply": "The two values are directly comparable contributions."
+      }
+    ],
+    "topology_invariants": [
+      "a-e reading order",
+      "1+2+2 topology",
+      "two independent exact-B lanes in panel a",
+      "one data coordinate system per quantitative panel"
+    ],
+    "topology_freedoms": ["optical padding inside frozen slots"]
+  },
+  "slots": {
+    "a": [2.0, 2.0, 161.0, 48.0],
+    "b": [2.0, 52.0, 79.5, 48.0],
+    "c": [83.5, 52.0, 79.5, 48.0],
+    "d": [2.0, 102.0, 79.5, 48.0],
+    "e": [83.5, 102.0, 79.5, 48.0]
+  },
+  "panels": {
+    "a": {
+      "chart": "exact_b_paired_counterfactual",
+      "source": "data/panel_a_input_stimuli.csv",
+      "plot_bbox_mm": [5.0, 6.0, 155.0, 40.0],
+      "role": "define the paired exact-B counterfactual",
+      "labels": {
+        "history_1": "History 1",
+        "history_2": "History 2",
+        "no_input": "No input",
+        "delay": "200 ms",
+        "inherited_state": "Inherited state",
+        "same_b": "Same B",
+        "state_after_b": "State after B",
+        "choice_after_b": "Choice after B"
+      },
+      "colors": {
+        "history_1": "ink",
+        "history_2": "neutral_dark",
+        "inherited_state": "mechanism_teal",
+        "current_b": "dynamic",
+        "post_b_state": "dynamic",
+        "choice": "ink"
+      }
+    },
+    "b": {
+      "chart": "horizontal_diverging_effect",
+      "source": "data/panel_b_plot_data.csv",
+      "statistics_source": "metrics/panel_b_statistics.csv",
+      "plot_bbox_mm": [28.0, 60.0, 50.5, 30.0],
+      "role": "show bidirectional behavioral selection effects",
+      "contrast": "aligned_minus_mismatched",
+      "endpoint_order": ["rescue", "loss"],
+      "endpoint_labels": {
+        "rescue": "Wrong → correct",
+        "loss": "Correct → wrong"
+      },
+      "x_label": "Matching-history change (%)",
+      "x_limits": [-40.0, 40.0],
+      "x_ticks": [-40.0, -20.0, 0.0, 20.0, 40.0],
+      "colors": {
+        "rescue": "dynamic",
+        "loss": "comparison_coral"
+      }
+    },
+    "c": {
+      "chart": "bullet_estimate",
+      "source": "data/panel_c_plot_data.csv",
+      "statistics_source": "metrics/panel_c_statistics.csv",
+      "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0],
+      "role": "establish the shared current-input update",
+      "endpoint": "same_B_common_update_cosine",
+      "reader_label": "Update similarity",
+      "x_limits": [0.0, 1.0],
+      "x_ticks": [0.0, 0.5, 1.0],
+      "color": "dynamic"
+    },
+    "d": {
+      "chart": "bullet_estimate",
+      "source": "data/panel_c_plot_data.csv",
+      "statistics_source": "metrics/panel_c_statistics.csv",
+      "plot_bbox_mm": [13.0, 110.0, 65.5, 30.0],
+      "role": "establish the distinct history-dependent update",
+      "endpoint": "processing_residual_gamma_norm_ratio",
+      "reader_label": "History effect",
+      "x_limits": [0.0, 0.45],
+      "x_ticks": [0.0, 0.05, 0.2, 0.4],
+      "color": "fused_state"
+    },
+    "e": {
+      "chart": "category_bars",
+      "source": "data/panel_d_plot_data.csv",
+      "statistics_source": "metrics/panel_d_statistics.csv",
+      "plot_bbox_mm": [94.5, 110.0, 65.5, 30.0],
+      "role": "localize the history-dependent effect to changed spike events",
+      "condition_order": ["matched_random", "changed_events"],
+      "condition_labels": {
+        "matched_random": "Matched control",
+        "changed_events": "Changed spikes"
+      },
+      "y_label": "History effect",
+      "y_limits": [0.0, 0.05],
+      "y_ticks": [0.0, 0.02, 0.04],
+      "colors": {
+        "matched_random": "neutral_mid",
+        "changed_events": "fused_state"
+      }
+    }
+  },
+  "layout_contract": {
+    "version": "practical_layout_v1",
+    "status": "candidate",
+    "grid_policy": {
+      "equal_row_heights": true,
+      "equal_width_within_row": true,
+      "panel_atomicity": true
+    },
+    "approved_exceptions": [],
+    "semantic_units": [
+      {"unit_id": "unit_a", "panels": ["a"], "role": "paired exact-B counterfactual"},
+      {"unit_id": "unit_b", "panels": ["b"], "role": "behavioral selection effects"},
+      {"unit_id": "unit_c", "panels": ["c"], "role": "shared current-input update"},
+      {"unit_id": "unit_d", "panels": ["d"], "role": "history-dependent update"},
+      {"unit_id": "unit_e", "panels": ["e"], "role": "changed-spike-event association"}
+    ],
+    "comparison_groups": [],
+    "alignment_groups": [
+      {
+        "group_id": "row_1_slot",
+        "panels": ["a"],
+        "target": "slot",
+        "edges": ["top", "bottom"],
+        "rationale": "Reserve the first full-width row for the exact-B protocol."
+      },
+      {
+        "group_id": "row_2_slots",
+        "panels": ["b", "c"],
+        "target": "slot",
+        "edges": ["top", "bottom"],
+        "rationale": "Keep behavioral evidence adjacent to the shared update."
+      },
+      {
+        "group_id": "row_2_plot",
+        "panels": ["b", "c"],
+        "target": "plot_area",
+        "edges": ["top", "bottom"],
+        "rationale": "Use one shared quantitative-row baseline.",
+        "comparison_basis": "Both use 30 mm data-region heights while retaining independent scales."
+      },
+      {
+        "group_id": "row_3_slots",
+        "panels": ["d", "e"],
+        "target": "slot",
+        "edges": ["top", "bottom"],
+        "rationale": "Keep the history effect adjacent to its changed-event association."
+      },
+      {
+        "group_id": "row_3_plot",
+        "panels": ["d", "e"],
+        "target": "plot_area",
+        "edges": ["top", "bottom"],
+        "rationale": "Use one shared quantitative-row baseline.",
+        "comparison_basis": "Both use 30 mm data-region heights while retaining independent axes."
+      },
+      {
+        "group_id": "left_column_slots",
+        "panels": ["b", "d"],
+        "target": "slot",
+        "edges": ["left", "right"],
+        "rationale": "Preserve the repeated two-column structure."
+      },
+      {
+        "group_id": "right_column_slots",
+        "panels": ["c", "e"],
+        "target": "slot",
+        "edges": ["left", "right"],
+        "rationale": "Preserve the repeated two-column structure."
+      }
+    ],
+    "panel_geometry": {
+      "a": {
+        "chart_family": "schematic",
+        "category_slots": 2,
+        "natural_aspect": [2.5, 5.0],
+        "decoration_sides": [],
+        "visual_weight": "high",
+        "slot_bbox_mm": [2.0, 2.0, 161.0, 48.0],
+        "plot_bbox_mm": [5.0, 6.0, 155.0, 40.0]
+      },
+      "b": {
+        "chart_family": "diverging_effect",
+        "category_slots": 2,
+        "natural_aspect": [1.2, 2.4],
+        "decoration_sides": ["left", "bottom", "top"],
+        "visual_weight": "high",
+        "slot_bbox_mm": [2.0, 52.0, 79.5, 48.0],
+        "plot_bbox_mm": [28.0, 60.0, 50.5, 30.0]
+      },
+      "c": {
+        "chart_family": "bullet_estimate",
+        "category_slots": 1,
+        "natural_aspect": [1.2, 2.6],
+        "decoration_sides": ["left", "bottom", "top"],
+        "visual_weight": "medium",
+        "slot_bbox_mm": [83.5, 52.0, 79.5, 48.0],
+        "plot_bbox_mm": [94.5, 60.0, 65.5, 30.0]
+      },
+      "d": {
+        "chart_family": "bullet_estimate",
+        "category_slots": 1,
+        "natural_aspect": [1.2, 2.6],
+        "decoration_sides": ["left", "bottom", "top"],
+        "visual_weight": "medium",
+        "slot_bbox_mm": [2.0, 102.0, 79.5, 48.0],
+        "plot_bbox_mm": [13.0, 110.0, 65.5, 30.0]
+      },
+      "e": {
+        "chart_family": "category_bars",
+        "category_slots": 2,
+        "natural_aspect": [1.2, 2.6],
+        "decoration_sides": ["left", "bottom", "top"],
+        "visual_weight": "medium",
+        "slot_bbox_mm": [83.5, 102.0, 79.5, 48.0],
+        "plot_bbox_mm": [94.5, 110.0, 65.5, 30.0]
+      }
+    },
+    "bar_width_policy": {
+      "mode": "within_panel_only",
+      "scope": "Panels b and e use independent within-panel mark widths.",
+      "tradeoff": "Reader-first magnitude and direction take precedence over cross-panel physical bar width."
+    },
+    "topology": {
+      "reading_direction": "row_major",
+      "unit_sequence": ["unit_a", "unit_b", "unit_c", "unit_d", "unit_e"],
+      "rationale": "Question → behavioral selection → shared update → history effect → event association.",
+      "released_alignment_edges": []
+    },
+    "hard_constraints": [
+      "165 mm x 152 mm canvas",
+      "1+2+2 topology with 48 mm rows and 2 mm gutters",
+      "9 pt normal text and 12 pt bold lowercase panel labels",
+      "no grid, dual axis, random jitter, decorative point cloud, hatch, or significance stars",
+      "central estimates use frozen 95% confidence intervals",
+      "panels c-e do not show raw network points"
+    ],
+    "soft_targets": [
+      "balanced visual weight across the two quantitative rows",
+      "short reader-language labels",
+      "clear grayscale redundancy"
+    ],
+    "qa": {
+      "final_size_render": true,
+      "collision_check": true,
+      "clipping_check": true,
+      "alignment_measurement": true,
+      "grayscale_check": true
+    }
+  }
+}

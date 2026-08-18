@@ -1,6 +1,6 @@
 {
   "schema": "net_torch_archive_audit_v1",
-  "generated_at": "2026-08-14T06:05:47.994645+00:00",
+  "generated_at": "2026-08-14T08:55:33.971891+00:00",
   "repo_root": "/mnt/y/python_project/Net_torch",
   "cutoff": "2026-07-14",
   "mode": "dry_run_only",
@@ -36,8 +36,17 @@
   },
   "authority_path": "docs/paper/PAPER_AUTHORITY.json",
   "lineage_gap_register": "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json",
-  "unique_missing_parent_files": 40,
-  "unique_missing_parent_bytes": 1660149353,
+  "lineage_status": "closed_source_manifest_gap_runtime_incomplete",
+  "unique_missing_parent_files": 0,
+  "unique_missing_parent_bytes": 0,
+  "restored_parent_files": 40,
+  "restored_parent_bytes": 1660149353,
+  "runtime_parent_inventory_missing_files": 200,
+  "cleanup_hold": {
+    "path": "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json",
+    "status": "active_hold",
+    "held_path": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition"
+  },
   "docx_media_checks": [
     {
       "document": "docs/paper/v6.docx",
@@ -183,9 +192,10 @@
   "docx_media_status": "pass",
   "archive_candidate_rows": 0,
   "archive_candidate_bytes": 0,
-  "cleanup_candidate_old_bytes": 7345226853,
+  "cleanup_candidate_old_bytes": 433367802,
+  "cleanup_hold_blocked_old_bytes": 6911859051,
   "archive_plan": "archive/move_ledgers/archive_plan_20260814.csv",
   "keep_manifest": "archive/move_ledgers/keep_manifest_20260814.csv",
-  "protected_path_count": 36,
-  "next_gate": "Archive batch 1 and low-risk cleanup batch 2 are complete. Remaining high-risk cleanup candidates are not approved and require a new explicit gate."
+  "protected_path_count": 37,
+  "next_gate": "The source-manifest parent gap is closed, but full-require replay remains blocked by 200 missing runtime-parent files. Repair those files or approve a versioned lineage-contract retirement; the active cleanup hold forbids deleting its protected .codex/tmp subtree. Other high-risk cleanup candidates also remain unapproved."
 }

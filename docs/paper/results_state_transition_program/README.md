@@ -6,6 +6,7 @@
 
 它不是普通历史目录：
 
+- `v6_1_main_figure_story_contract.md` 是当前稿件 Fig.1–Fig.7 的故事、跨图语义词典与交接工作合同；其中 `Fig.n` 一律指稿件图号，§6 panel chains 以当前 promoted artwork/meta 为导航，不是对内部 `fig1_panel_contract.md`–`fig6_panel_contract.md` 的静默改写；它不改变内部 final-six 数据身份，也不替代单图证据合同；
 - `scripts/build_final_six_submission_package.py` 读取 `main_figure_sequence_contract.md`、`fig1_panel_contract.md`–`fig6_panel_contract.md` 和 `final_six_figure_statistics_plotting_prompt.md`；
 - 当前 `src/experiments/paper_figures/final_six/builders.py` 不直接读取这些 Markdown，科学职责通过 specs/source manifests 实现；不要把旧文档中的源码消费者声明当作当前事实。
 
@@ -15,8 +16,9 @@
 
 | 文件 | 作用 |
 |---|---|
-| `main_figure_sequence_contract.md` | 六张主图的论证顺序和跨图边界 |
-| `fig1_panel_contract.md`–`fig6_panel_contract.md` | 单图 panel 职责、端点和禁止升级项 |
+| `v6_1_main_figure_story_contract.md` | 当前稿件 Fig.1–Fig.7（稿件编号）的故事图、统一词典、视觉语法和跨图交接工作合同；不替代内部 panel evidence contracts |
+| `main_figure_sequence_contract.md` | 内部 final-six 六图的论证顺序和跨图边界 |
+| `fig1_panel_contract.md`–`fig6_panel_contract.md` | 内部 final-six 单图 panel 职责、端点和禁止升级项 |
 | `final_six_figure_statistics_plotting_prompt.md` | final-six 统计、Source Data、plot-only 和验收约束 |
 | `figure_iterative_revision_workflow.md` | 可复用的逐图修订流程 |
 

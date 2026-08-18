@@ -1,0 +1,40 @@
+{
+  "schema": "net_torch_cleanup_hold_v1",
+  "created_at": "2026-08-14T07:23:30.418514+00:00",
+  "status": "active_hold",
+  "path": ".codex/tmp/20260713_data_adjustment/fig5_local_support_competition",
+  "reason": "All 40 source-manifest parent CSVs have now been restored byte-identically. This subtree remains recovery-critical because the full-require runtime-parent inventory still has 200 missing files and its unit-group tables and run configurations may be needed for repair or stable promotion.",
+  "scope": {
+    "seed_count": 20,
+    "recovery_target_file_count": 40,
+    "recovery_target_bytes": 1660149353,
+    "runtime_parent_inventory_missing_file_count": 200,
+    "held_path_file_count": 694,
+    "held_path_total_bytes": 1377404275,
+    "recovery_target_restored_file_count": 40,
+    "recovery_target_restored_bytes": 1660149353
+  },
+  "evidence": {
+    "search_audit": "archive/move_ledgers/parent_artifact_recovery_audit_20260814.json",
+    "reconstruction_validation": "archive/move_ledgers/parent_artifact_reconstruction_validation_20260814.json",
+    "runtime_inventory_validation": "archive/move_ledgers/fig5_runtime_parent_inventory_validation_20260814.json",
+    "restoration_receipt": "archive/move_ledgers/parent_artifact_restoration_20260814.json"
+  },
+  "release_conditions": [
+    "Restore and SHA-256 verify all 40 recorded canonical parent CSVs, and repair or explicitly retire the incomplete full-require runtime-parent contract; or",
+    "Promote all recovery-critical inputs to a stable versioned location, verify byte-identical reconstruction from that location, and repair or explicitly retire the incomplete full-require runtime-parent contract."
+  ],
+  "authorization": {
+    "restoration_authorized": true,
+    "deletion_authorized": false,
+    "scientific_artifact_mutation_authorized": false,
+    "restoration_completed": true
+  },
+  "release_condition_status": {
+    "source_manifest_parents_restored_and_sha256_verified": true,
+    "runtime_parent_inventory_repaired": false,
+    "recovery_inputs_promoted_to_stable_versioned_location": false,
+    "full_require_lineage_contract_explicitly_retired": false,
+    "hold_releasable": false
+  }
+}

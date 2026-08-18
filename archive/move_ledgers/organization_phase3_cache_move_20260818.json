@@ -1,0 +1,37 @@
+{
+  "schema": "net_torch_organization_execution_v1",
+  "batch_id": "organization_phase3_cache_move_20260818",
+  "status": "completed_verified",
+  "executed_at": "2026-08-18",
+  "audit_report": "tmp/organization_phase3_cache_audit_20260818.md",
+  "hash_method": "sha256sum of sorted per-file sha256sum records using paths relative to each tree root",
+  "files_moved": 2904,
+  "bytes_moved": 378384331,
+  "files_deleted": 0,
+  "entries": [
+    {
+      "source_path": "cache",
+      "destination_path": "tmp/cache",
+      "file_count": 2902,
+      "total_bytes": 158300929,
+      "tree_sha256_before": "38254ead429e77f7fdd22470bd07f73f6aae568e695b4794b628f83ec7d3b5e5",
+      "tree_sha256_after": "38254ead429e77f7fdd22470bd07f73f6aae568e695b4794b628f83ec7d3b5e5",
+      "restore_path": "cache",
+      "reason": "Relocate ignored runtime cache and regenerable Python bytecode under tmp without deleting it.",
+      "status": "moved_verified",
+      "verified": true
+    },
+    {
+      "source_path": "cache_data",
+      "destination_path": "tmp/cache_data",
+      "file_count": 2,
+      "total_bytes": 220083402,
+      "tree_sha256_before": "567dcfe8f1833f16f5252caa62ff839ce62bb19148182bfb626f62ca422acf0b",
+      "tree_sha256_after": "567dcfe8f1833f16f5252caa62ff839ce62bb19148182bfb626f62ca422acf0b",
+      "restore_path": "cache_data",
+      "reason": "Relocate unreferenced legacy tensor cache under tmp without deleting it.",
+      "status": "moved_verified",
+      "verified": true
+    }
+  ]
+}

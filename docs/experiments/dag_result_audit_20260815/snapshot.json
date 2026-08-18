@@ -1,0 +1,178 @@
+{
+  "schema": "net_torch_dag_result_audit_snapshot_v1",
+  "snapshot_id": "dag_result_audit_20260815",
+  "logical_snapshot_started_utc": "2026-08-15T00:39:24Z",
+  "generated_at_utc": "2026-08-15T01:53:10.383479+00:00",
+  "derived_non_authoritative": true,
+  "read_only_scientific_execution": true,
+  "project_entrypoints_executed": [],
+  "repo_root": "/mnt/y/python_project/Net_torch",
+  "git": {
+    "branch": "codex/supp-fig-style-round1",
+    "head": "e53e68b4fb5973df2762bded4226eca2f1a886c3",
+    "expected_head": "e53e68b4fb5973df2762bded4226eca2f1a886c3"
+  },
+  "baseline_dirty_paths_before_audit_outputs": [
+    "archive/move_ledgers/archive_audit_summary_20260814.json",
+    "archive/move_ledgers/archive_plan_20260814.csv",
+    "archive/move_ledgers/keep_manifest_20260814.csv",
+    "docs/paper/PAPER_AUTHORITY.json",
+    "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json",
+    "docs/paper/README.md",
+    "docs/paper/results_state_transition_program/README.md",
+    "docs/paper/revisions/V6_1_CONFIRMATION_LOG_20260814.md",
+    "docs/paper/revisions/V6_1_DEFERRED_INTERLAYER_LINKAGE_20260814.md",
+    "scripts/repository_archive_audit.py",
+    "src/experiments/paper_figures/supplementary_v5/builders.py",
+    "src/plotting/paper_fig/specs/supplementary_v5/s7.json",
+    "archive/move_ledgers/PARENT_ARTIFACT_RECOVERY_AUDIT_20260814.md",
+    "archive/move_ledgers/cleanup_hold_20260814_parent_artifact_recovery.json",
+    "archive/move_ledgers/fig5_runtime_parent_inventory_validation_20260814.json",
+    "archive/move_ledgers/parent_artifact_gap_register_pre_restore_20260814.json",
+    "archive/move_ledgers/parent_artifact_reconstruction_validation_20260814.json",
+    "archive/move_ledgers/parent_artifact_recovery_audit_20260814.json",
+    "archive/move_ledgers/parent_artifact_restoration_20260814.json",
+    "docs/paper/results_state_transition_program/v6_1_main_figure_story_contract.md",
+    "scripts/audit_parent_artifact_recovery.py",
+    "scripts/restore_fig5_parent_artifacts.py",
+    "scripts/verify_fig5_parent_reconstruction.py"
+  ],
+  "audit_generated_paths": [
+    "CONTEXT.md",
+    "docs/adr/0001-dag-result-audits-are-derived-snapshots.md",
+    "docs/experiments/dag_result_audit_20260815/",
+    ".pi/audit-tools/"
+  ],
+  "audit_index_link_edits": [
+    "docs/INVENTORY.md",
+    "docs/experiments/README.md"
+  ],
+  "audit_tracking_edits": [
+    ".gitignore"
+  ],
+  "audit_input_lanes": {
+    "completed": [
+      "fig3",
+      "fig4-fig5",
+      "fig6-shared",
+      "ecosystem"
+    ],
+    "timed_out_then_parent_audited_directly": [
+      "fig1-fig2",
+      "results-corpus"
+    ],
+    "note": "Timed-out scout lanes did not supply final reports; their scopes were completed by parent-side code/result/manifest inspection."
+  },
+  "independent_review": {
+    "run_id": "d11db04b",
+    "status": "no_blockers",
+    "actionable_notes_resolved": [
+      "wrapper-to-orchestrator edge direction",
+      "fig3 11+12+all arithmetic wording",
+      "mixed current/non-current evidence paths"
+    ]
+  },
+  "load_bearing_sha256": {
+    ".gitignore": "80c4d8ff6d13366a5b5bd4c5ca2607137dfe11160b1f65b9f9dea543f751af75",
+    "docs/paper/PAPER_AUTHORITY.json": "314896cc18686936260c005f64a531c35f5cd33a3096a0d61e1176430336d751",
+    "docs/paper/PARENT_ARTIFACT_GAP_REGISTER_20260814.json": "3503b22d68c50c85c88b88c2c96a726adf223e9710ab99be8f5a1ee32fe4c601",
+    "docs/paper/RESULTS_EVIDENCE_BOUNDARIES.md": "389fa6bc2e42b1e0fcc4d691a280bf96c5f4c978caf6e693c1b745db72a07135",
+    "docs/INVENTORY.md": "4a2819542fe8959311de7f9353117d354699226e7497ecefc0c9f37295c221e1",
+    "docs/experiments/README.md": "bfc60af088bfbf891318e2bb11ec0f68d7e2bb936ab5a279770c556d24209e3c",
+    "src/experiments/paper_figures/common/registry.py": "d94779ea24812f5d3a5f6e4ae931dbb24567803732b91e6fc0ad7322d6ca6091",
+    "src/experiments/paper_figures/common/sequence_root/schemas.py": "d4d9c766428b3fcf860fc264e5455dfbacf3edcf35eb73bc7f1c6627bc23fff1",
+    "src/experiments/paper_figures/final_six/pipeline.py": "9faef5b493b45b5e45014835f844d9013820ea3da061a4fdb9724e1a402085ee",
+    "src/experiments/paper_figures/final_six/builders.py": "e4900630bd87a2e4eb85d5bed11f9513dad4f75223c903e29f23168262381705",
+    "src/experiments/paper_figures/fig1/schemas.py": "c95aa55f9ced2df8b517f7520248600ff677d38e7719d3251da309f25ea049e4",
+    "src/experiments/paper_figures/fig2/schemas.py": "08bfb5e692626dc95df4a5aaa6206fb804b839eb64989670594d52cd55dedd15",
+    "src/experiments/paper_figures/fig3/schemas.py": "2bc07d5c01847efc54f25186a0887e8c5883e3d1e251d15b286e311fa6adae0b",
+    "src/experiments/paper_figures/fig4/schemas.py": "2d5f9ce0738874d0c0a293e5033b1298fafb505d9b958e74624df75c45aa2542",
+    "src/experiments/paper_figures/fig5/schemas.py": "a9e4c7fa3f3212561179001f8f1e218ecbf279ff5148ce1e51a7dd25a7fb4ac8",
+    "src/experiments/paper_figures/fig6/schemas.py": "67956922b0fa3ecfb652f587d380b047bd95ee31a74fe3b2eaaf8cf5d72db777",
+    "src/experiments/paper_figures/fig1/registry.py": "301759f4683ac007dbbcc3b0eb8fbef230cd721941460f14b136a9e895a9c0b3",
+    "src/experiments/paper_figures/fig2/registry.py": "114eccd72a0f6ff843bfa6ef0f2311684d0c8b30b9113a704c148739a8dfc44d",
+    "src/experiments/paper_figures/fig3/registry.py": "fbc4271cead68a607c4dec9b2967a90e7cc3a1436f147e6c42bd1b5d01af9d01",
+    "src/experiments/paper_figures/fig4/registry.py": "97da85b6d5709894ecda7f194247b6928f2b143251871ff920679ba3a4dbfd18",
+    "src/experiments/paper_figures/fig5/registry.py": "8fbbde6a5f179d8d8867eddd92cc631dd2fe1be7b236100479725244a440b2cc",
+    "src/experiments/paper_figures/fig6/registry.py": "cd6180b33dca284f36e01fe49c0cd34f1af073561d8a0fbce187c200ef281207"
+  },
+  "declared_dag_task_counts": {
+    "fig1": 9,
+    "fig2": 26,
+    "fig3": 24,
+    "fig4": 10,
+    "fig5": 10,
+    "fig6": 11,
+    "sequence_root": 5
+  },
+  "declared_dag_task_total": 95,
+  "ledger_record_count": 130,
+  "node_type_counts": {
+    "DAG Task": 95,
+    "Materializer": 11,
+    "Orchestrator": 8,
+    "Runner Experiment": 7,
+    "Aggregator": 1,
+    "Plot Consumer": 8
+  },
+  "conclusion_status_counts": {
+    "operational-only": 50,
+    "bounded": 41,
+    "unavailable": 11,
+    "conflicted": 13,
+    "supported": 15
+  },
+  "artifact_index": {
+    "rows": 77102,
+    "record_kind_counts": {
+      "artifact_manifest_entry": 30044,
+      "artifact_manifest_without_path_entries": 1,
+      "source_manifest_row": 34058,
+      "unregistered_filesystem_file": 12999
+    },
+    "missing_registered_reference_rows_by_authority": {
+      "archived": 118,
+      "exploratory": 191,
+      "active-parent": 1277
+    },
+    "missing_registered_reference_rows": 1586,
+    "missing_registered_unique_paths_by_authority": {
+      "archived": 118,
+      "exploratory": 191,
+      "active-parent": 1143
+    },
+    "missing_registered_unique_paths": 1452
+  },
+  "current_source_manifest_checks": {
+    "main_statistics_source_rows": 503,
+    "main_statistics_missing": 0,
+    "supplementary_s1_s6_input_rows": 351,
+    "supplementary_s1_s6_missing": 0,
+    "supplementary_s7_input_rows": 100,
+    "supplementary_s7_missing": 0,
+    "redesign_source_rows": 13,
+    "redesign_missing": 0
+  },
+  "runtime_lineage": {
+    "source_manifest_gap_status": "closed",
+    "restored_source_files": 40,
+    "runtime_parent_missing_files": 200,
+    "cleanup_hold": "active"
+  },
+  "validation": {
+    "status": "pass",
+    "checks": {
+      "unique_canonical_ids": true,
+      "declared_dag_task_total_95": true,
+      "six_final_statistics": true,
+      "one_nonempty_task_conclusion_per_record": true,
+      "valid_enums": true,
+      "dependency_semantics_aligned": true,
+      "evidence_or_unavailable": true,
+      "all_family_graphs_generated": true,
+      "no_current_authority_missing_artifact_targets": true
+    },
+    "check_count": 9
+  },
+  "drift_policy": "Re-run this audit when HEAD, dirty paths, authority mapping, TASK_IDS, source manifests, or load-bearing hashes change. This snapshot never overrides those sources."
+}

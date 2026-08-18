@@ -71,7 +71,7 @@ The two outcome modules constrain what retained states look like and when they i
 - Internal `fig2` contains a–d only and maps to manuscript Fig.3.
 - Internal `fig3` uses e = Layer 2 history-dependent write-back and f = STSP causal necessity and maps to manuscript Fig.4; current artwork/specifications override older contract wording.
 - The completed C5 Layer-2-only successor transplant establishes bounded model-internal causal sufficiency of the post-B Layer-2 successor for identical-C early Layer-2 processing and the Layer-3 successor formed thereafter. It does not establish necessity, complete mediation, or uniqueness.
-- Internal `fig4` (manuscript Fig.5) recurrence requires observed-next versus equal-time matched-passive evidence; stage-wise change alone is insufficient for claiming the complete causal motif at every boundary. The persisted comparison currently has a T0-observed plus T1-passive lineage boundary.
+- Internal `fig4` (manuscript Fig.5) now follows the five-panel chain `across-depth reuse → overlap-selective entry → following-transition propagation → natural recurrence → behavioral consequence`. Recurrence requires observed-next versus equal-time no-input evidence; each passive branch begins from the corresponding complete observed preceding boundary and does not seed later stages. Stage-wise change alone is insufficient for claiming the complete causal motif at every boundary.
 - Internal `fig5` (manuscript Fig.6) establishes terminal morphology/structural organization only; internal `fig6` (manuscript Fig.7) establishes conditional function only. They are parallel modules: do not draw internal fig5→fig6 / manuscript Fig.6→Fig.7 or C7→C8 causal arrows, and do not claim that manuscript Fig.7 accesses the morphology defined by manuscript Fig.6.
 - Structural N_eff or N_eff_fraction is not accessible-item count or functional rescued_fraction. Do not collapse their K × delay maps into one memory-strength metric.
 - A static-frozen update opportunity is not actual STSP mutation.
@@ -108,9 +108,11 @@ Reviewer-perspective sufficiency review (2026-08-05) concluded that the current 
 
 Authority pointers for the current writing phase:
 
-- Manuscript Fig.1–Fig.2: `results/paper_figure_redesign_20260811/`
-- Manuscript Fig.3–Fig.7: internal `fig2`–`fig6` under `results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/`
-- Supplementary Fig. S1–S6: `results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/`
+- Manuscript Fig.1–Fig.7 artwork: `results/paper_figures/outputs/fig1/` through `fig7/`
+- Manuscript Fig.5 five-panel provenance: `results/paper_figures/outputs/provenance/fig5/`
+- Supplementary Figs. S1, S2 and S6: `results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/`
+- Supplementary Figs. S3–S5 artwork: `results/paper_figures/outputs/supplementary_figures/`
+- Supplementary Figs. S3–S5 provenance: `results/paper_figures/outputs/provenance/supplementary_fig5_support_v2/`
 - Supplementary Fig. S7: `results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/`
 - Current role/hash/mapping control: `docs/paper/PAPER_AUTHORITY.json`
 - Evidence-freeze milestone record: `docs/paper/revisions/v5_ai_review_20260802/V5_EVIDENCE_SUFFICIENCY_AND_WRITING_PLAN_20260805.md`

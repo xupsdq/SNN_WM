@@ -46,7 +46,8 @@
     },
     "comparison_obligations": [
       {"comparison_id": "removal_subset", "panels": ["a", "b"], "reader_action": "Read the paired effect first and the exact-match coverage second.", "required": ["same_networks", "paired_lines_in_effect", "coverage_as_separate_endpoint"], "not_required": ["all_vs_exact_independent_test"]},
-      {"comparison_id": "effect_coverage", "panels": ["d", "e"], "reader_action": "Read each q-by-threshold effect cell with its corresponding coverage cell.", "required": ["identical_cell_order", "independent_color_scales"], "not_required": ["dual_encoding"]}
+      {"comparison_id": "effect_coverage", "panels": ["d", "e"], "reader_action": "Read each q-by-threshold effect cell with its corresponding coverage cell.", "required": ["identical_cell_order", "independent_color_scales"], "not_required": ["dual_encoding"]},
+      {"comparison_id": "score_shuffle", "panels": ["f"], "reader_action": "Compare observed, shuffled and difference endpoints computed from the same complete paired rows.", "required": ["same_complete_rows", "within_network_observed_minus_shuffled_equals_difference"], "not_required": ["unpaired_null_rows"]}
     ],
     "topology_invariants": [
       "Removal matching and exact coverage occupy the first row.",
@@ -173,7 +174,8 @@
       "three equal 48 mm rows with two equal slots per row",
       "all paired-removal effects are computed before within-network aggregation",
       "effect and coverage heatmaps use independent color scales",
-      "q 0.50 and threshold 0.05 is an anchor, not an optimum"
+      "q 0.50 and threshold 0.05 is an anchor, not an optimum",
+      "S7f observed, shuffled and difference endpoints use identical complete paired rows"
     ],
     "soft_targets": ["keep annotated cells legible", "keep the paired subset comparison visually dominant in row one"],
     "qa": {"final_size_render": true, "collision_check": true, "clipping_check": true, "alignment_measurement": true, "grayscale_check": true}

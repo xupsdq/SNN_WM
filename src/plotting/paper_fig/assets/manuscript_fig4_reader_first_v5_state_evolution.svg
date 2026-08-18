@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="430" viewBox="0 0 1500 430">
+<defs><marker id="arrow-neutral" viewBox="0 0 10 10" markerWidth="3.8" markerHeight="3.8" refX="8.2" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L10 5L0 10Z" fill="#666666"/></marker></defs>
+<rect width="1500" height="430" fill="#FFFFFF"/>
+<g font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" fill="#222222"><circle cx="1030" cy="29" r="10" fill="#009E73"/><text x="1052" y="39" text-anchor="start">inherited</text><circle cx="1190" cy="29" r="10" fill="#CC79A7"/><text x="1212" y="39" text-anchor="start">successor</text><line x1="1350" y1="15" x2="1350" y2="43" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/><text x="1372" y="39" text-anchor="start">firing</text></g>
+<rect class="stage-box" data-stage="inherited" data-template="upstream" x="30.0" y="78.0" width="280.0" height="240.0" rx="12" fill="#FFFFFF" stroke="#009E73" stroke-width="2.6"/>
+<text class="stage-label" data-stage="inherited" x="170.0" y="360.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#009E73">Inherited STSP</text>
+<rect class="stage-box" data-stage="selected" data-template="upstream" x="410.0" y="78.0" width="280.0" height="240.0" rx="12" fill="#FFFFFF" stroke="#0072B2" stroke-width="2.6"/>
+<text class="stage-label" data-stage="selected" x="550.0" y="360.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#0072B2">Selected firing</text>
+<rect class="stage-box" data-stage="downstream" data-template="downstream" x="790.0" y="78.0" width="280.0" height="240.0" rx="12" fill="#FFFFFF" stroke="#0072B2" stroke-width="2.6"/>
+<text class="stage-label" data-stage="downstream" x="930.0" y="360.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#0072B2">Downstream firing</text>
+<rect class="stage-box" data-stage="successor" data-template="successor" x="1170.0" y="78.0" width="280.0" height="240.0" rx="12" fill="#FFFFFF" stroke="#CC79A7" stroke-width="2.6"/>
+<text class="stage-label" data-stage="successor" x="1310.0" y="360.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#CC79A7">Successor STSP</text>
+<rect class="input-node" x="315.0" y="175.0" width="90.0" height="46.0" rx="12" fill="#FFFFFF" stroke="#666666" stroke-width="2.6"/>
+<text class="input-label" x="360.0" y="209.0" text-anchor="middle" font-family="Arial, 'DejaVu Sans', sans-serif" font-size="32" font-weight="700" fill="#222222">Input</text>
+<path class="causal-arrow" d="M310.0 198.0 H315.0" fill="none" stroke="#666666" stroke-width="5.2" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M405.0 198.0 H410.0" fill="none" stroke="#666666" stroke-width="5.2" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M690.0 198.0 H790.0" fill="none" stroke="#666666" stroke-width="5.2" marker-end="url(#arrow-neutral)"/>
+<path class="causal-arrow" d="M1070.0 198.0 H1170.0" fill="none" stroke="#666666" stroke-width="5.2" marker-end="url(#arrow-neutral)"/>
+<circle class="state-dot" data-stage="inherited" cx="94.20" cy="158.20" r="10.50" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="166.80" cy="142.00" r="8.40" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="235.44" cy="160.90" r="7.35" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="124.56" cy="188.80" r="7.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="190.56" cy="174.40" r="11.55" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="247.32" cy="199.60" r="8.40" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="88.92" cy="226.60" r="9.45" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="150.96" cy="219.40" r="8.40" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="209.04" cy="232.00" r="7.35" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="251.28" cy="248.20" r="8.40" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="119.28" cy="252.70" r="7.00" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="inherited" cx="180.00" cy="202.30" r="9.45" fill="#009E73" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<line class="firing-tick" data-stage="selected" x1="528.80" y1="140.00" x2="528.80" y2="166.00" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="selected" x1="552.56" y1="172.40" x2="552.56" y2="198.40" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="selected" x1="571.04" y1="230.00" x2="571.04" y2="256.00" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="853.76" y1="145.80" x2="853.76" y2="171.80" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="926.36" y1="129.60" x2="926.36" y2="155.60" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="995.00" y1="148.50" x2="995.00" y2="174.50" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="884.12" y1="176.40" x2="884.12" y2="202.40" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="950.12" y1="162.00" x2="950.12" y2="188.00" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1006.88" y1="187.20" x2="1006.88" y2="213.20" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="848.48" y1="214.20" x2="848.48" y2="240.20" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="910.52" y1="207.00" x2="910.52" y2="233.00" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="968.60" y1="219.60" x2="968.60" y2="245.60" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="1010.84" y1="235.80" x2="1010.84" y2="261.80" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="878.84" y1="240.30" x2="878.84" y2="266.30" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<line class="firing-tick" data-stage="downstream" x1="939.56" y1="189.90" x2="939.56" y2="215.90" stroke="#0072B2" stroke-width="5.8" stroke-linecap="round"/>
+<circle class="state-dot" data-stage="successor" cx="1235.44" cy="149.20" r="9.45" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1306.72" cy="158.20" r="7.35" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1379.32" cy="147.40" r="8.40" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1269.76" cy="178.00" r="7.00" fill="#CC79A7" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1338.40" cy="173.50" r="10.50" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1393.84" cy="189.70" r="7.35" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1224.88" cy="210.40" r="8.40" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1293.52" cy="222.10" r="7.35" fill="#CC79A7" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1363.48" cy="212.20" r="8.40" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1391.20" cy="241.00" r="7.00" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1252.60" cy="250.00" r="7.35" fill="#CC79A7" fill-opacity="0.72" stroke="#FFFFFF" stroke-width="2.6"/>
+<circle class="state-dot" data-stage="successor" cx="1325.20" cy="245.50" r="9.45" fill="#CC79A7" fill-opacity="1" stroke="#FFFFFF" stroke-width="2.6"/>
+</svg>

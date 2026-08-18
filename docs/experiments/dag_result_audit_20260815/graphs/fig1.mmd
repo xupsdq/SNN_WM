@@ -1,0 +1,49 @@
+flowchart LR
+  n_artifact_structure_enhanced_svg["artifact: structure-enhanced.svg"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig1["fig1 · Fig.2（经 redesign；内部 fig1）"]
+    n_fig1_trial_specs["trial_specs\n[operational-only]"]
+    n_fig1_baseline["baseline\n[bounded]"]
+    n_fig1_delay_feature_bank["delay_feature_bank\n[unavailable]"]
+    n_fig1_delay_decoder["delay_decoder\n[bounded]"]
+    n_fig1_dms_boundary_bank["dms_boundary_bank\n[operational-only]"]
+    n_fig1_dms_shuffle_readout["dms_shuffle_readout\n[bounded]"]
+    n_fig1_dms_delay_sweep_readout["dms_delay_sweep_readout\n[bounded]"]
+    n_fig1_firing_rate_control["firing_rate_control\n[bounded]"]
+    n_fig1_time_binned_firing_rate_control["time_binned_firing_rate_control\n[bounded]"]
+    n_final_six_fig1_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig1_baseline -->|requires| n_fig1_trial_specs
+  n_fig1_delay_feature_bank -->|requires| n_fig1_trial_specs
+  n_fig1_delay_decoder -->|requires| n_fig1_trial_specs
+  n_fig1_delay_decoder -->|requires| n_fig1_delay_feature_bank
+  n_fig1_dms_boundary_bank -->|requires| n_fig1_trial_specs
+  n_fig1_dms_shuffle_readout -->|requires| n_fig1_trial_specs
+  n_fig1_dms_shuffle_readout -->|requires| n_fig1_dms_boundary_bank
+  n_fig1_dms_delay_sweep_readout -->|requires| n_fig1_trial_specs
+  n_fig1_dms_delay_sweep_readout -->|requires| n_fig1_dms_boundary_bank
+  n_fig1_firing_rate_control -->|requires| n_fig1_trial_specs
+  n_fig1_firing_rate_control -->|requires| n_fig1_dms_boundary_bank
+  n_fig1_time_binned_firing_rate_control -->|requires| n_fig1_trial_specs
+  n_final_six_fig1_final_statistics -->|consumes| n_fig1_baseline
+  n_final_six_fig1_final_statistics -->|consumes| n_fig1_firing_rate_control
+  n_final_six_fig1_final_statistics -->|consumes| n_fig1_time_binned_firing_rate_control
+  n_final_six_fig1_final_statistics -->|consumes| n_fig1_delay_decoder
+  n_final_six_fig1_final_statistics -->|consumes| n_fig1_dms_shuffle_readout
+  n_final_six_fig1_final_statistics -->|consumes| n_artifact_structure_enhanced_svg
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig1_trial_specs operational_only
+  class n_fig1_baseline bounded
+  class n_fig1_delay_feature_bank unavailable
+  class n_fig1_delay_decoder bounded
+  class n_fig1_dms_boundary_bank operational_only
+  class n_fig1_dms_shuffle_readout bounded
+  class n_fig1_dms_delay_sweep_readout bounded
+  class n_fig1_firing_rate_control bounded
+  class n_fig1_time_binned_firing_rate_control bounded
+  class n_final_six_fig1_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

@@ -896,7 +896,7 @@ def _build_fig2a_schematic(ctx: BuilderContext) -> PanelResult:
     history_specs_path = protocol_root / "history_specs.csv"
     history_manifest_path = protocol_root / "history_input_manifest.csv"
     b_anchor_specs_path = protocol_root / "b_anchor_specs.csv"
-    raw_images_path = ctx.repo_root / "MNIST" / "raw" / "t10k-images-idx3-ubyte"
+    raw_images_path = ctx.repo_root / "data" / "MNIST" / "raw" / "t10k-images-idx3-ubyte"
     history_specs = pd.read_csv(history_specs_path)
     history_manifest = pd.read_csv(history_manifest_path)
     b_anchor_specs = pd.read_csv(b_anchor_specs_path)

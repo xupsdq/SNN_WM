@@ -26,10 +26,10 @@ def _inside(inner: list[float], outer: list[float]) -> bool:
     )
 
 
-def test_all_supplementary_specs_are_frozen_and_cover_32_panels() -> None:
+def test_all_supplementary_specs_are_frozen_and_cover_redesigned_panels() -> None:
     specs = [load_spec(figure_id) for figure_id in FIGURE_IDS]
-    assert sum(len(spec["panels"]) for spec in specs) == 32
-    assert [len(spec["panels"]) for spec in specs] == [4, 4, 4, 4, 4, 6, 6]
+    assert sum(len(spec["panels"]) for spec in specs) == 34
+    assert [len(spec["panels"]) for spec in specs] == [4, 4, 6, 4, 4, 6, 6]
     for spec in specs:
         report = validate_layout_contract(spec)
         assert report.ok, report.failures
@@ -89,7 +89,7 @@ def test_s2_uses_one_plus_three_with_one_atomic_transfer_panel() -> None:
     assert "e" not in spec["panels"]
 
 
-def test_s4_uses_two_by_two_with_identity_audit_last() -> None:
+def test_s4_uses_two_by_two_full20_layout() -> None:
     spec = load_spec("s4")
     assert spec["canvas_mm"] == [165.0, 102.0]
     assert spec["slots"] == {
@@ -101,30 +101,16 @@ def test_s4_uses_two_by_two_with_identity_audit_last() -> None:
     assert spec["reading_order"] == ["a", "b", "c", "d"]
     assert spec["panels"]["a"]["panel_type"] == "c5_network_distribution"
     assert spec["panels"]["b"]["panel_type"] == "c5_network_distribution"
-    assert spec["panels"]["c"]["panel_type"] == "c5_cohort_forest"
-    assert spec["panels"]["d"]["panel_type"] == "identity_gate_matrix"
-    assert spec["panels"]["d"]["column_order"] == [
-        "L2 only",
-        "Boundary",
-        "STSP kept",
-        "Fast reset",
-        "Same C",
-        "Sham out",
-    ]
-    assert spec["panels"]["d"]["column_labels"] == [
-        "L2 only",
-        "Bnd.",
-        "STSP",
-        "Fast",
-        "Same C",
-        "Sham",
-    ]
-    assert spec["panels"]["c"]["row_order"] == ["L2 K1", "L2 K5", "L3 K1", "L3 K5"]
+    assert spec["panels"]["a"]["x_order"] == [1, 5, 10]
+    assert spec["panels"]["b"]["x_order"] == [1, 5, 10]
+    assert spec["panels"]["c"]["panel_type"] == "following_transition_distribution"
+    assert spec["panels"]["c"]["x_order"] == ["Input response", "Successor state"]
+    assert spec["panels"]["d"]["panel_type"] == "paired_attribution"
     assert spec["layout_contract"]["topology"]["unit_sequence"] == [
-        "processing",
-        "successor",
-        "cohort",
-        "identity",
+        "depth_input",
+        "depth_successor",
+        "following",
+        "attribution",
     ]
 
 
@@ -142,6 +128,14 @@ def test_three_row_supplements_use_equal_two_column_slots(figure_id: str) -> Non
         "f": [83.5, 102.0, 79.5, 48.0],
     }
     assert spec["slots"] == expected
+
+
+def test_s5_network_minimum_uses_both_axes() -> None:
+    panel = load_spec("s5")["panels"]["b"]
+    assert panel["panel_type"] == "network_minimum"
+    assert panel["xlabel"] == "Network"
+    assert panel["ylabel"] == "Minimum change"
+    assert panel["yticks"] == [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
 
 
 def test_style_axis_keeps_bottom_and_left_spines_visible() -> None:
@@ -169,7 +163,7 @@ def test_vector_outputs_freeze_hash_salt_and_timestamp_metadata() -> None:
 
 @pytest.mark.parametrize(
     ("figure_id", "panel_id", "row_label"),
-    [("s5", "b", "Stage\nmin."), ("s6", "f", "Grid\nmin.")],
+    [("s6", "f", "Grid\nmin."),]
 )
 def test_single_row_strips_declare_their_categorical_y_label(
     figure_id: str,
@@ -180,13 +174,17 @@ def test_single_row_strips_declare_their_categorical_y_label(
     assert panel["row_label"] == row_label
 
 
-def test_s3_clockwise_figure_preserves_the_declared_reading_path() -> None:
+def test_s3_clockwise_figure_preserves_existing_path_and_adds_intervention_row() -> None:
     spec = load_spec("s3")
-    assert spec["reading_order"] == ["a", "b", "c", "d"]
+    assert spec["reading_order"] == ["a", "b", "c", "d", "e", "f"]
     assert spec["slots"]["a"][:2] == [2.0, 2.0]
     assert spec["slots"]["b"][:2] == [83.5, 2.0]
-    assert spec["slots"]["c"][:2] == [83.5, 52.0]
-    assert spec["slots"]["d"][:2] == [2.0, 52.0]
+    assert spec["slots"]["c"][:2] == [2.0, 52.0]
+    assert spec["slots"]["d"][:2] == [83.5, 52.0]
+    assert spec["slots"]["e"][:2] == [2.0, 102.0]
+    assert spec["slots"]["f"][:2] == [83.5, 102.0]
+    assert spec["panels"]["e"]["x_order"] == ["Overlap reset", "Non-overlap reset", "Random reset"]
+    assert spec["panels"]["f"]["x_order"] == spec["panels"]["e"]["x_order"]
 
 
 def test_retired_c9_and_residual_self_inclusion_are_absent() -> None:

@@ -30,9 +30,11 @@
 | 路径 | 状态 | 作用 |
 |---|---|---|
 | `runtime/paper_figure_runtime_dag_refactor_playbook.md` | REFERENCE | DAG 节点、artifact、cache key 与 reuse mode 设计；精确实现以源码为准 |
+| `dag_result_audit_20260815/README.md` | REFERENCE | 2026-08-15 派生、非权威的 DAG→结果证据导航、逐任务结论与缺口快照 |
 | `protocols/ping_protocol_spec.md` | REFERENCE | P4 ping 注入协议 |
 | `practices/optimization_principles_and_failure_lessons.md` | REFERENCE | 等价优先、批处理风险和分层验证原则 |
 | `practices/figure_reconstruction_workflow.md` | REFERENCE | claim-driven 重绘和 plot-only QA 流程 |
+| `EVIDENCE_TRACEABILITY.md` | REFERENCE | 执行节点、持久化证据、结果包和稿件图之间的术语与追踪边界 |
 
 ## Canonical runtime
 
@@ -92,4 +94,5 @@ python -m src.plotting.experiments.supplementary_v5_plot \
 - plotting 是 DAG 的叶消费者，不得加载模型或重跑 simulation。
 - 跨图复用必须通过显式、带 schema/cache key/manifest 的 artifact 发生。
 - smoke 或单 seed 只验证结构，不构成 manuscript-final 证据。
-- 投稿前复现策略为 `full_dag`：不得仅因 mtime 超过一个月移动 `multi_seed_rollout`、checkpoint、数据集或当前父目录。
+- 投稿前复现策略为 `full_dag`：不得仅因 mtime 超过一个月移动 `multi_seed_rollout`、checkpoint、canonical `data/MNIST/` 或当前父目录。
+- 新代码默认使用 `data/MNIST/`；历史 `MNIST` 路径只保留在 provenance 记录中，旧根已按当前 `src` 范围决策删除。

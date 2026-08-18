@@ -1,0 +1,115 @@
+flowchart LR
+  n_sequence_root_fig3_state_bank_view["sequence_root.fig3_state_bank_view"]
+  n_fig5_support_perturbation["fig5.support_perturbation"]
+  n_fig5_preprobe_support["fig5.preprobe_support"]
+  n_fig5_postprobe_stsp_update["fig5.postprobe_stsp_update"]
+  n_fig5_early_firing["fig5.early_firing"]
+  n_fig4_overlap_perturbation["fig4.overlap_perturbation"]
+  n_fig2_fixed_b_cohort_aggregate["fig2.fixed_b_cohort_aggregate"]
+  n_artifact_fig3_state_evolution_svg["artifact: fig3_state_evolution.svg"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig3["fig3 · Fig.4"]
+    n_fig3_all["all\n[operational-only]"]
+    n_fig3_sequence_trial_specs["sequence_trial_specs\n[operational-only]"]
+    n_fig3_state_bank["state_bank\n[conflicted]"]
+    n_fig3_boundary_condition_specs["boundary_condition_specs\n[operational-only]"]
+    n_fig3_access_job_specs["access_job_specs\n[operational-only]"]
+    n_fig3_boundary_state_bank["boundary_state_bank\n[operational-only]"]
+    n_fig3_morphology_decomposition["morphology_decomposition\n[operational-only]"]
+    n_fig3_neutral_ping_access["neutral_ping_access\n[operational-only]"]
+    n_fig3_weak_cue_access["weak_cue_access\n[operational-only]"]
+    n_fig3_cue_specificity_specs["cue_specificity_specs\n[operational-only]"]
+    n_fig3_cue_specificity_access["cue_specificity_access\n[supported]"]
+    n_fig3_exemplar_decoder_specs["exemplar_decoder_specs\n[unavailable]"]
+    n_fig3_exemplar_decoder_state_bank["exemplar_decoder_state_bank\n[unavailable]"]
+    n_fig3_exemplar_decoder["exemplar_decoder\n[unavailable]"]
+    n_fig3_exemplar_decoder_summary["exemplar_decoder_summary\n[unavailable]"]
+    n_fig3_morphology_function_coupling["morphology_function_coupling\n[operational-only]"]
+    n_fig3_boundary_summary["boundary_summary\n[supported]"]
+    n_fig3_progressive_update["progressive_update\n[conflicted]"]
+    n_fig3_formation_intervention_specs["formation_intervention_specs\n[unavailable]"]
+    n_fig3_formation_necessity["formation_necessity\n[unavailable]"]
+    n_fig3_peak_valley_landscape["peak_valley_landscape\n[conflicted]"]
+    n_fig3_neutral_ping["neutral_ping\n[unavailable]"]
+    n_fig3_weak_probe["weak_probe\n[unavailable]"]
+    n_fig3_supplement["supplement\n[unavailable]"]
+    n_final_six_fig3_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig3_all -->|orchestrates| n_fig3_boundary_summary
+  n_fig3_all -->|orchestrates| n_fig3_cue_specificity_access
+  n_fig3_all -->|orchestrates| n_fig3_progressive_update
+  n_fig3_state_bank -->|requires| n_fig3_sequence_trial_specs
+  n_fig3_state_bank -->|aliases| n_sequence_root_fig3_state_bank_view
+  n_fig3_boundary_condition_specs -->|requires| n_fig3_sequence_trial_specs
+  n_fig3_access_job_specs -->|requires| n_fig3_sequence_trial_specs
+  n_fig3_access_job_specs -->|requires| n_fig3_boundary_condition_specs
+  n_fig3_boundary_state_bank -->|requires| n_fig3_sequence_trial_specs
+  n_fig3_boundary_state_bank -->|requires| n_fig3_boundary_condition_specs
+  n_fig3_morphology_decomposition -->|requires| n_fig3_boundary_condition_specs
+  n_fig3_morphology_decomposition -->|requires| n_fig3_boundary_state_bank
+  n_fig3_neutral_ping_access -->|requires| n_fig3_access_job_specs
+  n_fig3_neutral_ping_access -->|requires| n_fig3_boundary_state_bank
+  n_fig3_weak_cue_access -->|requires| n_fig3_access_job_specs
+  n_fig3_weak_cue_access -->|requires| n_fig3_boundary_state_bank
+  n_fig3_cue_specificity_specs -->|requires| n_fig3_sequence_trial_specs
+  n_fig3_cue_specificity_specs -->|requires| n_fig3_access_job_specs
+  n_fig3_cue_specificity_access -->|requires| n_fig3_cue_specificity_specs
+  n_fig3_cue_specificity_access -->|requires| n_fig3_boundary_state_bank
+  n_fig3_exemplar_decoder_state_bank -->|requires| n_fig3_exemplar_decoder_specs
+  n_fig3_exemplar_decoder -->|requires| n_fig3_exemplar_decoder_specs
+  n_fig3_exemplar_decoder -->|requires| n_fig3_exemplar_decoder_state_bank
+  n_fig3_exemplar_decoder_summary -->|requires| n_fig3_exemplar_decoder
+  n_fig3_morphology_function_coupling -->|requires| n_fig3_morphology_decomposition
+  n_fig3_morphology_function_coupling -->|requires| n_fig3_weak_cue_access
+  n_fig3_boundary_summary -->|requires| n_fig3_morphology_decomposition
+  n_fig3_boundary_summary -->|requires| n_fig3_weak_cue_access
+  n_fig3_boundary_summary -->|requires| n_fig3_neutral_ping_access
+  n_fig3_boundary_summary -->|requires| n_fig3_morphology_function_coupling
+  n_fig3_progressive_update -->|requires| n_fig3_boundary_condition_specs
+  n_fig3_progressive_update -->|requires| n_fig3_boundary_state_bank
+  n_fig3_formation_intervention_specs -->|requires| n_fig3_boundary_state_bank
+  n_fig3_formation_necessity -->|requires| n_fig3_boundary_state_bank
+  n_fig3_formation_necessity -->|requires| n_fig3_formation_intervention_specs
+  n_fig3_peak_valley_landscape -->|requires| n_fig3_boundary_condition_specs
+  n_fig3_peak_valley_landscape -->|requires| n_fig3_boundary_state_bank
+  n_fig3_neutral_ping -->|requires| n_fig3_state_bank
+  n_fig3_weak_probe -->|requires| n_fig3_state_bank
+  n_fig3_supplement -->|requires| n_fig3_state_bank
+  n_final_six_fig3_final_statistics -->|consumes| n_fig4_overlap_perturbation
+  n_final_six_fig3_final_statistics -->|consumes| n_fig5_preprobe_support
+  n_final_six_fig3_final_statistics -->|consumes| n_fig5_early_firing
+  n_final_six_fig3_final_statistics -->|consumes| n_fig5_support_perturbation
+  n_final_six_fig3_final_statistics -->|consumes| n_fig5_postprobe_stsp_update
+  n_final_six_fig3_final_statistics -->|consumes| n_fig2_fixed_b_cohort_aggregate
+  n_final_six_fig3_final_statistics -->|consumes| n_artifact_fig3_state_evolution_svg
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig3_all operational_only
+  class n_fig3_sequence_trial_specs operational_only
+  class n_fig3_state_bank conflicted
+  class n_fig3_boundary_condition_specs operational_only
+  class n_fig3_access_job_specs operational_only
+  class n_fig3_boundary_state_bank operational_only
+  class n_fig3_morphology_decomposition operational_only
+  class n_fig3_neutral_ping_access operational_only
+  class n_fig3_weak_cue_access operational_only
+  class n_fig3_cue_specificity_specs operational_only
+  class n_fig3_cue_specificity_access supported
+  class n_fig3_exemplar_decoder_specs unavailable
+  class n_fig3_exemplar_decoder_state_bank unavailable
+  class n_fig3_exemplar_decoder unavailable
+  class n_fig3_exemplar_decoder_summary unavailable
+  class n_fig3_morphology_function_coupling operational_only
+  class n_fig3_boundary_summary supported
+  class n_fig3_progressive_update conflicted
+  class n_fig3_formation_intervention_specs unavailable
+  class n_fig3_formation_necessity unavailable
+  class n_fig3_peak_valley_landscape conflicted
+  class n_fig3_neutral_ping unavailable
+  class n_fig3_weak_probe unavailable
+  class n_fig3_supplement unavailable
+  class n_final_six_fig3_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

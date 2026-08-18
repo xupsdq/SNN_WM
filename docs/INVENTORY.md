@@ -63,8 +63,8 @@
 | 路径 | 状态 | 作用 |
 |---|---|---|
 | `paper/results_state_transition_program/` | CONTRACT | 主图 panel contracts、sequence contract 和打包/绘图约束；存在源码/脚本消费者 |
-| `paper/SUPPLEMENTARY_FIGURE_DECISION_LOG_V5.md` | REFERENCE | 补图决策与冻结记录 |
-| `paper/SUPPLEMENTARY_FIGURE_ARGUMENT_AUDIT_V5.md` | REFERENCE | 补图论证角色；编号冲突以最终 bundle/changelog 为准 |
+| ~~`paper/SUPPLEMENTARY_FIGURE_DECISION_LOG_V5.md`~~ | DELETED 2026-08-16 | AI 自审文档，清理移除；最终 bundle/changelog 为准 |
+| ~~`paper/SUPPLEMENTARY_FIGURE_ARGUMENT_AUDIT_V5.md`~~ | DELETED 2026-08-16 | AI 自审文档，清理移除 |
 
 ## Paper：当前证据包
 
@@ -80,6 +80,7 @@
 |---|---|---|
 | `experiments/README.md` | CURRENT | 当前 runtime/plot-only 入口和事实来源 |
 | `experiments/runtime/paper_figure_runtime_dag_refactor_playbook.md` | REFERENCE | DAG、artifact、cache key 和 reuse mode 设计 |
+| `experiments/dag_result_audit_20260815/README.md` | REFERENCE | 带日期、非权威的 DAG→结果证据导航与逐任务结论快照 |
 | `experiments/protocols/ping_protocol_spec.md` | REFERENCE | 当前模型仍支持的 P4 ping 协议 |
 | `experiments/practices/optimization_principles_and_failure_lessons.md` | REFERENCE | 等价优先和批处理风险原则 |
 | `experiments/practices/figure_reconstruction_workflow.md` | REFERENCE | claim-driven 重绘与 plot-only QA 方法 |

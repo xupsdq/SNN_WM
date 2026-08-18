@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1630" height="922" viewBox="0 0 1630 922" role="img" aria-labelledby="title desc">
+<title id="title">fig6 DAG task evidence graph</title>
+<desc id="desc">Derived audit graph. Arrows point from a consumer to its required producer.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="40" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0F172A">fig6 · Fig.7</text>
+<text x="40" y="68" font-family="Arial, sans-serif" font-size="13" fill="#475569">consumer —requires/consumes→ producer · status colors match ledger</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 146.0, 900.0 146.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="287.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 242.0, 900.0 242.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="335.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 626.0, 900.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 338.0, 900.0 338.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="383.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1250.0 434.0, 1250.0 386.0, 1210.0 386.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1250.0" y="407.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 722.0, 900.0 722.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 434.0 C 1095.0 434.0, 1095.0 530.0, 900.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 360.0 434.0 C 320.0 434.0, 320.0 434.0, 280.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 146.0 C 630.0 146.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="287.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 242.0 C 630.0 242.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="335.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 626.0 C 630.0 626.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 434.0 C 630.0 434.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 338.0 C 630.0 338.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="383.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 386.0 C 940.0 386.0, 940.0 146.0, 900.0 146.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="263.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 386.0 C 940.0 386.0, 940.0 242.0, 900.0 242.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="311.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 386.0 C 940.0 386.0, 940.0 626.0, 900.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="503.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 386.0 C 940.0 386.0, 940.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="407.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 386.0 C 940.0 386.0, 940.0 338.0, 900.0 338.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="359.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 722.0 C 630.0 722.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 530.0 C 630.0 530.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 482.0 C 940.0 482.0, 940.0 338.0, 900.0 338.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="407.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<path d="M 980.0 482.0 C 940.0 482.0, 940.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="455.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<g id="n_fig6_all" data-canonical-id="fig6.all">
+<rect x="1290" y="398.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="1302" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">all</text>
+<text x="1302" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig6_sequence_trials" data-canonical-id="fig6.sequence_trials">
+<rect x="50" y="398.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="62" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">sequence_trials</text>
+<text x="62" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig6_sequence_bank" data-canonical-id="fig6.sequence_bank">
+<rect x="360" y="398.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="372" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">sequence_bank</text>
+<text x="372" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig6_field_ping_readout" data-canonical-id="fig6.field_ping_readout">
+<rect x="670" y="110.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="131.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">field_ping_readout</text>
+<text x="682" y="172.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig6_global_ping_score_spike_prediction" data-canonical-id="fig6.global_ping_score_spike_prediction">
+<rect x="670" y="206.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="227.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">global_ping_score_spike_predic</text>
+<text x="682" y="241.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">tion</text>
+<text x="682" y="268.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig6_real_probe_score_spike_deflection" data-canonical-id="fig6.real_probe_score_spike_deflection">
+<rect x="670" y="590.0" width="230" height="72" rx="9" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="682" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">real_probe_score_spike_deflect</text>
+<text x="682" y="625.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">ion</text>
+<text x="682" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#6B7280">unavailable</text>
+</g>
+<g id="n_fig6_overlap_gated_stsp_recruitment" data-canonical-id="fig6.overlap_gated_stsp_recruitment">
+<rect x="670" y="398.0" width="230" height="72" rx="9" fill="#DCFCE7" stroke="#15803D" stroke-width="1.5"/>
+<text x="682" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">overlap_gated_stsp_recruitment</text>
+<text x="682" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#15803D">supported</text>
+</g>
+<g id="n_fig6_high_stsp_overlap_ablation" data-canonical-id="fig6.high_stsp_overlap_ablation">
+<rect x="670" y="302.0" width="230" height="72" rx="9" fill="#DCFCE7" stroke="#15803D" stroke-width="1.5"/>
+<text x="682" y="323.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">high_stsp_overlap_ablation</text>
+<text x="682" y="364.0" font-family="Arial, sans-serif" font-size="10" fill="#15803D">supported</text>
+</g>
+<g id="n_fig6_supplement" data-canonical-id="fig6.supplement">
+<rect x="980" y="350.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="992" y="371.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">supplement</text>
+<text x="992" y="412.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig6_score_shuffle_null" data-canonical-id="fig6.score_shuffle_null">
+<rect x="670" y="686.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="707.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">score_shuffle_null</text>
+<text x="682" y="748.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig6_overlap_threshold_sensitivity" data-canonical-id="fig6.overlap_threshold_sensitivity">
+<rect x="670" y="494.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">overlap_threshold_sensitivity</text>
+<text x="682" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_final_six_fig6_final_statistics" data-canonical-id="final_six.fig6.final-statistics">
+<rect x="980" y="446.0" width="230" height="72" rx="9" fill="#DCFCE7" stroke="#15803D" stroke-width="1.5"/>
+<text x="992" y="467.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">final-statistics</text>
+<text x="992" y="508.0" font-family="Arial, sans-serif" font-size="10" fill="#15803D">supported</text>
+</g>
+<rect x="40" y="874" width="16" height="16" rx="3" fill="#DCFCE7" stroke="#15803D"/>
+<text x="62" y="886" font-family="Arial, sans-serif" font-size="10" fill="#334155">supported</text>
+<rect x="190" y="874" width="16" height="16" rx="3" fill="#FEF3C7" stroke="#B45309"/>
+<text x="212" y="886" font-family="Arial, sans-serif" font-size="10" fill="#334155">bounded</text>
+<rect x="340" y="874" width="16" height="16" rx="3" fill="#DBEAFE" stroke="#1D4ED8"/>
+<text x="362" y="886" font-family="Arial, sans-serif" font-size="10" fill="#334155">operational-only</text>
+<rect x="490" y="874" width="16" height="16" rx="3" fill="#FEE2E2" stroke="#B91C1C"/>
+<text x="512" y="886" font-family="Arial, sans-serif" font-size="10" fill="#334155">conflicted</text>
+<rect x="640" y="874" width="16" height="16" rx="3" fill="#F3F4F6" stroke="#6B7280"/>
+<text x="662" y="886" font-family="Arial, sans-serif" font-size="10" fill="#334155">unavailable</text>
+</svg>

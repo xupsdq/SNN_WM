@@ -16,6 +16,7 @@ import torch
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
+from src.config.paths import DEFAULT_PATH_CONFIG
 from src.core.monitoring import ClassSensitivityMonitor
 from src.platform.legacy_adapters.encoding import DoGSpikeEncoder, build_mnist_skeleton_loader
 from src.platform.legacy_adapters.network import SDNN_Network
@@ -35,7 +36,7 @@ SAVE_DIR = DEFAULT_SAVE_DIR
 @dataclass(frozen=True)
 class TrainingConfig:
     output_dir: str
-    dataset_root: str = "./MNIST"
+    dataset_root: str = str(DEFAULT_PATH_CONFIG.dataset_root)
     device: str = "auto"
     seed: int = 42
     batch_size: int = 32
@@ -354,7 +355,7 @@ def train_single_network(config: TrainingConfig) -> dict[str, Any]:
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train one SDNN network from scratch.")
     parser.add_argument("--output-dir", type=str, default=DEFAULT_SAVE_DIR)
-    parser.add_argument("--dataset-root", type=str, default="./MNIST")
+    parser.add_argument("--dataset-root", type=str, default=str(DEFAULT_PATH_CONFIG.dataset_root))
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=32)

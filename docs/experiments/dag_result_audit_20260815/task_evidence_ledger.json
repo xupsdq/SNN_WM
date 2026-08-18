@@ -1,0 +1,4694 @@
+{
+  "schema": "net_torch_dag_task_evidence_ledger_v1",
+  "snapshot_id": "dag_result_audit_20260815",
+  "non_authoritative": true,
+  "authority_order": [
+    "explicit_user_decision",
+    "docs/paper/PAPER_AUTHORITY.json",
+    "contracts_and_manifests",
+    "active_parents",
+    "exploratory_or_smoke",
+    "archive"
+  ],
+  "enums": {
+    "authority_tier": [
+      "active-parent",
+      "archived",
+      "current-authority",
+      "exploratory",
+      "input-only",
+      "orphaned-historical",
+      "smoke"
+    ],
+    "provenance_link": [
+      "conflict",
+      "contractual",
+      "direct",
+      "inferred",
+      "none"
+    ],
+    "conclusion_status": [
+      "bounded",
+      "conflicted",
+      "operational-only",
+      "supported",
+      "unavailable"
+    ]
+  },
+  "records": [
+    {
+      "canonical_id": "fig1.trial_specs",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "trial_specs",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task trial_specs",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "基线、延迟解码与 DMS 条件的试验规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig1/fig1_functional_stsp_substrate/seed_*/data/intermediates/trial_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "trial_specs 的基线、延迟解码与 DMS 条件的试验规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-001"
+    },
+    {
+      "canonical_id": "fig1.baseline",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "baseline",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task baseline",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "网络基线准确率评估"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "final-six fig1 panel b 从 20 个网络的 baseline metrics 物化；描述均值为 90.945%。"
+      ],
+      "task_conclusion_zh": "baseline 任务的 20 网络基线指标被 final-six 直接消费，描述均值为 90.945%；该结论只说明被测网络在固定基线协议下的表现。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-002"
+    },
+    {
+      "canonical_id": "fig1.delay_feature_bank",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "delay_feature_bank",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task delay_feature_bank",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "跨延迟的 STSP u/x 特征库"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig1.delay_feature_bank 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "delay_feature_bank 已在当前源码注册为跨延迟的 STSP u/x 特征库，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "20-seed runtime 根没有独立 artifact 目录；delay decoder 的历史 bundle 不能替代该父工件身份。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-003"
+    },
+    {
+      "canonical_id": "fig1.delay_decoder",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "delay_decoder",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task delay_decoder",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs",
+        "fig1.delay_feature_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "由延迟期 STSP 特征解码类别"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "final-six fig1 panel d 的延迟解码行均为 descriptive_only；20 网络源文件齐全。"
+      ],
+      "task_conclusion_zh": "delay_decoder 的 20 网络输出被 final-six 作为 descriptive_only 延迟期 u/x 解码证据使用；结论限于固定延迟与解码协议，不外推为持续放电。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-004"
+    },
+    {
+      "canonical_id": "fig1.dms_boundary_bank",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "dms_boundary_bank",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task dms_boundary_bank",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "DMS 延迟边界的全层状态快照库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig1/fig1_functional_stsp_substrate/seed_*/data/intermediates/dms_boundary_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "dms_boundary_bank 的DMS 延迟边界的全层状态快照库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-005"
+    },
+    {
+      "canonical_id": "fig1.dms_shuffle_readout",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "dms_shuffle_readout",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task dms_shuffle_readout",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs",
+        "fig1.dms_boundary_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "DMS u/x 交换与 shuffle 条件读出"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与DMS u/x 交换与 shuffle 条件读出对应的输出。"
+      ],
+      "task_conclusion_zh": "dms_shuffle_readout 的 20 网络试验级输出被 final-six panel e 使用，支持在既定交换条件下区分 u/x 组成贡献；这里只保留任务级描述，不作跨任务归因。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-006"
+    },
+    {
+      "canonical_id": "fig1.dms_delay_sweep_readout",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "dms_delay_sweep_readout",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task dms_delay_sweep_readout",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs",
+        "fig1.dms_boundary_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "DMS 功能效应的延迟扫描"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与DMS 功能效应的延迟扫描对应的输出。"
+      ],
+      "task_conclusion_zh": "dms_delay_sweep_readout 的DMS 功能效应的延迟扫描输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-007"
+    },
+    {
+      "canonical_id": "fig1.firing_rate_control",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "firing_rate_control",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task firing_rate_control",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs",
+        "fig1.dms_boundary_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "阶段级放电率控制"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与阶段级放电率控制对应的输出。"
+      ],
+      "task_conclusion_zh": "firing_rate_control 的阶段级放电率控制输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-008"
+    },
+    {
+      "canonical_id": "fig1.time_binned_firing_rate_control",
+      "node_family": "fig1",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "time_binned_firing_rate_control",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task time_binned_firing_rate_control",
+      "schema_source": "src/experiments/paper_figures/fig1/schemas.py",
+      "dependencies": [
+        "fig1.trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "时间分箱放电率控制"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/data/",
+        "results/multi_seed_rollout/fig1_time_binned_firing/seed_*/data/metrics/supp_time_binned_firing_rates.csv"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "main source manifest 直接列出 20 个 supp_time_binned_firing_rates.csv，当前均存在。"
+      ],
+      "task_conclusion_zh": "time_binned_firing_rate_control 的时间分箱放电率控制输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-009"
+    },
+    {
+      "canonical_id": "fig2.all",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank",
+        "fig2.crossfit_interaction",
+        "fig2.crossfit_null_calibration",
+        "fig2.morphology",
+        "fig2.linear_mixture",
+        "fig2.neutral_ping",
+        "fig2.partial_cue",
+        "fig2.ping_sweep",
+        "fig2.completion_delay_sweep",
+        "fig2.supplement"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "pair-state 主链的全任务聚合入口"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 10 个直接子依赖；自身无独立 artifact digest。"
+      ],
+      "task_conclusion_zh": "all 只作为pair-state 主链的全任务聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-010"
+    },
+    {
+      "canonical_id": "fig2.pair_trial_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "pair_trial_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task pair_trial_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "配对试验与候选池规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fig2_pair_fused_stsp_state/seed_*/data/intermediates/pair_trial_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "pair_trial_specs 的配对试验与候选池规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-011"
+    },
+    {
+      "canonical_id": "fig2.state_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "state_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task state_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "配对经历后的多层状态库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fig2_pair_fused_stsp_state/seed_*/data/intermediates/state_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "state_bank 的配对经历后的多层状态库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-012"
+    },
+    {
+      "canonical_id": "fig2.crossfit_split_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "crossfit_split_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task crossfit_split_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "跨拟合折分规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fig2_pair_fused_stsp_state/seed_*/data/intermediates/crossfit_split_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "crossfit_split_specs 的跨拟合折分规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-013"
+    },
+    {
+      "canonical_id": "fig2.crossfit_interaction",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "crossfit_interaction",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task crossfit_interaction",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs",
+        "fig2.state_bank",
+        "fig2.crossfit_split_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "跨拟合交互项度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed legacy bundle 含 network/fold/pair 三层 crossfit interaction 表及分析规格。"
+      ],
+      "task_conclusion_zh": "crossfit_interaction 的跨拟合交互项度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-014"
+    },
+    {
+      "canonical_id": "fig2.crossfit_null_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "crossfit_null_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task crossfit_null_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs",
+        "fig2.crossfit_split_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "跨拟合零模型规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fig2_pair_fused_stsp_state/seed_*/data/intermediates/crossfit_null_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "crossfit_null_specs 的跨拟合零模型规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-015"
+    },
+    {
+      "canonical_id": "fig2.crossfit_null_calibration",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "crossfit_null_calibration",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task crossfit_null_calibration",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs",
+        "fig2.state_bank",
+        "fig2.crossfit_split_specs",
+        "fig2.crossfit_null_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "跨拟合零模型校准"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed legacy bundle 含 supp_crossfit_null_network_metrics.csv 与分析规格。"
+      ],
+      "task_conclusion_zh": "crossfit_null_calibration 的跨拟合零模型校准输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-016"
+    },
+    {
+      "canonical_id": "fig2.morphology",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "morphology",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task morphology",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "双项目保留与配对形态组织"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "legacy bundle 含双项目保留、配对特异性与层级形态表；当前 Fig.6 的部分父数据来自这些表。"
+      ],
+      "task_conclusion_zh": "morphology 的双项目保留与配对形态组织输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-017"
+    },
+    {
+      "canonical_id": "fig2.linear_mixture",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "linear_mixture",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task linear_mixture",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "线性混合与残差配对特异性"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "20 个 panel_d_linear_residual_pair_specificity_metrics.csv 仍在；另有 60 个按 task 输出模式应存在的 fit/null/model-comparison 文件缺失。"
+      ],
+      "task_conclusion_zh": "linear_mixture 仅能由现存残差特异性表形成部分任务结论；fit、additive-null 与 model-comparison 三类 20-seed 文件均与旧 manifest 脱节，故完整任务结果处于冲突状态。",
+      "limitations": "每个 seed 的 summary/artifact manifest 仍登记 panel_d_linear_mixture_fit_metrics.csv、supp_additive_null_metrics.csv 与 supp_linear_mixture_model_comparison.csv，但当前 20×3 个文件均缺失；残差表仍在。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-018"
+    },
+    {
+      "canonical_id": "fig2.neutral_ping",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "neutral_ping",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task neutral_ping",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "中性 ping 的真实 rollout 读出"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与中性 ping 的真实 rollout 读出对应的输出。"
+      ],
+      "task_conclusion_zh": "neutral_ping 的中性 ping 的真实 rollout 读出输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-019"
+    },
+    {
+      "canonical_id": "fig2.partial_cue_mask_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "partial_cue_mask_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task partial_cue_mask_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "部分线索掩码规格"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "runtime artifact 为 0/20；20 个 weak_probe_masks.csv 仅留在旧 summary/manifest 登记中，磁盘文件缺失。"
+      ],
+      "task_conclusion_zh": "partial_cue_mask_specs 的旧登记仍在但 20 个 weak_probe_masks.csv 与独立 artifact 均缺失，因此当前不能验证该规格任务。",
+      "limitations": "无独立 runtime artifact；summary/artifact manifest 登记的 20 个 weak_probe_masks.csv 当前全部缺失。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-020"
+    },
+    {
+      "canonical_id": "fig2.partial_cue",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "partial_cue",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task partial_cue",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank",
+        "fig2.partial_cue_mask_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "部分线索真实 rollout 恢复"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "20-seed legacy bundle 含 panel_f_partial_cue_metrics.csv 与 AUC 表。"
+      ],
+      "task_conclusion_zh": "partial_cue 的网络级 metrics/AUC 表仍可定位，但逐 trial readout 在全部 20 seeds 缺失；任务结论只能保留聚合层，不能声称原始读出完整。",
+      "limitations": "聚合 metrics/AUC 表仍在，但 20 个 panel_f_partial_cue_trial_readout.csv 已与其登记 manifest 脱节。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-021"
+    },
+    {
+      "canonical_id": "fig2.ping_sweep",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "ping_sweep",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task ping_sweep",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "中性 ping 参数扫描"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与中性 ping 参数扫描对应的输出。"
+      ],
+      "task_conclusion_zh": "ping_sweep 的中性 ping 参数扫描输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-022"
+    },
+    {
+      "canonical_id": "fig2.completion_delay_boundary_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "completion_delay_boundary_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task completion_delay_boundary_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "完成任务的延迟边界状态库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fig2_pair_fused_stsp_state/seed_*/data/intermediates/completion_delay_boundary_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "completion_delay_boundary_bank 的完成任务的延迟边界状态库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-023"
+    },
+    {
+      "canonical_id": "fig2.completion_delay_mask_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "completion_delay_mask_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task completion_delay_mask_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.pair_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "完成任务的延迟掩码规格"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "runtime artifact 为 0/20，未找到按现 task 身份持久化的 mask specs。"
+      ],
+      "task_conclusion_zh": "completion_delay_mask_specs 未形成当前可寻址的独立工件，因此其规格身份不可验证，即使下游 sweep 聚合表仍存在。",
+      "limitations": "无独立 runtime artifact 或可直接归属的当前 mask-spec 文件，不能按 task_id 验证。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-024"
+    },
+    {
+      "canonical_id": "fig2.completion_delay_sweep",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "completion_delay_sweep",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task completion_delay_sweep",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.completion_delay_boundary_bank",
+        "fig2.completion_delay_mask_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "完成效应的延迟扫描"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "20-seed sweep metrics/contrast 仍在，但 20 个 trial-level readout 文件缺失。"
+      ],
+      "task_conclusion_zh": "completion_delay_sweep 的聚合 metrics 与 contrast 可定位，但 20 个逐 trial readout 缺失；任务仅有部分聚合结论，完整证据链冲突。",
+      "limitations": "metrics 与 contrast 表仍在，但 20 个 supp_completion_delay_sweep_trial_readout.csv 已与 summary/artifact manifest 脱节。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-025"
+    },
+    {
+      "canonical_id": "fig2.supplement",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "supplement",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task supplement",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "pair-state 补充度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与pair-state 补充度量对应的输出。"
+      ],
+      "task_conclusion_zh": "supplement 的pair-state 补充度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-026"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_specs",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_specs",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_specs",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "固定 B 确认性协议规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_specs 的固定 B 确认性协议规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-027"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_input_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_input_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_input_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 输入编码库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_input_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_input_bank 的固定 B 输入编码库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-028"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_history_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_history_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_history_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_input_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 历史状态库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_history_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_history_bank 的固定 B 历史状态库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-029"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_protocol",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "fixed_b_protocol",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_protocol",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_input_bank",
+        "fig2.fixed_b_history_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "冻结的 fixed-B 协议物化"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/frozen_protocol/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与冻结的 fixed-B 协议物化对应的输出。"
+      ],
+      "task_conclusion_zh": "fixed_b_protocol 的冻结的 fixed-B 协议物化输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-030"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_replay_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_replay_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_replay_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_input_bank",
+        "fig2.fixed_b_history_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 事件重放库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_replay_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_replay_bank 的固定 B 事件重放库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-031"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_rollout_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_rollout_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_rollout_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_input_bank",
+        "fig2.fixed_b_history_bank",
+        "fig2.fixed_b_replay_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 条件 rollout 库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_rollout_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_rollout_bank 的固定 B 条件 rollout 库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-032"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_swap_bank",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "fixed_b_swap_bank",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_swap_bank",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_input_bank",
+        "fig2.fixed_b_history_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 状态交换库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig2/fixed_b_mechanism_confirmatory/seed_*/data/intermediates/fixed_b_swap_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "fixed_b_swap_bank 的固定 B 状态交换库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-033"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_analysis",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "fixed_b_analysis",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_analysis",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_replay_bank",
+        "fig2.fixed_b_rollout_bank",
+        "fig2.fixed_b_swap_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 单网络事件与交换分析"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_fixed_b_mechanism_confirmatory/seed_*/data/metrics/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与固定 B 单网络事件与交换分析对应的输出。"
+      ],
+      "task_conclusion_zh": "fixed_b_analysis 的固定 B 单网络事件与交换分析输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-034"
+    },
+    {
+      "canonical_id": "fig2.fixed_b_cohort_aggregate",
+      "node_family": "fig2",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "fixed_b_cohort_aggregate",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task fixed_b_cohort_aggregate",
+      "schema_source": "src/experiments/paper_figures/fig2/schemas.py",
+      "dependencies": [
+        "fig2.fixed_b_analysis"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "固定 B 的 20 网络确认性聚合"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_fixed_b_mechanism_confirmatory/aggregate/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "aggregate 目录含 20 网络 scalars、inference、cohort audit 与 verdict；是 internal fig2 final-statistics panel c 的直接父。"
+      ],
+      "task_conclusion_zh": "fixed_b_cohort_aggregate 已形成 20 网络确认性 scalars、inference 与 verdict，并直接供 internal fig2 final-statistics 使用；结论仅适用于冻结 fixed-B 协议及网络为独立单位的比较。",
+      "limitations": "aggregate 当前存在，但其历史命令引用的 docs/tasks/20260726_fixed_b_v4_mechanism_confirmatory/task_state.json 已不在当前仓库。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-035"
+    },
+    {
+      "canonical_id": "fig3.all",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_summary",
+        "fig3.cue_specificity_access",
+        "fig3.progressive_update"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "边界 DAG 的全链聚合入口"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 3 个直接子依赖；自身无独立 artifact digest。"
+      ],
+      "task_conclusion_zh": "all 只作为边界 DAG 的全链聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-036"
+    },
+    {
+      "canonical_id": "fig3.sequence_trial_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "sequence_trial_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task sequence_trial_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "多项目序列、单项参照与部分线索规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/sequence_trial_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "sequence_trial_specs 的多项目序列、单项参照与部分线索规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-037"
+    },
+    {
+      "canonical_id": "fig3.state_bank",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "state_bank",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task state_bank",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.sequence_trial_specs",
+        "sequence_root.fig3_state_bank_view"
+      ],
+      "edge_semantics": [
+        "requires",
+        "aliases"
+      ],
+      "expected_outputs": [
+        "多项目序列状态库"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与多项目序列状态库相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "state_bank 的多项目序列状态库存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "独立 state_bank artifact 为 0/20；状态由 boundary_state_bank 内部物化，不能按该 task_id 单独 require。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-038"
+    },
+    {
+      "canonical_id": "fig3.boundary_condition_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "boundary_condition_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task boundary_condition_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.sequence_trial_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "序列长度与延迟的边界条件规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/boundary_condition_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "boundary_condition_specs 的序列长度与延迟的边界条件规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-039"
+    },
+    {
+      "canonical_id": "fig3.access_job_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "access_job_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task access_job_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.sequence_trial_specs",
+        "fig3.boundary_condition_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "弱线索与中性 ping 访问作业规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/access_job_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "access_job_specs 的弱线索与中性 ping 访问作业规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-040"
+    },
+    {
+      "canonical_id": "fig3.boundary_state_bank",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "boundary_state_bank",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task boundary_state_bank",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.sequence_trial_specs",
+        "fig3.boundary_condition_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "按边界条件物化的可复用状态库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/boundary_state_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "boundary_state_bank 的按边界条件物化的可复用状态库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-041"
+    },
+    {
+      "canonical_id": "fig3.morphology_decomposition",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "morphology_decomposition",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task morphology_decomposition",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_condition_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "末态相对单项参照的 NNLS 形态分解"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/morphology_decomposition/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "morphology_decomposition 的末态相对单项参照的 NNLS 形态分解已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-042"
+    },
+    {
+      "canonical_id": "fig3.neutral_ping_access",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "neutral_ping_access",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task neutral_ping_access",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.access_job_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "边界条件下的中性 ping 访问读出"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/neutral_ping_access/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "neutral_ping_access 的边界条件下的中性 ping 访问读出已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-043"
+    },
+    {
+      "canonical_id": "fig3.weak_cue_access",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "weak_cue_access",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task weak_cue_access",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.access_job_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "边界条件下的弱线索功能访问"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/weak_cue_access/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "weak_cue_access 的边界条件下的弱线索功能访问已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-044"
+    },
+    {
+      "canonical_id": "fig3.cue_specificity_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "cue_specificity_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task cue_specificity_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.sequence_trial_specs",
+        "fig3.access_job_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "matched、mismatched 与 unseen 线索规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/cue_specificity_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "cue_specificity_specs 的matched、mismatched 与 unseen 线索规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-045"
+    },
+    {
+      "canonical_id": "fig3.cue_specificity_access",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "cue_specificity_access",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task cue_specificity_access",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.cue_specificity_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "线索特异性访问读出"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/cue_specificity_access/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "seed_1000 summary 记录 matched>unseen 与 matched>mismatched 两个硬门均通过；20/20 artifact 目录存在。"
+      ],
+      "task_conclusion_zh": "cue_specificity_access 在 20/20 种子形成可 require 工件，且存档硬门显示 matched 的目标记忆增益高于 unseen 与 mismatched；结论仅限已定义线索类别与目标端点。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-046"
+    },
+    {
+      "canonical_id": "fig3.exemplar_decoder_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "exemplar_decoder_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task exemplar_decoder_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "exemplar 解码器 episode 与分析规格"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.exemplar_decoder_specs 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "exemplar_decoder_specs 已在当前源码注册为exemplar 解码器 episode 与分析规格，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-047"
+    },
+    {
+      "canonical_id": "fig3.exemplar_decoder_state_bank",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "exemplar_decoder_state_bank",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task exemplar_decoder_state_bank",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.exemplar_decoder_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "exemplar 解码状态库"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.exemplar_decoder_state_bank 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "exemplar_decoder_state_bank 已在当前源码注册为exemplar 解码状态库，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-048"
+    },
+    {
+      "canonical_id": "fig3.exemplar_decoder",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "exemplar_decoder",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task exemplar_decoder",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.exemplar_decoder_specs",
+        "fig3.exemplar_decoder_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "留一折 exemplar 分类器"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.exemplar_decoder 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "exemplar_decoder 已在当前源码注册为留一折 exemplar 分类器，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-049"
+    },
+    {
+      "canonical_id": "fig3.exemplar_decoder_summary",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "exemplar_decoder_summary",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task exemplar_decoder_summary",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.exemplar_decoder"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "exemplar 解码跨种子汇总"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.exemplar_decoder_summary 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "exemplar_decoder_summary 已在当前源码注册为exemplar 解码跨种子汇总，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-050"
+    },
+    {
+      "canonical_id": "fig3.morphology_function_coupling",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "morphology_function_coupling",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task morphology_function_coupling",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.morphology_decomposition",
+        "fig3.weak_cue_access"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "形态—功能耦合与顺序特异性对照"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/morphology_function_coupling/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "morphology_function_coupling 的形态—功能耦合与顺序特异性对照已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-051"
+    },
+    {
+      "canonical_id": "fig3.boundary_summary",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "boundary_summary",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task boundary_summary",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.morphology_decomposition",
+        "fig3.weak_cue_access",
+        "fig3.neutral_ping_access",
+        "fig3.morphology_function_coupling"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "功能边界的叶级摘要"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig3/fig3_multiitem_peak_landscape/seed_*/data/intermediates/boundary_summary/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "20/20 artifact 完整；seed_1000 的 missing_for_main_figure=[]。"
+      ],
+      "task_conclusion_zh": "boundary_summary 在 20/20 种子完整且主图字段无缺项，提供该边界 DAG 的任务级功能边界摘要；它不自动等同于 current internal fig3 final-statistics 的上游。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-052"
+    },
+    {
+      "canonical_id": "fig3.progressive_update",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "progressive_update",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task progressive_update",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_condition_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "渐进更新与前缀轨迹度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与渐进更新与前缀轨迹度量相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "progressive_update 的渐进更新与前缀轨迹度量存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-053"
+    },
+    {
+      "canonical_id": "fig3.formation_intervention_specs",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "formation_intervention_specs",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task formation_intervention_specs",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "形成期干预掩码规格"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.formation_intervention_specs 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "formation_intervention_specs 已在当前源码注册为形成期干预掩码规格，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-054"
+    },
+    {
+      "canonical_id": "fig3.formation_necessity",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "formation_necessity",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task formation_necessity",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_state_bank",
+        "fig3.formation_intervention_specs"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "形成期必要性干预读出"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.formation_necessity 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "formation_necessity 已在当前源码注册为形成期必要性干预读出，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-055"
+    },
+    {
+      "canonical_id": "fig3.peak_valley_landscape",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "peak_valley_landscape",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task peak_valley_landscape",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.boundary_condition_specs",
+        "fig3.boundary_state_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "峰谷景观与非平坦性度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与峰谷景观与非平坦性度量相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "peak_valley_landscape 的峰谷景观与非平坦性度量存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "输出仅在 paper_figure_multi_seed 镜像树发现，canonical multi_seed_rollout 根缺失。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-056"
+    },
+    {
+      "canonical_id": "fig3.neutral_ping",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "neutral_ping",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task neutral_ping",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "旧兼容中性 ping 读出"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.neutral_ping 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "neutral_ping 已在当前源码注册为旧兼容中性 ping 读出，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-057"
+    },
+    {
+      "canonical_id": "fig3.weak_probe",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "weak_probe",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task weak_probe",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "旧兼容弱探针读出"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.weak_probe 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "weak_probe 已在当前源码注册为旧兼容弱探针读出，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-058"
+    },
+    {
+      "canonical_id": "fig3.supplement",
+      "node_family": "fig3",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "supplement",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task supplement",
+      "schema_source": "src/experiments/paper_figures/fig3/schemas.py",
+      "dependencies": [
+        "fig3.state_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "旧兼容多项目补充度量"
+      ],
+      "evidence_paths": [],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig3.supplement 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "supplement 已在当前源码注册为旧兼容多项目补充度量，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "无法区分未排程、运行失败或已归档；本审计不以相邻任务结果补写该任务。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-059"
+    },
+    {
+      "canonical_id": "fig4.all",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.overlap_localization",
+        "fig4.overlap_accuracy_identification",
+        "fig4.decision_spike_displacement",
+        "fig4.decision_deflection",
+        "fig4.overlap_perturbation",
+        "fig4.supplement"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "overlap/reentry 全链聚合入口"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "smoke",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 6 个直接子依赖；自身无独立 artifact digest。",
+        "旧 20-seed bundle 来自 legacy monolithic runner；DAG 验证仅为减量 smoke。"
+      ],
+      "task_conclusion_zh": "all 只作为overlap/reentry 全链聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-060"
+    },
+    {
+      "canonical_id": "fig4.pair_sampling",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "pair_sampling",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task pair_sampling",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "配对抽样与重叠/扰动掩码"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig4/fig4_overlap_reentry/seed_*/data/intermediates/pair_sampling/",
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 artifact 含 digest、cache key、配对表与 masks.npz。"
+      ],
+      "task_conclusion_zh": "pair_sampling 的配对抽样与重叠/扰动掩码已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-061"
+    },
+    {
+      "canonical_id": "fig4.similarity_entry",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "similarity_entry",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task similarity_entry",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.pair_sampling"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "相似度入口度量与电压向量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与相似度入口度量与电压向量相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "similarity_entry 的相似度入口度量与电压向量存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "旧 bundle 有指标，但 20 个 runtime artifact 全缺，未来 require 链会失败。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-062"
+    },
+    {
+      "canonical_id": "fig4.rollouts",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "rollouts",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task rollouts",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.pair_sampling"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "五条件 rollout 与 L3 replay 捕获库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig4/fig4_overlap_reentry/seed_*/data/intermediates/rollouts/",
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与五条件 rollout 与 L3 replay 捕获库相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "rollouts 的五条件 rollout 与 L3 replay 捕获库存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "20/20 目录存在，但 array_manifest.csv 与 l3_replay_capture_manifest.csv 均为 0/20，加载器会拒绝 require。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-063"
+    },
+    {
+      "canonical_id": "fig4.overlap_localization",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "overlap_localization",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task overlap_localization",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.similarity_entry",
+        "fig4.rollouts"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "重叠定位度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与重叠定位度量对应的输出。"
+      ],
+      "task_conclusion_zh": "overlap_localization 的重叠定位度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-064"
+    },
+    {
+      "canonical_id": "fig4.overlap_accuracy_identification",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "overlap_accuracy_identification",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task overlap_accuracy_identification",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.similarity_entry"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "重叠与准确率识别度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与重叠与准确率识别度量对应的输出。"
+      ],
+      "task_conclusion_zh": "overlap_accuracy_identification 的重叠与准确率识别度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-065"
+    },
+    {
+      "canonical_id": "fig4.decision_spike_displacement",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "decision_spike_displacement",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task decision_spike_displacement",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.rollouts"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "决策尖峰位移度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与决策尖峰位移度量对应的输出。"
+      ],
+      "task_conclusion_zh": "decision_spike_displacement 的决策尖峰位移度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-066"
+    },
+    {
+      "canonical_id": "fig4.decision_deflection",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "decision_deflection",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task decision_deflection",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.rollouts"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "L3 累积器区域重放偏转度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与L3 累积器区域重放偏转度量对应的输出。"
+      ],
+      "task_conclusion_zh": "decision_deflection 的L3 累积器区域重放偏转度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-067"
+    },
+    {
+      "canonical_id": "fig4.overlap_perturbation",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "overlap_perturbation",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task overlap_perturbation",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.rollouts",
+        "fig4.pair_sampling"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "重叠保持与 L1 STSP 扰动度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与重叠保持与 L1 STSP 扰动度量对应的输出。"
+      ],
+      "task_conclusion_zh": "overlap_perturbation 的重叠保持与 L1 STSP 扰动度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-068"
+    },
+    {
+      "canonical_id": "fig4.supplement",
+      "node_family": "fig4",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "supplement",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task supplement",
+      "schema_source": "src/experiments/paper_figures/fig4/schemas.py",
+      "dependencies": [
+        "fig4.rollouts"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "overlap/reentry 补充度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与overlap/reentry 补充度量对应的输出。"
+      ],
+      "task_conclusion_zh": "supplement 的overlap/reentry 补充度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-069"
+    },
+    {
+      "canonical_id": "fig5.all",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support",
+        "fig5.early_firing",
+        "fig5.local_events",
+        "fig5.support_perturbation",
+        "fig5.supplement",
+        "fig5.postprobe_stsp_update"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "local-support/competition 全链聚合入口"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "smoke",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 6 个直接子依赖；自身无独立 artifact digest。",
+        "20 个 legacy bundle 的 summary 均标记 final_scientific_use=false。"
+      ],
+      "task_conclusion_zh": "all 只作为local-support/competition 全链聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-070"
+    },
+    {
+      "canonical_id": "fig5.trial_sampling",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "trial_sampling",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task trial_sampling",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "局部竞争试验与掩码规格"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_*/data/intermediates/trial_sampling/",
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 artifact 契约完整；seed_1000 记录 500 个试验。"
+      ],
+      "task_conclusion_zh": "trial_sampling 的局部竞争试验与掩码规格已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-071"
+    },
+    {
+      "canonical_id": "fig5.preprobe_support_bank",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "preprobe_support_bank",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task preprobe_support_bank",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.trial_sampling"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "探针前支持图与分支轨迹库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_*/data/intermediates/preprobe_support_bank/",
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与探针前支持图与分支轨迹库相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "preprobe_support_bank 的探针前支持图与分支轨迹库存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "核心数组存在，但 5 类加载必需表/清单在 20 个种子上缺失；属于 200 个 runtime-parent 缺口。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-072"
+    },
+    {
+      "canonical_id": "fig5.preprobe_support",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "preprobe_support",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task preprobe_support",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "探针前支持度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与探针前支持度量对应的输出。"
+      ],
+      "task_conclusion_zh": "preprobe_support 的探针前支持度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-073"
+    },
+    {
+      "canonical_id": "fig5.early_firing",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "early_firing",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task early_firing",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "早期放电 advance/recruit/loss 转移度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20 个 panel_b_early_firing_transition_metrics.csv 已按恢复收据逐字节恢复，是 current source manifest 的直接父。"
+      ],
+      "task_conclusion_zh": "early_firing 的 20 个直接父 CSV 已逐字节恢复并可由 current source manifest 追踪；该结论只确认已冻结的早期转移度量可用，runtime 父工件仍不完整。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-074"
+    },
+    {
+      "canonical_id": "fig5.local_events",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "local_events",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task local_events",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "winner/loser 局部事件对齐度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与winner/loser 局部事件对齐度量对应的输出。"
+      ],
+      "task_conclusion_zh": "local_events 的winner/loser 局部事件对齐度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-075"
+    },
+    {
+      "canonical_id": "fig5.support_perturbation",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "support_perturbation",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task support_perturbation",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "L1 STSP 支持扰动度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20 个 panel_d_l1_stsp_perturbation_unit_transitions.csv 已按恢复收据逐字节恢复，是 current source manifest 的直接父。"
+      ],
+      "task_conclusion_zh": "support_perturbation 的 20 个直接父 CSV 已逐字节恢复并进入 current source manifest；该结论只覆盖既有扰动度量，不能消除 preprobe_support_bank 的 runtime 缺口。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-076"
+    },
+    {
+      "canonical_id": "fig5.supplement",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "supplement",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task supplement",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "local-support/competition 补充度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与local-support/competition 补充度量对应的输出。"
+      ],
+      "task_conclusion_zh": "supplement 的local-support/competition 补充度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-077"
+    },
+    {
+      "canonical_id": "fig5.probe_stsp_update_bank",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "probe_stsp_update_bank",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task probe_stsp_update_bank",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.trial_sampling",
+        "fig5.preprobe_support_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "探针诱发 STSP 更新快照库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig5/fig5_local_support_competition/seed_*/data/intermediates/probe_stsp_update_bank/",
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "conflict",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "找到与探针诱发 STSP 更新快照库相关的部分 artifact 或 bundle 输出，但独立/加载合同不完整。"
+      ],
+      "task_conclusion_zh": "probe_stsp_update_bank 的探针诱发 STSP 更新快照库存在部分输出，但当前证据或加载合同不完整；只能确认已有文件，不得声称该任务可完整 require 重放。",
+      "limitations": "NPZ 分片存在，但 snapshot_manifest.csv、array_manifest.csv 与 unit_group_definitions.csv 缺失。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-078"
+    },
+    {
+      "canonical_id": "fig5.postprobe_stsp_update",
+      "node_family": "fig5",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "postprobe_stsp_update",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task postprobe_stsp_update",
+      "schema_source": "src/experiments/paper_figures/fig5/schemas.py",
+      "dependencies": [
+        "fig5.probe_stsp_update_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "探针后 L2 写回与历史组成度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与探针后 L2 写回与历史组成度量对应的输出。"
+      ],
+      "task_conclusion_zh": "postprobe_stsp_update 的探针后 L2 写回与历史组成度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "2026-06-16 曾成功 artifact-only require；当前父清单缺失，不能据此声称现在仍可重放。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-079"
+    },
+    {
+      "canonical_id": "fig6.all",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.field_ping_readout",
+        "fig6.global_ping_score_spike_prediction",
+        "fig6.real_probe_score_spike_deflection",
+        "fig6.overlap_gated_stsp_recruitment",
+        "fig6.high_stsp_overlap_ablation",
+        "fig6.supplement",
+        "fig6.score_shuffle_null",
+        "fig6.overlap_threshold_sensitivity"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "条件性功能任务的全链聚合入口"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 8 个直接子依赖；自身无独立 artifact digest。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "all 只作为条件性功能任务的全链聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-080"
+    },
+    {
+      "canonical_id": "fig6.sequence_trials",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "sequence_trials",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task sequence_trials",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "sequence_root.shared_sequence_specs"
+      ],
+      "edge_semantics": [
+        "aliases"
+      ],
+      "expected_outputs": [
+        "共享序列规格的 fig6 视图"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig6/fig6_peak_amplified_reentry/seed_*/data/intermediates/sequence_trials/",
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "sequence_trials 的共享序列规格的 fig6 视图已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-081"
+    },
+    {
+      "canonical_id": "fig6.sequence_bank",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "sequence_bank",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task sequence_bank",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_trials",
+        "sequence_root.shared_sequence_root_bank"
+      ],
+      "edge_semantics": [
+        "requires",
+        "aliases"
+      ],
+      "expected_outputs": [
+        "共享根派生的 fig6 序列状态库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/fig6/fig6_peak_amplified_reentry/seed_*/data/intermediates/sequence_bank/",
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seed artifact 目录存在，并按任务合同记录 manifest/cache key 或 digest。"
+      ],
+      "task_conclusion_zh": "sequence_bank 的共享根派生的 fig6 序列状态库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-082"
+    },
+    {
+      "canonical_id": "fig6.field_ping_readout",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "field_ping_readout",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task field_ping_readout",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "区域门控 ping 读出偏置"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与区域门控 ping 读出偏置对应的输出。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "field_ping_readout 的区域门控 ping 读出偏置输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-083"
+    },
+    {
+      "canonical_id": "fig6.global_ping_score_spike_prediction",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "global_ping_score_spike_prediction",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task global_ping_score_spike_prediction",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "全局 ping 下 score 到募集的预测"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与全局 ping 下 score 到募集的预测对应的输出。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "global_ping_score_spike_prediction 的全局 ping 下 score 到募集的预测输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-084"
+    },
+    {
+      "canonical_id": "fig6.real_probe_score_spike_deflection",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "real_probe_score_spike_deflection",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task real_probe_score_spike_deflection",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "真实探针下 score 到偏转的度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "none",
+      "conclusion_status": "unavailable",
+      "result_statements": [
+        "本快照未找到按 fig6.real_probe_score_spike_deflection 身份可归属且满足当前合同的结果产物。"
+      ],
+      "task_conclusion_zh": "real_probe_score_spike_deflection 已在当前源码注册为真实探针下 score 到偏转的度量，但本快照未找到可直接归属且满足合同的结果文件，因此该任务目前不可形成可验证结果结论。",
+      "limitations": "当前契约文件名在 canonical 与 legacy 根均未找到；旧名可能相近但不能无哈希地宣称等价。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-085"
+    },
+    {
+      "canonical_id": "fig6.overlap_gated_stsp_recruitment",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "overlap_gated_stsp_recruitment",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task overlap_gated_stsp_recruitment",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "重叠门控 STSP 募集与交互"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "20 个 legacy interaction 表存在；seed_1000 哈希与 current final bundle source manifest 一致。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "overlap_gated_stsp_recruitment 的交互表是 current Fig.7 panel f 的直接父；冻结统计在 10 ms 给出 15.9968 个百分点的交互，结论仅限重叠门控表达，不证明唯一编码。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-086"
+    },
+    {
+      "canonical_id": "fig6.high_stsp_overlap_ablation",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "high_stsp_overlap_ablation",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task high_stsp_overlap_ablation",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "面积与能量匹配的 high-STSP-overlap 消融"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "20 个 legacy summary 表存在；final-statistics 通过 panel_f_* 兼容别名消费。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "high_stsp_overlap_ablation 的 summary 是 current Fig.7 panel e 的直接父；冻结统计给出相对匹配移除多 2.5208 个百分点的募集损失，结论仅为定向位点的有界贡献。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-087"
+    },
+    {
+      "canonical_id": "fig6.supplement",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "supplement",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task supplement",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.field_ping_readout",
+        "fig6.global_ping_score_spike_prediction",
+        "fig6.real_probe_score_spike_deflection",
+        "fig6.overlap_gated_stsp_recruitment",
+        "fig6.high_stsp_overlap_ablation"
+      ],
+      "edge_semantics": [
+        "requires",
+        "requires",
+        "requires",
+        "requires",
+        "requires"
+      ],
+      "expected_outputs": [
+        "S11a–S11f 补充审计与鲁棒性度量"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与S11a–S11f 补充审计与鲁棒性度量对应的输出。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "supplement 的S11a–S11f 补充审计与鲁棒性度量输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-088"
+    },
+    {
+      "canonical_id": "fig6.score_shuffle_null",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "score_shuffle_null",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task score_shuffle_null",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "score shuffle 零分布"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与score shuffle 零分布对应的输出。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "score_shuffle_null 的score shuffle 零分布输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-089"
+    },
+    {
+      "canonical_id": "fig6.overlap_threshold_sensitivity",
+      "node_family": "fig6",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "overlap_threshold_sensitivity",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task overlap_threshold_sensitivity",
+      "schema_source": "src/experiments/paper_figures/fig6/schemas.py",
+      "dependencies": [
+        "fig6.sequence_bank"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "overlap 阈值敏感性"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "active-parent",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与overlap 阈值敏感性对应的输出。",
+        "canonical multi_seed_rollout 下游指标缺失；证据来自 legacy paper_figure_multi_seed bundle。"
+      ],
+      "task_conclusion_zh": "overlap_threshold_sensitivity 的overlap 阈值敏感性输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-090"
+    },
+    {
+      "canonical_id": "sequence_root.all",
+      "node_family": "sequence_root",
+      "node_type": "DAG Task",
+      "execution_role": "aggregate",
+      "task_id": "all",
+      "runtime_figure_id": "shared_sequence_root",
+      "manuscript_figure_id": "Fig.4 / Fig.7 输入身份",
+      "code_entry": "src/experiments/paper_figures/common/sequence_root/run_task.py --task all",
+      "schema_source": "src/experiments/paper_figures/common/sequence_root/schemas.py",
+      "dependencies": [
+        "sequence_root.shared_sequence_specs",
+        "sequence_root.shared_sequence_root_bank"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [
+        "共享序列 specs 与 root bank 聚合入口"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/shared_sequence_root/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该入口在源码中编排 2 个直接子依赖；自身无独立 artifact digest。"
+      ],
+      "task_conclusion_zh": "all 只作为共享序列 specs 与 root bank 聚合入口调度子任务；当前证据仅支持其操作性覆盖，不产生独立科学结论。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6-shared",
+      "record_id": "task-091"
+    },
+    {
+      "canonical_id": "sequence_root.shared_sequence_specs",
+      "node_family": "sequence_root",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "shared_sequence_specs",
+      "runtime_figure_id": "shared_sequence_root",
+      "manuscript_figure_id": "Fig.4 / Fig.7 输入身份",
+      "code_entry": "src/experiments/paper_figures/common/sequence_root/run_task.py --task shared_sequence_specs",
+      "schema_source": "src/experiments/paper_figures/common/sequence_root/schemas.py",
+      "dependencies": [],
+      "edge_semantics": [],
+      "expected_outputs": [
+        "fig3/fig6 共用的序列输入身份"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/shared_sequence_root/seed_*/data/intermediates/shared_sequence_specs/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 seeds 持久化；num_sequences=100、长度 3/5/7/10、partial-cue=0.1、目标位 K-1。"
+      ],
+      "task_conclusion_zh": "shared_sequence_specs 的fig3/fig6 共用的序列输入身份已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6-shared",
+      "record_id": "task-092"
+    },
+    {
+      "canonical_id": "sequence_root.shared_sequence_root_bank",
+      "node_family": "sequence_root",
+      "node_type": "DAG Task",
+      "execution_role": "producer",
+      "task_id": "shared_sequence_root_bank",
+      "runtime_figure_id": "shared_sequence_root",
+      "manuscript_figure_id": "Fig.4 / Fig.7 输入身份",
+      "code_entry": "src/experiments/paper_figures/common/sequence_root/run_task.py --task shared_sequence_root_bank",
+      "schema_source": "src/experiments/paper_figures/common/sequence_root/schemas.py",
+      "dependencies": [
+        "sequence_root.shared_sequence_specs"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [
+        "绑定 fig3 state bank 与 fig6 sequence bank 的共享根库"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/shared_sequence_root/seed_*/data/intermediates/shared_sequence_root_bank/"
+      ],
+      "artifact_seed_dirs": 20,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "20/20 root bank 同时登记 shared specs、fig3 state bank 与 fig6 sequence bank 的 cache-key digest。"
+      ],
+      "task_conclusion_zh": "shared_sequence_root_bank 的绑定 fig3 state bank 与 fig6 sequence bank 的共享根库已在 20/20 个 seed 持久化并可按任务身份寻址；任务结论仅为该父工件/规格可供下游复用，不附加跨任务科学推断。",
+      "limitations": "未执行重放；数值与参数边界以对应 run_config、manifest 和 ledger evidence path 为准。",
+      "source_audit": "scout:fig6-shared",
+      "record_id": "task-093"
+    },
+    {
+      "canonical_id": "sequence_root.fig3_state_bank_view",
+      "node_family": "sequence_root",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "fig3_state_bank_view",
+      "runtime_figure_id": "shared_sequence_root",
+      "manuscript_figure_id": "Fig.4 / Fig.7 输入身份",
+      "code_entry": "src/experiments/paper_figures/common/sequence_root/run_task.py --task fig3_state_bank_view",
+      "schema_source": "src/experiments/paper_figures/common/sequence_root/schemas.py",
+      "dependencies": [
+        "sequence_root.shared_sequence_root_bank"
+      ],
+      "edge_semantics": [
+        "aliases"
+      ],
+      "expected_outputs": [
+        "共享根中 fig3 state bank 的寻址视图"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/shared_sequence_root/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与共享根中 fig3 state bank 的寻址视图对应的输出。"
+      ],
+      "task_conclusion_zh": "fig3_state_bank_view 的共享根中 fig3 state bank 的寻址视图输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "视图无独立 manifest，summary 可被最后一次视图运行覆盖。",
+      "source_audit": "scout:fig6-shared",
+      "record_id": "task-094"
+    },
+    {
+      "canonical_id": "sequence_root.fig6_sequence_bank_view",
+      "node_family": "sequence_root",
+      "node_type": "DAG Task",
+      "execution_role": "metric/analysis",
+      "task_id": "fig6_sequence_bank_view",
+      "runtime_figure_id": "shared_sequence_root",
+      "manuscript_figure_id": "Fig.4 / Fig.7 输入身份",
+      "code_entry": "src/experiments/paper_figures/common/sequence_root/run_task.py --task fig6_sequence_bank_view",
+      "schema_source": "src/experiments/paper_figures/common/sequence_root/schemas.py",
+      "dependencies": [
+        "sequence_root.shared_sequence_root_bank"
+      ],
+      "edge_semantics": [
+        "aliases"
+      ],
+      "expected_outputs": [
+        "共享根中 fig6 sequence bank 的寻址视图"
+      ],
+      "evidence_paths": [
+        "results/multi_seed_rollout/shared_sequence_root/seed_*/data/"
+      ],
+      "artifact_seed_dirs": 0,
+      "authority_tier": "exploratory",
+      "provenance_link": "inferred",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "在 20-seed 历史/活动 parent bundle 中找到与共享根中 fig6 sequence bank 的寻址视图对应的输出。"
+      ],
+      "task_conclusion_zh": "fig6_sequence_bank_view 的共享根中 fig6 sequence bank 的寻址视图输出在可追踪 bundle 中存在；当前任务级结论限于该输出已生成且可定位，不把它升级为跨任务或稿件级综合结论。",
+      "limitations": "视图无独立 manifest，summary 可被最后一次视图运行覆盖。",
+      "source_audit": "scout:fig6-shared",
+      "record_id": "task-095"
+    },
+    {
+      "canonical_id": "final_six.fig1.final-statistics",
+      "node_family": "fig1",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "fig1.baseline",
+        "fig1.firing_rate_control",
+        "fig1.time_binned_firing_rate_control",
+        "fig1.delay_decoder",
+        "fig1.dms_shuffle_readout",
+        "artifact:structure-enhanced.svg"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures/fig1/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig1/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "当前 redesign parent 的 internal fig1 bundle 为 statistics_partial 顶层中的唯一已构建图，但 fig1 自身 panel/schema 校验可用。",
+        "current main complete bundle 中 fig1 含 5 panels、4 quantitative。"
+      ],
+      "task_conclusion_zh": "internal fig1 final-statistics 已以 load-only 方式物化 1 个示意与 4 个定量面板，并保持 20 网络来源可追踪；其结论限于固定网络性能、延迟期放电消失控制、u/x 解码及 DMS 组成描述，是 redesign Fig.2 的数据父而非新实验。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-096"
+    },
+    {
+      "canonical_id": "final_six.fig2.final-statistics",
+      "node_family": "fig2",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "fig2.fixed_b_specs",
+        "fig2.fixed_b_history_bank",
+        "fig2.fixed_b_rollout_bank",
+        "fig2.fixed_b_analysis",
+        "fig2.fixed_b_cohort_aggregate",
+        "artifact:DMS-enhanced.svg"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "current main complete bundle 中 fig2 含 4 quantitative panels；source manifest 106 rows 全部存在。",
+        "panel b aligned-minus-mismatched rescue=14.0780 percentage points，BH p=0.0003069。"
+      ],
+      "task_conclusion_zh": "internal fig2 final-statistics 已冻结 fixed-B 的历史对齐 rescue/loss、共同更新/历史效应与事件残差面板；任务结论仅适用于 identical-B 冻结协议与 20 个独立网络，不把细胞行当独立重复。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "parent-direct:code+results+manifests",
+      "record_id": "task-097"
+    },
+    {
+      "canonical_id": "final_six.fig3.final-statistics",
+      "node_family": "fig3",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "fig4.overlap_perturbation",
+        "fig5.preprobe_support",
+        "fig5.early_firing",
+        "fig5.support_perturbation",
+        "fig5.postprobe_stsp_update",
+        "fig2.fixed_b_cohort_aggregate",
+        "artifact:fig3_state_evolution.svg"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig3/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig3/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "7 panels（6 quantitative + 1 schematic），102 个父文件，parent_hashes_before==after。",
+        "source manifest 不含 fig3 TASK_IDS 产物。"
+      ],
+      "task_conclusion_zh": "internal fig3 final-statistics 的 7 面板 bundle 完整且父哈希未变；它消费 fig4/fig5/fig2 的结果而非 fig3 TASK_IDS 边界 DAG，因此结论仅属于该显式 source manifest 所列的跨源统计叶节点。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "scout:fig3",
+      "record_id": "task-098"
+    },
+    {
+      "canonical_id": "final_six.fig4.final-statistics",
+      "node_family": "fig4",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "runner.c5_l2_successor_closure",
+        "materializer.fig4_accumulated_history_statistics"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "4 quantitative panels；C5 与 accumulated-history 父源；cohort/schema pass。"
+      ],
+      "task_conclusion_zh": "internal fig4 final-statistics 已冻结 4 个面板并通过 20 网络/父哈希校验；任务结论限于 C5 donor-transfer 的模型内充分性与已声明的 accumulated-history 比较，不主张必要性、完全中介或唯一性。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "scout:fig4",
+      "record_id": "task-099"
+    },
+    {
+      "canonical_id": "final_six.fig5.final-statistics",
+      "node_family": "fig5",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "fig2.morphology",
+        "materializer.new_results_reanalysis",
+        "materializer.supplementary_v5"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig5/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig5/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "6 quantitative panels；pair-state、new_results_reanalysis 与 supplementary_v5 父源。"
+      ],
+      "task_conclusion_zh": "internal fig5 final-statistics 已冻结 6 个结构组织面板；任务结论限于 pair 保留、经验配对特异性及随负载/延迟变化的描述性形态，不把 N_eff 解释为容量或功能回忆。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "scout:fig5",
+      "record_id": "task-100"
+    },
+    {
+      "canonical_id": "final_six.fig6.final-statistics",
+      "node_family": "fig6",
+      "node_type": "Materializer",
+      "execution_role": "figure-scoped load-only statistics",
+      "task_id": "final-statistics",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run_task.py --task final-statistics --reuse-artifacts require",
+      "schema_source": "src/experiments/paper_figures/final_six/pipeline.py",
+      "dependencies": [
+        "fig2.partial_cue",
+        "fig3.weak_cue_access",
+        "fig3.cue_specificity_access",
+        "fig3.boundary_summary",
+        "fig6.high_stsp_overlap_ablation",
+        "fig6.overlap_gated_stsp_recruitment"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [
+        "data/panel_*_plot_data.csv",
+        "metrics/panel_*_statistics.csv",
+        "meta/source_manifest.csv",
+        "summary.json"
+      ],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig6/",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig6/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "6 quantitative panels、140 个父文件、20 seed cohort pass；panel e/f 的 legacy 父哈希经抽查一致。"
+      ],
+      "task_conclusion_zh": "internal fig6 final-statistics 已冻结 6 个条件性功能面板并通过 20 seed cohort 与父哈希校验；任务结论只覆盖部分线索恢复、串行访问、线索特异性、K×delay 边界及两个有界扰动/交互端点。",
+      "limitations": "该节点为 load-only 派生统计；不得用它补写未执行 runtime task，也不得跨 panel 扩大 claim boundary。",
+      "source_audit": "scout:fig6",
+      "record_id": "task-101"
+    },
+    {
+      "canonical_id": "orchestrator.run_paper_figures",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "multi-figure batch",
+      "task_id": "run_paper_figures",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/paper_figures/run_paper_figures.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "runner.legacy.fig1",
+        "runner.legacy.fig2",
+        "runner.legacy.fig3",
+        "runner.legacy.fig4",
+        "runner.legacy.fig5",
+        "runner.legacy.fig6"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "src/experiments/paper_figures/run_paper_figures.py"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "conflicted",
+      "result_statements": [
+        "批量运行清单与 seed bundle 校验逻辑存在。",
+        "build 阶段仍引用不存在的 src.plotting.paper_fig.build。"
+      ],
+      "task_conclusion_zh": "run_paper_figures 只编排 legacy 单图 runner；其运行覆盖可由 batch manifest 审计，但默认 build 阶段引用已删除模块，故当前端到端入口处于冲突状态且不产生科学结论。",
+      "limitations": "需使用 --no-build-paper-figures 或迁移到维护中的 plot-only 入口；figX_supp 目标也无实现。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-102"
+    },
+    {
+      "canonical_id": "orchestrator.run_upstream_artifact_warmup",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "artifact warmup",
+      "task_id": "run_upstream_artifact_warmup",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/paper_figures/run_upstream_artifact_warmup.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "fig1.dms_boundary_bank",
+        "fig2.state_bank",
+        "fig3.boundary_state_bank",
+        "fig4.rollouts",
+        "fig5.preprobe_support_bank",
+        "fig6.sequence_bank",
+        "sequence_root.shared_sequence_root_bank"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/multi_seed_rollout/warmup_manifest.json",
+        "results/multi_seed_rollout/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "exploratory",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "multi_seed_rollout preset 覆盖 1000–1019 seeds，并记录 task/command。"
+      ],
+      "task_conclusion_zh": "run_upstream_artifact_warmup 已留下多种子预热清单，用于物化可复用父工件；其成功只表示调度与工件存在性，不形成科学结论。",
+      "limitations": "部分被预热父工件后来丢失必需 manifest，不能以旧 warmup 成功替代当前 require 校验。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-103"
+    },
+    {
+      "canonical_id": "orchestrator.fig1.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig1 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig1/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig1 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-104"
+    },
+    {
+      "canonical_id": "orchestrator.fig2.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig2 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig2/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig2 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-105"
+    },
+    {
+      "canonical_id": "orchestrator.fig3.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig3 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig3/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig3 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-106"
+    },
+    {
+      "canonical_id": "orchestrator.fig4.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig4 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig4/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig4 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-107"
+    },
+    {
+      "canonical_id": "orchestrator.fig5.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig5 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig5/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig5 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-108"
+    },
+    {
+      "canonical_id": "orchestrator.fig6.run",
+      "node_family": "orchestrator",
+      "node_type": "Orchestrator",
+      "execution_role": "single-figure wrapper",
+      "task_id": "run",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6/run.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "orchestrator.run_paper_figures"
+      ],
+      "edge_semantics": [
+        "requires"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "contractual",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "该 wrapper 将 figure scope 固定为 fig6 并复用 run_paper_figures。"
+      ],
+      "task_conclusion_zh": "fig6/run.py 只是 run_paper_figures 的单图包装器，结论仅为可独立调度 fig6 范围，不新增结果或科学主张。",
+      "limitations": "继承主编排器的 dangling build 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-109"
+    },
+    {
+      "canonical_id": "runner.legacy.fig1",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig1",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/experiments/paper_figures/fig1_functional_stsp_substrate_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig1_functional_stsp_substrate/fig1_functional_stsp_substrate/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig1_functional_stsp_substrate bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig1 runner 已形成可追踪的逐 seed fig1_functional_stsp_substrate bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-110"
+    },
+    {
+      "canonical_id": "runner.legacy.fig2",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig2",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/experiments/paper_figures/fig2_pair_fused_stsp_state_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig2_pair_fused_stsp_state/fig2_pair_fused_stsp_state/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig2_pair_fused_stsp_state bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig2 runner 已形成可追踪的逐 seed fig2_pair_fused_stsp_state bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-111"
+    },
+    {
+      "canonical_id": "runner.legacy.fig3",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig3",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/experiments/paper_figures/fig3_multiitem_peak_landscape_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig3_multiitem_peak_landscape/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig3_multiitem_peak_landscape bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig3 runner 已形成可追踪的逐 seed fig3_multiitem_peak_landscape bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-112"
+    },
+    {
+      "canonical_id": "runner.legacy.fig4",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig4",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/experiments/paper_figures/fig4_overlap_reentry_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig4_overlap_reentry/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig4_overlap_reentry bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig4 runner 已形成可追踪的逐 seed fig4_overlap_reentry bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-113"
+    },
+    {
+      "canonical_id": "runner.legacy.fig5",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig5",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/experiments/paper_figures/fig5_local_support_competition_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig5_local_support_competition/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig5_local_support_competition bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig5 runner 已形成可追踪的逐 seed fig5_local_support_competition bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-114"
+    },
+    {
+      "canonical_id": "runner.legacy.fig6",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "legacy full-run producer",
+      "task_id": "fig6",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/experiments/paper_figures/fig6_peak_amplified_reentry_experiment.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "artifact:results/multi_snn/sdnn_ensemble_20",
+        "artifact:MNIST"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/summary.json",
+        "results/paper_figure_multi_seed/fig6_peak_amplified_reentry/seed_*/meta/run_info.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed fig6_peak_amplified_reentry bundle 可寻址，并作为后续 materializer 的父源。"
+      ],
+      "task_conclusion_zh": "legacy fig6 runner 已形成可追踪的逐 seed fig6_peak_amplified_reentry bundle；其任务结论限于保存单网络输出，跨网络推断必须由后续聚合器承担。",
+      "limitations": "单入口 full-run 不具备当前 per-task artifact reuse 粒度；部分 bundle 来自旧参数/旧模块。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-115"
+    },
+    {
+      "canonical_id": "runner.c5_l2_successor_closure",
+      "node_family": "runner",
+      "node_type": "Runner Experiment",
+      "execution_role": "causal transplant",
+      "task_id": "c5_l2_successor_closure",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/runners/c5_l2_successor_closure.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "fig2.fixed_b_input_bank",
+        "fig2.fixed_b_history_bank"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/causal_closure_multi_seed_20260803/c5_l2_successor/seed_*/",
+        "results/causal_closure_multi_seed_20260803/c5_l2_successor/aggregate/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "20 seed identity audits 与 aggregate effects/inference 均存在。"
+      ],
+      "task_conclusion_zh": "C5 runner 的 20 网络输出支持 post-B Layer-2 successor 对 identical-C 早期 Layer-2 处理及后续 Layer-3 successor 的模型内因果充分性；不支持必要性、完全中介或唯一性。",
+      "limitations": "20-seed aggregate 没有独立 src 聚合入口；单 seed 细胞行不是独立网络。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-116"
+    },
+    {
+      "canonical_id": "materializer.fig4_accumulated_history_statistics",
+      "node_family": "materializer",
+      "node_type": "Materializer",
+      "execution_role": "load-only reanalysis",
+      "task_id": "fig4_accumulated_history_statistics",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/runners/fig4_accumulated_history_statistics.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "runner.legacy.fig3",
+        "runner.legacy.fig4",
+        "runner.legacy.fig5",
+        "fig2.fixed_b_cohort_aggregate"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/fig4_accumulated_history_statistics/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-seed candidate descriptive/inference tables、source manifest 与 parent-hash gate 存在。"
+      ],
+      "task_conclusion_zh": "fig4_accumulated_history_statistics 仅从冻结父结果重算 relation-balanced K1→K5 描述与推断，未重跑模拟；其结论受 candidate_plot_only_secondary_reanalysis 边界约束。",
+      "limitations": "依赖 hash-pinned formal Fig.2b fallback；不是独立新实验。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-117"
+    },
+    {
+      "canonical_id": "materializer.new_results_reanalysis",
+      "node_family": "materializer",
+      "node_type": "Materializer",
+      "execution_role": "network-first post-hoc reanalysis",
+      "task_id": "new_results_reanalysis",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/runners/new_results_reanalysis.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "runner.legacy.fig1",
+        "runner.legacy.fig2",
+        "runner.legacy.fig3",
+        "runner.legacy.fig5"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/new_results_reanalysis/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "bounded",
+      "result_statements": [
+        "20-network inference_long.csv、source_manifest.csv 与 promotion record 存在。"
+      ],
+      "task_conclusion_zh": "new_results_reanalysis 已将指定 legacy bundles 重聚合为网络级 post-hoc 表；其结论独立于 exact-B 确认队列，不能替代后者。",
+      "limitations": "依赖重排后的 legacy 路径；无独立 plot-only 入口。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-118"
+    },
+    {
+      "canonical_id": "materializer.paper_fig1_fig2_redesign",
+      "node_family": "materializer",
+      "node_type": "Materializer",
+      "execution_role": "redesign source-data builder",
+      "task_id": "paper_fig1_fig2_redesign",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/runners/paper_fig1_fig2_redesign.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig1.final-statistics",
+        "artifact:src/core/network.py"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_redesign_20260811/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "13 条 source manifest 均可解析；Fig.2 a–d 为 internal fig1 b–e 数值不变重标。"
+      ],
+      "task_conclusion_zh": "paper_fig1_fig2_redesign 已把 internal fig1 b–e 不改数值地重标为稿件 Fig.2 a–d，并生成确定性 STSP 机制曲线；它没有新增网络级推断。",
+      "limitations": "机制曲线是 deterministic illustration；依赖 network.py 的 STSP 默认参数。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-119"
+    },
+    {
+      "canonical_id": "materializer.supplementary_v5",
+      "node_family": "materializer",
+      "node_type": "Materializer",
+      "execution_role": "S1–S7 source-data builder",
+      "task_id": "supplementary_v5",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/runners/supplementary_v5.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "runner.legacy.fig1",
+        "runner.legacy.fig2",
+        "runner.legacy.fig3",
+        "runner.legacy.fig4",
+        "runner.legacy.fig5",
+        "runner.legacy.fig6",
+        "runner.c5_l2_successor_closure"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/supplementary_v5/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "维护中的 supplementary_v5 source bundle 完整；其版本化 current 消费束的 S1–S6 input manifest 351 rows、S7 input manifest 100 rows，当前均无缺失。"
+      ],
+      "task_conclusion_zh": "supplementary_v5 materializer 已从冻结父结果生成 S1–S7 network-first Source Data，并以 source-data QA 与 Holm 硬门控制决定性行；结论只属于各补图声明端点。",
+      "limitations": "当前稿件 S1–S6 与 S7 来自两个版本化 bundle；绘图原位写入同一 bundle。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-120"
+    },
+    {
+      "canonical_id": "materializer.final_six.all",
+      "node_family": "materializer",
+      "node_type": "Materializer",
+      "execution_role": "all-figure load-only builder",
+      "task_id": "all",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/paper_figures/final_six/__main__.py -> pipeline.main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig1.final-statistics",
+        "final_six.fig2.final-statistics",
+        "final_six.fig3.final-statistics",
+        "final_six.fig4.final-statistics",
+        "final_six.fig5.final-statistics",
+        "final_six.fig6.final-statistics"
+      ],
+      "edge_semantics": [
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates",
+        "orchestrates"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/summary.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "supported",
+      "result_statements": [
+        "版本化 current bundle 为 complete：32 panels、29 quantitative、498 parents、validation pass。",
+        "默认 final_six_figures 根为 statistics_partial，仅 fig1。"
+      ],
+      "task_conclusion_zh": "final_six all materializer 的版本化 current bundle 已完整物化六个 internal figures 并通过 cohort/schema/parent-hash 校验；默认输出根仍为 partial，不能与该 current bundle 混同。",
+      "limitations": "该节点只物化既有证据；不允许从默认目录名推断权威。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-121"
+    },
+    {
+      "canonical_id": "validator.final_six",
+      "node_family": "validator",
+      "node_type": "Aggregator",
+      "execution_role": "bundle QA gate",
+      "task_id": "final_six",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/experiments/paper_figures/final_six/validate_bundle.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "materializer.final_six.all",
+        "plot.final_six.fig1",
+        "plot.final_six.fig2",
+        "plot.final_six.fig3",
+        "plot.final_six.fig4",
+        "plot.final_six.fig5",
+        "plot.final_six.fig6"
+      ],
+      "edge_semantics": [
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes",
+        "consumes"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/logs/validation.log",
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/summary.json"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "current bundle validation_status=pass、parent_hashes_unchanged=true、statistics_rows_checked=266。"
+      ],
+      "task_conclusion_zh": "final_six validator 已对 current 版本化 bundle 的统计行数、父哈希、绘图重放与导出文件执行最终 QA 并通过；该结论是操作性完整性结论。",
+      "limitations": "默认 partial 根不能通过完整 bundle 验证。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-122"
+    },
+    {
+      "canonical_id": "plot.paper_fig1_fig2_redesign",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "manuscript Fig.1–Fig.2 renderer",
+      "task_id": "paper_fig1_fig2_redesign",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/plotting/experiments/paper_fig1_fig2_redesign_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "materializer.paper_fig1_fig2_redesign"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_redesign_20260811/figures/fig1.png",
+        "results/paper_figure_redesign_20260811/figures/fig2.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "Fig.1 与 Fig.2 的 PNG/PDF/SVG 存在，visual QA 均 passed。"
+      ],
+      "task_conclusion_zh": "redesign plot consumer 已把冻结 source data 渲染为稿件 Fig.1–Fig.2 且视觉 QA 通过；它只呈现数据，不产生新科学结论。",
+      "limitations": "无独立 --check-only。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-123"
+    },
+    {
+      "canonical_id": "plot.supplementary_v5",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "S1–S7 renderer",
+      "task_id": "supplementary_v5",
+      "runtime_figure_id": "",
+      "manuscript_figure_id": "",
+      "code_entry": "src/plotting/experiments/supplementary_v5_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "materializer.supplementary_v5"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/supplementary_v5_c5_revised_20260804_r2/figures/",
+        "results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/figures/"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "当前 S1–S7 PNG/PDF/SVG 均存在，plot_qa 可寻址。"
+      ],
+      "task_conclusion_zh": "supplementary_v5 plot consumer 已从冻结 Source Data 渲染当前 S1–S7 并记录父哈希与几何 QA；它不重跑模拟也不新增结论。",
+      "limitations": "原位写图，需维持 plot-owned 文件豁免边界。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-124"
+    },
+    {
+      "canonical_id": "plot.final_six.fig1",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig1",
+      "runtime_figure_id": "fig1",
+      "manuscript_figure_id": "Fig.2（经 redesign；内部 fig1）",
+      "code_entry": "src/plotting/paper_fig/final_six/fig1_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig1.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig1/figures/fig1.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "active-parent",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig1 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.2（经 redesign；内部 fig1）。"
+      ],
+      "task_conclusion_zh": "fig1_plot 是 Fig.2（经 redesign；内部 fig1） 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-125"
+    },
+    {
+      "canonical_id": "plot.final_six.fig2",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig2",
+      "runtime_figure_id": "fig2",
+      "manuscript_figure_id": "Fig.3",
+      "code_entry": "src/plotting/paper_fig/final_six/fig2_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig2.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig2/figures/fig2.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig2 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.3。"
+      ],
+      "task_conclusion_zh": "fig2_plot 是 Fig.3 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-126"
+    },
+    {
+      "canonical_id": "plot.final_six.fig3",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig3",
+      "runtime_figure_id": "fig3",
+      "manuscript_figure_id": "Fig.4",
+      "code_entry": "src/plotting/paper_fig/final_six/fig3_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig3.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig3/figures/fig3.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig3 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.4。"
+      ],
+      "task_conclusion_zh": "fig3_plot 是 Fig.4 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-127"
+    },
+    {
+      "canonical_id": "plot.final_six.fig4",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig4",
+      "runtime_figure_id": "fig4",
+      "manuscript_figure_id": "Fig.5",
+      "code_entry": "src/plotting/paper_fig/final_six/fig4_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig4.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig4/figures/fig4.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig4 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.5。"
+      ],
+      "task_conclusion_zh": "fig4_plot 是 Fig.5 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-128"
+    },
+    {
+      "canonical_id": "plot.final_six.fig5",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig5",
+      "runtime_figure_id": "fig5",
+      "manuscript_figure_id": "Fig.6",
+      "code_entry": "src/plotting/paper_fig/final_six/fig5_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig5.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig5/figures/fig5.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig5 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.6。"
+      ],
+      "task_conclusion_zh": "fig5_plot 是 Fig.6 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-129"
+    },
+    {
+      "canonical_id": "plot.final_six.fig6",
+      "node_family": "plot",
+      "node_type": "Plot Consumer",
+      "execution_role": "final-six plot-only leaf",
+      "task_id": "fig6",
+      "runtime_figure_id": "fig6",
+      "manuscript_figure_id": "Fig.7",
+      "code_entry": "src/plotting/paper_fig/final_six/fig6_plot.py::main",
+      "schema_source": "",
+      "dependencies": [
+        "final_six.fig6.final-statistics"
+      ],
+      "edge_semantics": [
+        "presents"
+      ],
+      "expected_outputs": [],
+      "evidence_paths": [
+        "results/paper_figure_multi_seed/final_six_figures_v5_fig3g_fig4_2x2_fixed_20260810/fig6/figures/fig6.png"
+      ],
+      "artifact_seed_dirs": null,
+      "authority_tier": "current-authority",
+      "provenance_link": "direct",
+      "conclusion_status": "operational-only",
+      "result_statements": [
+        "fig6 PNG/PDF/SVG 与 replay/visual QA 文件存在；对应 Fig.7。"
+      ],
+      "task_conclusion_zh": "fig6_plot 是 Fig.7 对应 internal bundle 的叶绘图消费者，已从冻结 CSV 渲染并通过既有 QA；它不加载模型、不产生新结论。",
+      "limitations": "--check-only 仍需读取全部 panel source；内嵌 layout spec 随代码版本变化。",
+      "source_audit": "scout:ecosystem",
+      "record_id": "task-130"
+    }
+  ]
+}

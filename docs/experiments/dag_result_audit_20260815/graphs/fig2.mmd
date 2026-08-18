@@ -1,0 +1,124 @@
+flowchart LR
+  n_artifact_DMS_enhanced_svg["artifact: DMS-enhanced.svg"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig2["fig2 · Fig.3"]
+    n_fig2_all["all\n[operational-only]"]
+    n_fig2_pair_trial_specs["pair_trial_specs\n[operational-only]"]
+    n_fig2_state_bank["state_bank\n[operational-only]"]
+    n_fig2_crossfit_split_specs["crossfit_split_specs\n[operational-only]"]
+    n_fig2_crossfit_interaction["crossfit_interaction\n[bounded]"]
+    n_fig2_crossfit_null_specs["crossfit_null_specs\n[operational-only]"]
+    n_fig2_crossfit_null_calibration["crossfit_null_calibration\n[bounded]"]
+    n_fig2_morphology["morphology\n[bounded]"]
+    n_fig2_linear_mixture["linear_mixture\n[conflicted]"]
+    n_fig2_neutral_ping["neutral_ping\n[bounded]"]
+    n_fig2_partial_cue_mask_specs["partial_cue_mask_specs\n[conflicted]"]
+    n_fig2_partial_cue["partial_cue\n[conflicted]"]
+    n_fig2_ping_sweep["ping_sweep\n[bounded]"]
+    n_fig2_completion_delay_boundary_bank["completion_delay_boundary_bank\n[operational-only]"]
+    n_fig2_completion_delay_mask_specs["completion_delay_mask_specs\n[conflicted]"]
+    n_fig2_completion_delay_sweep["completion_delay_sweep\n[conflicted]"]
+    n_fig2_supplement["supplement\n[bounded]"]
+    n_fig2_fixed_b_specs["fixed_b_specs\n[operational-only]"]
+    n_fig2_fixed_b_input_bank["fixed_b_input_bank\n[operational-only]"]
+    n_fig2_fixed_b_history_bank["fixed_b_history_bank\n[operational-only]"]
+    n_fig2_fixed_b_protocol["fixed_b_protocol\n[bounded]"]
+    n_fig2_fixed_b_replay_bank["fixed_b_replay_bank\n[operational-only]"]
+    n_fig2_fixed_b_rollout_bank["fixed_b_rollout_bank\n[operational-only]"]
+    n_fig2_fixed_b_swap_bank["fixed_b_swap_bank\n[operational-only]"]
+    n_fig2_fixed_b_analysis["fixed_b_analysis\n[bounded]"]
+    n_fig2_fixed_b_cohort_aggregate["fixed_b_cohort_aggregate\n[supported]"]
+    n_final_six_fig2_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig2_all -->|orchestrates| n_fig2_state_bank
+  n_fig2_all -->|orchestrates| n_fig2_crossfit_interaction
+  n_fig2_all -->|orchestrates| n_fig2_crossfit_null_calibration
+  n_fig2_all -->|orchestrates| n_fig2_morphology
+  n_fig2_all -->|orchestrates| n_fig2_linear_mixture
+  n_fig2_all -->|orchestrates| n_fig2_neutral_ping
+  n_fig2_all -->|orchestrates| n_fig2_partial_cue
+  n_fig2_all -->|orchestrates| n_fig2_ping_sweep
+  n_fig2_all -->|orchestrates| n_fig2_completion_delay_sweep
+  n_fig2_all -->|orchestrates| n_fig2_supplement
+  n_fig2_state_bank -->|requires| n_fig2_pair_trial_specs
+  n_fig2_crossfit_split_specs -->|requires| n_fig2_pair_trial_specs
+  n_fig2_crossfit_interaction -->|requires| n_fig2_pair_trial_specs
+  n_fig2_crossfit_interaction -->|requires| n_fig2_state_bank
+  n_fig2_crossfit_interaction -->|requires| n_fig2_crossfit_split_specs
+  n_fig2_crossfit_null_specs -->|requires| n_fig2_pair_trial_specs
+  n_fig2_crossfit_null_specs -->|requires| n_fig2_crossfit_split_specs
+  n_fig2_crossfit_null_calibration -->|requires| n_fig2_pair_trial_specs
+  n_fig2_crossfit_null_calibration -->|requires| n_fig2_state_bank
+  n_fig2_crossfit_null_calibration -->|requires| n_fig2_crossfit_split_specs
+  n_fig2_crossfit_null_calibration -->|requires| n_fig2_crossfit_null_specs
+  n_fig2_morphology -->|requires| n_fig2_state_bank
+  n_fig2_linear_mixture -->|requires| n_fig2_state_bank
+  n_fig2_neutral_ping -->|requires| n_fig2_state_bank
+  n_fig2_partial_cue_mask_specs -->|requires| n_fig2_pair_trial_specs
+  n_fig2_partial_cue -->|requires| n_fig2_state_bank
+  n_fig2_partial_cue -->|requires| n_fig2_partial_cue_mask_specs
+  n_fig2_ping_sweep -->|requires| n_fig2_state_bank
+  n_fig2_completion_delay_boundary_bank -->|requires| n_fig2_pair_trial_specs
+  n_fig2_completion_delay_mask_specs -->|requires| n_fig2_pair_trial_specs
+  n_fig2_completion_delay_sweep -->|requires| n_fig2_completion_delay_boundary_bank
+  n_fig2_completion_delay_sweep -->|requires| n_fig2_completion_delay_mask_specs
+  n_fig2_supplement -->|requires| n_fig2_state_bank
+  n_fig2_fixed_b_input_bank -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_history_bank -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_history_bank -->|requires| n_fig2_fixed_b_input_bank
+  n_fig2_fixed_b_protocol -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_protocol -->|requires| n_fig2_fixed_b_input_bank
+  n_fig2_fixed_b_protocol -->|requires| n_fig2_fixed_b_history_bank
+  n_fig2_fixed_b_replay_bank -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_replay_bank -->|requires| n_fig2_fixed_b_input_bank
+  n_fig2_fixed_b_replay_bank -->|requires| n_fig2_fixed_b_history_bank
+  n_fig2_fixed_b_rollout_bank -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_rollout_bank -->|requires| n_fig2_fixed_b_input_bank
+  n_fig2_fixed_b_rollout_bank -->|requires| n_fig2_fixed_b_history_bank
+  n_fig2_fixed_b_rollout_bank -->|requires| n_fig2_fixed_b_replay_bank
+  n_fig2_fixed_b_swap_bank -->|requires| n_fig2_fixed_b_specs
+  n_fig2_fixed_b_swap_bank -->|requires| n_fig2_fixed_b_input_bank
+  n_fig2_fixed_b_swap_bank -->|requires| n_fig2_fixed_b_history_bank
+  n_fig2_fixed_b_analysis -->|requires| n_fig2_fixed_b_replay_bank
+  n_fig2_fixed_b_analysis -->|requires| n_fig2_fixed_b_rollout_bank
+  n_fig2_fixed_b_analysis -->|requires| n_fig2_fixed_b_swap_bank
+  n_fig2_fixed_b_cohort_aggregate -->|requires| n_fig2_fixed_b_analysis
+  n_final_six_fig2_final_statistics -->|consumes| n_fig2_fixed_b_specs
+  n_final_six_fig2_final_statistics -->|consumes| n_fig2_fixed_b_history_bank
+  n_final_six_fig2_final_statistics -->|consumes| n_fig2_fixed_b_rollout_bank
+  n_final_six_fig2_final_statistics -->|consumes| n_fig2_fixed_b_analysis
+  n_final_six_fig2_final_statistics -->|consumes| n_fig2_fixed_b_cohort_aggregate
+  n_final_six_fig2_final_statistics -->|consumes| n_artifact_DMS_enhanced_svg
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig2_all operational_only
+  class n_fig2_pair_trial_specs operational_only
+  class n_fig2_state_bank operational_only
+  class n_fig2_crossfit_split_specs operational_only
+  class n_fig2_crossfit_interaction bounded
+  class n_fig2_crossfit_null_specs operational_only
+  class n_fig2_crossfit_null_calibration bounded
+  class n_fig2_morphology bounded
+  class n_fig2_linear_mixture conflicted
+  class n_fig2_neutral_ping bounded
+  class n_fig2_partial_cue_mask_specs conflicted
+  class n_fig2_partial_cue conflicted
+  class n_fig2_ping_sweep bounded
+  class n_fig2_completion_delay_boundary_bank operational_only
+  class n_fig2_completion_delay_mask_specs conflicted
+  class n_fig2_completion_delay_sweep conflicted
+  class n_fig2_supplement bounded
+  class n_fig2_fixed_b_specs operational_only
+  class n_fig2_fixed_b_input_bank operational_only
+  class n_fig2_fixed_b_history_bank operational_only
+  class n_fig2_fixed_b_protocol bounded
+  class n_fig2_fixed_b_replay_bank operational_only
+  class n_fig2_fixed_b_rollout_bank operational_only
+  class n_fig2_fixed_b_swap_bank operational_only
+  class n_fig2_fixed_b_analysis bounded
+  class n_fig2_fixed_b_cohort_aggregate supported
+  class n_final_six_fig2_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

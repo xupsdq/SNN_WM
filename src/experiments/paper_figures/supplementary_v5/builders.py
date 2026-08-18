@@ -540,152 +540,249 @@ def build_s3(context: SourceBuildContext) -> None:
     context.add_test("s3", "d", "attenuation_disrupted_fraction", disrupted["Attenuate"], family="holm6")
     context.add_test("s3", "d", "reset_minus_attenuation_disruption", disrupted["Reset"] - disrupted["Attenuate"], family="holm6")
 
+    # The K=10 intervention is a persisted extension parent; controls are structural and descriptive.
+    extension_root = context.repo_root / "results" / "successor_extension_v1_confirmatory_20seed"
+    extension_paths = sorted(
+        extension_root.glob("seed_*/data/metrics/exp_b_k10_l1_overlap_intervention/exp_b_network_summary.csv")
+    )
+    if len(extension_paths) != len(EXPECTED_NETWORK_SEEDS):
+        raise ValueError(f"S3 expected 20 persisted K=10 intervention summaries, found {len(extension_paths)}")
+    extension = pd.concat([context.read_csv(path) for path in extension_paths], ignore_index=True)
+    context.require_networks(extension, label="S3 K=10 intervention summaries")
+    extension_inference = context.read_csv(extension_root / "aggregate" / "population_inference.csv")
+    endpoint_specs = (
+        ("e", "early_layer2_b_history_contrast_attenuation", "Input response", "layer2"),
+        ("f", "post_b_layer2_ux_history_contrast_attenuation", "Successor state", "layer3"),
+    )
+    condition_columns = (
+        ("Overlap reset", "mean_overlap_attenuation"),
+        ("Non-overlap reset", "mean_nonoverlap_attenuation"),
+        ("Random reset", "mean_random_attenuation"),
+    )
+    for panel_id, endpoint, endpoint_label, _ in endpoint_specs:
+        subset = extension.loc[extension["endpoint"].eq(endpoint)].copy()
+        if len(subset) != len(EXPECTED_NETWORK_SEEDS) or set(subset["network_seed"].astype(int)) != set(EXPECTED_NETWORK_SEEDS):
+            raise ValueError(f"S3{panel_id} K=10 intervention summary is not one row per network")
+        rows = [
+            {
+                "network_seed": int(row.network_seed),
+                "endpoint": endpoint_label,
+                "condition": condition,
+                "value": 100.0 * float(getattr(row, column)),
+            }
+            for row in subset.itertuples(index=False)
+            for condition, column in condition_columns
+        ]
+        panel = pd.DataFrame(rows)
+        context.write_panel("s3", panel_id, panel)
+        context.add_summaries(
+            "s3",
+            panel_id,
+            panel.loc[~panel["condition"].eq("Overlap reset")],
+            groups=["condition", "endpoint"],
+        )
+        inference_rows = extension_inference.loc[
+            extension_inference["cohort"].eq("full20")
+            & extension_inference["experiment"].eq("exp_b_k10_l1_overlap_intervention")
+            & extension_inference["endpoint"].eq(endpoint)
+        ]
+        if len(inference_rows) != 1:
+            raise ValueError(f"S3{panel_id} expected one full-20 inference row for {endpoint}")
+        inference_row = inference_rows.iloc[0]
+        frozen = pd.Series(
+            {
+                "n_networks": int(inference_row["n_networks"]),
+                "mean": float(inference_row["mean"] * 100.0),
+                "ci95_low": float(inference_row["bootstrap_ci95_low"] * 100.0),
+                "ci95_high": float(inference_row["bootstrap_ci95_high"] * 100.0),
+                "threshold": 0.0,
+                "fraction_above_zero": float(inference_row["positive_network_fraction"]),
+                "p_one_sided": float(inference_row["p_one_sided_exact_sign_flip"]),
+                "holm_adjusted_p": float(inference_row["holm_adjusted_p"]),
+            }
+        )
+        context.add_frozen_summary(
+            "s3",
+            panel_id,
+            metric="value",
+            source_row=frozen,
+            groups={"condition": "Overlap reset", "endpoint": endpoint_label},
+        )
+        context.add_frozen_test(
+            "s3",
+            panel_id,
+            f"full20_{endpoint}",
+            family="successor_extension_exp_b_primary2",
+            source_row=frozen,
+        )
+
 
 @_register("s4")
 def build_s4(context: SourceBuildContext) -> None:
-    c5_root = (
-        context.repo_root
-        / "results"
-        / "causal_closure_multi_seed_20260803"
-        / "c5_l2_successor"
-    )
+    c5_root = context.repo_root / "results" / "causal_closure_multi_seed_20260803" / "c5_l2_successor"
+    extension_root = context.repo_root / "results" / "successor_extension_v1_confirmatory_20seed"
     context.track(c5_root / "multiseed_protocol_freeze.json")
     context.track(c5_root / "C5_20SEED_REPORT_20260803.md")
-    identity_paths = sorted(c5_root.glob("seed_*/data/metrics/c5_identity_audit.csv"))
-    if len(identity_paths) != len(EXPECTED_NETWORK_SEEDS):
-        raise ValueError(f"S4 expected 20 C5 identity tables, found {len(identity_paths)}")
-    identity = pd.concat(
-        [context.read_csv(path) for path in identity_paths],
-        ignore_index=True,
-    )
-    context.require_networks(identity, label="S4 C5 identity audits")
-    if len(identity) != 160 or not bool(identity["identity_pass"].astype(bool).all()):
-        raise ValueError("S4 C5 identity audit did not pass all 160 network-K-chunk rows")
-    gate_specs = (
-        ("L2 only", "layer2_only_mix_exact"),
-        ("Boundary", "own_sham_boundary_exact"),
-        ("STSP kept", "stsp_restore_exact"),
-        ("Fast reset", "fast_state_uniform_after_reset"),
-        ("Same C", "C_tensor_identical_across_conditions"),
-        ("Sham out", "own_sham_output_exact"),
-    )
-    identity_rows: list[pd.DataFrame] = []
-    for gate, column in gate_specs:
-        grouped = identity.groupby(["network_seed", "prefix_k"], as_index=False).agg(
-            passed=(column, "all"),
-            n_chunks=(column, "size"),
-        )
-        grouped["gate"] = gate
-        grouped["source_gate"] = column
-        grouped["value"] = grouped["passed"].astype(float) * 100.0
-        identity_rows.append(grouped)
-    panel_d = pd.concat(identity_rows, ignore_index=True)
-    if not bool(panel_d["passed"].astype(bool).all()) or set(panel_d["n_chunks"]) != {4}:
-        raise ValueError("S4 C5 gate matrix contains a failed or incomplete identity cell")
-    context.write_panel("s4", "d", panel_d)
-    context.add_summaries(
-        "s4",
-        "d",
-        panel_d,
-        groups=["prefix_k", "gate"],
-        ci_method="none",
-        role="identity_audit",
-    )
+    context.track(extension_root / "aggregate" / "artifact_manifest.json")
+    context.track(extension_root / "aggregate" / "verdict.json")
 
-    aggregate = c5_root / "aggregate"
-    effects = context.read_csv(aggregate / "data" / "metrics" / "c5_network_effects.csv")
-    inference = context.read_csv(aggregate / "data" / "metrics" / "c5_population_inference.csv")
-    engineering = context.read_csv(aggregate / "meta" / "c5_multiseed_engineering_audit.csv")
-    context.require_networks(effects, label="S4 C5 network effects")
-    context.require_networks(engineering, label="S4 C5 engineering audit")
-    if not bool(engineering["engineering_pass"].astype(bool).all()):
+    c5_aggregate = c5_root / "aggregate"
+    c5_effects = context.read_csv(c5_aggregate / "data" / "metrics" / "c5_network_effects.csv")
+    c5_inference = context.read_csv(c5_aggregate / "data" / "metrics" / "c5_population_inference.csv")
+    c5_engineering = context.read_csv(c5_aggregate / "meta" / "c5_multiseed_engineering_audit.csv")
+    context.require_networks(c5_effects, label="S4 C5 network effects")
+    context.require_networks(c5_engineering, label="S4 C5 engineering audit")
+    if not bool(c5_engineering["engineering_pass"].astype(bool).all()):
         raise ValueError("S4 C5 engineering gate failed")
 
-    endpoint_specs = (
-        ("a", "early_layer2_event_map_donor_transfer", "L2"),
-        ("b", "layer3_successor_ux_donor_transfer", "L3"),
+    extension_effects = context.read_csv(extension_root / "aggregate" / "network_effects.csv")
+    extension_inference = context.read_csv(extension_root / "aggregate" / "population_inference.csv")
+    k10_summary_paths = sorted(
+        extension_root.glob("seed_*/data/metrics/exp_a_c5_k10_successor/c5_k10_endpoint_summary.csv")
     )
-    for panel_id, endpoint, endpoint_label in endpoint_specs:
-        panel = effects.loc[
-            effects["endpoint"].eq(endpoint),
+    if len(k10_summary_paths) != len(EXPECTED_NETWORK_SEEDS):
+        raise ValueError(f"S4 expected 20 K=10 endpoint summaries, found {len(k10_summary_paths)}")
+    k10_summaries = pd.concat([context.read_csv(path) for path in k10_summary_paths], ignore_index=True)
+    context.require_networks(k10_summaries, label="S4 K=10 endpoint summaries")
+
+    def extension_row(experiment: str, endpoint: str) -> pd.Series:
+        rows = extension_inference.loc[
+            extension_inference["cohort"].eq("full20")
+            & extension_inference["experiment"].eq(experiment)
+            & extension_inference["endpoint"].eq(endpoint)
+        ]
+        if len(rows) != 1:
+            raise ValueError(f"S4 expected one extension inference row for {experiment}/{endpoint}")
+        row = rows.iloc[0]
+        return pd.Series(
+            {
+                "n_networks": int(row["n_networks"]),
+                "mean": float(row["mean"]),
+                "ci95_low": float(row["bootstrap_ci95_low"]),
+                "ci95_high": float(row["bootstrap_ci95_high"]),
+                "threshold": 0.0,
+                "fraction_above_zero": float(row["positive_network_fraction"]),
+                "p_one_sided": float(row["p_one_sided_exact_sign_flip"]),
+                "holm_adjusted_p": float(row["holm_adjusted_p"]),
+            }
+        )
+
+    endpoint_specs = (
+        ("a", "early_layer2_event_map_donor_transfer", "Input response", "layer2"),
+        ("b", "layer3_successor_ux_donor_transfer", "Successor state", "layer3"),
+    )
+    for panel_id, endpoint, endpoint_label, _ in endpoint_specs:
+        c5_panel = c5_effects.loc[
+            c5_effects["endpoint"].eq(endpoint) & c5_effects["prefix_k"].isin([1, 5]),
             ["network_seed", "prefix_k", "mean_transfer", "positive_fraction", "valid_coverage"],
         ].rename(columns={"mean_transfer": "value"})
-        if len(panel) != 40 or not bool((panel["value"] > 0).all()):
-            raise ValueError(f"S4{panel_id} C5 endpoint failed the 40-row positive gate")
+        k10_technical = endpoint
+        extension_panel = extension_effects.loc[
+            extension_effects["cohort"].eq("full20")
+            & extension_effects["experiment"].eq("exp_a_c5_k10_successor")
+            & extension_effects["endpoint"].eq(k10_technical),
+            ["network_seed", "value"],
+        ].copy()
+        k10_quality = k10_summaries.loc[
+            k10_summaries["endpoint"].eq(k10_technical),
+            ["network_seed", "positive_fraction", "valid_coverage"],
+        ]
+        extension_panel = extension_panel.merge(k10_quality, on="network_seed", validate="one_to_one")
+        extension_panel["prefix_k"] = 10
+        panel = pd.concat([c5_panel, extension_panel], ignore_index=True)
+        if len(panel) != 60 or set(panel["network_seed"].astype(int)) != set(EXPECTED_NETWORK_SEEDS):
+            raise ValueError(f"S4{panel_id} expected 60 full-20 network/depth rows")
+        if not bool((panel["value"] > 0).all()):
+            raise ValueError(f"S4{panel_id} contains a non-positive full-20 transfer value")
         panel["endpoint"] = endpoint_label
         context.write_panel("s4", panel_id, panel)
         for prefix_k in (1, 5):
             frozen = _c5_inference_row(
-                inference,
+                c5_inference,
                 cohort="all_20",
                 endpoint=endpoint,
                 prefix_k=prefix_k,
             )
             context.add_frozen_summary(
-                "s4",
-                panel_id,
-                metric="value",
-                source_row=frozen,
-                groups={"prefix_k": prefix_k, "endpoint": endpoint_label},
+                "s4", panel_id, metric="value", source_row=frozen, groups={"prefix_k": prefix_k, "endpoint": endpoint_label}
             )
             context.add_frozen_test(
-                "s4",
-                panel_id,
-                f"all20_{endpoint}_K{prefix_k}",
-                family="c5_primary4",
-                source_row=frozen,
+                "s4", panel_id, f"all20_{endpoint}_K{prefix_k}", family="c5_primary4", source_row=frozen
             )
+        frozen = extension_row("exp_a_c5_k10_successor", endpoint)
+        context.add_frozen_summary(
+            "s4", panel_id, metric="value", source_row=frozen, groups={"prefix_k": 10, "endpoint": endpoint_label}
+        )
+        context.add_frozen_test(
+            "s4",
+            panel_id,
+            f"all20_{endpoint}_K10",
+            family="successor_extension_exp_a_primary2",
+            source_row=frozen,
+        )
 
-    cohort_rows: list[pd.DataFrame] = []
-    for _, endpoint, endpoint_label in endpoint_specs:
-        for prefix_k in (1, 5):
-            base = effects.loc[
-                effects["endpoint"].eq(endpoint) & effects["prefix_k"].eq(prefix_k),
-                ["network_seed", "mean_transfer"],
-            ].rename(columns={"mean_transfer": "value"})
-            cohort_rows.append(
-                base.assign(endpoint=endpoint_label, prefix_k=prefix_k, cohort="Full 20")
-            )
-            cohort_rows.append(
-                base.loc[base["network_seed"].ne(1000)].assign(
-                    endpoint=endpoint_label,
-                    prefix_k=prefix_k,
-                    cohort="Confirm. 19",
-                )
-            )
-            for cohort, label in (
-                ("all_20", "Full 20"),
-                ("confirmatory_19_excluding_seed_1000", "Confirm. 19"),
-            ):
-                frozen = _c5_inference_row(
-                    inference,
-                    cohort=cohort,
-                    endpoint=endpoint,
-                    prefix_k=prefix_k,
-                )
-                context.add_frozen_summary(
-                    "s4",
-                    "c",
-                    metric="value",
-                    source_row=frozen,
-                    groups={
-                        "endpoint": endpoint_label,
-                        "prefix_k": prefix_k,
-                        "cohort": label,
-                    },
-                    role="reference" if cohort == "all_20" else "display",
-                )
-                if cohort != "all_20":
-                    context.add_frozen_test(
-                        "s4",
-                        "c",
-                        f"confirm19_{endpoint}_K{prefix_k}",
-                        family="c5_confirmatory4",
-                        source_row=frozen,
-                    )
-    panel_c = pd.concat(cohort_rows, ignore_index=True)
+    # The following-transition panel is a separate persisted primary experiment.
+    following_specs = (
+        ("early_layer2_D_donor_transfer", "Input response"),
+        ("layer3_postD_ux_donor_transfer", "Successor state"),
+    )
+    following_rows: list[pd.DataFrame] = []
+    for endpoint, endpoint_label in following_specs:
+        subset = extension_effects.loc[
+            extension_effects["cohort"].eq("full20")
+            & extension_effects["experiment"].eq("exp_c_c5_twohop_cd")
+            & extension_effects["endpoint"].eq(endpoint),
+            ["network_seed", "value"],
+        ].copy()
+        if len(subset) != len(EXPECTED_NETWORK_SEEDS) or set(subset["network_seed"].astype(int)) != set(EXPECTED_NETWORK_SEEDS):
+            raise ValueError(f"S4c following-transition endpoint is not one row per network: {endpoint}")
+        following_rows.append(subset.assign(endpoint=endpoint_label, transition="Following transition"))
+        frozen = extension_row("exp_c_c5_twohop_cd", endpoint)
+        context.add_frozen_summary(
+            "s4", "c", metric="value", source_row=frozen, groups={"endpoint": endpoint_label, "transition": "Following transition"}
+        )
+        context.add_frozen_test(
+            "s4",
+            "c",
+            f"full20_following_{endpoint}",
+            family="successor_extension_exp_c_primary2",
+            source_row=frozen,
+        )
+    panel_c = pd.concat(following_rows, ignore_index=True)
     context.write_panel("s4", "c", panel_c)
 
+    # Paired complete-state and STSP-only attribution remains descriptive.
+    cell_paths = sorted(extension_root.glob("seed_*/data/metrics/exp_c_c5_twohop_cd/exp_c_cell_metrics.csv"))
+    if len(cell_paths) != len(EXPECTED_NETWORK_SEEDS):
+        raise ValueError(f"S4d expected 20 following-transition cell tables, found {len(cell_paths)}")
+    cells = pd.concat(
+        [
+            context.read_csv(
+                path,
+            )
+            for path in cell_paths
+        ],
+        ignore_index=True,
+    )
+    context.require_networks(cells, label="S4 following-transition attribution cells")
+    attribution_specs = (
+        ("early_layer2_D_donor_transfer", "secondary_stsp_only_early_layer2_D_donor_transfer", "Input response"),
+        ("layer3_postD_ux_donor_transfer", "secondary_stsp_only_layer3_postD_ux_donor_transfer", "Successor state"),
+    )
+    attribution_rows: list[pd.DataFrame] = []
+    for primary, secondary, endpoint_label in attribution_specs:
+        primary_valid = "early_layer2_D_transfer_valid" if primary.startswith("early_layer2") else "layer3_postD_ux_transfer_valid"
+        subset = cells.loc[cells[primary_valid].eq(1) & cells["secondary_transfer_valid"].eq(1)].copy()
+        if len(subset) != 240 * len(EXPECTED_NETWORK_SEEDS) // 1:
+            raise ValueError(f"S4d unexpected following-transition cell count for {endpoint_label}: {len(subset)}")
+        for state, column in (("Complete state", primary), ("STSP only", secondary)):
+            values = subset.groupby("network_seed", as_index=False)[column].mean().rename(columns={column: "value"})
+            if len(values) != len(EXPECTED_NETWORK_SEEDS):
+                raise ValueError(f"S4d expected 20 paired attribution values for {endpoint_label}/{state}")
+            attribution_rows.append(values.assign(endpoint=endpoint_label, state=state))
+    panel_d = pd.concat(attribution_rows, ignore_index=True)
+    context.write_panel("s4", "d", panel_d)
+    context.add_summaries("s4", "d", panel_d, groups=["endpoint", "state"])
 
 @_register("s5")
 def build_s5(context: SourceBuildContext) -> None:
@@ -710,13 +807,41 @@ def build_s5(context: SourceBuildContext) -> None:
     )
     worst = joint.groupby("network_seed", as_index=False)["value"].min()
     context.write_panel("s5", "b", worst)
-    context.add_summaries("s5", "b", worst, ci_method="bootstrap_percentile")
-    context.add_test(
+    inference = context.read_csv(
+        context.source_root
+        / "fig4_accumulated_history_statistics"
+        / "metrics"
+        / "fig4_candidate_inference.csv"
+    )
+    rows = inference.loc[
+        inference["endpoint"].eq("minimum_joint_observed_minus_passive_k2_k10")
+    ]
+    if len(rows) != 1:
+        raise ValueError(f"S5b expected one frozen recurrence inference row, found {len(rows)}")
+    row = rows.iloc[0]
+    if int(row["n_networks"]) != len(worst) or not np.isclose(
+        float(row["mean"]), float(worst["value"].mean()), rtol=0.0, atol=1e-12
+    ):
+        raise ValueError("S5b frozen recurrence inference does not match the plotted network endpoint")
+    frozen = pd.Series(
+        {
+            "n_networks": int(row["n_networks"]),
+            "mean": float(row["mean"]),
+            "ci95_low": float(row["ci95_low"]),
+            "ci95_high": float(row["ci95_high"]),
+            "threshold": float(row["null_value"]),
+            "fraction_above_zero": float(row["n_above_null"]) / float(row["n_networks"]),
+            "p_one_sided": float(row["p_value"]),
+            "holm_adjusted_p": float(row["p_holm_all_new"]),
+        }
+    )
+    context.add_frozen_summary("s5", "b", metric="value", source_row=frozen)
+    context.add_frozen_test(
         "s5",
         "b",
         "per_network_worst_stage_joint_displacement",
-        worst["value"],
-        family="joint_min",
+        family="fig4a_recurrence_all_new",
+        source_row=frozen,
     )
 
     for panel_id, variable in (("c", "u"), ("d", "x")):
@@ -1083,7 +1208,17 @@ def build_s7(context: SourceBuildContext) -> None:
         f"{root}/supp_s11g_score_shuffle_null.csv",
         usecols=["network_seed", "endpoint", "observed_value", "null_value", "value"],
     )
-    score = score.loc[score["endpoint"].eq("overlap_interaction")]
+    score = score.loc[score["endpoint"].eq("overlap_interaction")].dropna(
+        subset=["observed_value", "null_value", "value"]
+    )
+    context.require_networks(score, label="S7 complete paired score shuffle rows")
+    if not np.allclose(
+        score["observed_value"] - score["null_value"],
+        score["value"],
+        rtol=1e-10,
+        atol=1e-12,
+    ):
+        raise ValueError("S7 score-shuffle rows do not satisfy observed - shuffled = difference")
     score_network = score.groupby("network_seed", as_index=False)[["observed_value", "null_value", "value"]].mean()
     panel_f = score_network.melt(
         id_vars="network_seed",

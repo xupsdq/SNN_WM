@@ -1,0 +1,269 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2250" height="1210" viewBox="0 0 2250 1210" role="img" aria-labelledby="title desc">
+<title id="title">fig2 DAG task evidence graph</title>
+<desc id="desc">Derived audit graph. Arrows point from a consumer to its required producer.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="40" y="42" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0F172A">fig2 · Fig.3</text>
+<text x="40" y="68" font-family="Arial, sans-serif" font-size="13" fill="#475569">consumer —requires/consumes→ producer · status colors match ledger</text>
+<path d="M 1290.0 626.0 C 940.0 626.0, 940.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="719.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 242.0, 900.0 242.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1250.0 626.0, 1250.0 434.0, 1210.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1250.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 626.0, 900.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="623.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 530.0, 900.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 722.0, 900.0 722.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="671.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 818.0, 900.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="719.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 914.0, 900.0 914.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="767.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 146.0, 900.0 146.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="383.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 1290.0 626.0 C 1095.0 626.0, 1095.0 1010.0, 900.0 1010.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="815.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">orchestrates</text>
+<path d="M 360.0 818.0 C 320.0 818.0, 320.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="719.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 360.0 530.0 C 320.0 530.0, 320.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 242.0 C 475.0 242.0, 475.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="475.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 242.0 C 630.0 242.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 242.0 C 630.0 242.0, 630.0 530.0, 590.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="383.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 338.0 C 475.0 338.0, 475.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="475.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 338.0 C 630.0 338.0, 630.0 530.0, 590.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="431.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 434.0 C 630.0 434.0, 630.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 434.0 C 785.0 434.0, 785.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="623.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 434.0 C 785.0 434.0, 785.0 530.0, 590.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 434.0 C 940.0 434.0, 940.0 338.0, 900.0 338.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="383.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 626.0 C 630.0 626.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="719.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 530.0 C 630.0 530.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="671.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 722.0 C 630.0 722.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="767.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 360.0 722.0 C 320.0 722.0, 320.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="671.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 818.0 C 630.0 818.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="815.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 818.0 C 630.0 818.0, 630.0 722.0, 590.0 722.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="767.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 914.0 C 630.0 914.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="863.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 360.0 338.0 C 320.0 338.0, 320.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 360.0 434.0 C 320.0 434.0, 320.0 626.0, 280.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 146.0 C 630.0 146.0, 630.0 338.0, 590.0 338.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="239.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 146.0 C 630.0 146.0, 630.0 434.0, 590.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="287.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 1010.0 C 630.0 1010.0, 630.0 818.0, 590.0 818.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="911.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 360.0 626.0 C 320.0 626.0, 320.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="320.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 434.0 C 475.0 434.0, 475.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="475.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 670.0 434.0 C 630.0 434.0, 630.0 626.0, 590.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 530.0 C 630.0 530.0, 630.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 530.0 C 785.0 530.0, 785.0 626.0, 590.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 530.0 C 940.0 530.0, 940.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 626.0 C 630.0 626.0, 630.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 626.0 C 785.0 626.0, 785.0 626.0, 590.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="623.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 626.0 C 940.0 626.0, 940.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1290.0 530.0 C 785.0 530.0, 785.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1290.0 530.0 C 940.0 530.0, 940.0 626.0, 590.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1290.0 530.0 C 1095.0 530.0, 1095.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="479.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1290.0 530.0 C 1250.0 530.0, 1250.0 626.0, 1210.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1250.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 722.0 C 630.0 722.0, 630.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="630.0" y="623.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 722.0 C 785.0 722.0, 785.0 626.0, 590.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="785.0" y="671.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 980.0 722.0 C 940.0 722.0, 940.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="940.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1600.0 578.0 C 1405.0 578.0, 1405.0 626.0, 1210.0 626.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1405.0" y="599.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1600.0 578.0 C 1560.0 578.0, 1560.0 530.0, 1520.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1560.0" y="551.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1600.0 578.0 C 1405.0 578.0, 1405.0 722.0, 1210.0 722.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1405.0" y="647.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1910.0 530.0 C 1870.0 530.0, 1870.0 578.0, 1830.0 578.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1870.0" y="551.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">requires</text>
+<path d="M 1910.0 626.0 C 1095.0 626.0, 1095.0 530.0, 280.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1095.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<path d="M 1910.0 626.0 C 1405.0 626.0, 1405.0 434.0, 900.0 434.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1405.0" y="527.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<path d="M 1910.0 626.0 C 1715.0 626.0, 1715.0 530.0, 1520.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1715.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<path d="M 1910.0 626.0 C 1870.0 626.0, 1870.0 578.0, 1830.0 578.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="1870.0" y="599.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<path d="M 1910.0 626.0 C 2025.0 626.0, 2025.0 530.0, 2140.0 530.0" fill="none" stroke="#94A3B8" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="2025.0" y="575.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#64748B">consumes</text>
+<g id="n_fig2_all" data-canonical-id="fig2.all">
+<rect x="1290" y="590.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="1302" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">all</text>
+<text x="1302" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_pair_trial_specs" data-canonical-id="fig2.pair_trial_specs">
+<rect x="50" y="590.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="62" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">pair_trial_specs</text>
+<text x="62" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_state_bank" data-canonical-id="fig2.state_bank">
+<rect x="360" y="782.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="372" y="803.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">state_bank</text>
+<text x="372" y="844.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_crossfit_split_specs" data-canonical-id="fig2.crossfit_split_specs">
+<rect x="360" y="494.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="372" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">crossfit_split_specs</text>
+<text x="372" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_crossfit_interaction" data-canonical-id="fig2.crossfit_interaction">
+<rect x="670" y="206.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="227.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">crossfit_interaction</text>
+<text x="682" y="268.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_crossfit_null_specs" data-canonical-id="fig2.crossfit_null_specs">
+<rect x="670" y="302.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="682" y="323.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">crossfit_null_specs</text>
+<text x="682" y="364.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_crossfit_null_calibration" data-canonical-id="fig2.crossfit_null_calibration">
+<rect x="980" y="398.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="992" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">crossfit_null_calibration</text>
+<text x="992" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_morphology" data-canonical-id="fig2.morphology">
+<rect x="670" y="590.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">morphology</text>
+<text x="682" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_linear_mixture" data-canonical-id="fig2.linear_mixture">
+<rect x="670" y="494.0" width="230" height="72" rx="9" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="682" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">linear_mixture</text>
+<text x="682" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_fig2_neutral_ping" data-canonical-id="fig2.neutral_ping">
+<rect x="670" y="686.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="707.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">neutral_ping</text>
+<text x="682" y="748.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_partial_cue_mask_specs" data-canonical-id="fig2.partial_cue_mask_specs">
+<rect x="360" y="686.0" width="230" height="72" rx="9" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="372" y="707.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">partial_cue_mask_specs</text>
+<text x="372" y="748.0" font-family="Arial, sans-serif" font-size="10" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_fig2_partial_cue" data-canonical-id="fig2.partial_cue">
+<rect x="670" y="782.0" width="230" height="72" rx="9" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="682" y="803.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">partial_cue</text>
+<text x="682" y="844.0" font-family="Arial, sans-serif" font-size="10" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_fig2_ping_sweep" data-canonical-id="fig2.ping_sweep">
+<rect x="670" y="878.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="899.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">ping_sweep</text>
+<text x="682" y="940.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_completion_delay_boundary_bank" data-canonical-id="fig2.completion_delay_boundary_bank">
+<rect x="360" y="302.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="372" y="323.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">completion_delay_boundary_bank</text>
+<text x="372" y="364.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_completion_delay_mask_specs" data-canonical-id="fig2.completion_delay_mask_specs">
+<rect x="360" y="398.0" width="230" height="72" rx="9" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="372" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">completion_delay_mask_specs</text>
+<text x="372" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_fig2_completion_delay_sweep" data-canonical-id="fig2.completion_delay_sweep">
+<rect x="670" y="110.0" width="230" height="72" rx="9" fill="#FEE2E2" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="682" y="131.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">completion_delay_sweep</text>
+<text x="682" y="172.0" font-family="Arial, sans-serif" font-size="10" fill="#B91C1C">conflicted</text>
+</g>
+<g id="n_fig2_supplement" data-canonical-id="fig2.supplement">
+<rect x="670" y="974.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="682" y="995.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">supplement</text>
+<text x="682" y="1036.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_fixed_b_specs" data-canonical-id="fig2.fixed_b_specs">
+<rect x="50" y="494.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="62" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_specs</text>
+<text x="62" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_input_bank" data-canonical-id="fig2.fixed_b_input_bank">
+<rect x="360" y="590.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="372" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_input_bank</text>
+<text x="372" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_history_bank" data-canonical-id="fig2.fixed_b_history_bank">
+<rect x="670" y="398.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="682" y="419.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_history_bank</text>
+<text x="682" y="460.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_protocol" data-canonical-id="fig2.fixed_b_protocol">
+<rect x="980" y="494.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="992" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_protocol</text>
+<text x="992" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_fixed_b_replay_bank" data-canonical-id="fig2.fixed_b_replay_bank">
+<rect x="980" y="590.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="992" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_replay_bank</text>
+<text x="992" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_rollout_bank" data-canonical-id="fig2.fixed_b_rollout_bank">
+<rect x="1290" y="494.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="1302" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_rollout_bank</text>
+<text x="1302" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_swap_bank" data-canonical-id="fig2.fixed_b_swap_bank">
+<rect x="980" y="686.0" width="230" height="72" rx="9" fill="#DBEAFE" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="992" y="707.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_swap_bank</text>
+<text x="992" y="748.0" font-family="Arial, sans-serif" font-size="10" fill="#1D4ED8">operational-only</text>
+</g>
+<g id="n_fig2_fixed_b_analysis" data-canonical-id="fig2.fixed_b_analysis">
+<rect x="1600" y="542.0" width="230" height="72" rx="9" fill="#FEF3C7" stroke="#B45309" stroke-width="1.5"/>
+<text x="1612" y="563.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_analysis</text>
+<text x="1612" y="604.0" font-family="Arial, sans-serif" font-size="10" fill="#B45309">bounded</text>
+</g>
+<g id="n_fig2_fixed_b_cohort_aggregate" data-canonical-id="fig2.fixed_b_cohort_aggregate">
+<rect x="1910" y="494.0" width="230" height="72" rx="9" fill="#DCFCE7" stroke="#15803D" stroke-width="1.5"/>
+<text x="1922" y="515.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">fixed_b_cohort_aggregate</text>
+<text x="1922" y="556.0" font-family="Arial, sans-serif" font-size="10" fill="#15803D">supported</text>
+</g>
+<g id="n_final_six_fig2_final_statistics" data-canonical-id="final_six.fig2.final-statistics">
+<rect x="1910" y="590.0" width="230" height="72" rx="9" fill="#DCFCE7" stroke="#15803D" stroke-width="1.5"/>
+<text x="1922" y="611.0" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">final-statistics</text>
+<text x="1922" y="652.0" font-family="Arial, sans-serif" font-size="10" fill="#15803D">supported</text>
+</g>
+<rect x="40" y="1162" width="16" height="16" rx="3" fill="#DCFCE7" stroke="#15803D"/>
+<text x="62" y="1174" font-family="Arial, sans-serif" font-size="10" fill="#334155">supported</text>
+<rect x="190" y="1162" width="16" height="16" rx="3" fill="#FEF3C7" stroke="#B45309"/>
+<text x="212" y="1174" font-family="Arial, sans-serif" font-size="10" fill="#334155">bounded</text>
+<rect x="340" y="1162" width="16" height="16" rx="3" fill="#DBEAFE" stroke="#1D4ED8"/>
+<text x="362" y="1174" font-family="Arial, sans-serif" font-size="10" fill="#334155">operational-only</text>
+<rect x="490" y="1162" width="16" height="16" rx="3" fill="#FEE2E2" stroke="#B91C1C"/>
+<text x="512" y="1174" font-family="Arial, sans-serif" font-size="10" fill="#334155">conflicted</text>
+<rect x="640" y="1162" width="16" height="16" rx="3" fill="#F3F4F6" stroke="#6B7280"/>
+<text x="662" y="1174" font-family="Arial, sans-serif" font-size="10" fill="#334155">unavailable</text>
+</svg>

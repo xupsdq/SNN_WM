@@ -1,0 +1,69 @@
+flowchart LR
+  n_sequence_root_shared_sequence_specs["sequence_root.shared_sequence_specs"]
+  n_sequence_root_shared_sequence_root_bank["sequence_root.shared_sequence_root_bank"]
+  n_fig3_weak_cue_access["fig3.weak_cue_access"]
+  n_fig3_cue_specificity_access["fig3.cue_specificity_access"]
+  n_fig3_boundary_summary["fig3.boundary_summary"]
+  n_fig2_partial_cue["fig2.partial_cue"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig6["fig6 · Fig.7"]
+    n_fig6_all["all\n[operational-only]"]
+    n_fig6_sequence_trials["sequence_trials\n[operational-only]"]
+    n_fig6_sequence_bank["sequence_bank\n[operational-only]"]
+    n_fig6_field_ping_readout["field_ping_readout\n[bounded]"]
+    n_fig6_global_ping_score_spike_prediction["global_ping_score_spike_prediction\n[bounded]"]
+    n_fig6_real_probe_score_spike_deflection["real_probe_score_spike_deflection\n[unavailable]"]
+    n_fig6_overlap_gated_stsp_recruitment["overlap_gated_stsp_recruitment\n[supported]"]
+    n_fig6_high_stsp_overlap_ablation["high_stsp_overlap_ablation\n[supported]"]
+    n_fig6_supplement["supplement\n[bounded]"]
+    n_fig6_score_shuffle_null["score_shuffle_null\n[bounded]"]
+    n_fig6_overlap_threshold_sensitivity["overlap_threshold_sensitivity\n[bounded]"]
+    n_final_six_fig6_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig6_all -->|orchestrates| n_fig6_field_ping_readout
+  n_fig6_all -->|orchestrates| n_fig6_global_ping_score_spike_prediction
+  n_fig6_all -->|orchestrates| n_fig6_real_probe_score_spike_deflection
+  n_fig6_all -->|orchestrates| n_fig6_overlap_gated_stsp_recruitment
+  n_fig6_all -->|orchestrates| n_fig6_high_stsp_overlap_ablation
+  n_fig6_all -->|orchestrates| n_fig6_supplement
+  n_fig6_all -->|orchestrates| n_fig6_score_shuffle_null
+  n_fig6_all -->|orchestrates| n_fig6_overlap_threshold_sensitivity
+  n_fig6_sequence_trials -->|aliases| n_sequence_root_shared_sequence_specs
+  n_fig6_sequence_bank -->|requires| n_fig6_sequence_trials
+  n_fig6_sequence_bank -->|aliases| n_sequence_root_shared_sequence_root_bank
+  n_fig6_field_ping_readout -->|requires| n_fig6_sequence_bank
+  n_fig6_global_ping_score_spike_prediction -->|requires| n_fig6_sequence_bank
+  n_fig6_real_probe_score_spike_deflection -->|requires| n_fig6_sequence_bank
+  n_fig6_overlap_gated_stsp_recruitment -->|requires| n_fig6_sequence_bank
+  n_fig6_high_stsp_overlap_ablation -->|requires| n_fig6_sequence_bank
+  n_fig6_supplement -->|requires| n_fig6_field_ping_readout
+  n_fig6_supplement -->|requires| n_fig6_global_ping_score_spike_prediction
+  n_fig6_supplement -->|requires| n_fig6_real_probe_score_spike_deflection
+  n_fig6_supplement -->|requires| n_fig6_overlap_gated_stsp_recruitment
+  n_fig6_supplement -->|requires| n_fig6_high_stsp_overlap_ablation
+  n_fig6_score_shuffle_null -->|requires| n_fig6_sequence_bank
+  n_fig6_overlap_threshold_sensitivity -->|requires| n_fig6_sequence_bank
+  n_final_six_fig6_final_statistics -->|consumes| n_fig2_partial_cue
+  n_final_six_fig6_final_statistics -->|consumes| n_fig3_weak_cue_access
+  n_final_six_fig6_final_statistics -->|consumes| n_fig3_cue_specificity_access
+  n_final_six_fig6_final_statistics -->|consumes| n_fig3_boundary_summary
+  n_final_six_fig6_final_statistics -->|consumes| n_fig6_high_stsp_overlap_ablation
+  n_final_six_fig6_final_statistics -->|consumes| n_fig6_overlap_gated_stsp_recruitment
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig6_all operational_only
+  class n_fig6_sequence_trials operational_only
+  class n_fig6_sequence_bank operational_only
+  class n_fig6_field_ping_readout bounded
+  class n_fig6_global_ping_score_spike_prediction bounded
+  class n_fig6_real_probe_score_spike_deflection unavailable
+  class n_fig6_overlap_gated_stsp_recruitment supported
+  class n_fig6_high_stsp_overlap_ablation supported
+  class n_fig6_supplement bounded
+  class n_fig6_score_shuffle_null bounded
+  class n_fig6_overlap_threshold_sensitivity bounded
+  class n_final_six_fig6_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

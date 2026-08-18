@@ -1,0 +1,52 @@
+flowchart LR
+  n_runner_c5_l2_successor_closure["runner.c5_l2_successor_closure"]
+  n_materializer_fig4_accumulated_history_statistics["materializer.fig4_accumulated_history_statistics"]
+  %% Derived navigation graph; consumer --relation--> required producer
+  subgraph n_fig4["fig4 · Fig.5"]
+    n_fig4_all["all\n[operational-only]"]
+    n_fig4_pair_sampling["pair_sampling\n[operational-only]"]
+    n_fig4_similarity_entry["similarity_entry\n[conflicted]"]
+    n_fig4_rollouts["rollouts\n[conflicted]"]
+    n_fig4_overlap_localization["overlap_localization\n[bounded]"]
+    n_fig4_overlap_accuracy_identification["overlap_accuracy_identification\n[bounded]"]
+    n_fig4_decision_spike_displacement["decision_spike_displacement\n[bounded]"]
+    n_fig4_decision_deflection["decision_deflection\n[bounded]"]
+    n_fig4_overlap_perturbation["overlap_perturbation\n[bounded]"]
+    n_fig4_supplement["supplement\n[bounded]"]
+    n_final_six_fig4_final_statistics["final-statistics\n[supported]"]
+  end
+  n_fig4_all -->|orchestrates| n_fig4_overlap_localization
+  n_fig4_all -->|orchestrates| n_fig4_overlap_accuracy_identification
+  n_fig4_all -->|orchestrates| n_fig4_decision_spike_displacement
+  n_fig4_all -->|orchestrates| n_fig4_decision_deflection
+  n_fig4_all -->|orchestrates| n_fig4_overlap_perturbation
+  n_fig4_all -->|orchestrates| n_fig4_supplement
+  n_fig4_similarity_entry -->|requires| n_fig4_pair_sampling
+  n_fig4_rollouts -->|requires| n_fig4_pair_sampling
+  n_fig4_overlap_localization -->|requires| n_fig4_similarity_entry
+  n_fig4_overlap_localization -->|requires| n_fig4_rollouts
+  n_fig4_overlap_accuracy_identification -->|requires| n_fig4_similarity_entry
+  n_fig4_decision_spike_displacement -->|requires| n_fig4_rollouts
+  n_fig4_decision_deflection -->|requires| n_fig4_rollouts
+  n_fig4_overlap_perturbation -->|requires| n_fig4_rollouts
+  n_fig4_overlap_perturbation -->|requires| n_fig4_pair_sampling
+  n_fig4_supplement -->|requires| n_fig4_rollouts
+  n_final_six_fig4_final_statistics -->|consumes| n_runner_c5_l2_successor_closure
+  n_final_six_fig4_final_statistics -->|consumes| n_materializer_fig4_accumulated_history_statistics
+  classDef supported fill:#DCFCE7,stroke:#15803D,color:#111827,stroke-width:1.5px
+  classDef bounded fill:#FEF3C7,stroke:#B45309,color:#111827,stroke-width:1.5px
+  classDef operational_only fill:#DBEAFE,stroke:#1D4ED8,color:#111827,stroke-width:1.5px
+  classDef conflicted fill:#FEE2E2,stroke:#B91C1C,color:#111827,stroke-width:1.5px
+  classDef unavailable fill:#F3F4F6,stroke:#6B7280,color:#111827,stroke-width:1.5px
+  class n_fig4_all operational_only
+  class n_fig4_pair_sampling operational_only
+  class n_fig4_similarity_entry conflicted
+  class n_fig4_rollouts conflicted
+  class n_fig4_overlap_localization bounded
+  class n_fig4_overlap_accuracy_identification bounded
+  class n_fig4_decision_spike_displacement bounded
+  class n_fig4_decision_deflection bounded
+  class n_fig4_overlap_perturbation bounded
+  class n_fig4_supplement bounded
+  class n_final_six_fig4_final_statistics supported
+  linkStyle default stroke:#64748B,stroke-width:1.2px

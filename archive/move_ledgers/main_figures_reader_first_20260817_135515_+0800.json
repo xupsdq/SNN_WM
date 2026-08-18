@@ -1,0 +1,81 @@
+{
+  "archive_root": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP",
+  "archived_at": "2026-08-17T13:55:15.072876+08:00",
+  "directories": [
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig1",
+      "byte_count": 762919,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig1",
+      "tree_sha256": "54219828e225085dc0fc9831f6d439022a27c35c7aadd46299f97aa7493ac64c"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig2",
+      "byte_count": 589384,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig2",
+      "tree_sha256": "51f36c7b725980d6822c94f8e56b2a4a14c837a160d110e8c6d57b7b57c40ae7"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig3",
+      "byte_count": 307081,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig3",
+      "tree_sha256": "aef62afdca5509184bd9dffe0be1fd56d868f5505025b1156618c5f88d63fa2c"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig4",
+      "byte_count": 599933,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig4",
+      "tree_sha256": "cc2a4dc9f9f40f6d6ec4e597b2836b44a70f97ad86e2d2006fadb2d38ad0789b"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig5",
+      "byte_count": 327392,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig5",
+      "tree_sha256": "4eba12d9daa0419cd6028d0dad2406bc81de671bedbddb98dc95cda07aba11ed"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig6",
+      "byte_count": 339329,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig6",
+      "tree_sha256": "4099625da023430378c5be9a5ebc1593d1b605a794541fa66b6b0e2735b32c3a"
+    },
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/fig7",
+      "byte_count": 551977,
+      "file_count": 4,
+      "original_directory": "results/paper_figures/outputs/fig7",
+      "tree_sha256": "6c525b9565bba888d0d1c6e0a3b1e96aee0ca226fd6b107b05b9603ba50c970e"
+    }
+  ],
+  "provenance": [
+    {
+      "archived_directory": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/provenance/fig5",
+      "byte_count": 918040,
+      "file_count": 46,
+      "original_directory": "results/paper_figures/outputs/provenance/fig5",
+      "provenance": "fig5",
+      "replacement_source_bundle": "results/paper_figure_candidates/manuscript_fig5_reader_first_v3",
+      "tree_sha256": "8eb854c026b882eacc6b597915a94428c799d0a7ee0ba7f68c0a58529ee7c5eb"
+    }
+  ],
+  "reason": "Replaced by the user-confirmed latest manuscript Fig.1-Fig.7.",
+  "recoverable": true,
+  "root_files": [
+    {
+      "archived_path": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/main_figures_promotion_manifest.json",
+      "original_path": "results/paper_figures/outputs/main_figures_promotion_manifest.json",
+      "sha256": "c4625ef246bc823e3661cbc14deff95325aca5267cddf6302ab811d696857631"
+    },
+    {
+      "archived_path": "results/paper_figures/archive/main_figures_pre_reader_first_20260817_135515_+0800_KEEP/outputs/all_figures_qc_summary.csv",
+      "original_path": "results/paper_figures/outputs/all_figures_qc_summary.csv",
+      "sha256": "674f6ab9ed486a1c0d03945df279ee92454d16250e72ebb46b8a46657988215e"
+    }
+  ],
+  "schema": "pre_reader_first_main_figure_archive_v2"
+}
