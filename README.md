@@ -19,6 +19,7 @@ python --version
 ```text
 README.md                   项目入口和目录地图
 AGENTS.md                   项目级实验 DAG 规则
+STATE.md                    当前已验证仓库状态与交付边界
 pytest.ini                  测试入口配置
 requirements.txt            Python 运行依赖
 docs/                       当前文档、论文、实验规范和文档归档
