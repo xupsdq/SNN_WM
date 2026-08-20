@@ -23,11 +23,11 @@
 |---|---|---|
 | `v6.docx` | BASELINE | 稳定 V6 基线；当前 SHA-256 固定于 `PAPER_AUTHORITY.json`，不是最终投稿稿 |
 | `v6_1.docx` | IN_PROGRESS | 当前逐项作者确认构建中的工作稿；已同步五面板 Fig.5、独立 Supplementary Figs. S3–S5 结论与相应统计口径，确认未结束前不提升为正式稿 |
-| `v6.2.docx` | DRAFT | 基于 `v6_1.docx` 的阶段1逐项确认副本；当前已同步经作者确认的 Introduction 全四段、Discussion 全六段修订与全稿参考文献重排，以及 Fig.2a/d、Fig.4f/g、Fig.5b/d、Fig.6 component/order 分工、Fig.7d/f 和 Methods 透明度修订；Fig.5d 已移除解析为零的 passive 轨迹并同步 Methods/Results/图注，尚未提升为权威工作稿 |
+| `v6.2.docx` | DRAFT | 基于 `v6_1.docx` 的阶段1逐项确认副本；当前已同步经作者确认的标题、Abstract、Introduction 全四段、Results 总路线、Discussion 全六段及最终结论修订与全稿参考文献重排，以及 Fig.2a/d、Fig.4f/g、Fig.5b/d、Fig.6 component/order 分工与 Fig.6a singleton-reference claim calibration、Fig.7d/f 和 Methods 透明度修订；Fig.5d 已移除解析为零的 passive 轨迹，observed input-associated displacement 仅作描述性汇总，M31/S01 已退休，尚未提升为权威工作稿 |
 | `v6 - 副本.docx` | CANDIDATE_SOURCE | 有价值的修订来源，但不能整体替换基线 |
 | `supplementary_information.docx` | BASELINE | 当前 Supplementary 稳定基线 |
 | `supplementary_information_v6_1.docx` | IN_PROGRESS | 当前 V6.1 工作补充材料；已同步 Fig.6b M20、Supplementary Figs. S3–S5 与 Table S2 M01–M39，作者确认未结束 |
-| `supplementary_information_v6.2.docx` | DRAFT | 基于 `supplementary_information_v6_1.docx` 的阶段1逐项确认副本；当前已补充 Fig.2d state-shuffle protocol 与 fixed-B reference-value provenance |
+| `supplementary_information_v6.2.docx` | DRAFT | 基于 `supplementary_information_v6_1.docx` 的阶段1逐项确认副本；当前已补充 Fig.2d state-shuffle protocol 与 fixed-B reference-value provenance，将 Supplementary Fig. S5 降为描述性、从 Table S2 退休 M31/S01，并披露 M32/M33 的原始20端点 scope、SF01–SF04 的两个八端点 scope 及 Supplementary-only family registry |
 | `supplementary_information - 副本.docx` | CANDIDATE_SOURCE | Methods/Supplementary 修订来源；仍含复现性和 Table S2 版式阻断项 |
 | `revisions/V6_1_CONFIRMATION_LOG_20260814.md` | CURRENT, OPEN | 已确认修改和待作者确认项目 |
 | `revisions/V6_COPY_COMPARATIVE_REVIEW_20260814.md` | REFERENCE | 正式版与副本的逐项比较和采用边界 |
@@ -57,7 +57,7 @@
 - S3–S5 当前 provenance：`results/paper_figures/outputs/provenance/supplementary_fig5_support_v2/`
 - S7：`results/paper_figure_multi_seed/supplementary_v5_s7_complete_pairs_20260812_r1/`
 
-S3–S5 在正文中各自承担独立补充结论；不是与主图共用一个括号的重复引用。S5b 的正式区间与检验来自 persisted S01 confirmatory record；artwork 只显示 network points，因此本次同步未改变图像哈希。
+S3–S5 在正文中各自承担独立补充结论；不是与主图共用一个括号的重复引用。S5 现仅描述 input-associated displacement；原 S01 observed-minus-passive 检验已退休。M32/M33 的原始20端点 scope、SF01–SF04 的完整八端点 families、全部当前 Supplementary source-test reporting status，以及由20个网络重建的候选 M05 inference record 均见 `results/paper_figure_candidates/multiplicity_family_manifest_v6_2/`。冻结统计 bundle 未修改，artwork 哈希未改变。
 
 `revisions/MAIN_SUPPLEMENT_SENTENCE_MAPPING_20260812.md` 的旧 DOCX 哈希和部分句子锚点已经失效；它是重建输入，不再是当前冻结凭据。
 
