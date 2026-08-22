@@ -10,7 +10,14 @@ from typing import Optional, Sequence
 
 from .config import TiddiaNetworkConfig
 from .connectivity import SparseRecurrentConnectivity
+from .dms_experiment import analyze_dms_trial_features, run_dms_trial_simulation
+from .dms_multinetwork import aggregate_dms_network_results
+from .dms_trials import DmsExperimentConfig
 from .plot_artifacts import plot_run_artifacts
+from .mechanism_experiment import (
+    MatchedQueryExperimentConfig,
+    run_matched_query_substitution,
+)
 from .protocol import (
     ItemLoadingSignal,
     PeriodicReadoutInterval,
@@ -52,6 +59,26 @@ def _parse_interval(value: str) -> PeriodicReadoutInterval:
         return PeriodicReadoutInterval(float(start), float(stop))
     except (TypeError, ValueError) as exc:
         raise argparse.ArgumentTypeError("periodic interval must use START_MS:STOP_MS") from exc
+
+
+def _parse_int_tuple(value: str):
+    try:
+        parsed = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected comma-separated integers") from exc
+    if not parsed:
+        raise argparse.ArgumentTypeError("expected at least one integer")
+    return parsed
+
+
+def _parse_float_tuple(value: str):
+    try:
+        parsed = tuple(float(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected comma-separated numbers") from exc
+    if not parsed:
+        raise argparse.ArgumentTypeError("expected at least one number")
+    return parsed
 
 
 def _network_from_arguments(arguments) -> TiddiaNetworkConfig:
@@ -206,7 +233,116 @@ def build_parser() -> argparse.ArgumentParser:
     plot.add_argument("run_directory", type=Path)
     plot.add_argument("--output-directory", type=Path)
     plot.add_argument("--max-raster-points", type=int, default=1_000_000)
+
+    mechanism = subparsers.add_parser("matched-query")
+    mechanism.add_argument("--connectivity", type=Path, required=True)
+    mechanism.add_argument("--output-directory", type=Path, required=True)
+    mechanism.add_argument("--device", default="cuda")
+    mechanism.add_argument("--dtype", choices=("float32", "float64"), default="float32")
+    mechanism.add_argument("--history-a", type=int, default=0)
+    mechanism.add_argument("--history-b", type=int, default=1)
+    mechanism.add_argument("--query-population", type=int, default=2)
+    mechanism.add_argument("--history-origin-ms", type=float, default=50.0)
+    mechanism.add_argument("--query-origin-ms", type=float, default=250.0)
+    mechanism.add_argument("--cue-duration-ms", type=float, default=75.0)
+    mechanism.add_argument("--total-time-ms", type=float, default=400.0)
+    mechanism.add_argument("--delay-readout-start-ms", type=float, default=200.0)
+    mechanism.add_argument("--response-window-start-ms", type=float, default=250.0)
+    mechanism.add_argument("--response-window-stop-ms", type=float, default=400.0)
+    mechanism.add_argument("--stsp-sample-edges", type=int, default=4_096)
+    mechanism.add_argument("--current-input", action="store_true")
+    mechanism.add_argument("--overwrite", action="store_true")
+
+    def add_dms_simulation_options(dms_parser: argparse.ArgumentParser) -> None:
+        dms_parser.add_argument("--connectivity", type=Path, required=True)
+        dms_parser.add_argument("--output-directory", type=Path, required=True)
+        dms_parser.add_argument("--device", default="cuda")
+        dms_parser.add_argument(
+            "--dtype", choices=("float32", "float64"), default="float32"
+        )
+        dms_parser.add_argument(
+            "--task-populations", type=_parse_int_tuple, default=(0, 1, 2, 3)
+        )
+        dms_parser.add_argument("--distractor-population", type=int, default=4)
+        dms_parser.add_argument("--sample-origin-ms", type=float, default=50.0)
+        dms_parser.add_argument("--cue-duration-ms", type=float, default=75.0)
+        dms_parser.add_argument(
+            "--delays-ms", type=_parse_float_tuple, default=(125.0, 375.0, 750.0)
+        )
+        dms_parser.add_argument(
+            "--distractor-mode",
+            choices=("both", "absent", "present"),
+            default="both",
+        )
+        dms_parser.add_argument("--response-bin-ms", type=float, default=50.0)
+        dms_parser.add_argument("--response-bin-count", type=int, default=3)
+        dms_parser.add_argument("--silent-window-ms", type=float, default=50.0)
+        dms_parser.add_argument(
+            "--pairs-per-probe", type=_parse_int_tuple, default=(3, 3, 3)
+        )
+        dms_parser.add_argument(
+            "--stsp-edges-per-source-population", type=int, default=1_024
+        )
+        dms_parser.add_argument("--seed", type=int, default=921_734)
+        dms_parser.add_argument("--current-input", action="store_true")
+        dms_parser.add_argument("--progress-interval-pairs", type=int, default=10)
+        dms_parser.add_argument("--overwrite", action="store_true")
+
+    dms_simulate = subparsers.add_parser("dms-simulate")
+    add_dms_simulation_options(dms_simulate)
+
+    dms_analyze = subparsers.add_parser("dms-analyze")
+    dms_analyze.add_argument("output_directory", type=Path)
+
+    dms_workflow = subparsers.add_parser("dms-workflow")
+    add_dms_simulation_options(dms_workflow)
+
+    dms_aggregate = subparsers.add_parser("dms-aggregate")
+    dms_aggregate.add_argument("--network-manifest", type=Path, required=True)
+    dms_aggregate.add_argument("--output-directory", type=Path, required=True)
     return parser
+
+
+def _dms_experiment_from_arguments(arguments) -> DmsExperimentConfig:
+    distractor_conditions = {
+        "both": (False, True),
+        "absent": (False,),
+        "present": (True,),
+    }[arguments.distractor_mode]
+    return DmsExperimentConfig(
+        task_populations=tuple(arguments.task_populations),
+        distractor_population=arguments.distractor_population,
+        sample_origin_ms=arguments.sample_origin_ms,
+        cue_duration_ms=arguments.cue_duration_ms,
+        delays_ms=tuple(arguments.delays_ms),
+        distractor_conditions=distractor_conditions,
+        response_bin_ms=arguments.response_bin_ms,
+        response_bin_count=arguments.response_bin_count,
+        silent_window_ms=arguments.silent_window_ms,
+        pairs_per_probe=tuple(arguments.pairs_per_probe),
+        stsp_edges_per_source_population=(
+            arguments.stsp_edges_per_source_population
+        ),
+        poisson_input=not arguments.current_input,
+        seed=arguments.seed,
+    )
+
+
+def _run_dms_simulation(arguments) -> dict:
+    graph = SparseRecurrentConnectivity.load(arguments.connectivity)
+    return run_dms_trial_simulation(
+        graph,
+        arguments.output_directory,
+        experiment=_dms_experiment_from_arguments(arguments),
+        runtime=SimulationRunConfig(
+            device=arguments.device,
+            dtype=arguments.dtype,
+            progress_interval_steps=0,
+        ),
+        overwrite=arguments.overwrite,
+        connectivity_path=arguments.connectivity,
+        progress_interval_pairs=arguments.progress_interval_pairs,
+    )
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -281,11 +417,51 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             arguments.run_directory,
             evaluation,
         )
-    else:
+    elif arguments.command == "plot":
         result = plot_run_artifacts(
             arguments.run_directory,
             output_directory=arguments.output_directory,
             max_raster_points=arguments.max_raster_points,
+        )
+    elif arguments.command == "matched-query":
+        graph = SparseRecurrentConnectivity.load(arguments.connectivity)
+        result = run_matched_query_substitution(
+            graph,
+            arguments.output_directory,
+            experiment=MatchedQueryExperimentConfig(
+                history_populations=(arguments.history_a, arguments.history_b),
+                query_population=arguments.query_population,
+                history_origin_ms=arguments.history_origin_ms,
+                query_origin_ms=arguments.query_origin_ms,
+                cue_duration_ms=arguments.cue_duration_ms,
+                total_time_ms=arguments.total_time_ms,
+                delay_readout_start_ms=arguments.delay_readout_start_ms,
+                response_window_start_ms=arguments.response_window_start_ms,
+                response_window_stop_ms=arguments.response_window_stop_ms,
+                stsp_sample_edges=arguments.stsp_sample_edges,
+                poisson_input=not arguments.current_input,
+            ),
+            runtime=SimulationRunConfig(
+                device=arguments.device,
+                dtype=arguments.dtype,
+                progress_interval_steps=0,
+            ),
+            overwrite=arguments.overwrite,
+            connectivity_path=arguments.connectivity,
+        )
+    elif arguments.command == "dms-simulate":
+        result = _run_dms_simulation(arguments)
+    elif arguments.command == "dms-analyze":
+        result = analyze_dms_trial_features(arguments.output_directory)
+    elif arguments.command == "dms-aggregate":
+        result = aggregate_dms_network_results(
+            arguments.network_manifest,
+            output_directory=arguments.output_directory,
+        )
+    else:
+        result = _run_dms_simulation(arguments)
+        result["analysis"] = analyze_dms_trial_features(
+            arguments.output_directory
         )
     print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     return 0

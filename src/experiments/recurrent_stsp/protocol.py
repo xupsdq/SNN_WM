@@ -537,6 +537,78 @@ class ExternalInputEngine:
         self.descriptions.clear()
         self._compile()
 
+    def state_dict(
+        self, *, storage_device: Optional[Union[str, torch.device]] = None
+    ) -> Dict[str, object]:
+        """Capture delayed inputs, held currents, and every RNG stream."""
+
+        target = self.device if storage_device is None else torch.device(storage_device)
+
+        def buffer_state(buffer: SparseDelayBuffer) -> Dict[str, object]:
+            return {
+                "excitatory": buffer.excitatory.detach().to(target).clone(),
+                "inhibitory": buffer.inhibitory.detach().to(target).clone(),
+                "cursor": int(buffer.cursor),
+            }
+
+        signal_states: List[Dict[str, object]] = []
+        for signal in self._signals:
+            signal_state: Dict[str, object] = {
+                "name": signal.name,
+                "kind": (
+                    "poisson" if isinstance(signal, _PoissonSignal) else "current"
+                ),
+                # Generator states are portable CPU byte tensors for CPU/CUDA.
+                "generator_state": signal.generator.get_state().cpu().clone(),
+            }
+            if isinstance(signal, _CurrentSignal):
+                signal_state["held"] = signal._held.detach().to(target).clone()
+            signal_states.append(signal_state)
+        return {
+            "schema_version": 1,
+            "spike_buffer": buffer_state(self.spike_buffer),
+            "current_buffer": buffer_state(self.current_buffer),
+            "signals": signal_states,
+        }
+
+    def load_state_dict(self, state: Dict[str, object]) -> None:
+        """Restore a state captured from an identically configured engine."""
+
+        if state.get("schema_version") != 1:
+            raise ValueError("Unsupported external-input checkpoint schema.")
+
+        def restore_buffer(buffer: SparseDelayBuffer, payload: Dict[str, object]) -> None:
+            excitatory = torch.as_tensor(payload["excitatory"])
+            inhibitory = torch.as_tensor(payload["inhibitory"])
+            if excitatory.shape != buffer.excitatory.shape or inhibitory.shape != buffer.inhibitory.shape:
+                raise ValueError("External delay-buffer checkpoint shape mismatch.")
+            buffer.excitatory.copy_(excitatory.to(buffer.excitatory))
+            buffer.inhibitory.copy_(inhibitory.to(buffer.inhibitory))
+            cursor = int(payload["cursor"])
+            if not 0 <= cursor < buffer.slot_count:
+                raise ValueError("External delay-buffer cursor is invalid.")
+            buffer.cursor = cursor
+
+        restore_buffer(self.spike_buffer, state["spike_buffer"])
+        restore_buffer(self.current_buffer, state["current_buffer"])
+        signal_states = state["signals"]
+        if len(signal_states) != len(self._signals):
+            raise ValueError("External checkpoint signal count mismatch.")
+        for signal, signal_state in zip(self._signals, signal_states):
+            expected_kind = (
+                "poisson" if isinstance(signal, _PoissonSignal) else "current"
+            )
+            if signal_state["name"] != signal.name or signal_state["kind"] != expected_kind:
+                raise ValueError("External checkpoint signal identity mismatch.")
+            signal.generator.set_state(
+                torch.as_tensor(signal_state["generator_state"], device="cpu")
+            )
+            if isinstance(signal, _CurrentSignal):
+                held = torch.as_tensor(signal_state["held"])
+                if held.shape != signal._held.shape:
+                    raise ValueError("Held-current checkpoint shape mismatch.")
+                signal._held.copy_(held.to(signal._held))
+
     def description_dicts(self) -> List[Dict[str, object]]:
         return [asdict(item) for item in self.descriptions]
 

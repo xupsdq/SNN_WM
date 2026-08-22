@@ -1,6 +1,16 @@
 """NEST-equivalent PyTorch primitives for the recurrent STSP model."""
 
 from .config import TiddiaNetworkConfig
+from .checkpoint import (
+    NetworkCheckpoint,
+    PlasticStateSnapshot,
+    capture_network_checkpoint,
+    capture_plastic_state,
+    continuous_plastic_state,
+    replace_plastic_state,
+    reset_plastic_state_to_no_event_baseline,
+    restore_network_checkpoint,
+)
 from .connectivity import (
     ConnectionBlockRecord,
     PlasticCsrEdges,
@@ -25,6 +35,28 @@ from .nest_equivalent import (
     tsodyks3_on_pre_spike,
 )
 from .reference_protocol import ReferenceProtocolResult, run_tsodyks3_reference_protocol
+from .mechanism_experiment import (
+    MatchedQueryExperimentConfig,
+    run_matched_query_substitution,
+)
+from .dms_experiment import analyze_dms_trial_features, run_dms_trial_simulation
+from .dms_trials import (
+    DmsExperimentConfig,
+    DmsTrial,
+    build_dms_trial_manifest,
+    validate_dms_trial_manifest,
+)
+from .dms_multinetwork import (
+    DmsNetworkEntry,
+    aggregate_dms_network_results,
+    write_dms_network_manifest,
+)
+from .linear_decoder import (
+    DEFAULT_RIDGE_LAMBDAS,
+    apply_ridge_decoder,
+    balanced_accuracy,
+    fit_ridge_decoder,
+)
 from .protocol import (
     ExternalInputEngine,
     ExternalSignalDescription,
@@ -62,6 +94,9 @@ __all__ = [
     "ConnectionBlockRecord",
     "ContinuousStspProbeRecorder",
     "DelayRingBuffer",
+    "DmsExperimentConfig",
+    "DmsNetworkEntry",
+    "DmsTrial",
     "DispatchStats",
     "ExternalInputEngine",
     "ExternalSignalDescription",
@@ -69,8 +104,11 @@ __all__ = [
     "IafPscExpPropagators",
     "IafPscExpState",
     "ItemLoadingSignal",
+    "MatchedQueryExperimentConfig",
+    "NetworkCheckpoint",
     "PlasticCsrEdges",
     "PlasticRuntimeState",
+    "PlasticStateSnapshot",
     "PeriodicReadoutInterval",
     "RandomNonspecificSignal",
     "RecurrentStepResult",
@@ -90,6 +128,9 @@ __all__ = [
     "TaskEvaluationConfig",
     "WorkingMemoryProtocolConfig",
     "connection_blocks",
+    "capture_network_checkpoint",
+    "capture_plastic_state",
+    "continuous_plastic_state",
     "expected_edge_counts",
     "evaluate_run",
     "evaluate_task",
@@ -101,8 +142,22 @@ __all__ = [
     "noise_current_parameters",
     "poisson_rate_and_weight",
     "psp_to_psc_weight",
+    "replace_plastic_state",
+    "reset_plastic_state_to_no_event_baseline",
+    "analyze_dms_trial_features",
+    "aggregate_dms_network_results",
+    "apply_ridge_decoder",
+    "balanced_accuracy",
+    "build_dms_trial_manifest",
+    "DEFAULT_RIDGE_LAMBDAS",
+    "fit_ridge_decoder",
     "run_tsodyks3_reference_protocol",
     "run_simulation",
+    "run_matched_query_substitution",
+    "run_dms_trial_simulation",
+    "restore_network_checkpoint",
     "tsodyks3_event_values",
     "tsodyks3_on_pre_spike",
+    "validate_dms_trial_manifest",
+    "write_dms_network_manifest",
 ]
