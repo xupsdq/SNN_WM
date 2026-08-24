@@ -37,6 +37,33 @@ class DispatchStats:
         return self.plastic_events + self.static_events
 
 
+@dataclass(frozen=True)
+class PlasticEventBatch:
+    """Optional edge-level audit record for one plastic dispatch."""
+
+    time_ms: float
+    edge_ids: torch.Tensor
+    sources: torch.Tensor
+    targets: torch.Tensor
+    delay_steps: torch.Tensor
+    release: torch.Tensor
+
+    @property
+    def num_events(self) -> int:
+        return int(self.edge_ids.numel())
+
+    def to(self, device: Union[str, torch.device]) -> "PlasticEventBatch":
+        target = torch.device(device)
+        return PlasticEventBatch(
+            time_ms=self.time_ms,
+            edge_ids=self.edge_ids.to(device=target),
+            sources=self.sources.to(device=target),
+            targets=self.targets.to(device=target),
+            delay_steps=self.delay_steps.to(device=target),
+            release=self.release.to(device=target),
+        )
+
+
 @dataclass
 class PlasticRuntimeState:
     """Mutable per-edge state owned by one event scheduler."""
@@ -171,6 +198,8 @@ class SparseEventScheduler:
             dtype=dtype,
         )
         self._last_dispatch_time_ms = 0.0
+        self._record_plastic_events = False
+        self._last_plastic_event_batch: Optional[PlasticEventBatch] = None
 
     @property
     def storage_bytes(self) -> int:
@@ -186,12 +215,38 @@ class SparseEventScheduler:
         )
         return self.connectivity.storage_bytes + runtime
 
+    def enable_plastic_event_recording(
+        self,
+        enabled: bool = True,
+    ) -> None:
+        """Expose the next dispatch as an audit batch without changing dynamics."""
+
+        self._record_plastic_events = bool(enabled)
+        self._last_plastic_event_batch = None
+
+    def consume_plastic_event_batch(
+        self, *, storage_device: Optional[Union[str, torch.device]] = None
+    ) -> Optional[PlasticEventBatch]:
+        """Return and clear the most recently recorded plastic dispatch."""
+
+        batch = self._last_plastic_event_batch
+        self._last_plastic_event_batch = None
+        if batch is None or storage_device is None:
+            return batch
+        return batch.to(storage_device)
+
+    def clear_transient_instrumentation(self) -> None:
+        """Clear optional recorder output without changing network state."""
+
+        self._last_plastic_event_batch = None
+
     def reset(self) -> None:
         self.plastic_state.u.copy_(self.connectivity.plastic.initial_u)
         self.plastic_state.x.copy_(self.connectivity.plastic.initial_x)
         self.plastic_state.last_spike_time_ms.zero_()
         self.delay_buffer.reset()
         self._last_dispatch_time_ms = 0.0
+        self.clear_transient_instrumentation()
 
     def _source_chunks(self, sources: torch.Tensor) -> Iterator[torch.Tensor]:
         yield from sources.split(self.source_chunk_size)
@@ -220,9 +275,14 @@ class SparseEventScheduler:
         edges: PlasticCsrEdges,
         sources: torch.Tensor,
         time_ms: float,
-    ) -> int:
+    ) -> Tuple[int, Optional[PlasticEventBatch]]:
         event_count = 0
         baseline_u = self.config.stsp_u
+        recorded_edge_ids = []
+        recorded_sources = []
+        recorded_targets = []
+        recorded_delays = []
+        recorded_release = []
         for source_chunk in self._source_chunks(sources):
             edge_ids = _expanded_edge_ids(edges.row_ptr, source_chunk)
             if edge_ids.numel() == 0:
@@ -246,8 +306,26 @@ class SparseEventScheduler:
                 edges.delay_steps[edge_ids],
                 validate_indices=False,
             )
+            if self._record_plastic_events:
+                counts = edges.row_ptr[source_chunk + 1] - edges.row_ptr[source_chunk]
+                expanded_sources = torch.repeat_interleave(source_chunk, counts)
+                recorded_edge_ids.append(edge_ids)
+                recorded_sources.append(expanded_sources)
+                recorded_targets.append(edges.targets[edge_ids])
+                recorded_delays.append(edges.delay_steps[edge_ids])
+                recorded_release.append(released)
             event_count += edge_ids.numel()
-        return event_count
+        batch = None
+        if self._record_plastic_events and recorded_edge_ids:
+            batch = PlasticEventBatch(
+                time_ms=float(time_ms),
+                edge_ids=torch.cat(recorded_edge_ids),
+                sources=torch.cat(recorded_sources),
+                targets=torch.cat(recorded_targets),
+                delay_steps=torch.cat(recorded_delays),
+                release=torch.cat(recorded_release),
+            )
+        return event_count, batch
 
     @torch.no_grad()
     def dispatch_spikes(
@@ -265,9 +343,10 @@ class SparseEventScheduler:
         if not math.isfinite(time_ms) or time_ms < self._last_dispatch_time_ms:
             raise ValueError("time_ms must be finite and nondecreasing.")
         sources = torch.nonzero(spikes.to(dtype=torch.bool), as_tuple=False).flatten()
-        plastic_events = self._dispatch_plastic(
+        plastic_events, batch = self._dispatch_plastic(
             self.connectivity.plastic, sources, time_ms
         )
+        self._last_plastic_event_batch = batch
         static_events = self._dispatch_static(self.connectivity.static, sources)
         self._last_dispatch_time_ms = time_ms
         return DispatchStats(
@@ -290,6 +369,8 @@ class RecurrentStepResult:
     time_ms: float
     spikes: torch.Tensor
     voltage_mv: torch.Tensor
+    recurrent_excitatory_pa: torch.Tensor
+    recurrent_inhibitory_pa: torch.Tensor
     dispatch: DispatchStats
 
 
@@ -371,6 +452,10 @@ class SparseRecurrentNetwork:
         external_current_0_pa: TensorOrScalar = 0.0,
         external_spikes_ex_pa: TensorOrScalar = 0.0,
         external_spikes_in_pa: TensorOrScalar = 0.0,
+        forced_dispatch_spikes: Optional[torch.Tensor] = None,
+        replace_dispatch_spikes: bool = False,
+        replace_emitted_spikes: bool = False,
+        record_voltage: bool = True,
     ) -> RecurrentStepResult:
         recurrent_ex, recurrent_in = self.scheduler.pop_current()
         incoming_ex = recurrent_ex + self._vector(external_spikes_ex_pa)
@@ -378,6 +463,18 @@ class SparseRecurrentNetwork:
         current = self._vector(external_current_pa)
         current_0 = self._vector(external_current_0_pa)
         split = self.config.n_exc
+
+        forced = None
+        if forced_dispatch_spikes is not None:
+            forced = torch.as_tensor(
+                forced_dispatch_spikes, dtype=torch.bool, device=self.device
+            )
+            if forced.shape != (self.config.n_neurons,):
+                raise ValueError("forced_dispatch_spikes must have one value per neuron.")
+        elif replace_dispatch_spikes or replace_emitted_spikes:
+            raise ValueError(
+                "Replacing dispatched or emitted spikes requires forced_dispatch_spikes."
+            )
 
         self.exc_state, exc_spikes = iaf_psc_exp_step(
             self.exc_state,
@@ -387,6 +484,9 @@ class SparseRecurrentNetwork:
             incoming_spikes_in=incoming_in[:split],
             incoming_current_0=current_0[:split],
             constant_current=current[:split],
+            spike_override=(
+                forced[:split] if replace_emitted_spikes else None
+            ),
         )
         self.inh_state, inh_spikes = iaf_psc_exp_step(
             self.inh_state,
@@ -396,21 +496,51 @@ class SparseRecurrentNetwork:
             incoming_spikes_in=incoming_in[split:],
             incoming_current_0=current_0[split:],
             constant_current=current[split:],
+            spike_override=(
+                forced[split:] if replace_emitted_spikes else None
+            ),
         )
         spikes = torch.cat((exc_spikes, inh_spikes))
+        dispatch_spikes = spikes
+        if forced is not None and not replace_emitted_spikes:
+            forced_only = forced & ~spikes
+            forced_exc = forced_only[:split]
+            forced_inh = forced_only[split:]
+            self.exc_state.v_m_relative[forced_exc] = (
+                self.exc_params.v_reset - self.exc_params.e_l
+            )
+            self.exc_state.refractory_count[forced_exc] = (
+                self.exc_propagators.refractory_steps
+            )
+            self.inh_state.v_m_relative[forced_inh] = (
+                self.inh_params.v_reset - self.inh_params.e_l
+            )
+            self.inh_state.refractory_count[forced_inh] = (
+                self.inh_propagators.refractory_steps
+            )
+            spikes = spikes | forced
+            dispatch_spikes = forced if replace_dispatch_spikes else spikes
+        elif forced is not None:
+            dispatch_spikes = forced
         time_ms = (self.step_index + 1) * self.config.dt_ms
-        dispatch = self.scheduler.dispatch_spikes(spikes, time_ms=time_ms)
+        dispatch = self.scheduler.dispatch_spikes(dispatch_spikes, time_ms=time_ms)
         self.scheduler.advance()
         self.step_index += 1
-        voltage = torch.cat(
-            (
-                self.exc_state.absolute_voltage(self.exc_params),
-                self.inh_state.absolute_voltage(self.inh_params),
+        voltage = (
+            torch.cat(
+                (
+                    self.exc_state.absolute_voltage(self.exc_params),
+                    self.inh_state.absolute_voltage(self.inh_params),
+                )
             )
+            if record_voltage
+            else torch.empty(0, dtype=self.dtype, device=self.device)
         )
         return RecurrentStepResult(
             time_ms=time_ms,
             spikes=spikes,
             voltage_mv=voltage,
+            recurrent_excitatory_pa=recurrent_ex,
+            recurrent_inhibitory_pa=recurrent_in,
             dispatch=dispatch,
         )

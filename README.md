@@ -39,6 +39,7 @@ tests/                      pytest 测试
 data/                      输入数据目录
 results/                    主线实验结果目录
 scripts/                    结果布局、入口一致性等维护脚本
+third_party/                已发表模型的只读上游参考代码
 tmp/                        临时文件和可再生中间产物
 archive/                    历史代码、结果、文档和移动账本
 ```

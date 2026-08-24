@@ -35,10 +35,6 @@
 | `practices/optimization_principles_and_failure_lessons.md` | REFERENCE | 等价优先、批处理风险和分层验证原则 |
 | `practices/figure_reconstruction_workflow.md` | REFERENCE | claim-driven 重绘和 plot-only QA 流程 |
 | `EVIDENCE_TRACEABILITY.md` | REFERENCE | 执行节点、持久化证据、结果包和稿件图之间的术语与追踪边界 |
-| `RECURRENT_STSP_MATCHED_QUERY_PILOT.md` | PILOT | 独立循环网络 matched-query STSP-only 替换协议、初步结果和非确认性解释边界 |
-| `RECURRENT_STSP_DMS_EXPERIMENT_CONTRACT.md` | OPEN | 经典 delayed-match-to-sample 行为、activity-silent 解码、STSP 因果干预与 successor reuse 的预先实验合同 |
-| `RECURRENT_STSP_DMS_SHORT_PILOT.md` | PILOT | 完整 10k/20M 图上的短延迟 DMS 行为、silent-state 解码与 STSP reset/swap 初步结果 |
-| `RECURRENT_STSP_DMS_THREE_GRAPH_REPLICATION.md` | PILOT | 三张独立 10k/20M 连接图上的 DMS 行为、silent-state 表征与 STSP reset/swap 可行性复现 |
 
 ## Canonical runtime
 

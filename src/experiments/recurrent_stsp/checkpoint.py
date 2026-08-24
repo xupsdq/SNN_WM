@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 
@@ -127,6 +127,91 @@ def _restore_neuron_state(
     )
 
 
+def _neuron_state_to_dict(
+    state: IafPscExpState, target: torch.device
+) -> Dict[str, torch.Tensor]:
+    return {
+        "v_m_relative": _clone_tensor(state.v_m_relative, target),
+        "i_syn_ex": _clone_tensor(state.i_syn_ex, target),
+        "i_syn_in": _clone_tensor(state.i_syn_in, target),
+        "i_0": _clone_tensor(state.i_0, target),
+        "i_1": _clone_tensor(state.i_1, target),
+        "refractory_count": _clone_tensor(state.refractory_count, target),
+    }
+
+
+def _neuron_state_from_dict(payload: Dict[str, torch.Tensor]) -> IafPscExpState:
+    return IafPscExpState(
+        v_m_relative=payload["v_m_relative"],
+        i_syn_ex=payload["i_syn_ex"],
+        i_syn_in=payload["i_syn_in"],
+        i_0=payload["i_0"],
+        i_1=payload["i_1"],
+        refractory_count=payload["refractory_count"],
+    )
+
+
+def network_checkpoint_to_dict(
+    checkpoint: NetworkCheckpoint,
+    *,
+    storage_device: Union[str, torch.device] = "cpu",
+) -> Dict[str, object]:
+    """Serialize a checkpoint with tensors only, for ``weights_only`` loads."""
+
+    target = torch.device(storage_device)
+    return {
+        "schema_version": 1,
+        "step_index": int(checkpoint.step_index),
+        "exc_state": _neuron_state_to_dict(checkpoint.exc_state, target),
+        "inh_state": _neuron_state_to_dict(checkpoint.inh_state, target),
+        "plastic": {
+            "time_ms": float(checkpoint.plastic.time_ms),
+            "u": _clone_tensor(checkpoint.plastic.u, target),
+            "x": _clone_tensor(checkpoint.plastic.x, target),
+            "last_spike_time_ms": _clone_tensor(
+                checkpoint.plastic.last_spike_time_ms, target
+            ),
+        },
+        "recurrent_excitatory_buffer": _clone_tensor(
+            checkpoint.recurrent_excitatory_buffer, target
+        ),
+        "recurrent_inhibitory_buffer": _clone_tensor(
+            checkpoint.recurrent_inhibitory_buffer, target
+        ),
+        "recurrent_buffer_cursor": int(checkpoint.recurrent_buffer_cursor),
+        "last_dispatch_time_ms": float(checkpoint.last_dispatch_time_ms),
+        "n_neurons": int(checkpoint.n_neurons),
+        "n_plastic_edges": int(checkpoint.n_plastic_edges),
+        "dt_ms": float(checkpoint.dt_ms),
+    }
+
+
+def network_checkpoint_from_dict(payload: Dict[str, object]) -> NetworkCheckpoint:
+    """Restore a checkpoint saved by ``network_checkpoint_to_dict``."""
+
+    if int(payload.get("schema_version", 0)) != 1:
+        raise ValueError("Unsupported network checkpoint schema.")
+    plastic = payload["plastic"]
+    return NetworkCheckpoint(
+        step_index=int(payload["step_index"]),
+        exc_state=_neuron_state_from_dict(payload["exc_state"]),
+        inh_state=_neuron_state_from_dict(payload["inh_state"]),
+        plastic=PlasticStateSnapshot(
+            time_ms=float(plastic["time_ms"]),
+            u=plastic["u"],
+            x=plastic["x"],
+            last_spike_time_ms=plastic["last_spike_time_ms"],
+        ),
+        recurrent_excitatory_buffer=payload["recurrent_excitatory_buffer"],
+        recurrent_inhibitory_buffer=payload["recurrent_inhibitory_buffer"],
+        recurrent_buffer_cursor=int(payload["recurrent_buffer_cursor"]),
+        last_dispatch_time_ms=float(payload["last_dispatch_time_ms"]),
+        n_neurons=int(payload["n_neurons"]),
+        n_plastic_edges=int(payload["n_plastic_edges"]),
+        dt_ms=float(payload["dt_ms"]),
+    )
+
+
 def restore_network_checkpoint(
     network: SparseRecurrentNetwork, checkpoint: NetworkCheckpoint
 ) -> None:
@@ -158,6 +243,7 @@ def restore_network_checkpoint(
         raise ValueError("Checkpoint recurrent delay-buffer cursor is invalid.")
     delay.cursor = checkpoint.recurrent_buffer_cursor
     network.scheduler._last_dispatch_time_ms = checkpoint.last_dispatch_time_ms
+    network.scheduler.clear_transient_instrumentation()
 
 
 @torch.no_grad()
@@ -271,6 +357,8 @@ __all__ = [
     "capture_network_checkpoint",
     "capture_plastic_state",
     "continuous_plastic_state",
+    "network_checkpoint_from_dict",
+    "network_checkpoint_to_dict",
     "replace_plastic_state",
     "reset_plastic_state_to_no_event_baseline",
     "restore_network_checkpoint",

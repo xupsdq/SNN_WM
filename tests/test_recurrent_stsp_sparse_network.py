@@ -189,6 +189,29 @@ def test_sparse_scheduler_updates_stsp_and_delivers_each_delay_slot(device):
     assert inhibitory[1].item() == 0.0
 
 
+def test_plastic_event_recording_is_nonintrusive_and_reports_delivered_release():
+    graph = _two_edge_graph()
+    reference = SparseEventScheduler(graph, device="cpu", dtype=torch.float64)
+    recorded = SparseEventScheduler(graph, device="cpu", dtype=torch.float64)
+    recorded.enable_plastic_event_recording()
+    spikes = torch.tensor([True, False, False])
+
+    reference.dispatch_spikes(spikes, time_ms=10.0)
+    recorded.dispatch_spikes(spikes, time_ms=10.0)
+    batch = recorded.consume_plastic_event_batch()
+
+    assert batch is not None
+    assert batch.num_events == 1
+    assert batch.edge_ids.tolist() == [0]
+    assert batch.sources.tolist() == [0]
+    assert batch.targets.tolist() == [1]
+    assert batch.delay_steps.tolist() == [2]
+    assert batch.release.item() == pytest.approx(36.0)
+    assert torch.equal(reference.plastic_state.u, recorded.plastic_state.u)
+    assert torch.equal(reference.plastic_state.x, recorded.plastic_state.x)
+    assert torch.equal(reference.delay_buffer.excitatory, recorded.delay_buffer.excitatory)
+
+
 @pytest.mark.parametrize(
     "device",
     ["cpu"] + (["cuda"] if torch.cuda.is_available() else []),
@@ -204,9 +227,46 @@ def test_sparse_recurrent_network_closes_the_spike_event_loop(device):
 
     assert bool(first.spikes[0].item())
     assert first.dispatch.plastic_events == 1
+    assert first.recurrent_excitatory_pa.shape == (3,)
+    assert first.recurrent_inhibitory_pa.shape == (3,)
     assert second.voltage_mv[1].item() == 0.0
     assert third.voltage_mv[1].item() == 0.0
     assert fourth.voltage_mv[1].item() > 0.0
+
+
+def test_replaced_dispatch_packet_observes_but_does_not_dispatch_natural_spikes():
+    network = SparseRecurrentNetwork(
+        _two_edge_graph(), device="cpu", dtype=torch.float64
+    )
+    drive = torch.tensor([60_000.0, 0.0, 0.0], dtype=torch.float64)
+    empty_packet = torch.zeros(3, dtype=torch.bool)
+
+    result = network.step(
+        external_current_pa=drive,
+        forced_dispatch_spikes=empty_packet,
+        replace_dispatch_spikes=True,
+    )
+
+    assert bool(result.spikes[0])
+    assert result.dispatch.total_events == 0
+    assert network.scheduler.plastic_state.u.item() == pytest.approx(0.2)
+
+    with pytest.raises(ValueError, match="requires forced_dispatch_spikes"):
+        network.step(replace_dispatch_spikes=True)
+
+
+def test_voltage_recording_can_be_disabled_without_changing_spikes():
+    graph = _two_edge_graph()
+    recorded = SparseRecurrentNetwork(graph, device="cpu", dtype=torch.float64)
+    unrecorded = SparseRecurrentNetwork(graph, device="cpu", dtype=torch.float64)
+    drive = torch.tensor([60_000.0, 0.0, 0.0], dtype=torch.float64)
+
+    expected = recorded.step(external_current_pa=drive)
+    actual = unrecorded.step(external_current_pa=drive, record_voltage=False)
+
+    assert torch.equal(actual.spikes, expected.spikes)
+    assert actual.voltage_mv.shape == (0,)
+    assert actual.voltage_mv.dtype == torch.float64
 
 
 @pytest.mark.skipif(

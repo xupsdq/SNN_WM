@@ -207,6 +207,7 @@ def iaf_psc_exp_step(
     incoming_current_0: TensorOrScalar = 0.0,
     incoming_current_1: TensorOrScalar = 0.0,
     constant_current: Optional[TensorOrScalar] = None,
+    spike_override: Optional[TensorOrScalar] = None,
 ) -> Tuple[IafPscExpState, torch.Tensor]:
     """Advance deterministic ``iaf_psc_exp`` by one grid step.
 
@@ -241,7 +242,11 @@ def iaf_psc_exp_step(
         + _as_like(incoming_spikes_in, state.i_syn_in)
     )
 
-    spiked = voltage >= (params.v_th - params.e_l)
+    threshold_spikes = voltage >= (params.v_th - params.e_l)
+    if spike_override is None:
+        spiked = threshold_spikes
+    else:
+        spiked = _broadcast_like(spike_override, voltage).to(dtype=torch.bool)
     voltage = torch.where(
         spiked,
         torch.as_tensor(

@@ -24,6 +24,27 @@ class ItemLoadingSignal:
 
     population_id: int
     origin_ms: float
+    stream_id: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class PatternedAssemblySignal:
+    """Replay one frozen event matrix on an arbitrary neuron subset.
+
+    ``event_target_indices`` index ``target_neuron_ids``.  Event steps are
+    one-based relative to ``origin_ms`` and amplitudes are already expressed
+    as delivered PSC weights.  Keeping the event matrix explicit makes
+    reciprocal item inputs and repeated neutral queries exactly auditable.
+    """
+
+    name: str
+    origin_ms: float
+    target_neuron_ids: Tuple[int, ...]
+    event_steps_relative: Tuple[int, ...]
+    event_target_indices: Tuple[int, ...]
+    event_amplitudes_pa: Tuple[float, ...]
+    target_delay_steps: Tuple[int, ...]
+    stream_id: int = 0
 
 
 @dataclass(frozen=True)
@@ -63,6 +84,7 @@ class WorkingMemoryProtocolConfig:
     external_change_interval_ms: float = 1.0
 
     item_loading: Tuple[ItemLoadingSignal, ...] = (ItemLoadingSignal(0, 3_000.0),)
+    patterned_loading: Tuple[PatternedAssemblySignal, ...] = ()
     cue_duration_ms: float = 350.0
     cue_amplitude_factor: float = 1.15
 
@@ -101,6 +123,43 @@ class WorkingMemoryProtocolConfig:
         for signal in self.item_loading:
             if signal.population_id < 0 or signal.origin_ms < 0.0:
                 raise ValueError("Item-loading population and origin must be non-negative.")
+            if signal.stream_id is not None and signal.stream_id < 0:
+                raise ValueError("Item-loading stream_id must be None or non-negative.")
+        patterned_names = set()
+        for signal in self.patterned_loading:
+            if not signal.name or signal.name in patterned_names:
+                raise ValueError("Patterned signal names must be non-empty and unique.")
+            patterned_names.add(signal.name)
+            if signal.origin_ms < 0.0 or signal.stream_id < 0:
+                raise ValueError("Patterned signal origin/stream must be non-negative.")
+            target_count = len(signal.target_neuron_ids)
+            if target_count == 0 or len(set(signal.target_neuron_ids)) != target_count:
+                raise ValueError("Patterned targets must be a non-empty unique set.")
+            if any(target < 0 for target in signal.target_neuron_ids):
+                raise ValueError("Patterned target IDs must be non-negative.")
+            if len(signal.target_delay_steps) != target_count or any(
+                delay <= 0 for delay in signal.target_delay_steps
+            ):
+                raise ValueError("Patterned signals require one positive delay per target.")
+            event_count = len(signal.event_steps_relative)
+            if (
+                event_count == 0
+                or len(signal.event_target_indices) != event_count
+                or len(signal.event_amplitudes_pa) != event_count
+            ):
+                raise ValueError("Patterned event vectors must be matching and non-empty.")
+            if any(step <= 0 for step in signal.event_steps_relative):
+                raise ValueError("Patterned relative event steps must be positive.")
+            if any(
+                index < 0 or index >= target_count
+                for index in signal.event_target_indices
+            ):
+                raise ValueError("A patterned event target index lies outside its bank.")
+            if any(
+                not math.isfinite(value) or value <= 0.0
+                for value in signal.event_amplitudes_pa
+            ):
+                raise ValueError("Patterned event amplitudes must be finite and positive.")
         for signal in self.random_nonspecific:
             if signal.origin_ms < 0.0 or not 0.0 <= signal.fraction <= 1.0:
                 raise ValueError("Random signal origin/fraction is invalid.")
@@ -235,17 +294,26 @@ class _PoissonSignal(_RuntimeSignal):
             device=self.targets.device,
         )
 
-    def emit(self, event_step: int, buffer: SparseDelayBuffer) -> None:
+    def emit(
+        self,
+        event_step: int,
+        buffer: SparseDelayBuffer,
+        *,
+        schedule: bool = True,
+    ) -> None:
         if not self.active(event_step):
             return
         counts = torch.poisson(self._mean_counts, generator=self.generator)
+        if not schedule:
+            return
         active = counts > 0.0
-        if not bool(active.any().item()):
+        sources = torch.nonzero(active, as_tuple=False).flatten()
+        if sources.numel() == 0:
             return
         buffer.schedule_edges(
-            self.targets[active],
-            counts[active] * self.weight_pa,
-            self.delay_steps[active],
+            self.targets[sources],
+            counts[sources] * self.weight_pa,
+            self.delay_steps[sources],
             validate_indices=False,
         )
 
@@ -270,7 +338,13 @@ class _CurrentSignal(_RuntimeSignal):
             device=self.targets.device,
         )
 
-    def emit(self, event_step: int, buffer: SparseDelayBuffer) -> None:
+    def emit(
+        self,
+        event_step: int,
+        buffer: SparseDelayBuffer,
+        *,
+        schedule: bool = True,
+    ) -> None:
         if not self.active(event_step):
             return
         relative = event_step - self.start_step - 1
@@ -281,10 +355,64 @@ class _CurrentSignal(_RuntimeSignal):
                 self._held.normal_(
                     mean=self.mean_pa, std=self.std_pa, generator=self.generator
                 )
+        if not schedule:
+            return
         buffer.schedule_edges(
             self.targets,
             self._held,
             self.delay_steps,
+            validate_indices=False,
+        )
+
+
+class _PatternedEventSignal(_RuntimeSignal):
+    """Runtime lookup for a persisted sparse event matrix."""
+
+    def __init__(
+        self,
+        *,
+        event_steps_relative: torch.Tensor,
+        event_target_indices: torch.Tensor,
+        event_amplitudes_pa: torch.Tensor,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        absolute_steps = event_steps_relative.to(dtype=torch.int64, device="cpu")
+        absolute_steps = absolute_steps + int(self.start_step)
+        local_targets = event_target_indices.to(dtype=torch.int64, device=self.targets.device)
+        amplitudes = event_amplitudes_pa.to(dtype=self.dtype, device=self.targets.device)
+        order = torch.argsort(absolute_steps, stable=True)
+        absolute_steps = absolute_steps[order]
+        local_targets = local_targets[order.to(device=local_targets.device)]
+        amplitudes = amplitudes[order.to(device=amplitudes.device)]
+        unique_steps, counts = torch.unique_consecutive(
+            absolute_steps, return_counts=True
+        )
+        offsets = torch.cumsum(counts, dim=0) - counts
+        self._events_by_step = {}
+        for step, offset, count in zip(unique_steps, offsets, counts):
+            start = int(offset.item())
+            stop = start + int(count.item())
+            self._events_by_step[int(step.item())] = (
+                local_targets[start:stop],
+                amplitudes[start:stop],
+            )
+
+    def emit(
+        self,
+        event_step: int,
+        buffer: SparseDelayBuffer,
+        *,
+        schedule: bool = True,
+    ) -> None:
+        events = self._events_by_step.get(int(event_step))
+        if events is None or not schedule:
+            return
+        local_targets, amplitudes = events
+        buffer.schedule_edges(
+            self.targets[local_targets],
+            amplitudes,
+            self.delay_steps[local_targets],
             validate_indices=False,
         )
 
@@ -364,8 +492,11 @@ class ExternalInputEngine:
         sigma_mv: float,
         tau_m_ms: float,
         force_current: bool = False,
+        seed_index: Optional[int] = None,
     ) -> None:
-        signal_index = len(self._signals)
+        signal_index = len(self._signals) if seed_index is None else int(seed_index)
+        if signal_index < 0:
+            raise ValueError("Signal seed index must be non-negative.")
         common = dict(
             name=name,
             targets=targets,
@@ -456,13 +587,75 @@ class ExternalInputEngine:
                 raise ValueError("Item-loading population lies outside n_memories.")
             start = cue.population_id * selective_size
             self._add_signal(
-                name="item_loading_{}".format(index),
+                name="item_loading_{}".format(
+                    index if cue.stream_id is None else "slot_{}".format(cue.stream_id)
+                ),
                 targets=self._targets(start, start + selective_size),
                 start_ms=cue.origin_ms,
                 stop_ms=cue.origin_ms + p.cue_duration_ms,
                 eta_mv=p.eta_exc_mv * (p.cue_amplitude_factor - 1.0),
                 sigma_mv=0.0,
                 tau_m_ms=n.tau_m_exc_ms,
+                # Keep legacy enumeration when stream_id is absent.  Sequence
+                # experiments reserve a distant index range so a cue in slot k
+                # receives the same delays/RNG stream even when earlier slots
+                # are silent or contain a different item.
+                seed_index=(
+                    None if cue.stream_id is None else 10_000 + cue.stream_id
+                ),
+            )
+
+        for signal in p.patterned_loading:
+            targets = torch.as_tensor(
+                signal.target_neuron_ids,
+                dtype=torch.int64,
+                device=self.device,
+            )
+            if bool((targets >= n.n_neurons).any().item()):
+                raise ValueError("A patterned target lies outside the network.")
+            delays = torch.as_tensor(
+                signal.target_delay_steps,
+                dtype=torch.int16,
+                device=self.device,
+            )
+            if bool((delays < n.min_delay_steps).any().item()) or bool(
+                (delays > n.max_delay_steps).any().item()
+            ):
+                raise ValueError("A patterned input delay lies outside network bounds.")
+            start_step = _grid_step(signal.origin_ms, n.dt_ms)
+            relative_steps = torch.as_tensor(
+                signal.event_steps_relative, dtype=torch.int64
+            )
+            runtime_signal = _PatternedEventSignal(
+                name=signal.name,
+                targets=targets,
+                delay_steps=delays,
+                start_step=start_step,
+                stop_step=start_step + int(relative_steps.max().item()),
+                dt_ms=n.dt_ms,
+                dtype=self.dtype,
+                generator=self._generator(20_000 + signal.stream_id),
+                event_steps_relative=relative_steps,
+                event_target_indices=torch.as_tensor(
+                    signal.event_target_indices, dtype=torch.int64
+                ),
+                event_amplitudes_pa=torch.as_tensor(
+                    signal.event_amplitudes_pa, dtype=self.dtype
+                ),
+            )
+            self._signals.append(runtime_signal)
+            self.descriptions.append(
+                ExternalSignalDescription(
+                    signal.name,
+                    "patterned",
+                    targets.numel(),
+                    signal.origin_ms,
+                    signal.origin_ms + float(relative_steps.max().item()) * n.dt_ms,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
             )
 
         for index, origin in enumerate(p.nonspecific_readout_origins_ms):
@@ -516,14 +709,28 @@ class ExternalInputEngine:
         return spike_ex, spike_in, current_positive + current_negative
 
     @torch.no_grad()
-    def emit(self, event_step: int) -> None:
+    def emit(
+        self,
+        event_step: int,
+        *,
+        suppressed_signal_names: Tuple[str, ...] = (),
+    ) -> None:
         if event_step < 1:
             raise ValueError("event_step is one-based and must be positive.")
+        suppressed = frozenset(str(name) for name in suppressed_signal_names)
         for signal in self._signals:
-            if isinstance(signal, _PoissonSignal):
-                signal.emit(event_step, self.spike_buffer)
+            if isinstance(signal, (_PoissonSignal, _PatternedEventSignal)):
+                signal.emit(
+                    event_step,
+                    self.spike_buffer,
+                    schedule=signal.name not in suppressed,
+                )
             else:
-                signal.emit(event_step, self.current_buffer)
+                signal.emit(
+                    event_step,
+                    self.current_buffer,
+                    schedule=signal.name not in suppressed,
+                )
 
     def advance(self) -> None:
         self.spike_buffer.advance()
@@ -553,11 +760,16 @@ class ExternalInputEngine:
 
         signal_states: List[Dict[str, object]] = []
         for signal in self._signals:
+            kind = (
+                "poisson"
+                if isinstance(signal, _PoissonSignal)
+                else "current"
+                if isinstance(signal, _CurrentSignal)
+                else "patterned"
+            )
             signal_state: Dict[str, object] = {
                 "name": signal.name,
-                "kind": (
-                    "poisson" if isinstance(signal, _PoissonSignal) else "current"
-                ),
+                "kind": kind,
                 # Generator states are portable CPU byte tensors for CPU/CUDA.
                 "generator_state": signal.generator.get_state().cpu().clone(),
             }
@@ -596,7 +808,11 @@ class ExternalInputEngine:
             raise ValueError("External checkpoint signal count mismatch.")
         for signal, signal_state in zip(self._signals, signal_states):
             expected_kind = (
-                "poisson" if isinstance(signal, _PoissonSignal) else "current"
+                "poisson"
+                if isinstance(signal, _PoissonSignal)
+                else "current"
+                if isinstance(signal, _CurrentSignal)
+                else "patterned"
             )
             if signal_state["name"] != signal.name or signal_state["kind"] != expected_kind:
                 raise ValueError("External checkpoint signal identity mismatch.")
@@ -617,6 +833,7 @@ __all__ = [
     "ExternalInputEngine",
     "ExternalSignalDescription",
     "ItemLoadingSignal",
+    "PatternedAssemblySignal",
     "PeriodicReadoutInterval",
     "RandomNonspecificSignal",
     "WorkingMemoryProtocolConfig",

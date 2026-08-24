@@ -1,27 +1,24 @@
 # recurrent_stsp
 
-本目录提供独立于现有卷积 SNN 的 Tiddia 循环工作记忆模型 PyTorch 后端，并把连接、仿真、解码和绘图组织成可复用的实验 DAG。
+本目录提供独立于现有卷积 SNN 的 Tiddia 循环工作记忆模型 PyTorch 等价内核、可复用状态工具和基础 artifact DAG；当前不包含任何机制结论专用的科学实验树。
 
-- `__init__.py`：导出神经元、突触、输入协议、记录器、解码器和运行器公共接口。
-- `artifact_plot_data.py`：只把持久化张量产物转换为绘图所需的 NumPy 数据，不调用模型。
-- `checkpoint.py`：精确保存和恢复神经元、延迟环与逐边 STSP 状态，并支持 STSP-only donor substitution。
-- `config.py`：声明默认 10,000 神经元/20M 连接图和上游异质运行配置的科学参数。
+- `__init__.py`：导出神经元、突触、连接、输入、记录、检查点、STSP 状态和解码器的稳定公共接口。
+- `artifact_plot_data.py`：只把持久化张量产物转换为绘图所需的 NumPy 数据，不运行模型。
+- `checkpoint.py`：捕获、序列化和精确恢复神经元、延迟环与逐边 STSP 状态，并提供通用 STSP-only 状态操作。
+- `config.py`：声明默认 10,000 神经元、20M 连接图及异质运行配置的科学参数。
 - `connectivity.py`：按上游 fixed-indegree 规则生成、校验并原子持久化源排序 CSR 连接产物。
-- `dms_experiment.py`：运行 behavior-first delayed-match-to-sample trial、STSP reset/donor swap 分支，并从持久化特征执行独立 decoder 分析。
-- `dms_multinetwork.py`：冻结独立连接图清单，并只读各网络分析产物生成等权网络级汇总。
-- `dms_trials.py`：生成并验证 sample、probe、match 标签和随机流成对平衡的 train/validation/test trial manifest。
-- `linear_decoder.py`：提供只由 train 拟合、validation 选择正则化、test 冻结评估的 ridge decoder。
-- `nest_equivalent.py`：实现 NEST 3.1 `iaf_psc_exp` 精确步进、逐突触 tsodyks3 更新和固定网格延迟缓冲。
-- `mechanism_experiment.py`：运行不同历史、相同 query 的完整四分支配对替换实验并计算 donor-direction 端点。
+- `linear_decoder.py`：提供只由 train 拟合、由 validation 选正则化并在 test 上冻结评估的 ridge decoder。
+- `nest_equivalent.py`：实现 NEST 3.1 `iaf_psc_exp` 步进、逐突触 Tsodyks3 更新和固定网格延迟缓冲。
 - `plot_artifacts.py`：只读取已有 spike/STSP 产物，输出 PNG、PDF 和 SVG 诊断图。
-- `protocol.py`：实现背景、载入提示、非特异读出、随机噪声、周期读出和晚期背景抵消协议。
-- `recording.py`：稀疏记录放电，解析恢复连续 `u/x` 轨迹，并以显式阈值判定任务成功。
+- `protocol.py`：实现背景、载入、读出、噪声、周期输入和可精确回放的冻结稀疏事件输入。
+- `recording.py`：稀疏记录放电、恢复连续 `u/x` 轨迹，并以显式阈值执行基础任务评价。
 - `reference_protocol.py`：复现上游仓库随附的单突触 burst–pause–recovery 验证协议。
-- `run.py`：提供 `build-connectivity`、`simulate`、`evaluate`、`plot`、`matched-query`、`dms-simulate`、`dms-analyze`、`dms-aggregate` 和工作流 CLI 任务。
-- `runner.py`：执行 120,000 步运行并写出规范化数据、元数据、依赖清单、指标和摘要。
-- `scheduler.py`：在 CPU/CUDA 上按活跃源神经元展开稀疏边、更新逐边 STSP、聚合延迟电流并推进循环网络。
+- `run.py`：提供连接生成、基础仿真、评价和 plot-only 的通用 DAG CLI 节点。
+- `runner.py`：运行基础协议并写出规范化数据、元数据、依赖清单、指标和摘要。
+- `scheduler.py`：在 CPU/CUDA 上按活跃源神经元调度稀疏事件、更新逐边 STSP、聚合延迟电流并推进循环网络。
+- `temporal_state.py`：提供稀疏逐边 STSP 的索引快照、边界替换、被动演化、next-release 计算和 presynaptic-event 精确回放。
 
-默认完整流程先显式生成或复用连接，再运行上游 6,000 ms 协议：
+基础流程先生成或复用连接产物，再运行仿真；评价与绘图只消费仿真产物：
 
 ```powershell
 python -m src.experiments.recurrent_stsp.run build-connectivity `
@@ -32,11 +29,7 @@ python -m src.experiments.recurrent_stsp.run simulate `
   --connectivity artifacts/recurrent_stsp/tiddia_heterogeneous_graph.pt `
   --output-directory results/recurrent_stsp/upstream_seed143202461 `
   --device cuda
-```
 
-解码和绘图是下游任务，只消费上述持久化产物：
-
-```powershell
 python -m src.experiments.recurrent_stsp.run evaluate `
   results/recurrent_stsp/upstream_seed143202461
 
@@ -44,25 +37,4 @@ python -m src.experiments.recurrent_stsp.run plot `
   results/recurrent_stsp/upstream_seed143202461
 ```
 
-完整默认运行写出 `run_config.json`、`data/spikes.pt`、`data/stsp_probes.pt`、`metrics/task_metrics.json`、`meta/run_info.json`、`artifact_manifest.json` 和 `summary.json`；绘图任务在 `figures/` 中另写只读依赖清单。
-
-不同历史、相同 query 的 STSP-only 因果替换实验使用已有连接图，并写出四个分支、状态样本和 donor-direction 指标：
-
-```powershell
-python -m src.experiments.recurrent_stsp.run matched-query `
-  --connectivity artifacts/recurrent_stsp/tiddia_heterogeneous_graph.pt `
-  --output-directory results/recurrent_stsp/matched_query_seed143202461 `
-  --device cuda
-```
-
-经典 DMS 行为与机制实验把模拟和 decoder 保持为两个独立 DAG 节点；`dms-workflow` 只是按依赖顺序调用二者：
-
-```powershell
-python -m src.experiments.recurrent_stsp.run dms-simulate `
-  --connectivity artifacts/recurrent_stsp/tiddia_heterogeneous_graph.pt `
-  --output-directory results/recurrent_stsp/dms_seed143202461 `
-  --device cuda
-
-python -m src.experiments.recurrent_stsp.run dms-analyze `
-  results/recurrent_stsp/dms_seed143202461
-```
+完整基础运行写出 `run_config.json`、`data/spikes.pt`、`data/stsp_probes.pt`、`metrics/task_metrics.json`、`meta/run_info.json`、`artifact_manifest.json` 和 `summary.json`；plot-only 节点在 `figures/` 中另写只读依赖清单，不会重新运行仿真。
