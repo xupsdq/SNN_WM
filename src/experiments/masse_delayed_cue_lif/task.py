@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+from collections import Counter
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 import torch
@@ -13,6 +15,8 @@ from .config import (
     CLASS_FIXATION,
     CLASS_MATCH,
     CLASS_NONMATCH,
+    DELAY_DECODE_START_MS,
+    DELAY_DECODE_STOP_MS,
     GRACE_MS,
     KAPPA,
     N_DIRECTIONS,
@@ -147,6 +151,67 @@ def save_trial_table(path: Path, rows: Sequence[dict[str, object]]) -> Path:
     return path
 
 
+def validate_trial_table(path: Path, config: MasseDelayedCueConfig) -> dict[str, Any]:
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"trial table does not exist: {path}")
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fields = tuple(reader.fieldnames or ())
+        if fields != TRIAL_COLUMNS:
+            raise ValueError(
+                f"trial table schema mismatch: expected {TRIAL_COLUMNS}, got {fields}"
+            )
+        raw_rows = list(reader)
+    if not raw_rows:
+        raise ValueError(f"trial table is empty: {path}")
+    trial_ids: list[int] = []
+    input_seeds: list[int] = []
+    split_counts: Counter[str] = Counter()
+    for index, raw in enumerate(raw_rows):
+        missing = [column for column in TRIAL_COLUMNS if raw.get(column, "") == ""]
+        if missing:
+            raise ValueError(f"trial table row {index} missing fields: {missing}")
+        split = str(raw["split"])
+        if split not in {"train", "val", "test"}:
+            raise ValueError(f"trial table row {index} has unknown split {split!r}")
+        rule = str(raw["rule"])
+        if rule not in RULES:
+            raise ValueError(f"trial table row {index} has unknown rule {rule!r}")
+        trial_id = int(raw["trial_id"])
+        sample_direction = int(raw["sample_direction"])
+        test_direction = int(raw["test_direction"])
+        match = int(raw["match"])
+        input_seed = int(raw["input_seed"])
+        if match not in (0, 1):
+            raise ValueError(f"trial table row {index} has invalid match {match}")
+        if not 0 <= sample_direction < N_DIRECTIONS:
+            raise ValueError(f"trial table row {index} has invalid sample_direction")
+        if not 0 <= test_direction < N_DIRECTIONS:
+            raise ValueError(f"trial table row {index} has invalid test_direction")
+        trial_ids.append(trial_id)
+        input_seeds.append(input_seed)
+        split_counts[split] += 1
+    if len(set(trial_ids)) != len(trial_ids):
+        raise ValueError("trial table contains duplicate trial_id values")
+    if len(set(input_seeds)) != len(input_seeds):
+        raise ValueError("trial table contains duplicate input_seed values")
+    expected = {"train": config.n_train, "val": config.n_val, "test": config.n_test}
+    actual = {split: int(split_counts.get(split, 0)) for split in expected}
+    if actual != expected:
+        raise ValueError(
+            f"trial table split counts {actual} do not match config {expected}"
+        )
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {
+        "n_rows": len(raw_rows),
+        "n_train": actual["train"],
+        "n_val": actual["val"],
+        "n_test": actual["test"],
+        "trials_sha256": digest,
+    }
+
+
 def load_trial_table(path: Path, split: str | None = None) -> list[dict[str, object]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -179,6 +244,10 @@ def window_indices(config: MasseDelayedCueConfig) -> dict[str, slice]:
         ms_to_index(TEST_START_MS + GRACE_MS, dt),
         ms_to_index(TEST_STOP_MS, dt),
     )
+    delay_end_decode = slice(
+        ms_to_index(DELAY_DECODE_START_MS, dt),
+        ms_to_index(DELAY_DECODE_STOP_MS, dt),
+    )
     fixation = slice(0, ms_to_index(TEST_START_MS, dt))
     return {
         "sample": sample,
@@ -186,6 +255,7 @@ def window_indices(config: MasseDelayedCueConfig) -> dict[str, slice]:
         "test": test,
         "grace": grace,
         "valid_test": valid_test,
+        "delay_end_decode": delay_end_decode,
         "fixation": fixation,
     }
 

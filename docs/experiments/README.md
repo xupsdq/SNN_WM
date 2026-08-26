@@ -1,6 +1,6 @@
 # 当前实验文档
 
-更新日期：2026-08-14
+更新日期：2026-08-25
 
 本目录保存仍可用于当前代码的运行合同和方法参考。精确 task ID、schema、cache key、CLI 参数和 panel source 必须从当前源码、`docs/paper/PAPER_AUTHORITY.json` 与结果 manifest 核查。
 
@@ -33,6 +33,7 @@
 | `dag_result_audit_20260815/README.md` | REFERENCE | 2026-08-15 派生、非权威的 DAG→结果证据导航、逐任务结论与缺口快照 |
 | `protocols/ping_protocol_spec.md` | REFERENCE | P4 ping 注入协议 |
 | `protocols/masse_delayed_cue_lif_task_spec.md` | CURRENT | Masse delayed-cue DMS+DMRS 循环 LIF 任务、训练、评价与 artifact DAG 实施规格 |
+| `protocols/masse_delayed_cue_lif_stsp_match_spec.md` | CURRENT | 去慢电流/SFA 后的有/无 STSP 匹配对照；formal 只作历史基线 |
 | `practices/optimization_principles_and_failure_lessons.md` | REFERENCE | 等价优先、批处理风险和分层验证原则 |
 | `practices/figure_reconstruction_workflow.md` | REFERENCE | claim-driven 重绘和 plot-only QA 流程 |
 | `EVIDENCE_TRACEABILITY.md` | REFERENCE | 执行节点、持久化证据、结果包和稿件图之间的术语与追踪边界 |

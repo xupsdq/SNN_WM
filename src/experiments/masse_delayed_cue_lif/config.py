@@ -35,6 +35,9 @@ RULE_START_MS = SAMPLE_STOP_MS + PRE_RULE_DELAY_MS
 RULE_STOP_MS = RULE_START_MS + RULE_CUE_MS
 TEST_START_MS = RULE_STOP_MS + POST_RULE_DELAY_MS
 TEST_STOP_MS = TEST_START_MS + TEST_MS
+DELAY_DECODE_MS = 100.0
+DELAY_DECODE_START_MS = TEST_START_MS - DELAY_DECODE_MS
+DELAY_DECODE_STOP_MS = TEST_START_MS
 
 KAPPA = 2.0
 TUNING_HEIGHT = 4.0
@@ -55,6 +58,21 @@ OVERFIT_LR = 3e-3
 TRIAL_TABLE_SEED = 0
 MODEL_INIT_SEED = 1
 TRAIN_ORDER_SEED = 2
+SPIKE_COST = 2e-2
+NO_STSP_RECURRENT_SCALE = 1.0 / 3.0
+STSP_U_FAC = 0.15
+STSP_U_DEP = 0.45
+STSP_TAU_X_FAC_MS = 200.0
+STSP_TAU_U_FAC_MS = 1500.0
+STSP_TAU_X_DEP_MS = 1500.0
+STSP_TAU_U_DEP_MS = 200.0
+PROFILE_CHOICES = (
+    "smoke",
+    "formal",
+    "overfit",
+    "stripped_no_stsp",
+    "stripped_stsp",
+)
 
 
 @dataclass(frozen=True)
@@ -81,6 +99,14 @@ class MasseDelayedCueConfig:
     model_init_seed: int = MODEL_INIT_SEED
     train_order_seed: int = TRAIN_ORDER_SEED
     input_noise: bool = False
+    use_synaptic_current: bool = True
+    use_stsp: bool = False
+    recurrent_weight_scale: float = 1.0
+    spike_cost: float = 0.0
+
+    @property
+    def stripped(self) -> bool:
+        return not self.use_synaptic_current
 
     @property
     def n_sfa(self) -> int:
@@ -132,6 +158,45 @@ def formal_config(**overrides: Any) -> MasseDelayedCueConfig:
     return MasseDelayedCueConfig(**values)
 
 
+def _stripped_shared(**overrides: Any) -> dict[str, Any]:
+    values: dict[str, Any] = dict(
+        n_hidden=500,
+        n_train=1024,
+        n_val=256,
+        n_test=256,
+        batch_size=64,
+        max_epochs=100,
+        learning_rate=ADAM_LR,
+        device="cuda",
+        early_stopping_patience=20,
+        sfa_ratio=0.0,
+        use_synaptic_current=False,
+        spike_cost=SPIKE_COST,
+    )
+    values.update(overrides)
+    return values
+
+
+def stripped_no_stsp_config(**overrides: Any) -> MasseDelayedCueConfig:
+    values = _stripped_shared(
+        profile="stripped_no_stsp",
+        use_stsp=False,
+        recurrent_weight_scale=NO_STSP_RECURRENT_SCALE,
+        **overrides,
+    )
+    return MasseDelayedCueConfig(**values)
+
+
+def stripped_stsp_config(**overrides: Any) -> MasseDelayedCueConfig:
+    values = _stripped_shared(
+        profile="stripped_stsp",
+        use_stsp=True,
+        recurrent_weight_scale=1.0,
+        **overrides,
+    )
+    return MasseDelayedCueConfig(**values)
+
+
 def overfit_config(**overrides: Any) -> MasseDelayedCueConfig:
     values: dict[str, Any] = dict(
         profile="overfit",
@@ -151,9 +216,15 @@ def overfit_config(**overrides: Any) -> MasseDelayedCueConfig:
 
 
 def profile_config(profile: str, **overrides: Any) -> MasseDelayedCueConfig:
-    builders = {"smoke": smoke_config, "formal": formal_config, "overfit": overfit_config}
+    builders = {
+        "smoke": smoke_config,
+        "formal": formal_config,
+        "overfit": overfit_config,
+        "stripped_no_stsp": stripped_no_stsp_config,
+        "stripped_stsp": stripped_stsp_config,
+    }
     if profile not in builders:
-        raise ValueError(f"Unknown profile {profile!r}; expected smoke, formal, or overfit")
+        raise ValueError(f"Unknown profile {profile!r}; expected {', '.join(PROFILE_CHOICES)}")
     return builders[profile](**overrides)
 
 

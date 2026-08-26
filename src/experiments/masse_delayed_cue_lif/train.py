@@ -12,9 +12,12 @@ from torch.utils.data import DataLoader, Dataset
 
 from .artifacts import (
     REQUIRED_TRAIN_INPUTS,
+    attach_input_lineage,
     config_identity,
     layout_for,
+    load_checkpoint,
     load_run_config,
+    read_json,
     require_files,
     save_checkpoint,
     save_run_config,
@@ -32,6 +35,22 @@ from .metrics import (
 )
 from .model import RecurrentLifSfa
 from .task import expand_rows, load_trial_table, window_indices
+
+
+def parameter_grads_are_usable(model: torch.nn.Module) -> bool:
+    grads = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
+    if not grads:
+        return False
+    if not all(torch.isfinite(grad).all() for grad in grads):
+        return False
+    total_norm = torch.norm(torch.stack([grad.detach().float().norm() for grad in grads]))
+    return bool(torch.isfinite(total_norm))
+
+
+def clip_gradients_per_parameter(model: torch.nn.Module, max_norm: float = 0.1) -> None:
+    for parameter in model.parameters():
+        if parameter.grad is not None:
+            torch.nn.utils.clip_grad_norm_([parameter], max_norm=max_norm)
 
 
 class TrialTensorDataset(Dataset):
@@ -121,6 +140,87 @@ def _evaluate_split(
     return summary
 
 
+def _slim_split_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in metrics.items() if key != "records"}
+
+
+def _history_from_checkpoint(metrics: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not metrics:
+        return []
+    history = metrics.get("history")
+    if isinstance(history, list):
+        return [row for row in history if isinstance(row, dict)]
+    if isinstance(history, dict) and "epoch" in history:
+        return [history]
+    return []
+
+
+def _restore_training(
+    *,
+    model: RecurrentLifSfa,
+    optimizer: torch.optim.Optimizer,
+    config: MasseDelayedCueConfig,
+    device: torch.device,
+    last_path: Path,
+    best_path: Path,
+    history_path: Path,
+) -> tuple[int, list[dict[str, Any]], float, int, int]:
+    history: list[dict[str, Any]] = []
+    best_val = -1.0
+    best_epoch = -1
+    epochs_without_improve = 0
+    start_epoch = 0
+    if not last_path.is_file():
+        return start_epoch, history, best_val, best_epoch, epochs_without_improve
+    checkpoint = load_checkpoint(last_path, map_location=device)
+    if checkpoint.get("identity") != config_identity(config):
+        print(
+            "[masse_delayed_cue_lif] ignoring last.pt because identity does not match",
+            file=sys.stderr,
+            flush=True,
+        )
+        return start_epoch, history, best_val, best_epoch, epochs_without_improve
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    start_epoch = int(checkpoint["epoch"]) + 1
+    if history_path.is_file():
+        stored = read_json(history_path)
+        history = [row for row in stored.get("epochs", []) if isinstance(row, dict)]
+        if stored.get("best_epoch") is not None:
+            best_epoch = int(stored["best_epoch"])
+        if stored.get("best_val_trial_accuracy") is not None:
+            best_val = float(stored["best_val_trial_accuracy"])
+    if not history:
+        history = _history_from_checkpoint(checkpoint.get("metrics"))
+    if best_path.is_file():
+        best = load_checkpoint(best_path, map_location="cpu")
+        if best.get("identity") == config_identity(config):
+            best_epoch = int(best["epoch"])
+            val_metrics = best.get("metrics", {}).get("val", {})
+            if isinstance(val_metrics, dict) and "trial_accuracy" in val_metrics:
+                best_val = float(val_metrics["trial_accuracy"])
+    if best_val < 0.0 and history:
+        best_row = max(history, key=lambda row: float(row.get("val_trial_accuracy", -1.0)))
+        best_val = float(best_row.get("val_trial_accuracy", -1.0))
+        best_epoch = int(best_row.get("epoch", best_epoch))
+    if best_val >= 0.0:
+        epochs_without_improve = 0
+        for row in reversed(history):
+            if float(row.get("val_trial_accuracy", -1.0)) >= best_val - 1e-12:
+                break
+            epochs_without_improve += 1
+    print(
+        (
+            f"[masse_delayed_cue_lif] resume from epoch {start_epoch + 1}/"
+            f"{config.max_epochs} best_val={best_val:.3f} "
+            f"stale={epochs_without_improve}"
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+    return start_epoch, history, best_val, best_epoch, epochs_without_improve
+
+
 def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) -> dict[str, Any]:
     run_directory = Path(run_directory)
     require_files(run_directory, REQUIRED_TRAIN_INPUTS)
@@ -146,16 +246,30 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
     train_dataset = TrialTensorDataset(train_rows, config)
     val_dataset = None if config.profile == "overfit" else TrialTensorDataset(val_rows, config)
 
-    history: list[dict[str, Any]] = []
-    best_val = -1.0
-    best_epoch = -1
-    epochs_without_improve = 0
     checkpoint_dir = layout.data_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_path = checkpoint_dir / "best.pt"
     last_path = checkpoint_dir / "last.pt"
+    history_path = layout.data_dir / "train_history.json"
+    start_epoch, history, best_val, best_epoch, epochs_without_improve = _restore_training(
+        model=model,
+        optimizer=optimizer,
+        config=config,
+        device=device,
+        last_path=last_path,
+        best_path=best_path,
+        history_path=history_path,
+    )
+    patience = config.early_stopping_patience
+    already_stopped = (
+        patience is not None
+        and history
+        and epochs_without_improve >= patience
+    )
+    if already_stopped or start_epoch >= config.max_epochs:
+        start_epoch = config.max_epochs
 
-    for epoch in range(config.max_epochs):
+    for epoch in range(start_epoch, config.max_epochs):
         model.train()
         loader = _loader(
             train_rows, config, shuffle=True, generator=order_generator, dataset=train_dataset
@@ -169,18 +283,16 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
         for batch in loader:
             batch = _move_batch(batch, device)
             optimizer.zero_grad(set_to_none=True)
-            logits, _ = model(batch["inputs"])
+            logits, state = model(batch["inputs"])
             loss = weighted_cross_entropy(logits, batch["targets"], batch["weights"])
             loss = loss + 5.0 * trial_cross_entropy(logits, batch["targets"], config)
+            if config.spike_cost > 0.0 and state.spike_power is not None:
+                loss = loss + float(config.spike_cost) * state.spike_power
             if not torch.isfinite(loss):
                 raise RuntimeError(f"non-finite loss at epoch {epoch}")
             loss.backward()
-            finite_grads = all(
-                parameter.grad is None or torch.isfinite(parameter.grad).all()
-                for parameter in model.parameters()
-            )
-            if finite_grads:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            if parameter_grads_are_usable(model):
+                clip_gradients_per_parameter(model)
                 optimizer.step()
             epoch_loss += float(loss.item())
             n_batches += 1
@@ -222,7 +334,21 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
             file=sys.stderr,
             flush=True,
         )
-        metrics_payload = {"train": train_metrics, "val": val_metrics, "history": record}
+        improved = val_metrics["trial_accuracy"] > best_val
+        if improved:
+            best_val = val_metrics["trial_accuracy"]
+            best_epoch = epoch
+            epochs_without_improve = 0
+        else:
+            epochs_without_improve += 1
+        metrics_payload = {
+            "train": _slim_split_metrics(train_metrics),
+            "val": _slim_split_metrics(val_metrics),
+            "history": history,
+            "best_val": best_val,
+            "best_epoch": best_epoch,
+            "epochs_without_improve": epochs_without_improve,
+        }
         write_last = config.profile != "overfit" or train_metrics["trial_accuracy"] >= 0.80 or epoch + 1 == config.max_epochs
         if write_last:
             save_checkpoint(
@@ -233,11 +359,7 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
                 config=config,
                 metrics=metrics_payload,
             )
-        improved = val_metrics["trial_accuracy"] > best_val
         if improved:
-            best_val = val_metrics["trial_accuracy"]
-            best_epoch = epoch
-            epochs_without_improve = 0
             save_checkpoint(
                 best_path,
                 model=model,
@@ -246,8 +368,14 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
                 config=config,
                 metrics=metrics_payload,
             )
-        else:
-            epochs_without_improve += 1
+        history_payload = {
+            "identity": config_identity(config),
+            "best_epoch": best_epoch,
+            "best_val_trial_accuracy": best_val,
+            "epochs": history,
+        }
+        attach_input_lineage(history_payload, run_directory, REQUIRED_TRAIN_INPUTS)
+        write_json(history_path, history_payload)
         if (
             config.early_stopping_patience is not None
             and epochs_without_improve >= config.early_stopping_patience
@@ -272,7 +400,8 @@ def train_run(run_directory: Path, config: MasseDelayedCueConfig | None = None) 
         "best_val_trial_accuracy": best_val,
         "epochs": history,
     }
-    write_json(layout.data_dir / "train_history.json", history_payload)
+    attach_input_lineage(history_payload, run_directory, REQUIRED_TRAIN_INPUTS)
+    write_json(history_path, history_payload)
     write_manifest(run_directory)
     summary = {
         "status": "trained",
