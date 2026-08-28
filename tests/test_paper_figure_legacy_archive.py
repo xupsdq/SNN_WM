@@ -67,6 +67,15 @@ def test_batch_command_uses_current_runner_without_legacy_run_flags() -> None:
     assert not any(value.startswith("--run-") for value in command)
 
 
+@pytest.mark.parametrize("task_id", ("supplement_scope", "both_scope"))
+def test_fig2_supplement_scopes_declare_s4_sweeps(task_id: str) -> None:
+    registry = importlib.import_module("src.experiments.paper_figures.fig2.registry")
+
+    assert {"ping_sweep", "completion_delay_sweep"} <= set(
+        registry.SCOPE_SUBEXPERIMENTS[task_id]
+    )
+
+
 def test_old_fig1_command_dry_run_translates_to_current_task(capsys: pytest.CaptureFixture[str]) -> None:
     adapter = importlib.import_module(
         "src.experiments.paper_figures.fig1_functional_stsp_substrate_experiment"
@@ -78,6 +87,28 @@ def test_old_fig1_command_dry_run_translates_to_current_task(capsys: pytest.Capt
     assert "src.experiments.paper_figures.fig1.run_task" in command
     assert "--task baseline" in command
     assert "--run-baseline" not in command
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    (
+        "src.experiments.paper_figures.fig2_pair_fused_stsp_state_experiment",
+        "src.experiments.paper_figures.fig3_multiitem_peak_landscape_experiment",
+    ),
+)
+def test_legacy_state_bank_save_flag_is_consumed(
+    module_name: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    adapter = importlib.import_module(module_name)
+
+    assert adapter.main(
+        ["--run-state-bank", "--save-all-layer-state-bank", "--dry-run"]
+    ) == 0
+
+    command = capsys.readouterr().out
+    assert "--task state_bank" in command
+    assert "--save-all-layer-state-bank" not in command
 
 
 @pytest.mark.parametrize(

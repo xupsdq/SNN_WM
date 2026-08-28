@@ -87,12 +87,12 @@ from src.experiments.paper_figures.fig2.output import (
     write_run_log_file,
     write_summary,
 )
+from src.experiments.paper_figures.fig2.registry import SCOPE_SUBEXPERIMENTS
 from src.experiments.paper_figures.fig2.schemas import (
     COMPLETION_CONDITIONS,
     COMPLETION_DELAY_MASK_COLUMNS,
     REUSE_MODES,
     TASK_ALL,
-    TASK_BOTH_SCOPE,
     TASK_COMPLETION_DELAY_BOUNDARY_BANK,
     TASK_COMPLETION_DELAY_MASK_SPECS,
     TASK_COMPLETION_DELAY_SWEEP,
@@ -102,7 +102,6 @@ from src.experiments.paper_figures.fig2.schemas import (
     TASK_CROSSFIT_SPLIT_SPECS,
     TASK_IDS,
     TASK_LINEAR_MIXTURE,
-    TASK_MAIN_SCOPE,
     TASK_MORPHOLOGY,
     TASK_NEUTRAL_PING,
     TASK_PAIR_TRIAL_SPECS,
@@ -111,7 +110,6 @@ from src.experiments.paper_figures.fig2.schemas import (
     TASK_PING_SWEEP,
     TASK_STATE_BANK,
     TASK_SUPPLEMENT,
-    TASK_SUPPLEMENT_SCOPE,
     WEAK_PROBE_MASK_COLUMNS,
     normalize_reuse_mode,
 )
@@ -351,7 +349,8 @@ def _run_task(
     mode: str,
     artifact_root: Path,
 ) -> None:
-    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+    scope_subexperiments = set(SCOPE_SUBEXPERIMENTS.get(task_id, ()))
+    if scope_subexperiments:
         bank = _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
         _run_morphology(ctx, bank)
         _run_linear_mixture(ctx, bank)
@@ -363,7 +362,33 @@ def _run_task(
                 _get_partial_cue_mask_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root),
             )
         run_partial_cue_real_rollout_from_state_bank(ctx, bank)
-        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        if "ping_sweep" in scope_subexperiments:
+            run_neutral_ping_parameter_sweep(ctx, bank)
+        if "completion_delay_sweep" in scope_subexperiments:
+            if mode != "off":
+                setattr(
+                    ctx,
+                    "completion_delay_boundary_bank",
+                    _get_completion_boundary_bank(
+                        ctx,
+                        pair_trials,
+                        mode=mode,
+                        artifact_root=artifact_root,
+                        producer=False,
+                    ),
+                )
+                setattr(
+                    ctx,
+                    "completion_delay_mask_specs",
+                    _get_completion_delay_mask_specs(
+                        ctx,
+                        pair_trials,
+                        mode=mode,
+                        artifact_root=artifact_root,
+                    ),
+                )
+            run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
+        if "supplement" in scope_subexperiments:
             compute_supplementary_metrics(ctx, bank)
         return
     if task_id == TASK_PAIR_TRIAL_SPECS:
@@ -1236,8 +1261,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         raise ValueError("Crossfit analysis requires at least one layer and one state variable")
     task = str(args.task)
     run_all = task == TASK_ALL
-    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
-    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    scope_subexperiments = set(SCOPE_SUBEXPERIMENTS.get(task, ()))
+    scope_task = bool(scope_subexperiments)
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
     return Fig2Config(
         model_path=str(model_path),
@@ -1285,9 +1310,9 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         run_crossfit_null_calibration=run_all or task == TASK_CROSSFIT_NULL_CALIBRATION,
         run_neutral_ping=run_all or scope_task or task == TASK_NEUTRAL_PING,
         run_partial_cue=run_all or scope_task or task == TASK_PARTIAL_CUE,
-        run_supplement=run_all or supplement_scope or task == TASK_SUPPLEMENT,
-        run_ping_sweep=run_all or task == TASK_PING_SWEEP,
-        run_completion_delay_sweep=run_all or task == TASK_COMPLETION_DELAY_SWEEP,
+        run_supplement=run_all or "supplement" in scope_subexperiments or task == TASK_SUPPLEMENT,
+        run_ping_sweep=run_all or "ping_sweep" in scope_subexperiments or task == TASK_PING_SWEEP,
+        run_completion_delay_sweep=run_all or "completion_delay_sweep" in scope_subexperiments or task == TASK_COMPLETION_DELAY_SWEEP,
         completion_delay_sweep_ms=completion_delay_sweep_ms,
         completion_delay_keep_prob=float(args.completion_delay_keep_prob),
         completion_delay_repeats=completion_delay_repeats,

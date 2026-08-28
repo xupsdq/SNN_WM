@@ -2,6 +2,7 @@ FIGURE_ID = "fig2"
 EXPERIMENT_ID = "fig2_pair_fused_stsp_state"
 RUNNER_MODULE = "src.experiments.paper_figures.fig2.run_task"
 COMPATIBILITY_MODULE = "src.experiments.paper_figures.fig2_pair_fused_stsp_state_experiment"
+LEGACY_NOOP_FLAGS = ("--save-all-layer-state-bank",)
 SCOPE_TASKS = {"main": "main_scope", "supplement": "supplement_scope", "both": "both_scope"}
 SUBEXPERIMENT_FLAGS = {
     "state_bank": ("--run-state-bank",),
@@ -35,4 +36,12 @@ MAIN_SUBEXPERIMENTS = (
 SUPPLEMENT_SUBEXPERIMENTS = (
     *MAIN_SUBEXPERIMENTS,
     "supplement",
+    "ping_sweep",
+    "completion_delay_sweep",
 )
+
+SCOPE_SUBEXPERIMENTS = {
+    "main_scope": MAIN_SUBEXPERIMENTS,
+    "supplement_scope": SUPPLEMENT_SUBEXPERIMENTS,
+    "both_scope": SUPPLEMENT_SUBEXPERIMENTS,
+}

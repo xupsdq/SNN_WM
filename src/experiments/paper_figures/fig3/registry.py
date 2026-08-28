@@ -2,6 +2,7 @@ FIGURE_ID = "fig3"
 EXPERIMENT_ID = "fig3_multiitem_peak_landscape"
 RUNNER_MODULE = "src.experiments.paper_figures.fig3.run_task"
 COMPATIBILITY_MODULE = "src.experiments.paper_figures.fig3_multiitem_peak_landscape_experiment"
+LEGACY_NOOP_FLAGS = ("--save-all-layer-state-bank",)
 SCOPE_TASKS = {"main": "main_scope", "supplement": "supplement_scope", "both": "both_scope"}
 SUBEXPERIMENT_FLAGS = {
     "state_bank": ("--run-state-bank",),

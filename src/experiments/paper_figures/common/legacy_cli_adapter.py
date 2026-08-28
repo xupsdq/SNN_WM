@@ -46,7 +46,8 @@ def main_for_legacy_module(fig_id: str, argv: Sequence[str] | None = None) -> in
 
     task = _task_for_selection(selected, registry)
     selector_flags = _selector_flags(registry)
-    forwarded = [value for value in raw_args if value not in selector_flags]
+    consumed_flags = selector_flags | set(getattr(registry, "LEGACY_NOOP_FLAGS", ()))
+    forwarded = [value for value in raw_args if value not in consumed_flags]
     forwarded.extend(["--task", task])
     if dry_run:
         print(subprocess.list2cmdline([sys.executable, "-m", str(registry.RUNNER_MODULE), *forwarded]))
