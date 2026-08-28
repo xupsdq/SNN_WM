@@ -3,6 +3,8 @@
 - `AGENTS.md`
 - `README.md`
 - `docs/paper/PAPER_AUTHORITY.json`
+- `docs/adr/0002-masse-first-lif-stsp-student-mainline.md`
+- `docs/paper/V6_2_BIOLOGICALLY_PLAUSIBLE_RECURRENT_BASELINE_RESEARCH_CN.md`
 - `docs/experiments/README.md`
 - `docs/experiments/protocols/masse_delayed_cue_lif_task_spec.md`
 - `docs/experiments/protocols/masse_delayed_cue_lif_stsp_match_spec.md`
