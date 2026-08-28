@@ -1,12 +1,35 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _item_entry_mask
+from collections.abc import Mapping
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.fig6.constants import (
+    PRIMARY_LAYER,
+    SEQUENCE_TRIAL_COLUMNS,
+    STATE_BANK_MANIFEST_COLUMNS,
+    STATE_VARIABLE,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _item_entry_mask
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _leave_one_out_support_map,
+    _leave_one_out_support_maps_batch,
+    _progress,
+    _save_csv,
+    _sequence_support_maps,
+    _sequence_support_maps_batch,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _is_proxy_mode,
+    _matched_nonpeak_mask,
+    _pairwise_image_sims,
+    _top_mask,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def build_sequence_trials(ctx: ExperimentContext) -> pd.DataFrame:
     cfg = ctx.cfg

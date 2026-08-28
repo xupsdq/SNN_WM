@@ -1,11 +1,30 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _layer_input_shapes_for_batch,
+    _progress,
+    _region_ping_amp_sweep_latency,
+    _region_ping_amp_sweep_summary,
+    _region_ping_contrast,
+    _region_ping_current_matching,
+    _region_ping_current_matching_status,
+    _region_ping_position_distribution,
+    _region_ping_summary,
+    _step_network_once,
+    concat_named_boundaries,
+    restore_condition_state_for_functional_readout,
+)
+from src.experiments.paper_figures.fig3.subexperiments.structural_weak_cue_supplement import _main_sequence_meta
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def run_region_gated_ping_readout(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     if not bank.landscapes:

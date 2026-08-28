@@ -8,10 +8,7 @@ import torch
 from scipy import optimize
 
 from src.experiments.common.ping_common import LAYER_KEYS
-from src.experiments.paper_figures.fig3_multiitem_peak_landscape_experiment import (
-    _progress,
-    _save_csv,
-)
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.common.monitored_dms import (
     restore_functional_probe_state_in_place,
     snapshot_boundary_state,
@@ -20,6 +17,7 @@ from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
     _centered_cosine,
     _cosine_distance,
     _layer_input_shapes_for_batch,
+    _progress,
     _step_network_once,
     stsp_boundary_from_bank,
 )
@@ -27,14 +25,6 @@ from src.experiments.paper_figures.fig3.types import (
     ExperimentContext,
     MultiItemSequenceLandscapeBank,
 )
-
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
-
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
-
 
 def _natural_decay_boundary(
     ctx: ExperimentContext,

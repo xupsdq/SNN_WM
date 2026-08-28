@@ -1,11 +1,29 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.dataset import encode_images
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig2.schemas import SUPP_COMPLETION_DELAY_RAW_COLUMNS
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _capture_pair_batch,
+    _completion_delay_sweep_contrast,
+    _completion_delay_sweep_metrics,
+    _encode_cached,
+    _iter_batches,
+    _make_weak_probe_spikes_encoded_dropout,
+    _make_weak_probe_spikes_image_foreground,
+    _maybe_float,
+    _ms_to_steps,
+    _progress,
+    concat_condition_boundaries,
+    run_probe_readout_from_boundary,
+)
+from src.experiments.paper_figures.fig2.types import ExperimentContext, FunctionalReadout
 
 def run_completion_delay_sweep_from_pair_trials(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> None:
     boundary_bank = getattr(ctx, "completion_delay_boundary_bank", None)

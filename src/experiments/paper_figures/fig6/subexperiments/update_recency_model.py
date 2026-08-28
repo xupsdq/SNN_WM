@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.fig6.constants import (
+    PANEL_B_COEF_COLUMNS,
+    PANEL_B_METRIC_COLUMNS,
+    PRIMARY_LAYER,
+    STATE_VARIABLE,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _save_csv
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _cv_r2, _fit_ols, _standardized_coef
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def fit_update_recency_support_models(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     unit_df = pd.read_csv(ctx.metrics_dir / "supp_legacy_panel_a_multi_recent_peak_enrichment.csv")

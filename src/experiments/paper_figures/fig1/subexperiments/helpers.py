@@ -1,8 +1,48 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+from typing import Any, Iterable, Mapping, Sequence
 
-inherit_legacy_globals(globals())
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
+from src.experiments.common.monitored_dms import build_layer_input_shapes, snapshot_boundary_state
+from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state, snapshot_ux_state
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig1.constants import (
+    CONDITION_TO_SUBSTRATE,
+    DMS_DELAY_SWEEP_CONDITIONS,
+    NUM_CLASSES,
+    SHUFFLE_CONDITIONS,
+    SUBSTRATE_BY_CONDITION,
+    SUPP_CONDITIONS,
+)
+from src.experiments.paper_figures.fig1.types import ExperimentContext, ProbePrep, _ms_to_steps
+
+try:
+    from src.experiments.ping_memory.shared.shuffle_metrics import (
+        compute_bias_table as compat_compute_bias_table,
+        compute_collapse_summary as compat_compute_collapse_summary,
+        compute_condition_metrics as compat_compute_condition_metrics,
+    )
+except Exception:  # pragma: no cover - compatibility outputs are best effort
+    compat_compute_bias_table = None
+    compat_compute_collapse_summary = None
+    compat_compute_condition_metrics = None
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
 
 def _run_sample_then_snapshot_delays(net, spikes: torch.Tensor, sample_steps: int, device: torch.device, delay_points_ms: Sequence[int], dt: float, max_delay_ms: int, batch: pd.DataFrame, store: dict) -> None:
     batch_size, _, channels, height, width = spikes.shape

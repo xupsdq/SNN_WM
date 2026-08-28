@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.constants import PRIMARY_LAYER, PRIMARY_STATE_VARIABLE
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _example_landscape_summary, _gini, _progress
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def compute_final_support_landscape(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     _save_csv(ctx, _example_landscape_summary(ctx, bank), ctx.metrics_dir / "panel_c_example_landscape_summary.csv")

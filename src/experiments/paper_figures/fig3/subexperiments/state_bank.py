@@ -1,12 +1,26 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
-from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _capture_sequences_same_length_batch
+from typing import Any, Mapping
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.paper_figures.common.bundle_io import (
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+)
+from src.experiments.paper_figures.fig3.constants import STATE_VARIABLES
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _capture_sequences_same_length_batch
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _capture_sequence,
+    _capture_singleton_refs_and_boundaries,
+    _encode_cached,
+    _landscape_for_sequence,
+    _progress,
+    _save_example_landscape,
+)
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def run_multiitem_sequence_state_bank(
     ctx: ExperimentContext,

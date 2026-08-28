@@ -1,11 +1,29 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+import math
+from typing import Any, Mapping
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.paper_figures.common.bundle_io import (
+    json_safe as _json_safe,
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+    write_json_file as _write_json,
+)
+from src.experiments.paper_figures.fig2.constants import STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _capture_pair_batch,
+    _concat_boundary_states,
+    _encode_cached,
+    _iter_batches,
+    _layer_input_shapes_from_boundary,
+    _progress,
+)
+from src.experiments.paper_figures.fig2.types import ExperimentContext, PairEpisodeStateBank
 
 def run_pair_episode_state_bank(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> PairEpisodeStateBank:
     cfg = ctx.cfg

@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.types import ExperimentContext
 
 
@@ -33,7 +33,7 @@ def build_boundary_condition_specs(ctx: ExperimentContext, sequence_trials: pd.D
                 }
             )
     out = pd.DataFrame(rows)
-    legacy._save_csv(ctx, out, ctx.trial_specs_dir / "boundary_condition_specs.csv")
+    _save_csv(ctx, out, ctx.trial_specs_dir / "boundary_condition_specs.csv")
     ctx.completed_modules["boundary_condition_specs"] = True
     return out
 
@@ -100,7 +100,7 @@ def build_access_job_specs(
                 )
                 job_id += 1
     out = pd.DataFrame(rows)
-    legacy._save_csv(ctx, out, ctx.trial_specs_dir / "access_job_specs.csv")
+    _save_csv(ctx, out, ctx.trial_specs_dir / "access_job_specs.csv")
     ctx.completed_modules["access_job_specs"] = True
     return out
 

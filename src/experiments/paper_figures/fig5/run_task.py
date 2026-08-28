@@ -32,7 +32,6 @@ from src.experiments.common.dataset import build_class_index
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as legacy
 from src.experiments.paper_figures.fig5.artifacts import (
     cache_key_matches,
     copy_probe_stsp_update_artifact_to_bundle,
@@ -57,6 +56,17 @@ from src.experiments.paper_figures.fig5.cache_keys import (
     cache_key_digest,
     trials_hash,
 )
+from src.experiments.paper_figures.fig5.constants import FIGURE_ID
+from src.experiments.paper_figures.fig5.output import (
+    prepare_dirs,
+    rel,
+    save_csv,
+    seed_output_dir,
+    utc_now,
+    write_config_files,
+    write_run_log_file,
+    write_summary,
+)
 from src.experiments.paper_figures.fig5.schemas import (
     REUSE_MODES,
     TASK_ALL,
@@ -72,7 +82,9 @@ from src.experiments.paper_figures.fig5.schemas import (
     TASK_TRIAL_SAMPLING,
     normalize_reuse_mode,
 )
+from src.experiments.paper_figures.fig5.subexperiments.debug_figures import save_debug_figures
 from src.experiments.paper_figures.fig5.subexperiments.early_firing import compute_early_firing_transition_metrics
+from src.experiments.paper_figures.fig5.subexperiments.helpers import _load_dataset_or_raise, _save_panel_a_example
 from src.experiments.paper_figures.fig5.subexperiments.local_events import compute_event_aligned_metrics
 from src.experiments.paper_figures.fig5.subexperiments.postprobe_stsp_writeback import (
     build_and_save_probe_stsp_update_artifact,
@@ -105,7 +117,6 @@ from src.experiments.paper_figures.run_paper_figures import (
 )
 
 
-FIGURE_ID = legacy.FIGURE_ID
 NUM_CLASSES = 10
 
 
@@ -142,7 +153,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
-        legacy._write_config_files(ctx)
+        write_config_files(ctx)
         _sample_process_rss(ctx, "config_written")
         if _is_postprobe_artifact_only_require(str(args.task), mode):
             trial_hash = _run_postprobe_artifact_only_require(ctx, artifact_root=artifact_root)
@@ -198,7 +209,7 @@ def _get_trial_sampling(
         _write_trial_sampling_to_bundle(ctx, artifact.trials, artifact.audit, task_dir=task_dir)
         trial_hash = trials_hash(artifact.trials)
         _set_artifact_metadata(ctx, "trial_sampling", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} trial_sampling source=built artifact={task_dir}")
+        ctx.run_log.append(f"{utc_now()} trial_sampling source=built artifact={task_dir}")
         return artifact.trials, trial_hash
 
     trial_hash = trials_hash(trials)
@@ -233,7 +244,7 @@ def _get_support_bank(
         artifact = _timed_artifact_io(ctx, save_support_bank_artifact, task_dir, bank, raw_dir=ctx.raw_dir, cache_key=expected_key)
         _write_support_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "preprobe_support_bank", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} preprobe_support_bank source=built artifact={task_dir}")
+        ctx.run_log.append(f"{utc_now()} preprobe_support_bank source=built artifact={task_dir}")
         return artifact.bank
 
     bank_hash = cache_key_digest(expected_key)
@@ -358,7 +369,7 @@ def _run_postprobe_artifact_only_require(
     _set_artifact_metadata(ctx, "probe_stsp_update_bank", "loaded", probe_dir, artifact.digest, expected_probe_key)
     setattr(ctx, "postprobe_stsp_update_require_replay_mode", "artifact_only")
     ctx.run_log.append(
-        f"{legacy._now()} postprobe_stsp_update require_replay=artifact_only "
+        f"{utc_now()} postprobe_stsp_update require_replay=artifact_only "
         "model_load=false encoder_load=false dataset_sample_load=false "
         "support_maps_npz_load=false branch_traces_npz_load=false"
     )
@@ -415,7 +426,7 @@ def _get_probe_stsp_update_bank(
     artifact = _load_probe_stsp_update_bank(ctx, task_dir, trials, expected_key, trial_hash, support_digest)
     _mirror_probe_stsp_update_artifact(ctx, task_dir)
     _set_artifact_metadata(ctx, "probe_stsp_update_bank", "built", task_dir, artifact.digest, expected_key)
-    ctx.run_log.append(f"{legacy._now()} probe_stsp_update_bank source=built artifact={task_dir}")
+    ctx.run_log.append(f"{utc_now()} probe_stsp_update_bank source=built artifact={task_dir}")
     return artifact
 
 
@@ -459,8 +470,8 @@ def _mirror_probe_stsp_update_artifact(ctx: ExperimentContext, task_dir: Path) -
         same_dir = False
     if not same_dir:
         _timed_artifact_io(ctx, copy_probe_stsp_update_artifact_to_bundle, task_dir, bundle_dir)
-    ctx.output_files["probe_stsp_update_bank_manifest"] = legacy._rel(bundle_dir / "manifest.csv", ctx.seed_dir)
-    ctx.output_files["probe_stsp_update_bank_snapshot_manifest"] = legacy._rel(bundle_dir / "snapshot_manifest.csv", ctx.seed_dir)
+    ctx.output_files["probe_stsp_update_bank_manifest"] = rel(bundle_dir / "manifest.csv", ctx.seed_dir)
+    ctx.output_files["probe_stsp_update_bank_snapshot_manifest"] = rel(bundle_dir / "snapshot_manifest.csv", ctx.seed_dir)
     ctx.completed_modules["probe_stsp_update_bank"] = True
 
 
@@ -477,13 +488,13 @@ def _write_trial_sampling_to_bundle(
     *,
     task_dir: Path | None,
 ) -> None:
-    legacy._save_csv(ctx, trials.copy(), ctx.trial_specs_dir / "local_competition_trials.csv")
-    legacy._save_csv(ctx, audit.copy(), ctx.metrics_dir / "supp_trial_condition_audit.csv")
+    save_csv(ctx, trials.copy(), ctx.trial_specs_dir / "local_competition_trials.csv")
+    save_csv(ctx, audit.copy(), ctx.metrics_dir / "supp_trial_condition_audit.csv")
     if task_dir is not None:
         copy_trial_npz_to_raw(task_dir, ctx.raw_dir)
     trial_masks = ctx.raw_dir / "trial_masks.npz"
     if trial_masks.exists():
-        ctx.output_files["trial_masks"] = legacy._rel(trial_masks, ctx.seed_dir)
+        ctx.output_files["trial_masks"] = rel(trial_masks, ctx.seed_dir)
     ctx.completed_modules["trial_sampling"] = True
     ctx.n_trials = int(len(trials))
 
@@ -494,24 +505,24 @@ def _write_support_bank_to_bundle(
     *,
     task_dir: Path | None,
 ) -> None:
-    legacy._save_csv(ctx, bank.unit_groups.copy(), ctx.trial_specs_dir / "unit_group_definitions.csv")
-    legacy._save_csv(ctx, bank.perturbation_sets.copy(), ctx.trial_specs_dir / "perturbation_unit_sets.csv")
-    legacy._save_csv(ctx, bank.perturbation_ux_audit.copy(), ctx.metrics_dir / "supp_perturbation_ux_audit.csv")
+    save_csv(ctx, bank.unit_groups.copy(), ctx.trial_specs_dir / "unit_group_definitions.csv")
+    save_csv(ctx, bank.perturbation_sets.copy(), ctx.trial_specs_dir / "perturbation_unit_sets.csv")
+    save_csv(ctx, bank.perturbation_ux_audit.copy(), ctx.metrics_dir / "supp_perturbation_ux_audit.csv")
     if task_dir is not None:
         copy_support_bank_tables_to_bundle(task_dir, ctx.raw_dir)
-        ctx.output_files["rollout_manifest"] = legacy._rel(ctx.raw_dir / "rollout_manifest.csv", ctx.seed_dir)
-        ctx.output_files["layer1_probe_trace_manifest"] = legacy._rel(ctx.raw_dir / "layer1_probe_trace_manifest.csv", ctx.seed_dir)
-    legacy._save_panel_a_example(ctx, bank.trials, bank.support_maps, bank.unit_groups)
+        ctx.output_files["rollout_manifest"] = rel(ctx.raw_dir / "rollout_manifest.csv", ctx.seed_dir)
+        ctx.output_files["layer1_probe_trace_manifest"] = rel(ctx.raw_dir / "layer1_probe_trace_manifest.csv", ctx.seed_dir)
+    _save_panel_a_example(ctx, bank.trials, bank.support_maps, bank.unit_groups)
     ctx.completed_modules["preprobe_support_bank"] = True
     ctx.n_trials = int(len(bank.trials))
 
 
 def _build_context(cfg: Fig5Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = seed_output_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_dirs(seed_dir)
     device = resolve_device(cfg.device)
-    dataset = legacy._load_dataset_or_raise(cfg.dataset_root, cfg.split)
+    dataset = _load_dataset_or_raise(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
     model_path = Path(cfg.model_path)
     if not model_path.exists():
@@ -543,14 +554,14 @@ def _build_context(cfg: Fig5Config) -> ExperimentContext:
         warnings=[],
         output_files={},
         completed_modules={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
     )
 
 
 def _build_artifact_only_context(cfg: Fig5Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = seed_output_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_dirs(seed_dir)
     device = resolve_device(cfg.device)
     return ExperimentContext(
         cfg=cfg,
@@ -569,8 +580,8 @@ def _build_artifact_only_context(cfg: Fig5Config) -> ExperimentContext:
         output_files={},
         completed_modules={},
         run_log=[
-            f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}",
-            f"{legacy._now()} postprobe_stsp_update require_replay=artifact_only context=metadata_only",
+            f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}",
+            f"{utc_now()} postprobe_stsp_update require_replay=artifact_only context=metadata_only",
         ],
     )
 
@@ -635,15 +646,15 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str, task_id: str) -> None:
     _sample_process_rss(ctx, "finalize_start")
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
+    write_config_files(ctx)
     if _task_needs_bank(task_id):
         write_fig5_supplement_aliases(ctx)
         if ctx.cfg.save_debug_figures:
-            legacy.save_debug_figures(ctx)
+            save_debug_figures(ctx)
     _mark_completed_from_existing_outputs(ctx)
     _refresh_output_file_registry(ctx)
     _sample_process_rss(ctx, "summary_write_ready")
-    summary = legacy._write_summary(ctx)
+    summary = write_summary(ctx)
     profiling = _runtime_profiling_summary(ctx)
     summary.update(
         {
@@ -701,7 +712,7 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str, 
         }
     )
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log_file(ctx)
 
 
 def _task_needs_bank(task_id: str) -> bool:
@@ -794,11 +805,11 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
-        if rel.startswith("data/intermediates/"):
+        relative_path = rel(path, ctx.seed_dir)
+        if relative_path.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt", ".npz"}:
-            ctx.output_files[path.stem] = rel
+            ctx.output_files[path.stem] = relative_path
 
 
 def _set_artifact_metadata(

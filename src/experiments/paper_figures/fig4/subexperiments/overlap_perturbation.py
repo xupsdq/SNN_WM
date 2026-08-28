@@ -1,11 +1,36 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+import json
+import math
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.monitored_dms import run_dms_snapshot_rollout
+from src.experiments.common.ping_common import (
+    decode_prediction_and_fire_time_from_layer3,
+    prepare_network_state,
+    reset_l3_decision_window,
+)
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.constants import (
+    CORE_CONDITIONS,
+    D_L1_STSP_CONDITION_LABELS,
+    D_L1_STSP_CONDITIONS,
+    PERTURBATION_CONDITION_MAP,
+)
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _cond_row,
+    _dpi_timecourse,
+    _encode_batch,
+    _image_cache,
+    _progress,
+    _resolve_fig4_readout_step,
+)
+from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _finite_delta, _from_row
+from src.experiments.paper_figures.fig4.types import ExperimentContext, OverlapReentryDMSBank
 
 def compute_overlap_preserving_perturbation_metrics(ctx: ExperimentContext, bank: OverlapReentryDMSBank) -> None:
     e_path = ctx.metrics_dir / "supp_decision_deflection_metrics.csv"

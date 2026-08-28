@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 
 from src.experiments.common.dataset import encode_images
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
     _run_ping_multi_boundary_batch,
     _run_ping_from_boundary,
@@ -33,10 +33,10 @@ def run_weak_cue_access(
     metrics = _weak_cue_metrics(raw)
     gain = _weak_cue_gain(metrics)
     boundary = _functional_boundary(gain, threshold=0.0)
-    legacy._save_csv(ctx, raw, ctx.raw_dir / "panel_d_weak_cue_item_readout.csv")
-    legacy._save_csv(ctx, metrics, ctx.metrics_dir / "panel_d_weak_cue_item_metrics.csv")
-    legacy._save_csv(ctx, gain, ctx.metrics_dir / "panel_d_item_functional_gain.csv")
-    legacy._save_csv(ctx, boundary, ctx.metrics_dir / "panel_d_functional_boundary_metrics.csv")
+    _save_csv(ctx, raw, ctx.raw_dir / "panel_d_weak_cue_item_readout.csv")
+    _save_csv(ctx, metrics, ctx.metrics_dir / "panel_d_weak_cue_item_metrics.csv")
+    _save_csv(ctx, gain, ctx.metrics_dir / "panel_d_item_functional_gain.csv")
+    _save_csv(ctx, boundary, ctx.metrics_dir / "panel_d_functional_boundary_metrics.csv")
     ctx.completed_modules["weak_cue_access"] = True
     return {
         "weak_cue_item_readout": raw,
@@ -276,9 +276,9 @@ def run_neutral_ping_access(
     raw = pd.DataFrame(raw_rows)
     position = _neutral_ping_position_distribution(raw)
     summary = _neutral_ping_summary(raw)
-    legacy._save_csv(ctx, raw, ctx.raw_dir / "panel_c_neutral_ping_access_readout.csv")
-    legacy._save_csv(ctx, position, ctx.metrics_dir / "panel_c_neutral_ping_position_distribution.csv")
-    legacy._save_csv(ctx, summary, ctx.metrics_dir / "panel_c_neutral_ping_access_summary.csv")
+    _save_csv(ctx, raw, ctx.raw_dir / "panel_c_neutral_ping_access_readout.csv")
+    _save_csv(ctx, position, ctx.metrics_dir / "panel_c_neutral_ping_position_distribution.csv")
+    _save_csv(ctx, summary, ctx.metrics_dir / "panel_c_neutral_ping_access_summary.csv")
     ctx.completed_modules["neutral_ping_access"] = True
     return {
         "neutral_ping_access_readout": raw,

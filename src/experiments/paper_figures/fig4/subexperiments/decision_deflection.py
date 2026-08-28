@@ -1,14 +1,42 @@
 from __future__ import annotations
 
+from typing import Any
+
+import numpy as np
+import pandas as pd
 import torch
 
-from src.experiments.distractor.shared.l3_replay import L3TraceCaptureResult, Layer3ReplaySnapshot
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
-
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.distractor.shared.l3_replay import (
+    L3TraceCaptureResult,
+    Layer3ReplaySnapshot,
+    center_vector as _legacy_center_vector,
+    make_l3_region_masks,
+    run_dms_with_l3_trace_capture,
+    run_l3_deletion_analysis_for_pair,
+    run_l3_replacement_analysis_for_pair,
+    summarize_l3_mechanism_results,
+    vector_similarity as _legacy_vector_similarity,
+)
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.constants import CORE_CONDITIONS, NUM_CLASSES
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _cond_row,
+    _cosine,
+    _encode_batch,
+    _image_cache,
+    _l3_summary_rows,
+    _progress,
+    _projection,
+    _resolve_fig4_readout_step,
+    _vector,
+)
+from src.experiments.paper_figures.fig4.subexperiments.supplement import _decision_deflection_summary
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    L3AccumulatorReplayBank,
+    OverlapPerturbationCompatibleBank,
+    OverlapReentryDMSBank,
+)
 
 def compute_decision_deflection_metrics(ctx: ExperimentContext, bank: OverlapReentryDMSBank | OverlapPerturbationCompatibleBank) -> None:
     missing_reason = ""

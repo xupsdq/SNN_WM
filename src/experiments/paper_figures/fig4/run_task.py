@@ -37,7 +37,12 @@ from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import (
+    prepare_seed_dirs,
+    relative_to_root,
+    resolve_seed_dir,
+    save_csv_with_registry,
+)
 from src.experiments.paper_figures.fig4.artifacts import (
     cache_key_matches,
     copy_rollout_artifact_npz_to_raw,
@@ -58,6 +63,7 @@ from src.experiments.paper_figures.fig4.cache_keys import (
     cache_key_digest,
     pair_sampling_hash,
 )
+from src.experiments.paper_figures.fig4.constants import FIGURE_ID, NUM_CLASSES
 from src.experiments.paper_figures.fig4.schemas import (
     REUSE_MODES,
     TASK_ALL,
@@ -86,11 +92,27 @@ from src.experiments.paper_figures.fig4.subexperiments.overlap_perturbation impo
     compute_overlap_preserving_perturbation_metrics,
 )
 from src.experiments.paper_figures.fig4.subexperiments.pair_sampling import build_pair_trials
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _bvec_summary,
+    _cti_summary,
+    _panel_b_accuracy_drop_summary,
+    _summary_by_bin,
+    _write_panel_a_example,
+)
+from src.experiments.paper_figures.fig4.subexperiments.output_contract import (
+    _write_config_files,
+    _write_summary,
+    utc_now,
+    write_run_log_file,
+)
 from src.experiments.paper_figures.fig4.subexperiments.rollouts import (
     run_overlap_perturbation_compatible_rollouts,
     run_similarity_bias_compatible_trials,
 )
-from src.experiments.paper_figures.fig4.subexperiments.supplement import compute_supplement_outputs
+from src.experiments.paper_figures.fig4.subexperiments.supplement import (
+    compute_supplement_outputs,
+    write_fig4_panel_aliases_and_supplement_aliases,
+)
 from src.experiments.paper_figures.fig4.types import (
     ExperimentContext,
     Fig4Config,
@@ -103,10 +125,6 @@ from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_OUTPUT_ROOT,
     discover_checkpoints,
 )
-
-
-FIGURE_ID = legacy.FIGURE_ID
-NUM_CLASSES = legacy.NUM_CLASSES
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -139,7 +157,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
-        legacy._write_config_files(ctx)
+        _write_config_files(ctx)
         pair_trials, _candidate_pool, _overlap_matched, perturbation_masks, mask_bank, pair_hash = _get_pair_sampling(
             ctx,
             mode=mode,
@@ -235,7 +253,7 @@ def _get_pair_sampling(
             artifact.mask_bank,
         )
         _set_artifact_metadata(ctx, "pair_sampling", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} pair_sampling source=built artifact={task_dir}")
+        ctx.run_log.append(f"{utc_now()} pair_sampling source=built artifact={task_dir}")
         return (
             artifact.pair_trials,
             artifact.candidate_pool,
@@ -395,10 +413,10 @@ def _write_pair_sampling_to_bundle(
     perturbation_masks: pd.DataFrame,
     mask_bank: Mapping[int, Mapping[str, np.ndarray]],
 ) -> None:
-    legacy._save_csv(ctx, pair_trials, ctx.trial_specs_dir / "pair_trials.csv")
-    legacy._save_csv(ctx, candidate_pool, ctx.trial_specs_dir / "pair_candidate_pool.csv")
-    legacy._save_csv(ctx, overlap_matched, ctx.trial_specs_dir / "overlap_matched_pairs.csv")
-    legacy._save_csv(ctx, perturbation_masks, ctx.trial_specs_dir / "perturbation_masks.csv")
+    save_csv_with_registry(ctx, pair_trials, ctx.trial_specs_dir / "pair_trials.csv")
+    save_csv_with_registry(ctx, candidate_pool, ctx.trial_specs_dir / "pair_candidate_pool.csv")
+    save_csv_with_registry(ctx, overlap_matched, ctx.trial_specs_dir / "overlap_matched_pairs.csv")
+    save_csv_with_registry(ctx, perturbation_masks, ctx.trial_specs_dir / "perturbation_masks.csv")
     if not pair_trials.empty:
         image_ids = sorted(
             {
@@ -411,7 +429,7 @@ def _write_pair_sampling_to_bundle(
             [ctx.dataset[idx][0].detach().cpu().to(torch.float32) for idx in range(max_image_id + 1)],
             dim=0,
         )
-        legacy._write_panel_a_example(ctx, pair_trials, mask_bank, images)
+        _write_panel_a_example(ctx, pair_trials, mask_bank, images)
     ctx.completed_modules["pair_sampling"] = True
     ctx.n_pairs = int(len(pair_trials))
 
@@ -436,36 +454,36 @@ def _read_overlap_matched_pairs(path: Path) -> pd.DataFrame:
 def _write_similarity_entry_to_bundle(ctx: ExperimentContext, bank: SimilarityBiasCompatibleBank) -> None:
     trial_df = bank.trial_metrics.copy()
     repeat_df = bank.repeat_metrics.copy()
-    legacy._save_csv(ctx, trial_df, ctx.metrics_dir / "panel_b_similarity_entry_metrics.csv")
-    legacy._save_csv(ctx, legacy._summary_by_bin(trial_df, "similarity_bin", "pixel_similarity"), ctx.metrics_dir / "panel_b_similarity_bin_summary.csv")
-    legacy._save_csv(ctx, legacy._panel_b_accuracy_drop_summary(trial_df), ctx.metrics_dir / "panel_b_similarity_accuracy_drop_summary.csv")
-    legacy._save_csv(ctx, legacy._bvec_summary(trial_df), ctx.metrics_dir / "supp_similarity_bvec_summary.csv")
-    legacy._save_csv(ctx, legacy._cti_summary(trial_df), ctx.metrics_dir / "supp_similarity_cti_summary.csv")
-    legacy._save_csv(ctx, repeat_df, ctx.raw_dir / "similarity_bias_repeat_metrics.csv")
+    save_csv_with_registry(ctx, trial_df, ctx.metrics_dir / "panel_b_similarity_entry_metrics.csv")
+    save_csv_with_registry(ctx, _summary_by_bin(trial_df, "similarity_bin", "pixel_similarity"), ctx.metrics_dir / "panel_b_similarity_bin_summary.csv")
+    save_csv_with_registry(ctx, _panel_b_accuracy_drop_summary(trial_df), ctx.metrics_dir / "panel_b_similarity_accuracy_drop_summary.csv")
+    save_csv_with_registry(ctx, _bvec_summary(trial_df), ctx.metrics_dir / "supp_similarity_bvec_summary.csv")
+    save_csv_with_registry(ctx, _cti_summary(trial_df), ctx.metrics_dir / "supp_similarity_cti_summary.csv")
+    save_csv_with_registry(ctx, repeat_df, ctx.raw_dir / "similarity_bias_repeat_metrics.csv")
     np.savez_compressed(ctx.raw_dir / "similarity_bias_voltage_vectors.npz", **bank.voltage_vectors)
     ctx.output_files["similarity_bias_voltage_vectors"] = "data/raw/similarity_bias_voltage_vectors.npz"
     ctx.completed_modules["similarity_entry"] = True
 
 
 def _write_rollouts_to_bundle(ctx: ExperimentContext, bank: OverlapPerturbationCompatibleBank, *, task_dir: Path) -> None:
-    legacy._save_csv(ctx, bank.rollout_manifest, ctx.raw_dir / "overlap_perturbation_rollout_manifest.csv")
-    legacy._save_csv(ctx, bank.rollout_manifest, ctx.raw_dir / "rollout_manifest.csv")
+    save_csv_with_registry(ctx, bank.rollout_manifest, ctx.raw_dir / "overlap_perturbation_rollout_manifest.csv")
+    save_csv_with_registry(ctx, bank.rollout_manifest, ctx.raw_dir / "rollout_manifest.csv")
     if not bank.l3_replay_capture_manifest.empty:
-        legacy._save_csv(ctx, bank.l3_replay_capture_manifest, ctx.raw_dir / "l3_replay_capture_manifest.csv")
-    legacy._save_csv(ctx, bank.perturbation_masks, ctx.metrics_dir / "supp_overlap_mask_application_audit.csv")
+        save_csv_with_registry(ctx, bank.l3_replay_capture_manifest, ctx.raw_dir / "l3_replay_capture_manifest.csv")
+    save_csv_with_registry(ctx, bank.perturbation_masks, ctx.metrics_dir / "supp_overlap_mask_application_audit.csv")
     copy_rollout_artifact_npz_to_raw(task_dir, ctx.raw_dir)
     for stem in ("probe_trace_arrays_l1", "probe_trace_arrays_l2", "probe_trace_arrays_l3", "readout_trajectory_vectors", "l3_replay_capture_arrays"):
         path = ctx.raw_dir / f"{stem}.npz"
         if path.exists():
-            ctx.output_files[stem] = legacy._rel(path, ctx.seed_dir)
+            ctx.output_files[stem] = relative_to_root(path, ctx.seed_dir)
     ctx.output_files["overlap_perturbation_rollout_manifest"] = "data/raw/overlap_perturbation_rollout_manifest.csv"
     ctx.completed_modules["rollouts"] = True
 
 
 def _build_context(cfg: Fig4Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_seed_dirs(seed_dir, include_root_layout=True)
     device = resolve_device(cfg.device)
     dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
@@ -505,7 +523,7 @@ def _build_context(cfg: Fig4Config) -> ExperimentContext:
         warnings=warnings,
         output_files={},
         completed_modules={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
     )
 
 
@@ -555,11 +573,11 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 
 def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) -> None:
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
-    legacy.write_fig4_panel_aliases_and_supplement_aliases(ctx)
+    _write_config_files(ctx)
+    write_fig4_panel_aliases_and_supplement_aliases(ctx)
     _normalize_optional_empty_tables(ctx)
     _refresh_output_file_registry(ctx)
-    summary = legacy._write_summary(ctx)
+    summary = _write_summary(ctx)
     summary.update(
         {
             "reuse_artifacts": str(mode),
@@ -567,7 +585,7 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) 
         }
     )
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log_file(ctx)
 
 
 def _normalize_optional_empty_tables(ctx: ExperimentContext) -> None:
@@ -577,7 +595,7 @@ def _normalize_optional_empty_tables(ctx: ExperimentContext) -> None:
     try:
         pd.read_csv(path)
     except pd.errors.EmptyDataError:
-        legacy._save_csv(
+        save_csv_with_registry(
             ctx,
             pd.DataFrame(
                 columns=[
@@ -627,7 +645,7 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
+        rel = relative_to_root(path, ctx.seed_dir)
         if rel.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt", ".npz"}:

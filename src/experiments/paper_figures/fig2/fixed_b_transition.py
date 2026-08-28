@@ -5,7 +5,7 @@ from typing import Any, Callable, Mapping
 
 import pandas as pd
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import relative_to_root, save_csv_with_registry
 from src.experiments.paper_figures.fig2.artifacts import task_artifact_dir, validate_cache_key_integrity, write_json
 from src.experiments.paper_figures.fig2.cache_keys import (
     build_fixed_b_cache_key,
@@ -79,7 +79,7 @@ def run_fixed_b_task(
             task_state_path=ctx.cfg.fixed_b_task_state_path,
         )
         for name, path in paths.items():
-            ctx.output_files[f"fixed_b_{name}"] = legacy._rel(
+            ctx.output_files[f"fixed_b_{name}"] = relative_to_root(
                 path,
                 Path(ctx.cfg.output_root).resolve(),
             )
@@ -418,13 +418,13 @@ def run_fixed_b_task(
         protocol=frozen,
     )
     trajectory_path = ctx.raw_dir / "fixed_b_state_trajectory_rows.csv"
-    legacy._save_csv(ctx, rollouts.tables["state_trajectory_rows"], trajectory_path)
-    ctx.output_files["fixed_b_state_trajectory_rows"] = legacy._rel(trajectory_path, ctx.seed_dir)
+    save_csv_with_registry(ctx, rollouts.tables["state_trajectory_rows"], trajectory_path)
+    ctx.output_files["fixed_b_state_trajectory_rows"] = relative_to_root(trajectory_path, ctx.seed_dir)
     for name, table in result_tables.items():
-        legacy._save_csv(ctx, table, ctx.metrics_dir / f"{name}.csv")
+        save_csv_with_registry(ctx, table, ctx.metrics_dir / f"{name}.csv")
     decision_path = ctx.metrics_dir / "fixed_b_single_seed_decision.json"
     write_json(decision, decision_path)
-    ctx.output_files["fixed_b_single_seed_decision"] = legacy._rel(decision_path, ctx.seed_dir)
+    ctx.output_files["fixed_b_single_seed_decision"] = relative_to_root(decision_path, ctx.seed_dir)
     if int(ctx.cfg.network_seed) == 1000:
         _write_seed_1000_alignment(
             ctx,
@@ -474,9 +474,9 @@ def _write_specs_to_bundle(
     )
     for name in selected_names:
         if name in tables:
-            legacy._save_csv(ctx, tables[name], ctx.trial_specs_dir / f"fixed_b_{name}.csv")
+            save_csv_with_registry(ctx, tables[name], ctx.trial_specs_dir / f"fixed_b_{name}.csv")
     write_json(dict(specs_payload), ctx.trial_specs_dir / "fixed_b_endpoint_spec.json")
-    ctx.output_files["fixed_b_endpoint_spec"] = legacy._rel(
+    ctx.output_files["fixed_b_endpoint_spec"] = relative_to_root(
         ctx.trial_specs_dir / "fixed_b_endpoint_spec.json",
         ctx.seed_dir,
     )
@@ -493,7 +493,7 @@ def _write_protocol_reference(ctx: ExperimentContext, protocol: FixedBArtifact) 
         },
         path,
     )
-    ctx.output_files["fixed_b_protocol_reference"] = legacy._rel(path, ctx.seed_dir)
+    ctx.output_files["fixed_b_protocol_reference"] = relative_to_root(path, ctx.seed_dir)
 def _write_seed_1000_alignment(
     ctx: ExperimentContext,
     *,

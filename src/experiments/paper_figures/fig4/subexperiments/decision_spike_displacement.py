@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.config.units import ms
+from src.experiments.distractor.shared.masking import normalize_pattern_vector
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.constants import CORE_CONDITIONS
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import _cond_row, _dpi_timecourse, _trace
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    OverlapPerturbationCompatibleBank,
+    OverlapReentryDMSBank,
+)
 
 def compute_decision_spike_displacement(ctx: ExperimentContext, bank: OverlapReentryDMSBank) -> None:
     time_rows: list[dict[str, Any]] = []

@@ -1,26 +1,20 @@
 from __future__ import annotations
 
 import argparse
-import json
 import math
 import sys
-import warnings as py_warnings
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
-import torch
 
 from src.config.units import ms
-from src.experiments.common.dataset import build_class_index, encode_images
-from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
+from src.experiments.common.dataset import build_class_index
 from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
-from src.experiments.common.monitored_dms import build_layer_input_shapes, snapshot_boundary_state
-from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state, snapshot_ux_state
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.paper_figures.common.bundle_io import (
@@ -33,28 +27,21 @@ from src.experiments.paper_figures.common.bundle_io import (
     write_run_log,
 )
 from src.experiments.paper_figures.common.progress import ProgressTracker, planned_phases
-from src.experiments.paper_figures.fig1.types import ExperimentContext, Fig1Config, ProbePrep
+from src.experiments.paper_figures.fig1.constants import (
+    DMS_DELAY_SWEEP_CONDITIONS,
+    FIGURE_ID,
+    MAIN_CONDITIONS,
+    NUM_CLASSES,
+    SUPP_CONDITIONS,
+)
+from src.experiments.paper_figures.fig1.output import (
+    write_config_files,
+    write_run_log as write_fig1_run_log,
+    write_summary,
+)
+from src.experiments.paper_figures.fig1.trial_specs import build_trial_specs as build_fig1_trial_specs
+from src.experiments.paper_figures.fig1.types import ExperimentContext, Fig1Config
 from src.plotting.common.io import apply_publication_style, save_figure_all_formats
-
-try:
-    from src.experiments.ping_memory.shared.shuffle_metrics import (
-        compute_bias_table as compat_compute_bias_table,
-        compute_collapse_summary as compat_compute_collapse_summary,
-        compute_condition_metrics as compat_compute_condition_metrics,
-    )
-except Exception:  # pragma: no cover - compatibility outputs are best effort
-    compat_compute_bias_table = None
-    compat_compute_collapse_summary = None
-    compat_compute_condition_metrics = None
-
-try:
-    from sklearn.exceptions import ConvergenceWarning
-    from sklearn.metrics import f1_score
-    from sklearn.svm import LinearSVC
-except Exception:  # pragma: no cover - handled at runtime with a clear error
-    ConvergenceWarning = Warning
-    LinearSVC = None
-    f1_score = None
 
 try:
     from tqdm.auto import tqdm
@@ -66,26 +53,6 @@ def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
     if not enabled or tqdm is None:
         return iterable
     return tqdm(iterable, total=total, desc=desc, leave=False)
-
-
-FIGURE_ID = "fig1_functional_stsp_substrate"
-NUM_CLASSES = 10
-MAIN_CONDITIONS = ("dynamic_intact", "ux_trial_shuffle", "static_frozen")
-SUPP_CONDITIONS = ("dynamic_intact", "spike_state_shuffle", "membrane_state_shuffle", "ux_trial_shuffle", "static_frozen")
-DMS_DELAY_SWEEP_CONDITIONS = ("dynamic_intact", "static_frozen")
-SHUFFLE_CONDITIONS = ("spike_state_shuffle", "membrane_state_shuffle", "ux_trial_shuffle")
-SUBSTRATE_BY_CONDITION = {
-    "dynamic_intact": "dynamic",
-    "ux_trial_shuffle": "ux",
-    "spike_state_shuffle": "spike",
-    "membrane_state_shuffle": "membrane",
-    "static_frozen": "static",
-}
-CONDITION_TO_SUBSTRATE = {
-    "spike_state_shuffle": "spike",
-    "membrane_state_shuffle": "membrane",
-    "ux_trial_shuffle": "ux",
-}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -168,7 +135,7 @@ def run(cfg: Fig1Config) -> dict[str, Any]:
             fig_id="fig1",
         )
         with progress.phase("config"):
-            _write_config_files(ctx)
+            write_config_files(ctx)
         with progress.phase("trial_specs"):
             specs = build_trial_specs(ctx)
         if cfg.run_baseline:
@@ -194,8 +161,8 @@ def run(cfg: Fig1Config) -> dict[str, Any]:
             with progress.phase("debug_figures"):
                 save_debug_figures(ctx)
         with progress.phase("summary"):
-            summary = _write_summary(ctx)
-            _write_run_log(ctx)
+            summary = write_summary(ctx)
+            write_fig1_run_log(ctx)
         finalize_run_info(seed_dir / "meta", run_info, status="success")
         return summary
     except Exception:
@@ -204,44 +171,7 @@ def run(cfg: Fig1Config) -> dict[str, Any]:
 
 
 def build_trial_specs(ctx: ExperimentContext) -> dict[str, pd.DataFrame]:
-    cfg = ctx.cfg
-    rng = np.random.default_rng(int(cfg.network_seed))
-    baseline = _balanced_image_trials(
-        ctx.class_index,
-        per_class=cfg.baseline_eval_per_class,
-        rng=rng,
-        network_seed=cfg.network_seed,
-        split=cfg.split,
-        id_prefix="baseline",
-    )
-    baseline = baseline[["network_seed", "trial_id", "image_id", "label", "split"]]
-
-    train, test, overlap = _balanced_disjoint_delay_trials(
-        ctx.class_index,
-        train_per_class=cfg.delay_decode_train_per_class,
-        test_per_class=cfg.delay_decode_test_per_class,
-        rng=rng,
-        network_seed=cfg.network_seed,
-    )
-    if overlap:
-        ctx.warnings.append(f"Delay train/test image overlap was unavoidable for {overlap} image IDs.")
-
-    dms, audit_rows = _build_dms_trials(
-        ctx.class_index,
-        n_trials=cfg.dms_num_trials,
-        rng=rng,
-        network_seed=cfg.network_seed,
-    )
-
-    _save_csv(ctx, baseline, ctx.trial_specs_dir / "baseline_eval_trials.csv")
-    _save_csv(ctx, train, ctx.trial_specs_dir / "delay_decode_train_trials.csv")
-    _save_csv(ctx, test, ctx.trial_specs_dir / "delay_decode_test_trials.csv")
-    _save_csv(ctx, dms, ctx.trial_specs_dir / "dms_shuffle_trials.csv")
-    audit = pd.DataFrame(audit_rows)
-    _save_csv(ctx, audit, ctx.metrics_dir / "supp_trial_condition_audit.csv")
-    ctx.n_trials.update({"baseline": len(baseline), "delay_train": len(train), "delay_test": len(test), "dms": len(dms)})
-    ctx.completed_modules["trial_specs"] = True
-    return {"baseline": baseline, "delay_train": train, "delay_test": test, "dms": dms}
+    return build_fig1_trial_specs(ctx)
 
 
 def run_baseline_eval(ctx: ExperimentContext, trials: pd.DataFrame):

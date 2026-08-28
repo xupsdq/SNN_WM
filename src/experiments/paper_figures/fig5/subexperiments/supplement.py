@@ -1,11 +1,29 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+import numpy as np
+import pandas as pd
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig5.constants import (
+    NULL_TYPES,
+    PANEL_C_TRACE_COLUMNS,
+    PANEL_D_TRANSITION_CONTRAST_COLUMNS,
+    PERTURBATION_UX_AUDIT_COLUMNS,
+    SUPP_EVENT_AUDIT_COLUMNS,
+    SUPP_NULL_COLUMNS,
+    SUPP_S10_DYNAMIC_RECOVERY_COLUMNS,
+    SUPP_S10_SAME_WINNER_DISRUPTION_COLUMNS,
+    SUPP_S9_EVENT_CHAIN_NULL_COLUMNS,
+    SUPP_S9_TRANSITION_COMPOSITION_COLUMNS,
+)
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _copy_csv_alias,
+    _mean_existing,
+    _progress,
+    _record_optional_missing,
+    _write_empty_csv,
+)
+from src.experiments.paper_figures.fig5.types import ExperimentContext
 
 def write_supplement_outputs(ctx: ExperimentContext) -> None:
     events_path = ctx.metrics_dir / "panel_c_winner_loser_event_metrics.csv"

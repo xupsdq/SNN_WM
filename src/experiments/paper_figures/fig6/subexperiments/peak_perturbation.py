@@ -1,12 +1,50 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
+from collections.abc import Mapping
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.monitored_dms import snapshot_boundary_state
+from src.experiments.common.ping_common import prepare_network_state
+from src.experiments.paper_figures.fig6.constants import (
+    PANEL_D_ROUTE_PEAK_CONTRAST_COLUMNS,
+    PANEL_D_ROUTE_PEAK_SUMMARY_COLUMNS,
+    PANEL_D_ROUTE_PEAK_TRIAL_COLUMNS,
+    PANEL_E_ROUTE_PEAK_CONTRAST_COLUMNS,
+    PANEL_E_ROUTE_PEAK_OUTPUT_DISTRIBUTION_COLUMNS,
+    PANEL_E_ROUTE_PEAK_SUMMARY_COLUMNS,
+    PANEL_E_ROUTE_PEAK_TRIAL_COLUMNS,
+    PERTURBATION_UNIT_SET_LABELS,
+    PERTURBATION_UNIT_SET_ORDER,
+    ROUTE_PEAK_UNIT_SET_COLUMNS,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _encode_sequence_cached,
+    _progress,
+    _read_csv_if_exists,
+    _restore_boundary_state,
+    _run_real_probe_conditions_batch,
+    _run_real_probe_from_condition,
+    _save_csv,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _bool_col,
+    _bool_value,
+    _is_proxy_mode,
+    _label_evidence,
+    _num,
+    _perturbation_target,
+    _sem,
+    _sequence_index,
+)
+from src.experiments.paper_figures.fig6.subexperiments.real_reentry_rollout import build_later_probe_peak_overlap_trials
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def _write_standardized_peak_perturbation_outputs(ctx: ExperimentContext) -> None:
     d_source = _read_csv_if_exists(ctx.raw_dir / "panel_d_route_peak_perturbation_trial_readout.csv")

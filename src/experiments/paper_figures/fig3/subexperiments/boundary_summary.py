@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.types import ExperimentContext
 
 
@@ -32,9 +32,9 @@ def compute_morphology_function_coupling(
             coupling["functional_gain"] = pd.to_numeric(coupling["G_i"], errors="coerce")
     summary = _coupling_summary(coupling)
     order_control = _order_specificity_control(item_support)
-    legacy._save_csv(ctx, coupling, ctx.metrics_dir / "panel_e_morphology_function_coupling.csv")
-    legacy._save_csv(ctx, summary, ctx.metrics_dir / "panel_e_coupling_summary.csv")
-    legacy._save_csv(ctx, order_control, ctx.metrics_dir / "panel_f_order_specificity_control.csv")
+    _save_csv(ctx, coupling, ctx.metrics_dir / "panel_e_morphology_function_coupling.csv")
+    _save_csv(ctx, summary, ctx.metrics_dir / "panel_e_coupling_summary.csv")
+    _save_csv(ctx, order_control, ctx.metrics_dir / "panel_f_order_specificity_control.csv")
     ctx.completed_modules["morphology_function_coupling"] = True
     return {
         "morphology_function_coupling": coupling,
@@ -91,7 +91,7 @@ def compute_boundary_summary(
                 row["ping_latest_item_mass"] = float(pd.to_numeric(ppart["latest_item_mass"], errors="coerce").mean())
             rows.append(row)
     summary = pd.DataFrame(rows)
-    legacy._save_csv(ctx, summary, ctx.metrics_dir / "panel_f_boundary_summary.csv")
+    _save_csv(ctx, summary, ctx.metrics_dir / "panel_f_boundary_summary.csv")
     ctx.completed_modules["boundary_summary"] = True
     return {"boundary_summary": summary}
 

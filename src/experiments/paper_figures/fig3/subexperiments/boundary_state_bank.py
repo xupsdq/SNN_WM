@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.subexperiments.state_bank import run_multiitem_sequence_state_bank
 from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
@@ -94,7 +94,7 @@ def materialize_boundary_state_bank(
                     "boundary_source": "fig3.state_bank",
                 }
             )
-    legacy._save_csv(ctx, pd.DataFrame(rows), ctx.raw_dir / "boundary_state_bank_manifest.csv")
+    _save_csv(ctx, pd.DataFrame(rows), ctx.raw_dir / "boundary_state_bank_manifest.csv")
     ctx.completed_modules["boundary_state_bank"] = True
     return MultiItemSequenceLandscapeBank(
         sequence_trials=sequence_trials.reset_index(drop=True).copy() if sequence_trials is not None else bank.sequence_trials.reset_index(drop=True).copy(),
@@ -124,7 +124,7 @@ def _write_boundary_manifest(ctx: ExperimentContext, sequence_meta: pd.DataFrame
                 "boundary_source": "fig3.boundary_state_bank",
             }
         )
-    legacy._save_csv(ctx, pd.DataFrame(rows), ctx.raw_dir / "boundary_state_bank_manifest.csv")
+    _save_csv(ctx, pd.DataFrame(rows), ctx.raw_dir / "boundary_state_bank_manifest.csv")
 
 
 __all__ = ["materialize_boundary_state_bank"]

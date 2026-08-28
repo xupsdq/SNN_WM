@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+import numpy as np
+import pandas as pd
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _accuracy_pair_table,
+    _build_iso_similarity_overlap_matches,
+    _high_similarity_overlap_accuracy_drop_tables,
+)
+from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import (
+    _compute_overlap_excess_accuracy,
+    _matched_overlap_permutation_test,
+    _matching_balance_diagnostics,
+    _overlap_accuracy_contrast_by_network,
+    _overlap_accuracy_regression,
+)
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    OverlapReentryDMSBank,
+    SimilarityBiasCompatibleBank,
+)
 
 def compute_overlap_accuracy_identification(ctx: ExperimentContext, bank: OverlapReentryDMSBank | SimilarityBiasCompatibleBank) -> None:
     pair_table = _accuracy_pair_table(ctx, bank)

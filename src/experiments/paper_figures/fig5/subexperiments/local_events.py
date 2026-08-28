@@ -1,11 +1,33 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.config.units import ms
+from src.experiments.paper_figures.common.bundle_io import relative_to_root as _rel, save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig5.constants import (
+    LATE_PRE_WINDOW_MS,
+    MAX_WINNERS_PER_TRIAL,
+    PANEL_C_EVENT_COLUMNS,
+    PRIMARY_PRE_WINDOW_MS,
+    SUPP_EVENT_AUDIT_COLUMNS,
+)
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _advanced_or_recruited_units,
+    _aligned_delta,
+    _delayed_or_lost_units,
+    _event_audit_row,
+    _first_spike_map,
+    _is_loser_suppressed,
+    _latency_delta,
+    _nearest_loser,
+    _neighborhood_radius_robustness,
+    _progress,
+    _spikes_earlier,
+)
+from src.experiments.paper_figures.fig5.types import ExperimentContext, LocalSupportCompetitionBank
 
 
 def compute_event_aligned_metrics(ctx: ExperimentContext, bank: LocalSupportCompetitionBank) -> None:

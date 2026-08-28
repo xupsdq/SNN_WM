@@ -1,12 +1,49 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.paper_figures.fig6.constants import (
+    PANEL_D_REAL_METRIC_COLUMNS,
+    PANEL_D_TRIAL_DEFINITION_COLUMNS,
+    PANEL_E_REAL_METRIC_COLUMNS,
+    PROBE_TRIAL_COLUMNS,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _encode_sequence_cached,
+    _image_array,
+    _progress,
+    _run_real_probe_conditions_batch,
+    _save_csv,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _centered_cosine,
+    _df_all_proxy,
+    _early_spike_count,
+    _fire_delta,
+    _label_evidence,
+    _matched_lookup,
+    _matched_raw_overlap_groups,
+    _plain_cosine,
+    _regression_rows,
+    _safe_div,
+    _save_panel_d_example,
+    _sequence_index,
+    _spike_timing_metrics,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
+def _write_standardized_panel_d_outputs(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.supplement import _write_standardized_panel_d_outputs as _impl
+
+    return _impl(*args, **kwargs)
+
+
 
 def build_later_probe_peak_overlap_trials(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     probe_trials = build_probe_candidate_trials(ctx, bank)

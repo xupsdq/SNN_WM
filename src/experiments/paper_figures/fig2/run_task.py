@@ -36,7 +36,12 @@ from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import (
+    prepare_seed_dirs,
+    relative_to_root,
+    resolve_seed_dir,
+    save_csv_with_registry,
+)
 from src.experiments.paper_figures.fig2.artifacts import (
     CompletionDelayBoundaryBank,
     cache_key_matches,
@@ -72,6 +77,16 @@ from src.experiments.paper_figures.fig2.cache_keys import (
     model_fingerprint,
     pair_specs_hash,
 )
+from src.experiments.paper_figures.fig2.constants import FIGURE_ID, NUM_CLASSES, STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.output import (
+    ms_to_steps,
+    prepare_dirs,
+    seed_output_dir,
+    utc_now,
+    write_config_files,
+    write_run_log_file,
+    write_summary,
+)
 from src.experiments.paper_figures.fig2.schemas import (
     COMPLETION_CONDITIONS,
     COMPLETION_DELAY_MASK_COLUMNS,
@@ -97,7 +112,10 @@ from src.experiments.paper_figures.fig2.schemas import (
     WEAK_PROBE_MASK_COLUMNS,
     normalize_reuse_mode,
 )
-from src.experiments.paper_figures.fig2.subexperiments.completion_delay_sweep import _make_completion_weak_spikes
+from src.experiments.paper_figures.fig2.subexperiments.completion_delay_sweep import (
+    _make_completion_weak_spikes,
+    run_completion_delay_sweep_from_pair_trials,
+)
 from src.experiments.paper_figures.fig2.subexperiments.crossfit_interaction import (
     build_crossfit_null_specs,
     build_crossfit_split_specs,
@@ -124,7 +142,17 @@ from src.experiments.paper_figures.fig2.subexperiments.ping_sweep import run_neu
 from src.experiments.paper_figures.fig2.subexperiments.supplement import compute_supplementary_metrics
 from src.experiments.paper_figures.fig2.subexperiments.trial_specs import build_pair_trial_specs
 from src.experiments.paper_figures.fig2.subexperiments.state_bank import run_pair_episode_state_bank
-from src.experiments.paper_figures.fig2.subexperiments.helpers import _capture_pair_batch, _encode_cached, _iter_batches
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _capture_pair_batch,
+    _concat_boundary_states,
+    _encode_cached,
+    _iter_batches,
+    _layer_input_shapes_from_boundary,
+    _pair_sampling_audit,
+    _progress,
+    _trial_condition_audit,
+    _weak_probe_mask_row,
+)
 from src.experiments.paper_figures.fig2.types import ExperimentContext, Fig2Config, PairEpisodeStateBank
 from src.experiments.paper_figures.fig2.fixed_b_transition import run_fixed_b_task
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_specs import (
@@ -145,8 +173,6 @@ from src.experiments.paper_figures.run_paper_figures import (
 )
 
 
-FIGURE_ID = legacy.FIGURE_ID
-NUM_CLASSES = legacy.NUM_CLASSES
 PORTABLE_CROSSFIT_PARENT_TASKS = frozenset(
     {
         TASK_CROSSFIT_SPLIT_SPECS,
@@ -200,7 +226,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
-        legacy._write_config_files(ctx)
+        write_config_files(ctx)
         if str(args.task) in FIXED_B_TASK_IDS:
             run_fixed_b_task(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
         else:
@@ -260,7 +286,7 @@ def _get_pair_specs(
     )
     _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
     _set_artifact_metadata(ctx, "pair_trial_specs", "built", task_dir, artifact.digest, expected_key)
-    ctx.run_log.append(f"{legacy._now()} pair_trial_specs source=built artifact={task_dir}")
+    ctx.run_log.append(f"{utc_now()} pair_trial_specs source=built artifact={task_dir}")
     return artifact.pair_trials
 
 
@@ -306,10 +332,10 @@ def _validate_portable_pair_parent(
 
 
 def _write_pair_specs_to_bundle(ctx: ExperimentContext, pair_trials: pd.DataFrame, candidate_pool: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, pair_trials, ctx.trial_specs_dir / "pair_trials.csv")
-    legacy._save_csv(ctx, candidate_pool, ctx.trial_specs_dir / "pair_candidate_pool.csv")
-    legacy._save_csv(ctx, legacy._pair_sampling_audit(ctx.cfg.network_seed, pair_trials, candidate_pool), ctx.metrics_dir / "supp_pair_sampling_audit.csv")
-    legacy._save_csv(ctx, legacy._trial_condition_audit(ctx.cfg.network_seed, pair_trials), ctx.metrics_dir / "supp_trial_condition_audit.csv")
+    save_csv_with_registry(ctx, pair_trials, ctx.trial_specs_dir / "pair_trials.csv")
+    save_csv_with_registry(ctx, candidate_pool, ctx.trial_specs_dir / "pair_candidate_pool.csv")
+    save_csv_with_registry(ctx, _pair_sampling_audit(ctx.cfg.network_seed, pair_trials, candidate_pool), ctx.metrics_dir / "supp_pair_sampling_audit.csv")
+    save_csv_with_registry(ctx, _trial_condition_audit(ctx.cfg.network_seed, pair_trials), ctx.metrics_dir / "supp_trial_condition_audit.csv")
     ctx.n_pairs = int(len(pair_trials))
     ctx.completed_modules["pair_trial_specs"] = True
 
@@ -392,11 +418,11 @@ def _run_task(
         return
     if task_id == TASK_COMPLETION_DELAY_SWEEP:
         if mode == "off":
-            legacy.run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
+            run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
         else:
             setattr(ctx, "completion_delay_boundary_bank", _get_completion_boundary_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root, producer=False))
             setattr(ctx, "completion_delay_mask_specs", _get_completion_delay_mask_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root))
-            legacy.run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
+            run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
         return
     if task_id == TASK_SUPPLEMENT:
         compute_supplementary_metrics(ctx, _empty_bank(pair_trials))
@@ -425,7 +451,7 @@ def _run_task(
         if mode != "off":
             setattr(ctx, "completion_delay_boundary_bank", _get_completion_boundary_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root, producer=False))
             setattr(ctx, "completion_delay_mask_specs", _get_completion_delay_mask_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root))
-        legacy.run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
+        run_completion_delay_sweep_from_pair_trials(ctx, pair_trials)
         compute_supplementary_metrics(ctx, bank)
         return
     raise ValueError(f"Unsupported Fig.2 task: {task_id}")
@@ -506,7 +532,7 @@ def _get_crossfit_split_specs(
 
 
 def _write_crossfit_split_specs_to_bundle(ctx: ExperimentContext, split_specs: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, split_specs, ctx.trial_specs_dir / "crossfit_split_specs.csv")
+    save_csv_with_registry(ctx, split_specs, ctx.trial_specs_dir / "crossfit_split_specs.csv")
     ctx.completed_modules["crossfit_split_specs"] = True
 
 
@@ -578,7 +604,7 @@ def _get_crossfit_null_specs(
 
 
 def _write_crossfit_null_specs_to_bundle(ctx: ExperimentContext, null_specs: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, null_specs, ctx.trial_specs_dir / "crossfit_null_specs.csv")
+    save_csv_with_registry(ctx, null_specs, ctx.trial_specs_dir / "crossfit_null_specs.csv")
     ctx.completed_modules["crossfit_null_specs"] = True
 
 
@@ -712,13 +738,13 @@ def _build_completion_boundary_bank(ctx: ExperimentContext, pair_trials: pd.Data
     encode_cache: dict[tuple[Any, ...], torch.Tensor] = {}
     boundary_states_by_delay: dict[int, dict[str, Mapping[str, Mapping[str, torch.Tensor]]]] = {}
     layer_input_shapes_by_delay: dict[int, dict[str, tuple[int, ...]]] = {}
-    for delay2_ms in legacy._progress(
+    for delay2_ms in _progress(
         ctx.cfg.completion_delay_sweep_ms,
         total=len(ctx.cfg.completion_delay_sweep_ms),
         desc="fig2 completion boundary bank",
         enabled=ctx.cfg.show_progress,
     ):
-        delay2_steps = legacy._ms_to_steps(int(delay2_ms), ctx.cfg.dt)
+        delay2_steps = ms_to_steps(int(delay2_ms), ctx.cfg.dt)
         collected: dict[str, Mapping[str, Mapping[str, torch.Tensor]]] = {}
         for batch in _iter_batches(pair_trials, ctx.cfg.batch_size):
             a_spikes = _encode_cached(ctx, batch["A_image_id"].to_numpy(), ctx.cfg.sample_steps, cache=encode_cache)
@@ -728,9 +754,9 @@ def _build_completion_boundary_bank(ctx: ExperimentContext, pair_trials: pd.Data
                 if condition not in collected:
                     collected[condition] = batch_boundaries[condition]
                 else:
-                    collected[condition] = legacy._concat_boundary_states(collected[condition], batch_boundaries[condition])
+                    collected[condition] = _concat_boundary_states(collected[condition], batch_boundaries[condition])
         boundary_states_by_delay[int(delay2_ms)] = collected
-        layer_input_shapes_by_delay[int(delay2_ms)] = legacy._layer_input_shapes_from_boundary(collected["S0"])
+        layer_input_shapes_by_delay[int(delay2_ms)] = _layer_input_shapes_from_boundary(collected["S0"])
     return CompletionDelayBoundaryBank(Path(), boundary_states_by_delay, layer_input_shapes_by_delay, pd.DataFrame())
 
 
@@ -762,7 +788,7 @@ def _build_partial_cue_mask_specs(ctx: ExperimentContext, pair_trials: pd.DataFr
     rows: list[dict[str, Any]] = []
     mask_id = 0
     full_probe_cache: dict[tuple[int, int], torch.Tensor] = {}
-    for _, rec in legacy._progress(pair_trials.iterrows(), total=len(pair_trials), desc="fig2 partial cue mask specs", enabled=ctx.cfg.show_progress):
+    for _, rec in _progress(pair_trials.iterrows(), total=len(pair_trials), desc="fig2 partial cue mask specs", enabled=ctx.cfg.show_progress):
         pair_id = int(rec["pair_id"])
         labels = {"A": int(rec["A_label"]), "B": int(rec["B_label"])}
         image_ids = {"A": int(rec["A_image_id"]), "B": int(rec["B_image_id"])}
@@ -782,11 +808,11 @@ def _build_partial_cue_mask_specs(ctx: ExperimentContext, pair_trials: pd.DataFr
                         target_item,
                         float(keep_prob),
                         mask_seed,
-                        len(legacy.STATE_CONDITIONS),
+                        len(STATE_CONDITIONS),
                         ctx.cfg.weak_probe_use_same_mask_across_states,
                     )
                     rows.append(
-                        legacy._weak_probe_mask_row(
+                        _weak_probe_mask_row(
                             ctx,
                             mask_id=mask_id,
                             pair_id=pair_id,
@@ -830,7 +856,7 @@ def _build_completion_delay_mask_specs(ctx: ExperimentContext, pair_trials: pd.D
     rows: list[dict[str, Any]] = []
     mask_id = 0
     full_probe_cache: dict[int, torch.Tensor] = {}
-    for delay2_ms in legacy._progress(
+    for delay2_ms in _progress(
         ctx.cfg.completion_delay_sweep_ms,
         total=len(ctx.cfg.completion_delay_sweep_ms),
         desc="fig2 completion delay mask specs",
@@ -896,12 +922,12 @@ def _completion_mask_row(
 
 
 def _write_partial_cue_mask_specs_to_bundle(ctx: ExperimentContext, specs: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, specs.loc[:, list(WEAK_PROBE_MASK_COLUMNS)].copy(), ctx.trial_specs_dir / "weak_probe_masks.csv")
+    save_csv_with_registry(ctx, specs.loc[:, list(WEAK_PROBE_MASK_COLUMNS)].copy(), ctx.trial_specs_dir / "weak_probe_masks.csv")
     ctx.completed_modules["partial_cue_mask_specs"] = True
 
 
 def _write_completion_delay_mask_specs_to_bundle(ctx: ExperimentContext, specs: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, specs.loc[:, list(COMPLETION_DELAY_MASK_COLUMNS)].copy(), ctx.trial_specs_dir / "completion_delay_mask_specs.csv")
+    save_csv_with_registry(ctx, specs.loc[:, list(COMPLETION_DELAY_MASK_COLUMNS)].copy(), ctx.trial_specs_dir / "completion_delay_mask_specs.csv")
     ctx.completed_modules["completion_delay_mask_specs"] = True
 
 
@@ -918,8 +944,8 @@ def _empty_bank(pair_trials: pd.DataFrame) -> PairEpisodeStateBank:
 
 def _build_context(cfg: Fig2Config, *, load_model: bool = True) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = seed_output_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_dirs(seed_dir)
     device = resolve_device(cfg.device)
     dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
@@ -958,7 +984,7 @@ def _build_context(cfg: Fig2Config, *, load_model: bool = True) -> ExperimentCon
         output_files={},
         completed_modules={},
         run_log=[
-            f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke} "
+            f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke} "
             f"model_loaded={bool(load_model)}"
         ],
     )
@@ -1010,9 +1036,9 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 
 def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) -> None:
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
+    write_config_files(ctx)
     _refresh_output_file_registry(ctx)
-    summary = legacy._write_summary(ctx)
+    summary = write_summary(ctx)
     summary.update(
         {
             "reuse_artifacts": str(mode),
@@ -1020,7 +1046,7 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) 
         }
     )
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log_file(ctx)
 
 
 def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
@@ -1068,7 +1094,7 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
+        rel = relative_to_root(path, ctx.seed_dir)
         if rel.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt", ".npz"}:

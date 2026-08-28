@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import pandas as pd
+
+from src.experiments.paper_figures.fig6.constants import (
+    PANEL_B_UPDATE_HISTORY_COLUMNS,
+    PANEL_B_UPDATE_HISTORY_SUMMARY_COLUMNS,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _progress, _save_csv
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _mean_bool, _mean_col
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def compute_peak_update_history(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     rows: list[dict[str, Any]] = []

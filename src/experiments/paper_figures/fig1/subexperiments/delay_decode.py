@@ -1,11 +1,37 @@
 from __future__ import annotations
 
+import math
 import time
+import warnings as py_warnings
+from pathlib import Path
+from typing import Any, Mapping
 
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.paper_figures.common.bundle_io import (
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+)
 from src.experiments.paper_figures.fig1.artifacts import load_delay_feature_bank, save_delay_feature_bank
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+from src.experiments.paper_figures.fig1.constants import NUM_CLASSES
+from src.experiments.paper_figures.fig1.subexperiments.helpers import (
+    _encode_cached,
+    _finalize_feature_store,
+    _iter_batches,
+    _progress,
+    _run_sample_then_snapshot_delays,
+)
+from src.experiments.paper_figures.fig1.types import ExperimentContext
 
-inherit_legacy_globals(globals())
+try:
+    from sklearn.exceptions import ConvergenceWarning
+    from sklearn.svm import LinearSVC
+except Exception:  # pragma: no cover - handled at runtime with a clear error
+    ConvergenceWarning = Warning
+    LinearSVC = None
 
 def run_delay_stsp_decode(ctx: ExperimentContext, train_trials: pd.DataFrame, test_trials: pd.DataFrame) -> None:
     feature_store = build_delay_feature_bank(ctx, train_trials, test_trials)

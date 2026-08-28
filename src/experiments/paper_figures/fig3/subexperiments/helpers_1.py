@@ -1,16 +1,36 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+import math
+from pathlib import Path
+from typing import Any, Iterable, Mapping, Sequence
+
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
 from src.experiments.common.gain_maps import compute_gain_ratio_map
 from src.experiments.common.monitored_dms import (
     boundary_state_to_restore_ux_by_layer,
     restore_functional_probe_state_in_place,
+    snapshot_boundary_state,
 )
+from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state, snapshot_ux_state
+from src.experiments.paper_figures.common.bundle_io import relative_to_root as _rel, write_json_file as _write_json
+from src.experiments.paper_figures.fig3.constants import PRIMARY_LAYER, PRIMARY_STATE_VARIABLE
+from src.experiments.paper_figures.fig3.types import ExperimentContext, Fig3Config, MultiItemSequenceLandscapeBank
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
 
 def slice_boundary_state(
     boundary_state: Mapping[str, Mapping[str, torch.Tensor]],

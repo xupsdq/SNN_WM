@@ -27,10 +27,10 @@ import pandas as pd
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
 from src.experiments.common.dataset import build_class_index
+from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as legacy
 from src.experiments.paper_figures.fig6.artifacts import (
     cache_key_matches,
     copy_sequence_bank_artifacts_to_raw,
@@ -48,6 +48,7 @@ from src.experiments.paper_figures.fig6.cache_keys import (
     cache_key_digest,
     sequence_trials_hash,
 )
+from src.experiments.paper_figures.fig6.constants import FIGURE_ID
 from src.experiments.paper_figures.fig6.schemas import (
     REUSE_MODES,
     TASK_ALL,
@@ -64,9 +65,21 @@ from src.experiments.paper_figures.fig6.schemas import (
     TASK_SUPPLEMENT,
     normalize_reuse_mode,
 )
+from src.experiments.paper_figures.fig6.subexperiments.debug_figures import save_debug_figures
 from src.experiments.paper_figures.fig6.subexperiments.field_ping_readout import compute_field_ping_readout
 from src.experiments.paper_figures.fig6.subexperiments.global_ping_score_spike_prediction import compute_global_ping_score_spike_prediction
 from src.experiments.paper_figures.fig6.subexperiments.high_stsp_overlap_ablation import compute_high_stsp_overlap_ablation
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _flush_score_audits
+from src.experiments.paper_figures.fig6.subexperiments.output_contract import (
+    _write_config_files,
+    _write_summary,
+    prepare_dirs,
+    rel,
+    save_csv,
+    seed_output_dir,
+    utc_now,
+    write_run_log_file,
+)
 from src.experiments.paper_figures.fig6.subexperiments.overlap_gated_stsp_recruitment import compute_overlap_gated_stsp_recruitment
 from src.experiments.paper_figures.fig6.subexperiments.real_probe_score_spike_deflection import compute_real_probe_score_spike_deflection
 from src.experiments.paper_figures.fig6.subexperiments.sequence_bank import build_sequence_trials, run_sequence_bank
@@ -91,7 +104,6 @@ from src.experiments.paper_figures.run_paper_figures import (
 )
 
 
-FIGURE_ID = legacy.FIGURE_ID
 NUM_CLASSES = 10
 
 
@@ -126,7 +138,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.meta_dir, run_info)
     try:
-        legacy._write_config_files(ctx)
+        _write_config_files(ctx)
         sequence_trials, sequence_hash = _get_sequence_trials(
             ctx,
             mode=mode,
@@ -191,7 +203,7 @@ def _get_sequence_trials(
         artifact = save_sequence_trials_artifact(task_dir, sequence_trials=sequence_trials, cache_key=expected_key)
         _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
         _set_artifact_metadata(ctx, "sequence_trials", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} sequence_trials source=built artifact={task_dir}")
+        ctx.run_log.append(f"{utc_now()} sequence_trials source=built artifact={task_dir}")
         return artifact.sequence_trials, artifact.digest
 
     digest = sequence_trials_hash(sequence_trials)
@@ -217,7 +229,7 @@ def _get_sequence_bank(
         artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "sequence_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} sequence_bank source=shared_sequence_root artifact={root_bank.root}")
+        ctx.run_log.append(f"{utc_now()} sequence_bank source=shared_sequence_root artifact={root_bank.root}")
         return artifact.bank
     if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
         artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
@@ -241,7 +253,7 @@ def _get_sequence_bank(
         )
         _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "sequence_bank", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{legacy._now()} sequence_bank source=built artifact={task_dir}")
+        ctx.run_log.append(f"{utc_now()} sequence_bank source=built artifact={task_dir}")
         return artifact.bank
 
     bank_hash = cache_key_digest(expected_key)
@@ -318,7 +330,7 @@ def _run_main_tasks(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> N
 
 
 def _write_sequence_trials_to_bundle(ctx: ExperimentContext, sequence_trials: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, sequence_trials.copy(), ctx.trial_specs_dir / "sequence_trials.csv")
+    save_csv(ctx, sequence_trials.copy(), ctx.trial_specs_dir / "sequence_trials.csv")
     ctx.completed_modules["sequence_trials"] = True
     ctx.n_sequences = int(sequence_trials["sequence_id"].nunique()) if "sequence_id" in sequence_trials.columns else 0
 
@@ -335,17 +347,17 @@ def _write_sequence_bank_to_bundle(
         suffix = ".csv" if stem == "state_bank_manifest" else ".npz"
         path = ctx.raw_dir / f"{stem}{suffix}"
         if path.exists():
-            ctx.output_files[stem] = legacy._rel(path, ctx.seed_dir)
+            ctx.output_files[stem] = rel(path, ctx.seed_dir)
     ctx.completed_modules["sequence_bank"] = True
     ctx.n_sequences = int(len(bank.sequence_meta))
 
 
 def _build_context(cfg: Fig6Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = seed_output_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_dirs(seed_dir)
     device = resolve_device(cfg.device)
-    dataset = legacy._load_dataset_required(cfg.dataset_root, cfg.split)
+    dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
     model_path = Path(cfg.model_path)
     if not model_path.exists():
@@ -376,7 +388,7 @@ def _build_context(cfg: Fig6Config) -> ExperimentContext:
         warnings=[],
         output_files={},
         completed_modules={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
     )
 
 
@@ -419,16 +431,16 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 
 def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str, task_id: str) -> None:
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
+    _write_config_files(ctx)
     write_fig6_supplement_aliases(ctx)
     if task_id != TASK_SEQUENCE_TRIALS:
         write_global_mechanism_metadata(ctx)
     if ctx.cfg.save_debug_figures:
-        legacy.save_debug_figures(ctx)
-    legacy._flush_score_audits(ctx)
+        save_debug_figures(ctx)
+    _flush_score_audits(ctx)
     _mark_completed_from_existing_outputs(ctx)
     _refresh_output_file_registry(ctx)
-    summary = legacy._write_summary(ctx)
+    summary = _write_summary(ctx)
     summary.update(
         {
             "reuse_artifacts": str(mode),
@@ -437,7 +449,7 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str, 
         }
     )
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log_file(ctx)
 
 
 def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
@@ -498,11 +510,11 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
-        if rel.startswith("data/intermediates/"):
+        relative_path = rel(path, ctx.seed_dir)
+        if relative_path.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt", ".npz"}:
-            ctx.output_files[path.stem] = rel
+            ctx.output_files[path.stem] = relative_path
 
 
 def _set_artifact_metadata(

@@ -1,13 +1,23 @@
 from __future__ import annotations
 
-from src.experiments.common.input_masks import foreground_mask
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _probe_entry_mask
+import json
+import math
+from collections.abc import Sequence
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.input_masks import foreground_mask
+from src.experiments.paper_figures.common.bundle_io import json_safe as _json_safe
+from src.experiments.paper_figures.fig6.constants import MATCHED_GROUP_COLUMNS, UPDATE_GROUPS
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _image_array,
+    _probe_entry_mask,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
 
 def _foreground_mask(dataset: Any, image_id: int, threshold: float) -> np.ndarray:
     return foreground_mask(_image_array(dataset, image_id), float(threshold))

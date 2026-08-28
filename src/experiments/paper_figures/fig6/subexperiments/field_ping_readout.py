@@ -1,11 +1,25 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import pandas as pd
+
+from src.experiments.paper_figures.fig6.constants import PANEL_B_REGION_PING_COLUMNS
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _gain_ratio_audit_row,
+    _make_score_region_ping_masks,
+    _progress,
+    _record_gain_ratio_audit,
+    _run_masked_ping_layer1_capture,
+    _save_csv,
+    _sequence_labels_from_meta,
+    _serial_age_bin,
+    _serial_position_for_label,
+    compute_gain_ratio_map,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def compute_field_ping_readout(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     rows: list[dict[str, Any]] = []

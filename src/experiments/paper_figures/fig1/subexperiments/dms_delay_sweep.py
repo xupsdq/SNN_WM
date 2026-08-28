@@ -1,8 +1,28 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+import math
+from typing import Any
 
-inherit_legacy_globals(globals())
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig1.constants import DMS_DELAY_SWEEP_CONDITIONS
+from src.experiments.paper_figures.fig1.subexperiments.helpers import (
+    _delay_sweep_condition_metrics,
+    _delay_sweep_contrast,
+    _encode_cached,
+    _iter_batches,
+    _progress,
+    _reset_all_layer_states_from_shapes,
+    _run_probe_conditions_from_boundary,
+    _run_sample_multi_delay_boundary_capture,
+    _sort_dms_delay_sweep_trial_readout,
+    _validate_dms_delay_sweep_pairing,
+)
+from src.experiments.paper_figures.fig1.types import ExperimentContext, _ms_to_steps
 
 def run_dms_functional_delay_sweep(ctx: ExperimentContext, dms_trials: pd.DataFrame, boundary_bank: Any | None = None) -> None:
     """Produce delay-sweep metrics and contrast used by the Fig.1 supplement."""

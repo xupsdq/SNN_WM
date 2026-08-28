@@ -1,11 +1,19 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+import numpy as np
+import pandas as pd
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig2.constants import RESIDUAL_TEMPLATE_DEFINITION, STATE_VARIABLES
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _centered_cosine,
+    _fit_mixture_models,
+    _maybe_float,
+    _progress,
+)
+from src.experiments.paper_figures.fig2.subexperiments.morphology import _write_layerwise_morphology_metrics
+from src.experiments.paper_figures.fig2.types import ExperimentContext, PairEpisodeStateBank
 
 def compute_linear_mixture_metrics(ctx: ExperimentContext, bank: PairEpisodeStateBank) -> None:
     rows = []

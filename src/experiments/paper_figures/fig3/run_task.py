@@ -37,7 +37,14 @@ from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import (
+    json_safe,
+    prepare_seed_dirs,
+    relative_to_root,
+    resolve_seed_dir,
+    save_csv_with_registry,
+    write_json_file,
+)
 from src.experiments.paper_figures.fig3.artifacts import (
     StateBankArtifact,
     TableBundleArtifact,
@@ -71,6 +78,7 @@ from src.experiments.paper_figures.fig3.cache_keys import (
     sequence_specs_hash,
     table_digest,
 )
+from src.experiments.paper_figures.fig3.constants import FIGURE_ID, NUM_CLASSES
 from src.experiments.paper_figures.fig3.schemas import (
     BOUNDARY_SUMMARY_REQUIRED_COLUMNS,
     CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS,
@@ -133,12 +141,19 @@ from src.experiments.paper_figures.fig3.subexperiments.formation_necessity impor
 from src.experiments.paper_figures.fig3.subexperiments.functional_access import run_neutral_ping_access, run_weak_cue_access
 from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition, write_morphology_fit_outputs
 from src.experiments.paper_figures.fig3.subexperiments.neutral_ping import run_neutral_ping_readout_distribution
+from src.experiments.paper_figures.fig3.subexperiments.output_contract import (
+    _write_config_files,
+    _write_summary,
+    utc_now,
+    write_run_log_file,
+)
 from src.experiments.paper_figures.fig3.subexperiments.peak_valley_landscape import compute_final_support_landscape
 from src.experiments.paper_figures.fig3.subexperiments.progressive_update import compute_progressive_update_metrics
 from src.experiments.paper_figures.fig3.subexperiments.state_bank import run_multiitem_sequence_state_bank
 from src.experiments.paper_figures.fig3.subexperiments.supplement import compute_supplementary_metrics
 from src.experiments.paper_figures.fig3.subexperiments.trial_specs import build_sequence_trial_specs
 from src.experiments.paper_figures.fig3.subexperiments.weak_probe import run_sequence_weak_probe_real_rollout_from_state_bank
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _trial_condition_audit
 from src.experiments.paper_figures.fig3.types import ExperimentContext, Fig3Config, MultiItemSequenceLandscapeBank
 from src.experiments.paper_figures.common.sequence_root.artifacts import (
     copy_artifact_tree as copy_shared_artifact_tree,
@@ -153,8 +168,6 @@ from src.experiments.paper_figures.run_paper_figures import (
 )
 
 
-FIGURE_ID = legacy.FIGURE_ID
-NUM_CLASSES = legacy.NUM_CLASSES
 EXEMPLAR_DECODER_SEED_TASK_IDS = frozenset(
     {
         TASK_EXEMPLAR_DECODER_SPECS,
@@ -198,7 +211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
-        legacy._write_config_files(ctx)
+        _write_config_files(ctx)
         if str(args.task) in EXEMPLAR_DECODER_SEED_TASK_IDS:
             _run_exemplar_decoder_task(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
         else:
@@ -298,7 +311,7 @@ def _get_sequence_specs(
         seq_trials = artifact.sequence_trials
         singleton_trials = artifact.singleton_reference_trials
         partial_trials = artifact.partial_cue_trials
-    ctx.run_log.append(f"{legacy._now()} sequence_trial_specs source=built task={task_id}")
+    ctx.run_log.append(f"{utc_now()} sequence_trial_specs source=built task={task_id}")
     return seq_trials, singleton_trials, partial_trials
 
 
@@ -308,20 +321,20 @@ def _write_sequence_specs_to_bundle(
     singleton_reference_trials: pd.DataFrame,
     partial_cue_trials: pd.DataFrame,
 ) -> None:
-    legacy._save_csv(ctx, sequence_trials, ctx.trial_specs_dir / "sequence_trials.csv")
-    legacy._save_csv(ctx, singleton_reference_trials, ctx.trial_specs_dir / "singleton_reference_trials.csv")
-    legacy._save_csv(ctx, partial_cue_trials, ctx.trial_specs_dir / "partial_cue_trials.csv")
-    legacy._save_csv(ctx, legacy._trial_condition_audit(ctx.cfg.network_seed, sequence_trials), ctx.metrics_dir / "supp_trial_condition_audit.csv")
+    save_csv_with_registry(ctx, sequence_trials, ctx.trial_specs_dir / "sequence_trials.csv")
+    save_csv_with_registry(ctx, singleton_reference_trials, ctx.trial_specs_dir / "singleton_reference_trials.csv")
+    save_csv_with_registry(ctx, partial_cue_trials, ctx.trial_specs_dir / "partial_cue_trials.csv")
+    save_csv_with_registry(ctx, _trial_condition_audit(ctx.cfg.network_seed, sequence_trials), ctx.metrics_dir / "supp_trial_condition_audit.csv")
     if not sequence_trials.empty:
         example = sequence_trials[sequence_trials["sequence_id"].astype(int).eq(int(sequence_trials["sequence_id"].iloc[0]))].copy()
-        legacy._write_json(legacy._json_safe(example.iloc[0].to_dict()), ctx.raw_dir / "panel_a_example_sequence_metadata.json")
+        write_json_file(json_safe(example.iloc[0].to_dict()), ctx.raw_dir / "panel_a_example_sequence_metadata.json")
         np.savez_compressed(
             ctx.raw_dir / "panel_a_example_sequence.npz",
             image_ids=example["item_image_id"].to_numpy(dtype=np.int64),
             labels=example["item_label"].to_numpy(dtype=np.int64),
         )
-        ctx.output_files["panel_a_example_sequence_metadata"] = legacy._rel(ctx.raw_dir / "panel_a_example_sequence_metadata.json", ctx.seed_dir)
-        ctx.output_files["panel_a_example_sequence"] = legacy._rel(ctx.raw_dir / "panel_a_example_sequence.npz", ctx.seed_dir)
+        ctx.output_files["panel_a_example_sequence_metadata"] = relative_to_root(ctx.raw_dir / "panel_a_example_sequence_metadata.json", ctx.seed_dir)
+        ctx.output_files["panel_a_example_sequence"] = relative_to_root(ctx.raw_dir / "panel_a_example_sequence.npz", ctx.seed_dir)
     ctx.n_sequences = int(sequence_trials["sequence_id"].nunique()) if "sequence_id" in sequence_trials.columns else 0
     ctx.completed_modules["sequence_trial_specs"] = True
 
@@ -572,7 +585,7 @@ def _get_state_bank_artifact(
             _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "state_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["state_bank"] = True
-        ctx.run_log.append(f"{legacy._now()} state_bank source=shared_sequence_root artifact={root_bank.root}")
+        ctx.run_log.append(f"{utc_now()} state_bank source=shared_sequence_root artifact={root_bank.root}")
         return artifact
     if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
@@ -1157,12 +1170,12 @@ def _write_state_bank_compat_outputs(ctx: ExperimentContext, task_dir: Path) -> 
         if src.exists():
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
-            ctx.output_files[dst.stem] = legacy._rel(dst, ctx.seed_dir)
+            ctx.output_files[dst.stem] = relative_to_root(dst, ctx.seed_dir)
     manifest_src = task_dir / "manifest.csv"
     if manifest_src.exists():
         dst = ctx.raw_dir / "state_bank_manifest.csv"
         shutil.copy2(manifest_src, dst)
-        ctx.output_files["state_bank_manifest"] = legacy._rel(dst, ctx.seed_dir)
+        ctx.output_files["state_bank_manifest"] = relative_to_root(dst, ctx.seed_dir)
 
 
 def _copy_formation_specs_to_bundle(
@@ -1174,12 +1187,12 @@ def _copy_formation_specs_to_bundle(
     ]
     destination = ctx.trial_specs_dir / "formation_intervention_specs.csv"
     shutil.copy2(source, destination)
-    ctx.output_files[destination.stem] = legacy._rel(destination, ctx.seed_dir)
+    ctx.output_files[destination.stem] = relative_to_root(destination, ctx.seed_dir)
     ctx.completed_modules[TASK_FORMATION_INTERVENTION_SPECS] = True
 
 
 def _write_formation_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "formation_intervention_specs.csv")
+    save_csv_with_registry(ctx, table, ctx.trial_specs_dir / "formation_intervention_specs.csv")
     ctx.completed_modules[TASK_FORMATION_INTERVENTION_SPECS] = True
 
 
@@ -1199,7 +1212,7 @@ def _copy_formation_tables_to_bundle(
     }
     for name, destination in destinations.items():
         shutil.copy2(task_dir / FORMATION_RESULT_FILES[name], destination)
-        ctx.output_files[destination.stem] = legacy._rel(
+        ctx.output_files[destination.stem] = relative_to_root(
             destination,
             ctx.seed_dir,
         )
@@ -1218,17 +1231,17 @@ def _write_formation_tables_to_bundle(
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     ctx.completed_modules[TASK_FORMATION_NECESSITY] = True
 
 
 def _write_boundary_condition_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "boundary_condition_specs.csv")
+    save_csv_with_registry(ctx, table, ctx.trial_specs_dir / "boundary_condition_specs.csv")
     ctx.completed_modules["boundary_condition_specs"] = True
 
 
 def _write_access_job_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "access_job_specs.csv")
+    save_csv_with_registry(ctx, table, ctx.trial_specs_dir / "access_job_specs.csv")
     ctx.completed_modules["access_job_specs"] = True
 
 
@@ -1240,7 +1253,7 @@ def _write_morphology_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[s
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     write_morphology_fit_outputs(ctx, tables["morphology_boundary_metrics"])
     ctx.completed_modules["morphology_decomposition"] = True
 
@@ -1254,12 +1267,12 @@ def _write_weak_cue_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     ctx.completed_modules["weak_cue_access"] = True
 
 
 def _write_cue_specificity_specs_to_bundle(ctx: ExperimentContext, table: pd.DataFrame) -> None:
-    legacy._save_csv(ctx, table, ctx.trial_specs_dir / "cue_specificity_specs.csv")
+    save_csv_with_registry(ctx, table, ctx.trial_specs_dir / "cue_specificity_specs.csv")
     ctx.completed_modules["cue_specificity_specs"] = True
 
 
@@ -1274,7 +1287,7 @@ def _write_cue_specificity_access_tables_to_bundle(ctx: ExperimentContext, table
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     ctx.completed_modules["cue_specificity_access"] = True
 
 
@@ -1300,7 +1313,7 @@ def _write_neutral_ping_tables_to_bundle(ctx: ExperimentContext, tables: Mapping
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     ctx.completed_modules["neutral_ping_access"] = True
 
 
@@ -1312,20 +1325,20 @@ def _write_coupling_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str
     }
     for name, path in mapping.items():
         if name in tables:
-            legacy._save_csv(ctx, tables[name], path)
+            save_csv_with_registry(ctx, tables[name], path)
     ctx.completed_modules["morphology_function_coupling"] = True
 
 
 def _write_boundary_summary_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
     if "boundary_summary" in tables:
-        legacy._save_csv(ctx, tables["boundary_summary"], ctx.metrics_dir / "panel_f_boundary_summary.csv")
+        save_csv_with_registry(ctx, tables["boundary_summary"], ctx.metrics_dir / "panel_f_boundary_summary.csv")
     ctx.completed_modules["boundary_summary"] = True
 
 
 def _build_context(cfg: Fig3Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_seed_dirs(seed_dir, include_root_layout=True)
     device = resolve_device(cfg.device)
     dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
@@ -1359,7 +1372,7 @@ def _build_context(cfg: Fig3Config) -> ExperimentContext:
         warnings=warnings,
         output_files={},
         completed_modules={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
     )
 
 
@@ -1409,9 +1422,9 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 
 def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) -> None:
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
+    _write_config_files(ctx)
     _refresh_output_file_registry(ctx)
-    summary = legacy._write_summary(ctx)
+    summary = _write_summary(ctx)
     _apply_boundary_summary_contract(ctx, summary)
     _apply_runtime_artifact_metadata(ctx, summary)
     cue_specificity_checks = getattr(ctx, "cue_specificity_scientific_checks", None)
@@ -1424,7 +1437,7 @@ def _finalize_bundle(ctx: ExperimentContext, *, artifact_root: Path, mode: str) 
         }
     )
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log_file(ctx)
 
 
 def _apply_boundary_summary_contract(ctx: ExperimentContext, summary: dict[str, Any]) -> None:
@@ -1562,7 +1575,7 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
+        rel = relative_to_root(path, ctx.seed_dir)
         if rel.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt", ".npz"}:

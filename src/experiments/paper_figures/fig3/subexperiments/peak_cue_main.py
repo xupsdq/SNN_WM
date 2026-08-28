@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from pathlib import Path
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.constants import CUE_CONDITIONS, MEMORY_CONDITIONS
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _first_float, _mean_numeric, _row_float
+from src.experiments.paper_figures.fig3.subexperiments.structural_weak_cue_supplement import ensure_structural_weak_cue_outputs
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def run_peak_cue_main_from_state_bank(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     ensure_structural_weak_cue_outputs(ctx, bank)

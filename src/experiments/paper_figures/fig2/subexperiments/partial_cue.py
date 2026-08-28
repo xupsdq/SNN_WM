@@ -1,11 +1,33 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.dataset import encode_images
+from src.experiments.paper_figures.common.bundle_io import (
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+)
+from src.experiments.paper_figures.fig2.constants import STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.schemas import PANEL_F_RAW_COLUMNS, WEAK_PROBE_MASK_COLUMNS
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _compat_fig4_weak_probe_outputs,
+    _make_weak_probe_spikes_encoded_dropout,
+    _make_weak_probe_spikes_image_foreground,
+    _maybe_float,
+    _maybe_int,
+    _partial_cue_auc_metrics,
+    _partial_cue_metrics,
+    _partial_cue_pair_metrics,
+    _progress,
+    _weak_probe_mask_row,
+    concat_condition_boundaries,
+    run_probe_readout_from_boundary,
+)
+from src.experiments.paper_figures.fig2.types import ExperimentContext, FunctionalReadout, PairEpisodeStateBank
 
 def run_partial_cue_real_rollout_from_state_bank(ctx: ExperimentContext, bank: PairEpisodeStateBank) -> None:
     if _use_batched_partial_cue(ctx):
