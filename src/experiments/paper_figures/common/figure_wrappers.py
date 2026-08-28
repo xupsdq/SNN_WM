@@ -51,7 +51,7 @@ def _resolve_model_path(model_path: str | None, model_path_glob: str, network_se
 
 def _subexperiment_parser(fig_id: str, name: str, registry: Any) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=f"Run paper-figure sub-experiment {fig_id}.{name}. Unknown options are forwarded to the figure implementation.",
+        description=f"Run paper-figure sub-experiment {fig_id}.{name}. Unknown options are forwarded to the current task runner.",
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -64,7 +64,7 @@ def _subexperiment_parser(fig_id: str, name: str, registry: Any) -> argparse.Arg
         ),
     )
     parser.add_argument("--output-root", type=str, default=DEFAULT_OUTPUT_ROOT, help="Batch output root used when --output-dir/--figure-root are omitted.")
-    parser.add_argument("--figure-root", type=str, default=None, help="Exact figure root passed to the legacy figure implementation.")
+    parser.add_argument("--figure-root", type=str, default=None, help="Exact figure root passed to the current task runner.")
     parser.add_argument("--network-seed", type=int, default=None)
     parser.add_argument("--model-path", type=str, default=None)
     parser.add_argument("--model-path-glob", type=str, default=DEFAULT_MODEL_PATH_GLOB)
@@ -74,13 +74,13 @@ def _subexperiment_parser(fig_id: str, name: str, registry: Any) -> argparse.Arg
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--save-debug-figures", action="store_true")
     parser.add_argument("--no-progress", action="store_true")
-    parser.add_argument("--dry-run", action="store_true", help="Print the delegated legacy command and exit.")
-    choices = ", ".join(sorted(registry.SUBEXPERIMENT_FLAGS))
+    parser.add_argument("--dry-run", action="store_true", help="Print the delegated task-runner command and exit.")
+    choices = ", ".join(sorted(registry.SUBEXPERIMENT_TASKS))
     parser.epilog = f"Available sub-experiments for {fig_id}: {choices}"
     return parser
 
 
-def _legacy_output_root(args: argparse.Namespace, registry: Any, parser: argparse.ArgumentParser) -> Path:
+def _task_output_root(args: argparse.Namespace, registry: Any, parser: argparse.ArgumentParser) -> Path:
     if args.output_dir and args.figure_root:
         parser.error("--output-dir and --figure-root are mutually exclusive.")
     if args.output_dir:
@@ -103,7 +103,7 @@ def _network_seed(args: argparse.Namespace) -> int:
     return 1000
 
 
-def _build_legacy_args(
+def _build_task_args(
     *,
     fig_id: str,
     name: str,
@@ -112,19 +112,22 @@ def _build_legacy_args(
     registry: Any,
     parser: argparse.ArgumentParser,
 ) -> list[str]:
-    flags_by_name: Mapping[str, Sequence[str]] = registry.SUBEXPERIMENT_FLAGS
-    if name not in flags_by_name:
-        choices = ", ".join(sorted(flags_by_name))
+    tasks_by_name: Mapping[str, str] = registry.SUBEXPERIMENT_TASKS
+    if name in set(registry.ARCHIVED_SUBEXPERIMENTS):
+        raise SystemExit(f"strict archive: archived subexperiment {fig_id}.{name} is outside the current DAG")
+    if name not in tasks_by_name:
+        choices = ", ".join(sorted(tasks_by_name))
         raise SystemExit(f"Unknown sub-experiment {fig_id}.{name}. Available: {choices}")
     network_seed = _network_seed(args)
-    output_root = _legacy_output_root(args, registry, parser)
+    output_root = _task_output_root(args, registry, parser)
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), network_seed)
-    legacy_args = [
+    output_option = "--output-dir" if args.output_dir else "--output-root"
+    task_args = [
         "--model-path",
         str(model_path),
         "--dataset-root",
         str(_resolve_repo_path(args.dataset_root)),
-        "--output-root",
+        output_option,
         str(output_root),
         "--network-seed",
         str(int(network_seed)),
@@ -132,16 +135,17 @@ def _build_legacy_args(
         str(args.device),
         "--split",
         str(args.split),
-        *[str(flag) for flag in flags_by_name[name]],
+        "--task",
+        str(tasks_by_name[name]),
     ]
     if args.smoke:
-        legacy_args.append("--smoke")
+        task_args.append("--smoke")
     if args.save_debug_figures:
-        legacy_args.append("--save-debug-figures")
+        task_args.append("--save-debug-figures")
     if args.no_progress:
-        legacy_args.append("--no-progress")
-    legacy_args.extend(str(item) for item in extra_args)
-    return legacy_args
+        task_args.append("--no-progress")
+    task_args.extend(str(item) for item in extra_args)
+    return task_args
 
 
 def main_for_figure(fig_id: str, argv: Sequence[str] | None = None) -> int:
@@ -154,12 +158,12 @@ def main_for_subexperiment(fig_id: str, name: str, argv: Sequence[str] | None = 
     registry = _registry(fig_id)
     parser = _subexperiment_parser(fig_id, name, registry)
     args, extra_args = parser.parse_known_args(list(sys.argv[1:] if argv is None else argv))
-    legacy_args = _build_legacy_args(fig_id=fig_id, name=name, args=args, extra_args=extra_args, registry=registry, parser=parser)
+    task_args = _build_task_args(fig_id=fig_id, name=name, args=args, extra_args=extra_args, registry=registry, parser=parser)
     if args.dry_run:
-        print(subprocess.list2cmdline([sys.executable, "-m", str(registry.LEGACY_MODULE), *legacy_args]))
+        print(subprocess.list2cmdline([sys.executable, "-m", str(registry.RUNNER_MODULE), *task_args]))
         return 0
-    module = importlib.import_module(str(registry.LEGACY_MODULE))
-    return int(module.main(legacy_args) or 0)
+    module = importlib.import_module(str(registry.RUNNER_MODULE))
+    return int(module.main(task_args) or 0)
 
 
 def main_for_current_subexperiment(module_name: str, argv: Sequence[str] | None = None) -> int:

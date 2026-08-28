@@ -92,6 +92,7 @@ from src.experiments.paper_figures.fig2.schemas import (
     COMPLETION_DELAY_MASK_COLUMNS,
     REUSE_MODES,
     TASK_ALL,
+    TASK_BOTH_SCOPE,
     TASK_COMPLETION_DELAY_BOUNDARY_BANK,
     TASK_COMPLETION_DELAY_MASK_SPECS,
     TASK_COMPLETION_DELAY_SWEEP,
@@ -101,6 +102,7 @@ from src.experiments.paper_figures.fig2.schemas import (
     TASK_CROSSFIT_SPLIT_SPECS,
     TASK_IDS,
     TASK_LINEAR_MIXTURE,
+    TASK_MAIN_SCOPE,
     TASK_MORPHOLOGY,
     TASK_NEUTRAL_PING,
     TASK_PAIR_TRIAL_SPECS,
@@ -109,6 +111,7 @@ from src.experiments.paper_figures.fig2.schemas import (
     TASK_PING_SWEEP,
     TASK_STATE_BANK,
     TASK_SUPPLEMENT,
+    TASK_SUPPLEMENT_SCOPE,
     WEAK_PROBE_MASK_COLUMNS,
     normalize_reuse_mode,
 )
@@ -348,6 +351,21 @@ def _run_task(
     mode: str,
     artifact_root: Path,
 ) -> None:
+    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        bank = _get_state_bank(ctx, pair_trials, mode=mode, artifact_root=artifact_root)
+        _run_morphology(ctx, bank)
+        _run_linear_mixture(ctx, bank)
+        run_neutral_ping_real_rollout_from_state_bank(ctx, bank)
+        if mode != "off":
+            setattr(
+                ctx,
+                "partial_cue_mask_specs",
+                _get_partial_cue_mask_specs(ctx, pair_trials, mode=mode, artifact_root=artifact_root),
+            )
+        run_partial_cue_real_rollout_from_state_bank(ctx, bank)
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            compute_supplementary_metrics(ctx, bank)
+        return
     if task_id == TASK_PAIR_TRIAL_SPECS:
         return
     if task_id == TASK_STATE_BANK:
@@ -1218,6 +1236,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         raise ValueError("Crossfit analysis requires at least one layer and one state variable")
     task = str(args.task)
     run_all = task == TASK_ALL
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
     return Fig2Config(
         model_path=str(model_path),
@@ -1258,14 +1278,14 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
         crossfit_null_replicates=2 if smoke else int(args.crossfit_null_replicates),
         crossfit_null_feature_count=64 if smoke else int(args.crossfit_null_feature_count),
         crossfit_null_noise_scale_ratio=float(args.crossfit_null_noise_scale_ratio),
-        run_state_bank=run_all or task == TASK_STATE_BANK,
-        run_morphology=run_all or task == TASK_MORPHOLOGY,
-        run_linear_mixture=run_all or task == TASK_LINEAR_MIXTURE,
+        run_state_bank=run_all or scope_task or task == TASK_STATE_BANK,
+        run_morphology=run_all or scope_task or task == TASK_MORPHOLOGY,
+        run_linear_mixture=run_all or scope_task or task == TASK_LINEAR_MIXTURE,
         run_crossfit_interaction=run_all or task == TASK_CROSSFIT_INTERACTION,
         run_crossfit_null_calibration=run_all or task == TASK_CROSSFIT_NULL_CALIBRATION,
-        run_neutral_ping=run_all or task == TASK_NEUTRAL_PING,
-        run_partial_cue=run_all or task == TASK_PARTIAL_CUE,
-        run_supplement=run_all or task == TASK_SUPPLEMENT,
+        run_neutral_ping=run_all or scope_task or task == TASK_NEUTRAL_PING,
+        run_partial_cue=run_all or scope_task or task == TASK_PARTIAL_CUE,
+        run_supplement=run_all or supplement_scope or task == TASK_SUPPLEMENT,
         run_ping_sweep=run_all or task == TASK_PING_SWEEP,
         run_completion_delay_sweep=run_all or task == TASK_COMPLETION_DELAY_SWEEP,
         completion_delay_sweep_ms=completion_delay_sweep_ms,

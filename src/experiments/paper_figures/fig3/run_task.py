@@ -92,6 +92,7 @@ from src.experiments.paper_figures.fig3.schemas import (
     REUSE_MODES,
     TASK_ACCESS_JOB_SPECS,
     TASK_ALL,
+    TASK_BOTH_SCOPE,
     TASK_BOUNDARY_CONDITION_SPECS,
     TASK_BOUNDARY_STATE_BANK,
     TASK_BOUNDARY_SUMMARY,
@@ -106,6 +107,7 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_MORPHOLOGY_DECOMPOSITION,
     TASK_MORPHOLOGY_FUNCTION_COUPLING,
     TASK_IDS,
+    TASK_MAIN_SCOPE,
     TASK_NEUTRAL_PING,
     TASK_NEUTRAL_PING_ACCESS,
     TASK_PEAK_VALLEY_LANDSCAPE,
@@ -113,6 +115,7 @@ from src.experiments.paper_figures.fig3.schemas import (
     TASK_SEQUENCE_TRIAL_SPECS,
     TASK_STATE_BANK,
     TASK_SUPPLEMENT,
+    TASK_SUPPLEMENT_SCOPE,
     TASK_WEAK_CUE_ACCESS,
     TASK_WEAK_PROBE,
     normalize_reuse_mode,
@@ -141,6 +144,7 @@ from src.experiments.paper_figures.fig3.subexperiments.formation_necessity impor
 from src.experiments.paper_figures.fig3.subexperiments.functional_access import run_neutral_ping_access, run_weak_cue_access
 from src.experiments.paper_figures.fig3.subexperiments.morphology_decomposition import compute_morphology_decomposition, write_morphology_fit_outputs
 from src.experiments.paper_figures.fig3.subexperiments.neutral_ping import run_neutral_ping_readout_distribution
+from src.experiments.paper_figures.fig3.subexperiments.peak_cue_main import run_peak_cue_main_from_state_bank
 from src.experiments.paper_figures.fig3.subexperiments.output_contract import (
     _write_config_files,
     _write_summary,
@@ -151,6 +155,7 @@ from src.experiments.paper_figures.fig3.subexperiments.peak_valley_landscape imp
 from src.experiments.paper_figures.fig3.subexperiments.progressive_update import compute_progressive_update_metrics
 from src.experiments.paper_figures.fig3.subexperiments.state_bank import run_multiitem_sequence_state_bank
 from src.experiments.paper_figures.fig3.subexperiments.supplement import compute_supplementary_metrics
+from src.experiments.paper_figures.fig3.subexperiments.structural_weak_cue_supplement import ensure_structural_weak_cue_outputs
 from src.experiments.paper_figures.fig3.subexperiments.trial_specs import build_sequence_trial_specs
 from src.experiments.paper_figures.fig3.subexperiments.weak_probe import run_sequence_weak_probe_real_rollout_from_state_bank
 from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _trial_condition_audit
@@ -349,6 +354,25 @@ def _run_task(
     specs_hash: str,
     shared_sequence_root: Path | None,
 ) -> None:
+    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        bank = _get_state_bank(
+            ctx,
+            sequence_trials,
+            mode=mode,
+            artifact_root=artifact_root,
+            specs_hash=specs_hash,
+            shared_sequence_root=shared_sequence_root,
+        )
+        compute_progressive_update_metrics(ctx, bank)
+        compute_final_support_landscape(ctx, bank)
+        run_neutral_ping_readout_distribution(ctx, bank)
+        if task_id in {TASK_MAIN_SCOPE, TASK_BOTH_SCOPE}:
+            run_sequence_weak_probe_real_rollout_from_state_bank(ctx, bank)
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            run_peak_cue_main_from_state_bank(ctx, bank)
+            ensure_structural_weak_cue_outputs(ctx, bank)
+            compute_supplementary_metrics(ctx, bank)
+        return
     if task_id == TASK_SEQUENCE_TRIAL_SPECS:
         return
     if task_id == TASK_BOUNDARY_CONDITION_SPECS:
@@ -1600,6 +1624,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
     smoke = bool(args.smoke)
     task = str(args.task)
     run_all = task == TASK_ALL
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     exemplar_decoder_task = task in EXEMPLAR_DECODER_SEED_TASK_IDS
     seq_lengths = tuple(int(v) for v in str(args.sequence_lengths).split(",") if str(v).strip())
     boundary_sequence_lengths = tuple(int(v) for v in str(args.boundary_sequence_lengths).split(",") if str(v).strip())
@@ -1678,12 +1704,16 @@ def _config_from_args(args: argparse.Namespace) -> Fig3Config:
         partial_cue_keep_fraction_sweep=tuple(float(v) for v in str(args.partial_cue_keep_fraction_sweep).split(",") if str(v).strip()),
         partial_cue_repeats=2 if smoke else int(args.partial_cue_repeats),
         target_position=str(args.target_position),
-        run_state_bank=run_all or task == TASK_STATE_BANK,
-        run_progressive_update=run_all or task == TASK_PROGRESSIVE_UPDATE,
-        run_peak_valley_landscape=run_all or task == TASK_PEAK_VALLEY_LANDSCAPE,
-        run_neutral_ping=run_all or task == TASK_NEUTRAL_PING,
-        run_weak_probe=run_all or task == TASK_WEAK_PROBE,
-        run_supplement=run_all or task == TASK_SUPPLEMENT,
+        run_state_bank=run_all or scope_task or task == TASK_STATE_BANK,
+        run_progressive_update=run_all or scope_task or task == TASK_PROGRESSIVE_UPDATE,
+        run_peak_valley_landscape=run_all or scope_task or task == TASK_PEAK_VALLEY_LANDSCAPE,
+        run_neutral_ping=run_all or scope_task or task == TASK_NEUTRAL_PING,
+        run_weak_probe=run_all or task in {TASK_MAIN_SCOPE, TASK_BOTH_SCOPE, TASK_WEAK_PROBE},
+        run_peak_cue_main=supplement_scope,
+        run_population_morphology_supplement=supplement_scope,
+        run_structural_weak_cue=supplement_scope,
+        run_structural_weak_cue_supplement=supplement_scope,
+        run_supplement=run_all or supplement_scope or task == TASK_SUPPLEMENT,
         save_debug_figures=bool(args.save_debug_figures),
         save_spike_cache=bool(args.save_spike_cache),
         save_all_layer_state_bank=True,

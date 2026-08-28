@@ -3,6 +3,9 @@ from __future__ import annotations
 SCHEMA_VERSION = 1
 SCHEMA_NAME = "fig1_runtime_artifacts"
 
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_TRIAL_SPECS = "trial_specs"
 TASK_BASELINE = "baseline"
 TASK_DELAY_FEATURE_BANK = "delay_feature_bank"
@@ -14,6 +17,9 @@ TASK_FIRING_RATE_CONTROL = "firing_rate_control"
 TASK_TIME_BINNED_FIRING_RATE_CONTROL = "time_binned_firing_rate_control"
 
 TASK_IDS = (
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_TRIAL_SPECS,
     TASK_BASELINE,
     TASK_DELAY_FEATURE_BANK,
@@ -72,12 +78,15 @@ __all__ = [
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
     "TASK_BASELINE",
+    "TASK_BOTH_SCOPE",
     "TASK_DELAY_DECODER",
     "TASK_DELAY_FEATURE_BANK",
     "TASK_DMS_BOUNDARY_BANK",
     "TASK_DMS_DELAY_SWEEP_READOUT",
     "TASK_DMS_SHUFFLE_READOUT",
     "TASK_FIRING_RATE_CONTROL",
+    "TASK_MAIN_SCOPE",
+    "TASK_SUPPLEMENT_SCOPE",
     "TASK_TIME_BINNED_FIRING_RATE_CONTROL",
     "TASK_IDS",
     "TASK_TRIAL_SPECS",

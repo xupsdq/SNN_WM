@@ -67,9 +67,11 @@ from src.experiments.paper_figures.fig4.constants import FIGURE_ID, NUM_CLASSES
 from src.experiments.paper_figures.fig4.schemas import (
     REUSE_MODES,
     TASK_ALL,
+    TASK_BOTH_SCOPE,
     TASK_DECISION_DEFLECTION,
     TASK_DECISION_SPIKE_DISPLACEMENT,
     TASK_IDS,
+    TASK_MAIN_SCOPE,
     TASK_OVERLAP_ACCURACY_IDENTIFICATION,
     TASK_OVERLAP_LOCALIZATION,
     TASK_OVERLAP_PERTURBATION,
@@ -77,6 +79,7 @@ from src.experiments.paper_figures.fig4.schemas import (
     TASK_ROLLOUTS,
     TASK_SIMILARITY_ENTRY,
     TASK_SUPPLEMENT,
+    TASK_SUPPLEMENT_SCOPE,
     normalize_reuse_mode,
 )
 from src.experiments.paper_figures.fig4.subexperiments.decision_deflection import (
@@ -278,6 +281,22 @@ def _run_task(
     mode: str,
     artifact_root: Path,
 ) -> None:
+    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        similarity_bank = _get_similarity_entry(ctx, pair_trials, pair_hash=pair_hash, mode=mode, artifact_root=artifact_root)
+        overlap_bank = _get_rollouts(ctx, pair_trials, perturbation_masks, mask_bank, pair_hash=pair_hash, mode=mode, artifact_root=artifact_root)
+        compute_overlap_localization_metrics(ctx, overlap_bank)
+        compute_overlap_accuracy_identification(ctx, similarity_bank)
+        compute_probe_l3_trace_dpi_metrics(ctx, overlap_bank)
+        if mode == "off":
+            _compute_l3_accumulator_region_replay_fresh(ctx, pair_trials)
+        else:
+            compute_l3_accumulator_region_replay_metrics_from_bank(ctx, overlap_bank)
+        compute_decision_deflection_metrics(ctx, overlap_bank)
+        compute_overlap_preserving_perturbation_metrics(ctx, overlap_bank)
+        compute_l1_stsp_overlap_perturbation_outputs(ctx, pair_trials, mask_bank)
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            compute_supplement_outputs(ctx, overlap_bank)
+        return
     if task_id == TASK_PAIR_SAMPLING:
         return
     if task_id == TASK_SIMILARITY_ENTRY:
@@ -670,6 +689,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
     smoke = bool(args.smoke)
     task = str(args.task)
     run_all = task == TASK_ALL
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     delay_ms = int(args.delay_ms)
     if bool(args.legacy_exact_mode):
         delay_ms = 500
@@ -696,7 +717,7 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
         save_full_trace=bool(args.save_full_trace),
         save_l3_trace=not bool(args.no_save_l3_trace),
         run_pair_sampling=True,
-        run_rollouts=run_all or task in {
+        run_rollouts=run_all or scope_task or task in {
             TASK_ROLLOUTS,
             TASK_OVERLAP_LOCALIZATION,
             TASK_DECISION_SPIKE_DISPLACEMENT,
@@ -704,13 +725,13 @@ def _config_from_args(args: argparse.Namespace) -> Fig4Config:
             TASK_OVERLAP_PERTURBATION,
             TASK_SUPPLEMENT,
         },
-        run_similarity_entry=run_all or task in {TASK_SIMILARITY_ENTRY, TASK_OVERLAP_ACCURACY_IDENTIFICATION},
-        run_overlap_localization=run_all or task == TASK_OVERLAP_LOCALIZATION,
-        run_overlap_accuracy_identification=run_all or task == TASK_OVERLAP_ACCURACY_IDENTIFICATION,
-        run_decision_spike_displacement=run_all or task == TASK_DECISION_SPIKE_DISPLACEMENT,
-        run_decision_deflection=run_all or task == TASK_DECISION_DEFLECTION,
-        run_overlap_perturbation=run_all or task == TASK_OVERLAP_PERTURBATION,
-        run_supplement=run_all or task == TASK_SUPPLEMENT,
+        run_similarity_entry=run_all or scope_task or task in {TASK_SIMILARITY_ENTRY, TASK_OVERLAP_ACCURACY_IDENTIFICATION},
+        run_overlap_localization=run_all or scope_task or task == TASK_OVERLAP_LOCALIZATION,
+        run_overlap_accuracy_identification=run_all or scope_task or task == TASK_OVERLAP_ACCURACY_IDENTIFICATION,
+        run_decision_spike_displacement=run_all or scope_task or task == TASK_DECISION_SPIKE_DISPLACEMENT,
+        run_decision_deflection=run_all or scope_task or task == TASK_DECISION_DEFLECTION,
+        run_overlap_perturbation=run_all or scope_task or task == TASK_OVERLAP_PERTURBATION,
+        run_supplement=run_all or supplement_scope or task == TASK_SUPPLEMENT,
         num_iso_similarity_bins=5 if smoke else int(args.num_iso_similarity_bins),
         overlap_tail_quantile=float(args.overlap_tail_quantile),
         match_similarity_caliper=float(args.match_similarity_caliper),

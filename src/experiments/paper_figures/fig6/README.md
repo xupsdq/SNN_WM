@@ -6,8 +6,8 @@
 - `artifacts.py` 读写并校验序列规格、状态数组和冻结边界 artifact。
 - `cache_keys.py` 构造 Fig.6 task 的 cache key 和内容摘要。
 - `constants.py` 定义 Fig.6 条件、面板、输出和 schema 常量。
-- `registry.py` 将子实验名称映射到兼容命令行参数。
-- `run_task.py` 按声明依赖执行 Fig.6 DAG task。
+- `registry.py` 将正式 scope 和仍受支持的兼容子实验映射到当前 DAG task，并声明严格归档项。
+- `run_task.py` 按声明依赖执行 Fig.6 单项或 scope DAG task。
 - `run.py` 提供 Fig.6 批量运行入口。
 - `schemas.py` 定义 task 标识、复用模式和表格 schema。
 - `subexperiments/` 实现序列状态、输入门控和补充分析。

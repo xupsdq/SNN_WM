@@ -183,12 +183,12 @@ BENCHMARK_PROFILES = tuple(BENCHMARK_PROFILE_ARGS_BY_FIG)
 class FigureRunSpec:
     fig_id: str
     experiment_id: str
-    module: str
+    runner_module: str
     main_subexperiments: tuple[str, ...]
     supplement_subexperiments: tuple[str, ...]
-    main_flags: tuple[str, ...]
-    supplement_flags: tuple[str, ...]
-    both_flags: tuple[str, ...]
+    main_task: str
+    supplement_task: str
+    both_task: str
 
     def subexperiments_for_scope(self, scope: str) -> tuple[str, ...]:
         if scope == "main":
@@ -203,13 +203,13 @@ class FigureRunSpec:
             return tuple(out)
         raise ValueError(f"Unsupported scope: {scope}")
 
-    def flags_for_scope(self, scope: str) -> tuple[str, ...]:
-        if scope == "both":
-            return self.both_flags
+    def task_for_scope(self, scope: str) -> str:
         if scope == "main":
-            return self.main_flags
+            return self.main_task
         if scope == "supplement":
-            return self.supplement_flags
+            return self.supplement_task
+        if scope == "both":
+            return self.both_task
         raise ValueError(f"Unsupported scope: {scope}")
 
 
@@ -260,12 +260,12 @@ def _figure_spec_from_registry(fig_id: str) -> FigureRunSpec:
     return FigureRunSpec(
         fig_id=registry.fig_id,
         experiment_id=registry.experiment_id,
-        module=registry.legacy_module,
+        runner_module=registry.runner_module,
         main_subexperiments=registry.main_subexperiments,
         supplement_subexperiments=registry.supplement_subexperiments,
-        main_flags=registry.flags_for_scope("main"),
-        supplement_flags=registry.flags_for_scope("supplement"),
-        both_flags=registry.flags_for_scope("both"),
+        main_task=registry.task_for_scope("main"),
+        supplement_task=registry.task_for_scope("supplement"),
+        both_task=registry.task_for_scope("both"),
     )
 
 
@@ -493,7 +493,7 @@ def build_experiment_command(
     command = [
         str(runtime_python),
         "-m",
-        spec.module,
+        spec.runner_module,
         "--model-path",
         str(checkpoint.model_path),
         "--dataset-root",
@@ -506,7 +506,8 @@ def build_experiment_command(
         str(device),
         "--split",
         str(split),
-        *spec.flags_for_scope(scope),
+        "--task",
+        spec.task_for_scope(scope),
     ]
     command.extend(benchmark_profile_args(benchmark_profile, spec.fig_id))
     if smoke:

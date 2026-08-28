@@ -1,6 +1,8 @@
 FIGURE_ID = "fig6"
 EXPERIMENT_ID = "fig6_peak_amplified_reentry"
-LEGACY_MODULE = "src.experiments.paper_figures.fig6_peak_amplified_reentry_experiment"
+RUNNER_MODULE = "src.experiments.paper_figures.fig6.run_task"
+COMPATIBILITY_MODULE = "src.experiments.paper_figures.fig6_peak_amplified_reentry_experiment"
+SCOPE_TASKS = {"main": "main_scope", "supplement": "supplement_scope", "both": "both_scope"}
 SUBEXPERIMENT_FLAGS = {
     "sequence_bank": ("--run-sequence-bank",),
     "peak_source_attribution": ("--run-peak-source-attribution",),
@@ -26,6 +28,33 @@ SUBEXPERIMENT_FLAGS = {
     "score_shuffle_null": ("--run-score-shuffle-null",),
     "overlap_threshold_sensitivity": ("--run-overlap-threshold-sensitivity",),
 }
+SUBEXPERIMENT_TASKS = {
+    "sequence_bank": "sequence_bank",
+    "field_ping_readout": "field_ping_readout",
+    "global_ping_score_spike_prediction": "global_ping_score_spike_prediction",
+    "ping_score_spike_prediction": "global_ping_score_spike_prediction",
+    "real_probe_score_spike_deflection": "real_probe_score_spike_deflection",
+    "overlap_gated_stsp_recruitment": "overlap_gated_stsp_recruitment",
+    "high_stsp_overlap_ablation": "high_stsp_overlap_ablation",
+    "supplement": "supplement",
+    "score_shuffle_null": "score_shuffle_null",
+    "overlap_threshold_sensitivity": "overlap_threshold_sensitivity",
+}
+ARCHIVED_SUBEXPERIMENTS = (
+    "peak_source_attribution",
+    "peak_update_history",
+    "peak_input_overlap_origin",
+    "real_reentry_rollout",
+    "real_downstream_metrics",
+    "peak_enrichment",
+    "update_recency_model",
+    "peak_weighted_overlap",
+    "reentry_prediction",
+    "downstream_prediction",
+    "peak_perturbation",
+    "score_basin_sparsification",
+    "fig6_downstream_exploratory",
+)
 
 MAIN_SUBEXPERIMENTS = (
     "sequence_bank",
@@ -45,16 +74,4 @@ SUPPLEMENT_SUBEXPERIMENTS = (
     "supplement",
     "score_shuffle_null",
     "overlap_threshold_sensitivity",
-)
-BOTH_SCOPE_FLAGS = (
-    "--run-sequence-bank",
-    "--run-field-ping-readout",
-    "--run-global-ping-score-spike-prediction",
-    "--run-real-probe-score-spike-deflection",
-    "--run-overlap-gated-stsp-recruitment",
-    "--run-high-stsp-overlap-ablation",
-    "--run-supplement",
-    "--run-score-shuffle-null",
-    "--run-overlap-threshold-sensitivity",
-    "--force-main-outputs",
 )

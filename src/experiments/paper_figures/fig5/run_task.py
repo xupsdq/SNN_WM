@@ -70,15 +70,18 @@ from src.experiments.paper_figures.fig5.output import (
 from src.experiments.paper_figures.fig5.schemas import (
     REUSE_MODES,
     TASK_ALL,
+    TASK_BOTH_SCOPE,
     TASK_EARLY_FIRING,
     TASK_IDS,
     TASK_LOCAL_EVENTS,
+    TASK_MAIN_SCOPE,
     TASK_POSTPROBE_STSP_UPDATE,
     TASK_PREPROBE_SUPPORT,
     TASK_PROBE_STSP_UPDATE_BANK,
     TASK_SUPPORT_BANK,
     TASK_SUPPORT_PERTURBATION,
     TASK_SUPPLEMENT,
+    TASK_SUPPLEMENT_SCOPE,
     TASK_TRIAL_SAMPLING,
     normalize_reuse_mode,
 )
@@ -296,7 +299,20 @@ def _run_task(
         _run_support_perturbation(ctx, bank)
         _sample_process_rss(ctx, "support_perturbation_metrics_complete")
         return
-    if task_id == TASK_SUPPLEMENT:
+    if task_id == TASK_MAIN_SCOPE:
+        compute_preprobe_support_metrics(ctx, bank)
+        _sample_process_rss(ctx, "preprobe_support_metrics_complete")
+        compute_early_firing_transition_metrics(ctx, bank)
+        _sample_process_rss(ctx, "early_firing_metrics_complete")
+        compute_event_aligned_metrics(ctx, bank)
+        _sample_process_rss(ctx, "local_events_metrics_complete")
+        _run_support_perturbation(ctx, bank)
+        _sample_process_rss(ctx, "support_perturbation_metrics_complete")
+        return
+    if task_id in {TASK_SUPPLEMENT, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            compute_preprobe_support_metrics(ctx, bank)
+            _sample_process_rss(ctx, "preprobe_support_metrics_complete")
         compute_early_firing_transition_metrics(ctx, bank)
         _sample_process_rss(ctx, "early_firing_metrics_complete")
         compute_event_aligned_metrics(ctx, bank)
@@ -922,7 +938,8 @@ def _config_from_args(args: argparse.Namespace) -> Fig5Config:
     smoke = bool(args.smoke)
     task = str(args.task)
     run_all = task == TASK_ALL
-    run_supplement = task == TASK_SUPPLEMENT
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    run_supplement = task in {TASK_SUPPLEMENT, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed))
     return Fig5Config(
         model_path=str(model_path),
@@ -957,10 +974,10 @@ def _config_from_args(args: argparse.Namespace) -> Fig5Config:
         save_full_traces=bool(args.save_full_traces),
         save_spike_cache=bool(args.save_spike_cache),
         run_trial_sampling=True,
-        run_preprobe_support=run_all or task == TASK_PREPROBE_SUPPORT,
-        run_early_firing=run_all or task == TASK_EARLY_FIRING or run_supplement,
-        run_local_events=run_all or task == TASK_LOCAL_EVENTS or run_supplement,
-        run_support_perturbation=run_all or task == TASK_SUPPORT_PERTURBATION or run_supplement,
+        run_preprobe_support=run_all or scope_task or task == TASK_PREPROBE_SUPPORT,
+        run_early_firing=run_all or scope_task or task == TASK_EARLY_FIRING or run_supplement,
+        run_local_events=run_all or scope_task or task == TASK_LOCAL_EVENTS or run_supplement,
+        run_support_perturbation=run_all or scope_task or task == TASK_SUPPORT_PERTURBATION or run_supplement,
         run_supplement=run_all or run_supplement,
         save_debug_figures=bool(args.save_debug_figures),
         show_progress=not bool(args.no_progress),

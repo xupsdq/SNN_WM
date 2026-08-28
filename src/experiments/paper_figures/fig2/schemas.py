@@ -4,6 +4,9 @@ SCHEMA_VERSION = 1
 SCHEMA_NAME = "fig2_runtime_artifacts"
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_PAIR_TRIAL_SPECS = "pair_trial_specs"
 TASK_STATE_BANK = "state_bank"
 TASK_CROSSFIT_SPLIT_SPECS = "crossfit_split_specs"
@@ -33,6 +36,9 @@ TASK_SUPPLEMENT = "supplement"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_PAIR_TRIAL_SPECS,
     TASK_STATE_BANK,
     TASK_CROSSFIT_SPLIT_SPECS,
@@ -461,6 +467,7 @@ __all__ = [
     "SUPP_PING_SWEEP_RAW_COLUMNS",
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_COMPLETION_DELAY_BOUNDARY_BANK",
     "TASK_COMPLETION_DELAY_MASK_SPECS",
     "TASK_COMPLETION_DELAY_SWEEP",
@@ -479,6 +486,7 @@ __all__ = [
     "TASK_FIXED_B_SWAP_BANK",
     "TASK_IDS",
     "TASK_LINEAR_MIXTURE",
+    "TASK_MAIN_SCOPE",
     "TASK_MORPHOLOGY",
     "TASK_NEUTRAL_PING",
     "TASK_PAIR_TRIAL_SPECS",
@@ -487,6 +495,7 @@ __all__ = [
     "TASK_PING_SWEEP",
     "TASK_STATE_BANK",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "WEAK_PROBE_MASK_COLUMNS",
     "normalize_reuse_mode",
 ]

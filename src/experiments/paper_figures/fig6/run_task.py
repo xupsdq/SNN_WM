@@ -52,10 +52,12 @@ from src.experiments.paper_figures.fig6.constants import FIGURE_ID
 from src.experiments.paper_figures.fig6.schemas import (
     REUSE_MODES,
     TASK_ALL,
+    TASK_BOTH_SCOPE,
     TASK_FIELD_PING_READOUT,
     TASK_GLOBAL_PING_SCORE_SPIKE_PREDICTION,
     TASK_HIGH_STSP_OVERLAP_ABLATION,
     TASK_IDS,
+    TASK_MAIN_SCOPE,
     TASK_OVERLAP_GATED_STSP_RECRUITMENT,
     TASK_OVERLAP_THRESHOLD_SENSITIVITY,
     TASK_REAL_PROBE_SCORE_SPIKE_DEFLECTION,
@@ -63,6 +65,7 @@ from src.experiments.paper_figures.fig6.schemas import (
     TASK_SEQUENCE_BANK,
     TASK_SEQUENCE_TRIALS,
     TASK_SUPPLEMENT,
+    TASK_SUPPLEMENT_SCOPE,
     normalize_reuse_mode,
 )
 from src.experiments.paper_figures.fig6.subexperiments.debug_figures import save_debug_figures
@@ -284,6 +287,15 @@ def _run_task(
         shared_sequence_root=shared_sequence_root,
     )
     if task_id == TASK_SEQUENCE_BANK:
+        return
+    if task_id == TASK_MAIN_SCOPE:
+        _run_main_tasks(ctx, bank)
+        return
+    if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        _run_main_tasks(ctx, bank)
+        compute_supplement_outputs(ctx, bank)
+        compute_score_shuffle_null_extension(ctx, bank)
+        compute_overlap_threshold_sensitivity_extension(ctx, bank)
         return
     if task_id == TASK_FIELD_PING_READOUT:
         compute_field_ping_readout(ctx, bank)
@@ -535,7 +547,9 @@ def _config_from_args(args: argparse.Namespace) -> Fig6Config:
     smoke = bool(args.smoke)
     task = str(args.task)
     run_all = task == TASK_ALL
-    run_supplement = run_all or task == TASK_SUPPLEMENT
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    run_supplement = run_all or supplement_scope or task == TASK_SUPPLEMENT
     seq_lengths = tuple(int(v) for v in str(args.sequence_lengths).split(",") if str(v).strip())
     recent_windows = tuple(int(v) for v in str(args.recent_overlap_windows).split(",") if str(v).strip())
     score_windows = tuple(int(v) for v in str(args.score_early_windows_ms).split(",") if str(v).strip())
@@ -572,15 +586,15 @@ def _config_from_args(args: argparse.Namespace) -> Fig6Config:
         save_l3_trace=not bool(args.no_save_l3_trace),
         save_spike_cache=bool(args.save_spike_cache),
         run_sequence_bank=True,
-        run_field_ping_readout=run_all or task == TASK_FIELD_PING_READOUT or run_supplement,
-        run_global_ping_score_spike_prediction=run_all or task == TASK_GLOBAL_PING_SCORE_SPIKE_PREDICTION or run_supplement,
+        run_field_ping_readout=run_all or scope_task or task == TASK_FIELD_PING_READOUT or run_supplement,
+        run_global_ping_score_spike_prediction=run_all or scope_task or task == TASK_GLOBAL_PING_SCORE_SPIKE_PREDICTION or run_supplement,
         run_ping_score_spike_prediction=False,
-        run_real_probe_score_spike_deflection=run_all or task == TASK_REAL_PROBE_SCORE_SPIKE_DEFLECTION or run_supplement,
-        run_overlap_gated_stsp_recruitment=run_all or task == TASK_OVERLAP_GATED_STSP_RECRUITMENT or run_supplement,
-        run_high_stsp_overlap_ablation=run_all or task == TASK_HIGH_STSP_OVERLAP_ABLATION or run_supplement,
+        run_real_probe_score_spike_deflection=run_all or scope_task or task == TASK_REAL_PROBE_SCORE_SPIKE_DEFLECTION or run_supplement,
+        run_overlap_gated_stsp_recruitment=run_all or scope_task or task == TASK_OVERLAP_GATED_STSP_RECRUITMENT or run_supplement,
+        run_high_stsp_overlap_ablation=run_all or scope_task or task == TASK_HIGH_STSP_OVERLAP_ABLATION or run_supplement,
         run_supplement=run_supplement,
-        run_score_shuffle_null=run_all or task == TASK_SCORE_SHUFFLE_NULL,
-        run_overlap_threshold_sensitivity=run_all or task == TASK_OVERLAP_THRESHOLD_SENSITIVITY,
+        run_score_shuffle_null=run_all or supplement_scope or task == TASK_SCORE_SHUFFLE_NULL,
+        run_overlap_threshold_sensitivity=run_all or supplement_scope or task == TASK_OVERLAP_THRESHOLD_SENSITIVITY,
         force_main_outputs=force_main_outputs,
         score_eps=float(args.score_eps),
         score_early_windows_ms=score_windows,

@@ -67,6 +67,7 @@ from src.experiments.paper_figures.fig1.output import utc_now, write_config_file
 from src.experiments.paper_figures.fig1.schemas import (
     REUSE_MODES,
     TASK_BASELINE,
+    TASK_BOTH_SCOPE,
     TASK_DELAY_DECODER,
     TASK_DELAY_FEATURE_BANK,
     TASK_DMS_BOUNDARY_BANK,
@@ -75,6 +76,8 @@ from src.experiments.paper_figures.fig1.schemas import (
     TASK_FIRING_RATE_CONTROL,
     TASK_TIME_BINNED_FIRING_RATE_CONTROL,
     TASK_IDS,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
     TASK_TRIAL_SPECS,
     normalize_reuse_mode,
 )
@@ -94,6 +97,7 @@ from src.experiments.paper_figures.fig1.subexperiments.delay_decode import (
 from src.experiments.paper_figures.fig1.subexperiments.dms_delay_sweep import run_dms_functional_delay_sweep
 from src.experiments.paper_figures.fig1.subexperiments.dms_shuffle import run_dms_substrate_shuffle
 from src.experiments.paper_figures.fig1.subexperiments.firing_rate_control import (
+    run_phase_firing_rate_control,
     run_phase_firing_rate_control_from_bank,
 )
 from src.experiments.paper_figures.fig1.subexperiments.time_binned_firing_rate import (
@@ -284,6 +288,46 @@ def _run_task(
     mode: str,
     artifact_root: Path,
 ) -> None:
+    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        run_baseline_eval(ctx, specs["baseline"])
+        if mode == "off":
+            run_delay_stsp_decode(ctx, specs["delay_train"], specs["delay_test"])
+        else:
+            features = _get_delay_features(
+                ctx,
+                specs["delay_train"],
+                specs["delay_test"],
+                artifact_root=artifact_root,
+                mode=mode,
+                producer=False,
+            )
+            run_delay_decoder_from_bank(ctx, features)
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            if mode == "off":
+                run_dms_functional_delay_sweep(ctx, specs["dms"])
+            else:
+                delay_bank = _get_dms_boundary_bank(
+                    ctx,
+                    specs["dms"],
+                    artifact_root=artifact_root,
+                    mode=mode,
+                    producer=False,
+                )
+                run_dms_functional_delay_sweep(ctx, specs["dms"], boundary_bank=delay_bank)
+        if mode == "off":
+            dms_outputs = run_dms_substrate_shuffle(ctx, specs["dms"])
+            run_phase_firing_rate_control(ctx, dms_outputs.get("phase_rate_rows", []))
+        else:
+            dms_bank = _get_dms_boundary_bank(
+                ctx,
+                specs["dms"],
+                artifact_root=artifact_root,
+                mode=mode,
+                producer=False,
+            )
+            run_dms_substrate_shuffle(ctx, specs["dms"], boundary_bank=dms_bank)
+            run_phase_firing_rate_control_from_bank(ctx, dms_bank)
+        return
     if task_id == TASK_TRIAL_SPECS:
         return
     if task_id == TASK_BASELINE:
@@ -642,6 +686,9 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
 
 def _config_from_args(args: argparse.Namespace) -> Fig1Config:
     smoke = bool(args.smoke)
+    task = str(args.task)
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     delay_points_ms = tuple(int(v) for v in str(args.delay_points_ms).split(",") if str(v).strip())
     dms_delay_sweep_ms = tuple(int(v) for v in str(args.dms_delay_sweep_ms).split(",") if str(v).strip())
     if smoke:
@@ -673,11 +720,11 @@ def _config_from_args(args: argparse.Namespace) -> Fig1Config:
         firing_bin_ms=int(args.firing_bin_ms),
         delay_decode_backend=str(args.delay_decode_backend),
         delay_decode_torch_ridge_lambda=float(args.delay_decode_torch_ridge_lambda),
-        run_baseline=False,
-        run_delay_decode=False,
-        run_dms_delay_sweep=False,
-        run_dms_shuffle=False,
-        run_firing_rate_control=False,
+        run_baseline=scope_task or task == TASK_BASELINE,
+        run_delay_decode=scope_task or task == TASK_DELAY_DECODER,
+        run_dms_delay_sweep=supplement_scope or task == TASK_DMS_DELAY_SWEEP_READOUT,
+        run_dms_shuffle=scope_task or task == TASK_DMS_SHUFFLE_READOUT,
+        run_firing_rate_control=scope_task or task == TASK_FIRING_RATE_CONTROL,
         save_debug_figures=bool(args.save_debug_figures),
         save_feature_cache=bool(args.save_feature_cache),
         show_progress=not bool(args.no_progress),
