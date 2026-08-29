@@ -1,11 +1,24 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import (
+    json_safe as _json_safe,
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+    write_json_file as _write_json,
+)
+from src.experiments.paper_figures.fig3.constants import NUM_CLASSES
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _pairwise_image_sims,
+    _progress,
+    _target_position,
+    _trial_condition_audit,
+)
+from src.experiments.paper_figures.fig3.types import ExperimentContext
 
 def build_sequence_trial_specs(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     cfg = ctx.cfg

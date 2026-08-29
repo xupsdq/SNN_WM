@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_VERSION = 1
 SCHEMA_NAME = "fig2_runtime_artifacts"
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_PAIR_TRIAL_SPECS = "pair_trial_specs"
 TASK_STATE_BANK = "state_bank"
 TASK_CROSSFIT_SPLIT_SPECS = "crossfit_split_specs"
@@ -33,6 +38,9 @@ TASK_SUPPLEMENT = "supplement"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_PAIR_TRIAL_SPECS,
     TASK_STATE_BANK,
     TASK_CROSSFIT_SPLIT_SPECS,
@@ -60,8 +68,6 @@ TASK_IDS = (
     TASK_FIXED_B_COHORT_AGGREGATE,
 
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 PAIR_SPEC_FILES = {
     "pair_trials": "pair_trials.csv",
@@ -284,6 +290,98 @@ COMPLETION_BOUNDARY_MANIFEST_COLUMNS = (
 )
 COMPLETION_CONDITIONS = ("S0", "S_B", "S_AB")
 
+PANEL_E_RAW_COLUMNS = (
+    "network_seed",
+    "pair_id",
+    "state_condition",
+    "ping_repeat",
+    "ping_seed",
+    "A_label",
+    "B_label",
+    "prediction",
+    "pred_is_A",
+    "pred_is_B",
+    "pred_is_pair_member",
+    "pred_is_other",
+    "silent",
+    "first_fire_time_ms",
+    "ping_spike_count",
+    "ping_energy",
+    "readout_margin_A",
+    "readout_margin_B",
+)
+SUPP_PING_SWEEP_RAW_COLUMNS = (
+    "network_seed",
+    "pair_id",
+    "state_condition",
+    "sweep_type",
+    "ping_amp",
+    "ping_ms",
+    "ping_repeat",
+    "A_label",
+    "B_label",
+    "prediction",
+    "pred_is_A",
+    "pred_is_B",
+    "pred_is_pair_member",
+    "pred_is_other",
+    "silent",
+    "first_fire_time_ms",
+)
+SUPP_COMPLETION_DELAY_RAW_COLUMNS = (
+    "network_seed",
+    "pair_id",
+    "delay2_ms",
+    "state_condition",
+    "target_item",
+    "target_label",
+    "A_label",
+    "B_label",
+    "keep_prob",
+    "repeat_id",
+    "prediction",
+    "correct_target",
+    "pred_is_A",
+    "pred_is_B",
+    "pred_is_other",
+    "silent",
+    "first_fire_time_ms",
+    "weak_probe_scale",
+    "weak_spike_count",
+)
+PANEL_F_RAW_COLUMNS = (
+    "network_seed",
+    "pair_id",
+    "state_condition",
+    "target_item",
+    "target_label",
+    "other_pair_label",
+    "keep_prob",
+    "repeat_id",
+    "mask_id",
+    "prediction",
+    "pred_is_target",
+    "pred_is_A",
+    "pred_is_B",
+    "pred_is_pair_member",
+    "pred_is_other_pair_member",
+    "pred_is_other_class",
+    "silent",
+    "first_fire_time_ms",
+    "mask_space",
+    "weak_probe_scale",
+    "weak_probe_noise",
+    "weak_probe_metric_mode",
+    "realized_keep_fraction",
+    "cue_fraction_actual",
+    "weak_spike_fraction",
+    "same_mask_used_across_states",
+    "cue_pixel_count",
+    "target_foreground_count",
+    "cue_energy",
+    "encoded_spike_count",
+)
+
 WEAK_PROBE_MASK_COLUMNS = (
     "network_seed",
     "mask_id",
@@ -335,14 +433,6 @@ COMPLETION_DELAY_MASK_COLUMNS = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "BOUNDARY_MANIFEST_COLUMNS",
     "BOUNDARY_STATE_KEYS",
@@ -358,13 +448,18 @@ __all__ = [
     "FIXED_B_TASK_IDS",
     "PAIR_SPEC_FILES",
     "PAIR_SPEC_MANIFEST_COLUMNS",
+    "PANEL_E_RAW_COLUMNS",
+    "PANEL_F_RAW_COLUMNS",
     "REUSE_MODES",
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
     "STATE_BANK_ARRAY_VARIABLES",
     "STATE_BANK_MANIFEST_COLUMNS",
+    "SUPP_COMPLETION_DELAY_RAW_COLUMNS",
+    "SUPP_PING_SWEEP_RAW_COLUMNS",
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_COMPLETION_DELAY_BOUNDARY_BANK",
     "TASK_COMPLETION_DELAY_MASK_SPECS",
     "TASK_COMPLETION_DELAY_SWEEP",
@@ -383,6 +478,7 @@ __all__ = [
     "TASK_FIXED_B_SWAP_BANK",
     "TASK_IDS",
     "TASK_LINEAR_MIXTURE",
+    "TASK_MAIN_SCOPE",
     "TASK_MORPHOLOGY",
     "TASK_NEUTRAL_PING",
     "TASK_PAIR_TRIAL_SPECS",
@@ -391,6 +487,7 @@ __all__ = [
     "TASK_PING_SWEEP",
     "TASK_STATE_BANK",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "WEAK_PROBE_MASK_COLUMNS",
     "normalize_reuse_mode",
 ]

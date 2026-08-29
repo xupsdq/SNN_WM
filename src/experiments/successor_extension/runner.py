@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-from pathlib import Path
 from typing import Sequence
 
 from src.experiments.successor_extension.core import (
@@ -15,11 +13,6 @@ from src.experiments.successor_extension.core import (
     TASK_K10_INPUT,
     TASK_K10_SPECS,
     ExtensionConfig,
-    _build_ctx,
-    _load_artifact_from_dir,
-    _resolve,
-    _repo_root,
-    _seed_root,
     build_k10_extension_input_bank,
     build_k10_history_bank,
     run_experiment_a,
@@ -28,6 +21,7 @@ from src.experiments.successor_extension.core import (
     save_k10_extension_specs,
 )
 from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
+from src.experiments.successor_extension.runtime import build_context, resolve_repo_path
 
 TASKS = (TASK_K10_SPECS, TASK_K10_INPUT, TASK_K10_HISTORY, TASK_EXP_A, TASK_EXP_B, TASK_EXP_C, "all")
 
@@ -77,10 +71,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[successor_extension] task={current} seed={cfg.network_seed} device={cfg.device}", flush=True)
         if current == TASK_K10_SPECS:
             dataset = load_mnist_skeleton_dataset(
-                str(_resolve(_repo_root(), cfg.dataset_root)), "test"
+                str(resolve_repo_path(cfg.dataset_root)), "test"
             )
             specs = save_k10_extension_specs(cfg, dataset)
-            task_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS
+            task_dir = resolve_repo_path(cfg.output_root) / TASK_K10_SPECS
             _print_json(
                 {
                     "task": current,
@@ -91,7 +85,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
         elif current == TASK_K10_INPUT:
-            ctx = _build_ctx(cfg, load_model=True)
+            ctx = build_context(cfg, load_model=True)
             artifact = build_k10_extension_input_bank(cfg, ctx)
             _print_json(
                 {
@@ -106,7 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
         elif current == TASK_K10_HISTORY:
-            ctx = _build_ctx(cfg, load_model=True)
+            ctx = build_context(cfg, load_model=True)
             artifact = build_k10_history_bank(cfg, ctx)
             _print_json(
                 {
@@ -119,15 +113,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
         elif current == TASK_EXP_A:
-            ctx = _build_ctx(cfg, load_model=True)
+            ctx = build_context(cfg, load_model=True)
             summary = run_experiment_a(cfg, ctx)
             _print_json(summary)
         elif current == TASK_EXP_B:
-            ctx = _build_ctx(cfg, load_model=True)
+            ctx = build_context(cfg, load_model=True)
             summary = run_experiment_b(cfg, ctx)
             _print_json(summary)
         elif current == TASK_EXP_C:
-            ctx = _build_ctx(cfg, load_model=True)
+            ctx = build_context(cfg, load_model=True)
             summary = run_experiment_c(cfg, ctx)
             _print_json(summary)
         else:

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from src.experiments.common.ping_common import LAYER_KEYS
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry, write_json_file
 from src.experiments.paper_figures.fig2.schemas import (
     CROSSFIT_NULL_SPEC_COLUMNS,
     CROSSFIT_SPLIT_COLUMNS,
@@ -587,27 +587,27 @@ def compute_crossfit_interaction_metrics(
         pair_metrics=pd.concat([result.pair_metrics for result in results], ignore_index=True),
         coefficients=pd.concat([result.coefficients for result in results], ignore_index=True),
     )
-    _legacy._save_csv(
+    save_csv_with_registry(
         ctx,
         combined.network_metrics,
         ctx.metrics_dir / "panel_d_crossfit_interaction_network_metrics.csv",
     )
-    _legacy._save_csv(
+    save_csv_with_registry(
         ctx,
         combined.fold_metrics,
         ctx.metrics_dir / "panel_d_crossfit_interaction_fold_metrics.csv",
     )
-    _legacy._save_csv(
+    save_csv_with_registry(
         ctx,
         combined.pair_metrics,
         ctx.metrics_dir / "panel_d_crossfit_interaction_pair_metrics.csv",
     )
-    _legacy._save_csv(
+    save_csv_with_registry(
         ctx,
         combined.coefficients,
         ctx.metrics_dir / "supp_crossfit_interaction_coefficients.csv",
     )
-    _legacy._write_json(
+    write_json_file(
         {
             "schema_name": "fig2_crossfit_interaction_analysis",
             "schema_version": 1,
@@ -734,8 +734,8 @@ def compute_crossfit_null_calibration_metrics(
             }
         )
     metrics = pd.DataFrame(rows)
-    _legacy._save_csv(ctx, metrics, ctx.metrics_dir / "supp_crossfit_null_network_metrics.csv")
-    _legacy._write_json(
+    save_csv_with_registry(ctx, metrics, ctx.metrics_dir / "supp_crossfit_null_network_metrics.csv")
+    write_json_file(
         {
             "schema_name": "fig2_crossfit_null_calibration",
             "schema_version": 1,

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
 
+from src.experiments.paper_figures.common.artifact_runtime import cache_key_digest
 from src.experiments.paper_figures.fig1.schemas import SCHEMA_NAME, SCHEMA_VERSION, TASK_TRIAL_SPECS
 
 
@@ -107,14 +107,6 @@ def build_trial_specs_cache_key(cfg: Any) -> dict[str, Any]:
         "dms_batch_size": int(getattr(cfg, "dms_batch_size")),
         "smoke": bool(getattr(cfg, "smoke", False)),
     }
-
-
-def cache_key_digest(cache_key: Mapping[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(cache_key).encode("utf-8")).hexdigest()
-
-
-def _canonical_json(payload: Mapping[str, Any]) -> str:
-    return json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _json_safe(value: Any) -> Any:

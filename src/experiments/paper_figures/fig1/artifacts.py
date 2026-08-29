@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -12,7 +11,17 @@ import pandas as pd
 import torch
 
 from src.experiments.common.ping_common import LAYER_KEYS
-from src.experiments.paper_figures.fig1.cache_keys import cache_key_digest, sha256_file, trial_specs_hash
+from src.experiments.paper_figures.common.artifact_runtime import (
+    CACHE_KEY_FILE as _CACHE_KEY_FILE,
+    cache_key_matches,
+    default_artifact_root,
+    read_cache_key,
+    require_cache_key_match,
+    reset_task_artifact_dir,
+    task_artifact_dir,
+    write_cache_key,
+)
+from src.experiments.paper_figures.fig1.cache_keys import sha256_file, trial_specs_hash
 from src.experiments.paper_figures.fig1.schemas import (
     BOUNDARY_STATE_KEYS,
     DELAY_FEATURE_NPZ_KEYS,
@@ -23,7 +32,7 @@ from src.experiments.paper_figures.fig1.schemas import (
 )
 
 
-CACHE_KEY_FILE = "cache_key.json"
+CACHE_KEY_FILE = _CACHE_KEY_FILE
 
 
 @dataclass(frozen=True)
@@ -61,58 +70,6 @@ class DmsBoundaryBank:
         if self.phase_rates.empty:
             return []
         return self.phase_rates.to_dict("records")
-
-
-def default_artifact_root(seed_dir: Path) -> Path:
-    return Path(seed_dir) / "data" / "intermediates"
-
-
-def task_artifact_dir(artifact_root: Path, task_id: str) -> Path:
-    return Path(artifact_root) / str(task_id)
-
-
-def reset_task_artifact_dir(path: Path) -> None:
-    path = Path(path)
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def write_cache_key(task_dir: Path, cache_key: Mapping[str, Any]) -> None:
-    payload = {
-        "cache_key": _json_safe(cache_key),
-        "cache_key_digest": cache_key_digest(cache_key),
-    }
-    write_json(payload, Path(task_dir) / CACHE_KEY_FILE)
-
-
-def read_cache_key(task_dir: Path) -> dict[str, Any]:
-    path = Path(task_dir) / CACHE_KEY_FILE
-    if not path.exists():
-        raise FileNotFoundError(f"Artifact cache key is missing: {path}")
-    payload = read_json(path)
-    if not isinstance(payload, dict) or "cache_key" not in payload or "cache_key_digest" not in payload:
-        raise ValueError(f"Malformed artifact cache key file: {path}")
-    return payload
-
-
-def cache_key_matches(task_dir: Path, expected_key: Mapping[str, Any]) -> bool:
-    try:
-        payload = read_cache_key(task_dir)
-    except (FileNotFoundError, ValueError):
-        return False
-    return str(payload.get("cache_key_digest")) == cache_key_digest(expected_key)
-
-
-def require_cache_key_match(task_dir: Path, expected_key: Mapping[str, Any], *, task_id: str) -> None:
-    payload = read_cache_key(task_dir)
-    expected_digest = cache_key_digest(expected_key)
-    found_digest = str(payload.get("cache_key_digest"))
-    if found_digest != expected_digest:
-        raise RuntimeError(
-            f"{task_id} artifact cache key mismatch: expected {expected_digest}, found {found_digest}. "
-            "Use --reuse-artifacts force to rebuild."
-        )
 
 
 def save_trial_specs_artifact(

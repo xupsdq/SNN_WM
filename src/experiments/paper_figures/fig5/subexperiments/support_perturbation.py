@@ -1,11 +1,46 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import relative_to_root as _rel, save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig5.constants import (
+    LEGACY_REGION_PERTURBATION_CONDITIONS,
+    MAIN_CONDITIONS,
+    PANEL_D_EFFECT_SUMMARY_COLUMNS,
+    PANEL_D_L1_STSP_UNIT_COLUMNS,
+    PANEL_D_NODE_COLUMNS,
+    PANEL_D_TRIAL_COLUMNS,
+    PANEL_D_UNIT_TRANSITION_COLUMNS,
+    PERTURBATION_MAIN_CONDITIONS,
+    PRIMARY_LAYER,
+    REFERENCE_CONDITIONS,
+    SUPP_CONDITIONS,
+)
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _compute_l1_stsp_perturbation_contrast,
+    _compute_perturbation_transition_contrasts,
+    _decision_deflection,
+    _fig5d_condition_label,
+    _finite_delta,
+    _first_spike_map,
+    _l1_stsp_perturbation_mode,
+    _latency_delta,
+    _node_metrics_for_condition,
+    _pattern_similarity,
+    _perturbation_matching_diagnostics,
+    _progress,
+    _recovery_toward_static,
+    _steps_to_ms,
+    _summarize_l1_stsp_perturbation,
+    _summarize_perturbation_transitions,
+    _support_perturbation_controls,
+    _transition_type,
+    _transition_vs_same,
+)
+from src.experiments.paper_figures.fig5.types import ExperimentContext, LocalSupportCompetitionBank
 
 def compute_perturbation_transition_metrics(ctx: ExperimentContext, bank: LocalSupportCompetitionBank) -> None:
     compute_l1_stsp_perturbation_transition_metrics(ctx, bank)

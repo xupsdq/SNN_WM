@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import (
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+)
+from src.experiments.paper_figures.fig2.constants import STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.schemas import PANEL_E_RAW_COLUMNS
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _neutral_ping_metrics,
+    _ping_energy,
+    _ping_spike_count,
+    _progress,
+    _readout_margin_value,
+    concat_condition_boundaries,
+    run_ping_readout_from_boundary,
+)
+from src.experiments.paper_figures.fig2.types import ExperimentContext, FunctionalReadout, PairEpisodeStateBank
 
 def run_neutral_ping_real_rollout_from_state_bank(ctx: ExperimentContext, bank: PairEpisodeStateBank) -> None:
     if _use_batched_neutral_ping(ctx):

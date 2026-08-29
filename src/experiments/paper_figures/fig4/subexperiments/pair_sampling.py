@@ -1,12 +1,27 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
-from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
+from typing import Any
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.constants import NUM_CLASSES
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _assign_bins,
+    _assign_matched_groups,
+    _balanced_select_pairs,
+    _build_masks,
+    _dice,
+    _mask_energy,
+    _matched_pairs_table,
+    _progress,
+    _safe_div,
+    _write_panel_a_example,
+)
+from src.experiments.paper_figures.fig4.types import ExperimentContext
 
 def build_pair_trials(ctx: ExperimentContext) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[int, dict[str, np.ndarray]]]:
     cfg = ctx.cfg

@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+import math
+from typing import Any
 
-inherit_legacy_globals(globals())
+import pandas as pd
+import torch
+
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig1.constants import NUM_CLASSES
+from src.experiments.paper_figures.fig1.subexperiments.helpers import _encode_cached, _iter_batches, _progress
+from src.experiments.paper_figures.fig1.types import ExperimentContext
 
 def run_baseline_eval(ctx: ExperimentContext, trials: pd.DataFrame) -> None:
     rows: list[dict[str, Any]] = []

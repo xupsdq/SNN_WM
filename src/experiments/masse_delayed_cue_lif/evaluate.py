@@ -9,6 +9,7 @@ import torch
 
 from .artifacts import (
     REQUIRED_EVAL_INPUTS,
+    attach_input_lineage,
     config_identity,
     layout_for,
     load_checkpoint,
@@ -26,6 +27,7 @@ from .metrics import (
     summarize_predictions,
     trial_predictions,
 )
+from .decode import attach_behavior_gate
 from .model import RecurrentLifSfa
 from .task import expand_trial, load_trial_table
 
@@ -68,17 +70,17 @@ def evaluate_run(run_directory: Path, config: MasseDelayedCueConfig | None = Non
     attach_timepoint_breakdown(metrics, logits, targets, rows, config)
     metrics["identity"] = config_identity(config)
     metrics["checkpoint_epoch"] = int(checkpoint["epoch"])
+    attach_input_lineage(metrics, run_directory, REQUIRED_EVAL_INPUTS)
     write_predictions_csv(layout.data_dir / "test_predictions.csv", records)
     write_json(layout.metrics_dir / "test_metrics.json", metrics)
     write_manifest(run_directory)
-    write_summary(
-        run_directory,
-        {
-            "status": "evaluated",
-            "profile": config.profile,
-            "test_trial_accuracy": metrics["trial_accuracy"],
-            "test_timepoint_accuracy": metrics["timepoint_accuracy"],
-            "checkpoint_epoch": metrics["checkpoint_epoch"],
-        },
-    )
+    summary = {
+        "status": "evaluated",
+        "profile": config.profile,
+        "test_trial_accuracy": metrics["trial_accuracy"],
+        "test_timepoint_accuracy": metrics["timepoint_accuracy"],
+        "checkpoint_epoch": metrics["checkpoint_epoch"],
+    }
+    attach_behavior_gate(summary, metrics, config)
+    write_summary(run_directory, summary)
     return metrics

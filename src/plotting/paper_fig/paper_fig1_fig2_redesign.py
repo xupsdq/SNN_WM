@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -19,36 +18,17 @@ from PIL import Image  # noqa: E402
 
 from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE  # noqa: E402
 from src.plotting.paper_fig.final_six.renderer import (  # noqa: E402
-    MM_TO_INCH,
-    _as_figure_axes,
-    _export_pdf_and_png,
-    _inject_svg_asset,
-    _legend,
-    _plot_bbox_mm,
-    _plot_ordered_lines,
-    _plot_seed_trajectory,
-    _plot_stacked_composition,
-    _plot_time_binned_lines,
-    _style_axis,
-    _wireframe,
-    _write_panel_qa,
+    render_composed_figure,
 )
 from src.plotting.paper_fig.final_six.specs import (  # noqa: E402
-    _layout_contract,
+    build_layout_contract,
     get_figure_spec,
-)
-from src.plotting.paper_fig.layout_contract import (  # noqa: E402
-    validate_layout_contract,
-)
-from src.plotting.paper_fig.typography import (  # noqa: E402
-    VECTOR_TEXT_RCPARAMS,
-    apply_paper_figure_typography,
-    mark_panel_label,
 )
 
 
 REDESIGN_PLOT_VERSION = "paper_fig1_fig2_redesign_plot_v1.0.0"
 CANVAS_MM = (165.0, 102.0)
+MM_TO_INCH = 1.0 / 25.4
 INK = NATURE_COMPATIBLE_PALETTE["ink"]
 NEUTRAL = NATURE_COMPATIBLE_PALETTE["neutral_mid"]
 U_COLOR = NATURE_COMPATIBLE_PALETTE["comparison_coral"]
@@ -233,6 +213,7 @@ def _fig1_spec() -> dict[str, Any]:
                 "source": "data/fig1_facilitating_stsp_probe.csv",
                 "role": "expose the exact u and x dynamics",
                 "legend_owner": "panel",
+                "legend_ncol": 2,
             },
             "d": {
                 "claim": (
@@ -246,7 +227,7 @@ def _fig1_spec() -> dict[str, Any]:
             },
         },
     }
-    spec["layout_contract"] = _layout_contract(spec)
+    spec["layout_contract"] = build_layout_contract(spec)
     spec["layout_contract"]["status"] = "candidate"
     spec["layout_contract"]["alignment_groups"].append(
         {
@@ -315,7 +296,7 @@ def _fig2_spec() -> dict[str, Any]:
         },
         "panels": panels,
     }
-    spec["layout_contract"] = _layout_contract(spec)
+    spec["layout_contract"] = build_layout_contract(spec)
     spec["layout_contract"]["status"] = "candidate"
     spec["layout_contract"]["alignment_groups"].extend(
         [
@@ -393,7 +374,6 @@ def _plot_event_rate(axis: plt.Axes, frame: pd.DataFrame) -> None:
     axis.set_yticks([0.0, 20.0])
     axis.set_yticklabels(["0", "20"])
     axis.set_ylabel("Spike rate (Hz)")
-    _style_axis(axis)
 
 
 def _plot_stsp_variables(axis: plt.Axes, frame: pd.DataFrame) -> None:
@@ -418,8 +398,6 @@ def _plot_stsp_variables(axis: plt.Axes, frame: pd.DataFrame) -> None:
     axis.set_yticks([0.0, 0.5, 1.0])
     axis.set_yticklabels(["0", "0.5", "1"])
     axis.set_ylabel("State variable")
-    _style_axis(axis)
-    _legend(axis, ncol=2)
 
 
 def _plot_stsp_state(axis: plt.Axes, frame: pd.DataFrame) -> None:
@@ -434,91 +412,6 @@ def _plot_stsp_state(axis: plt.Axes, frame: pd.DataFrame) -> None:
     axis.set_yticks([0.0, 0.2, 0.4])
     axis.set_yticklabels(["0", "0.2", "0.4"])
     axis.set_ylabel(r"STSP support ($u x$)")
-    _style_axis(axis)
-
-
-def _add_panel_label(
-    fig: plt.Figure,
-    *,
-    panel_id: str,
-    slot: Sequence[float],
-    canvas_mm: Sequence[float],
-) -> None:
-    x, y, _, _ = [float(value) for value in slot]
-    width, height = [float(value) for value in canvas_mm]
-    text = fig.text(
-        (x + 0.3) / width,
-        1.0 - (y + 0.6) / height,
-        panel_id,
-        ha="left",
-        va="top",
-        color=INK,
-        zorder=100,
-    )
-    mark_panel_label(text)
-
-
-def _save_base_svg(
-    *,
-    spec: Mapping[str, Any],
-    frames: Mapping[str, pd.DataFrame],
-    base_svg: Path,
-) -> dict[str, tuple[float, float, float, float]]:
-    canvas_mm = tuple(float(value) for value in spec["canvas_mm"])
-    plot_bboxes: dict[str, tuple[float, float, float, float]] = {}
-    with plt.rc_context(
-        {
-            **VECTOR_TEXT_RCPARAMS,
-            "svg.hashsalt": "net_torch_paper_fig1_fig2_redesign_20260811",
-        }
-    ):
-        fig = plt.figure(
-            figsize=(canvas_mm[0] * MM_TO_INCH, canvas_mm[1] * MM_TO_INCH),
-            dpi=300,
-            facecolor="white",
-        )
-        for panel_id, panel_spec in spec["panels"].items():
-            slot = spec["slots"][panel_id]
-            chart = str(panel_spec["chart"])
-            plot_bbox = _plot_bbox_mm(slot, chart, panel_spec)
-            plot_bboxes[panel_id] = plot_bbox
-            axis = fig.add_axes(_as_figure_axes(plot_bbox, canvas_mm))
-            if chart == "svg_asset":
-                axis.axis("off")
-            elif chart == "event_rate":
-                _plot_event_rate(axis, frames[panel_id])
-            elif chart == "stsp_variables":
-                _plot_stsp_variables(axis, frames[panel_id])
-            elif chart == "stsp_state":
-                _plot_stsp_state(axis, frames[panel_id])
-            elif chart == "seed_trajectory":
-                _plot_seed_trajectory(axis, frames[panel_id], panel_spec)
-            elif chart == "time_binned_lines":
-                _plot_time_binned_lines(axis, frames[panel_id], panel_spec)
-            elif chart == "ordered_lines":
-                _plot_ordered_lines(axis, frames[panel_id], panel_spec)
-            elif chart == "stacked_composition":
-                _plot_stacked_composition(axis, frames[panel_id], panel_spec)
-            else:
-                raise ValueError(
-                    f"{spec['figure_id']}{panel_id}: unsupported chart {chart}"
-                )
-            _add_panel_label(
-                fig,
-                panel_id=panel_id,
-                slot=slot,
-                canvas_mm=canvas_mm,
-            )
-        apply_paper_figure_typography(fig)
-        fig.savefig(
-            base_svg,
-            format="svg",
-            facecolor="white",
-            bbox_inches=None,
-            metadata={"Date": None},
-        )
-        plt.close(fig)
-    return plot_bboxes
 
 
 def _qa_report(
@@ -613,23 +506,8 @@ def _render_one(
     frames: Mapping[str, pd.DataFrame],
     architecture_svg: Path | None = None,
 ) -> dict[str, Any]:
-    layout = validate_layout_contract(spec)
-    if not layout.ok:
-        raise ValueError(
-            f"{spec['figure_id']}: layout contract failed: "
-            f"{layout.failures}"
-        )
-    figures_dir = bundle / "figures"
-    qa_dir = figures_dir / "qa"
-    panels_dir = figures_dir / "panels"
-    qa_dir.mkdir(parents=True, exist_ok=True)
-    panels_dir.mkdir(parents=True, exist_ok=True)
     _write_json(bundle / "meta" / f"{spec['figure_id']}_plot_spec.json", spec)
-    _wireframe(spec, qa_dir / f"{spec['figure_id']}_wireframe.png")
-
-    base_svg = qa_dir / f"{spec['figure_id']}_base.svg"
-    plot_bboxes = _save_base_svg(spec=spec, frames=frames, base_svg=base_svg)
-    final_svg = figures_dir / f"{spec['figure_id']}.svg"
+    asset: dict[str, Any] | None = None
     if architecture_svg is not None:
         parser = etree.XMLParser(
             remove_blank_text=False, resolve_entities=False
@@ -642,40 +520,45 @@ def _render_one(
             raise ValueError(
                 f"architecture SVG has no viewBox: {architecture_svg}"
             )
-        _inject_svg_asset(
-            base_svg,
-            final_svg,
-            asset_bytes=architecture_svg.read_bytes(),
-            asset_viewbox=viewbox,
-            slot=spec["slots"]["a"],
-            embedding_mode="inline",
-            top_padding_mm=4.0,
-        )
-    else:
-        shutil.copyfile(base_svg, final_svg)
-
-    final_pdf = figures_dir / f"{spec['figure_id']}.pdf"
-    final_png = figures_dir / f"{spec['figure_id']}.png"
-    _export_pdf_and_png(final_svg, final_pdf, final_png, spec["canvas_mm"])
-    with Image.open(final_png) as image:
-        image.convert("L").save(
-            qa_dir / f"{spec['figure_id']}_grayscale.png", dpi=(300, 300)
-        )
-    _write_panel_qa(final_svg, final_png, panels_dir, spec)
+        asset = {
+            "panel_id": "a",
+            "asset_bytes": architecture_svg.read_bytes(),
+            "asset_viewbox": viewbox,
+            "embedding_mode": "inline",
+            "top_padding_mm": 4.0,
+        }
+    rendered = render_composed_figure(
+        spec=spec,
+        frames=frames,
+        figure_dir=bundle,
+        svg_hashsalt="net_torch_paper_fig1_fig2_redesign_20260811",
+        custom_renderers={
+            "event_rate": lambda _fig, axis, frame, _panel: _plot_event_rate(
+                axis, frame
+            ),
+            "stsp_variables": lambda _fig, axis, frame, _panel: (
+                _plot_stsp_variables(axis, frame)
+            ),
+            "stsp_state": lambda _fig, axis, frame, _panel: _plot_stsp_state(
+                axis, frame
+            ),
+        },
+        svg_asset=asset,
+    )
     qa = _qa_report(
         bundle=bundle,
         spec=spec,
-        png_path=final_png,
-        pdf_path=final_pdf,
-        svg_path=final_svg,
-        plot_bboxes=plot_bboxes,
-        layout_passes=layout.passes,
+        png_path=rendered["png"],
+        pdf_path=rendered["pdf"],
+        svg_path=rendered["svg"],
+        plot_bboxes=rendered["plot_bboxes"],
+        layout_passes=rendered["layout_passes"],
     )
     return {
         "figure_id": spec["figure_id"],
-        "png": str(final_png),
-        "pdf": str(final_pdf),
-        "svg": str(final_svg),
+        "png": str(rendered["png"]),
+        "pdf": str(rendered["pdf"]),
+        "svg": str(rendered["svg"]),
         "qa": qa,
     }
 

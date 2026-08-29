@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig5_runtime_artifacts"
 SCHEMA_VERSION = 1
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_TRIAL_SAMPLING = "trial_sampling"
 TASK_SUPPORT_BANK = "preprobe_support_bank"
 TASK_PREPROBE_SUPPORT = "preprobe_support"
@@ -16,6 +21,9 @@ TASK_POSTPROBE_STSP_UPDATE = "postprobe_stsp_update"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_TRIAL_SAMPLING,
     TASK_SUPPORT_BANK,
     TASK_PREPROBE_SUPPORT,
@@ -26,8 +34,6 @@ TASK_IDS = (
     TASK_PROBE_STSP_UPDATE_BANK,
     TASK_POSTPROBE_STSP_UPDATE,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -274,14 +280,6 @@ POSTPROBE_MAGNITUDE_QC_COLUMNS = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "ARRAY_MANIFEST_COLUMNS",
     "REUSE_MODES",
@@ -302,15 +300,18 @@ __all__ = [
     "SUPPORT_BANK_FILES",
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_EARLY_FIRING",
     "TASK_IDS",
     "TASK_LOCAL_EVENTS",
+    "TASK_MAIN_SCOPE",
     "TASK_POSTPROBE_STSP_UPDATE",
     "TASK_PREPROBE_SUPPORT",
     "TASK_PROBE_STSP_UPDATE_BANK",
     "TASK_SUPPORT_BANK",
     "TASK_SUPPORT_PERTURBATION",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "TASK_TRIAL_SAMPLING",
     "TRIAL_SAMPLING_FILES",
     "normalize_reuse_mode",

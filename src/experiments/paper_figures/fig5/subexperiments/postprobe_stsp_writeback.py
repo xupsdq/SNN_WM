@@ -9,7 +9,9 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.monitored_dms import snapshot_boundary_state
+from src.experiments.common.ping_common import prepare_network_state
 from src.experiments.paper_figures.fig5.artifacts import (
     ProbeStspUpdateArtifact,
     finalize_probe_stsp_update_artifact,
@@ -18,6 +20,15 @@ from src.experiments.paper_figures.fig5.artifacts import (
     write_probe_stsp_update_shard,
 )
 from src.experiments.paper_figures.fig5.cache_keys import dataframe_hash
+from src.experiments.paper_figures.fig5.constants import (
+    L1_STSP_PERTURBATION_CONDITIONS,
+    MAIN_CONDITIONS,
+    PRIMARY_LAYER,
+    REFERENCE_CONDITIONS,
+    SUPP_CONDITIONS,
+)
+from src.experiments.paper_figures.fig5.output import save_csv as _save_csv
+from src.experiments.paper_figures.fig5.output import utc_now
 from src.experiments.paper_figures.fig5.schemas import (
     POSTPROBE_L1_FIRING_BRIDGE_COLUMNS,
     POSTPROBE_L2_BY_NETWORK_COLUMNS,
@@ -30,11 +41,20 @@ from src.experiments.paper_figures.fig5.schemas import (
     PROBE_STSP_CONDITION_MANIFEST_COLUMNS,
     SNAPSHOT_MANIFEST_COLUMNS,
 )
-
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _apply_l1_stsp_perturbation,
+    _fig5d_condition_label,
+    _images_for_ids,
+    _iter_batches,
+    _l1_stsp_perturbation_mode,
+    _layer_stsp_baseline_u,
+    _progress,
+    _resize_mask,
+    _restore_boundary_state,
+    _slice_boundary,
+    _step_network_once,
+)
+from src.experiments.paper_figures.fig5.types import ExperimentContext, LocalSupportCompetitionBank
 
 SNAPSHOT_LAYER = "layer2_presynaptic"
 STSP_STATE_LAYER = "layer2"
@@ -885,7 +905,7 @@ def _record_branch_batch_mode(ctx: ExperimentContext) -> None:
         warnings.warn(message, RuntimeWarning, stacklevel=2)
         if message not in ctx.warnings:
             ctx.warnings.append(message)
-        ctx.run_log.append(f"{_legacy._now()} warning {message}")
+        ctx.run_log.append(f"{utc_now()} warning {message}")
 
 
 def _stsp_map(boundary: Mapping[str, Mapping[str, torch.Tensor]], layer: str, key: str) -> np.ndarray:

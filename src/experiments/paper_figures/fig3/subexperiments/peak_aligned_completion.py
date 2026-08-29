@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.constants import MEMORY_CONDITIONS
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _encoded_spike_count,
+    _foreground_mask,
+    _masked_image,
+    _run_weak_cue_from_boundary,
+)
+from src.experiments.paper_figures.fig3.subexperiments.structural_weak_cue_supplement import _cue_masks_for_target
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def run_peak_aligned_completion(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank, partial_trials: pd.DataFrame) -> None:
     rng = np.random.default_rng(int(ctx.cfg.network_seed) + 606)

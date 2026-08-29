@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+import textwrap
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -21,6 +25,95 @@ from src.experiments.paper_figures.fig6b_order_specificity.types import (
     N_ORDERS,
     OrderSpecificityConfig,
 )
+from src.plotting.paper_fig.candidates.manuscript_fig6b_order_specificity import (
+    render_manuscript_fig6b_order_specificity,
+)
+
+
+def test_analysis_module_imports_without_plotting() -> None:
+    script = textwrap.dedent(
+        """
+        import importlib
+        import importlib.abc
+        import sys
+
+        class RejectPlottingImport(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "src.plotting" or fullname.startswith("src.plotting."):
+                    raise ImportError(f"plotting import rejected: {fullname}")
+                return None
+
+        sys.meta_path.insert(0, RejectPlottingImport())
+        importlib.import_module(
+            "src.experiments.paper_figures.fig6b_order_specificity.analysis"
+        )
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_plot_only_replays_sparse_historical_pilot_bundle_without_mutating_inputs(
+    tmp_path,
+) -> None:
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "network_seed": seed,
+                "accuracy": accuracy,
+                "mean_margin": margin,
+            }
+            for seed, accuracy, margin in (
+                (1000, 1.0, 0.04),
+                (1001, 71.0 / 72.0, 0.03),
+                (1002, 1.0, 0.05),
+                (-1, 215.0 / 216.0, 0.04),
+            )
+        ]
+    ).to_csv(metrics_dir / "network_order_metrics.csv", index=False)
+    sparse_confusion = [
+        {
+            "network_seed": -1,
+            "true_order": order,
+            "predicted_order": order,
+            "count": 35 if order == 5 else 36,
+            "proportion": (35 if order == 5 else 36) / 216.0,
+        }
+        for order in range(N_ORDERS)
+    ]
+    sparse_confusion.append(
+        {
+            "network_seed": -1,
+            "true_order": 5,
+            "predicted_order": 3,
+            "count": 1,
+            "proportion": 1.0 / 216.0,
+        }
+    )
+    pd.DataFrame(sparse_confusion).to_csv(
+        metrics_dir / "confusion_matrix.csv", index=False
+    )
+    pd.DataFrame(
+        [{"check_id": "overall_gate_decision", "observed": "GO"}]
+    ).to_csv(metrics_dir / "pilot_gate_metrics.csv", index=False)
+    inputs_before = {
+        path.name: path.read_bytes() for path in sorted(metrics_dir.iterdir())
+    }
+
+    qa = render_manuscript_fig6b_order_specificity(tmp_path, plot_only=True)
+
+    assert qa["plot_only"] is True
+    assert (tmp_path / "figures" / "fig6b_order_specificity_pilot.png").is_file()
+    assert {
+        path.name: path.read_bytes() for path in sorted(metrics_dir.iterdir())
+    } == inputs_before
 
 
 def _prediction_rows() -> pd.DataFrame:

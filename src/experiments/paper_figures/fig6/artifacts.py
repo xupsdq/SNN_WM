@@ -10,6 +10,15 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.experiments.paper_figures.common.artifact_runtime import (
+    CACHE_KEY_FILE as _CACHE_KEY_FILE,
+    cache_key_matches,
+    default_artifact_root,
+    read_cache_key,
+    reset_task_artifact_dir,
+    task_artifact_dir,
+    write_cache_key,
+)
 from src.experiments.paper_figures.fig6.cache_keys import (
     cache_key_digest,
     sequence_trials_hash,
@@ -27,7 +36,7 @@ from src.experiments.paper_figures.fig6.schemas import (
 from src.experiments.paper_figures.fig6.types import PeakAmplifiedReentryBank
 
 
-CACHE_KEY_FILE = "cache_key.json"
+CACHE_KEY_FILE = _CACHE_KEY_FILE
 
 
 @dataclass(frozen=True)
@@ -54,49 +63,6 @@ class TableBundle:
     tables: dict[str, pd.DataFrame]
     manifest: pd.DataFrame
     digest: str
-
-
-def default_artifact_root(seed_dir: Path) -> Path:
-    return Path(seed_dir) / "data" / "intermediates"
-
-
-def task_artifact_dir(artifact_root: Path, task_id: str) -> Path:
-    return Path(artifact_root) / str(task_id)
-
-
-def reset_task_artifact_dir(path: Path) -> None:
-    path = Path(path)
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def write_cache_key(task_dir: Path, cache_key: Mapping[str, Any]) -> None:
-    write_json(
-        {
-            "cache_key": _json_safe(cache_key),
-            "cache_key_digest": cache_key_digest(cache_key),
-        },
-        Path(task_dir) / CACHE_KEY_FILE,
-    )
-
-
-def read_cache_key(task_dir: Path) -> dict[str, Any]:
-    path = Path(task_dir) / CACHE_KEY_FILE
-    if not path.exists():
-        raise FileNotFoundError(f"Artifact cache key is missing: {path}")
-    payload = read_json(path)
-    if not isinstance(payload, dict) or "cache_key" not in payload or "cache_key_digest" not in payload:
-        raise ValueError(f"Malformed artifact cache key file: {path}")
-    return payload
-
-
-def cache_key_matches(task_dir: Path, expected_key: Mapping[str, Any]) -> bool:
-    try:
-        payload = read_cache_key(task_dir)
-    except (FileNotFoundError, ValueError):
-        return False
-    return str(payload.get("cache_key_digest")) == cache_key_digest(expected_key)
 
 
 def require_cache_key_match(task_dir: Path, expected_key: Mapping[str, Any], *, task_id: str) -> None:

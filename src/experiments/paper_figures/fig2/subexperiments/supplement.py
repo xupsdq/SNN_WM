@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+import math
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig2.constants import STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.subexperiments.helpers import (
+    _access_scores,
+    _linear_metric_lookup,
+    _metric_lookup,
+    _prediction_from_scores,
+)
+from src.experiments.paper_figures.fig2.types import ExperimentContext, PairEpisodeStateBank
 
 def run_neutral_ping_accessibility_proxy(ctx: ExperimentContext, bank: PairEpisodeStateBank) -> pd.DataFrame:
     rows = []

@@ -1,14 +1,92 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
 from src.experiments.common.input_masks import entry_mask_from_image
 from src.experiments.common.gain_maps import compute_gain_ratio_map as _common_compute_gain_ratio_map
-from src.experiments.common.monitored_dms import restore_functional_probe_state_in_place
+from src.experiments.common.monitored_dms import (
+    restore_functional_probe_state_in_place,
+    snapshot_boundary_state,
+)
+from src.experiments.common.ping_common import prepare_network_state
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry
+from src.experiments.paper_figures.fig6.constants import (
+    FIG6_ENTRY_SCORE_AUDIT_COLUMNS,
+    FIG6_GAIN_RATIO_AUDIT_COLUMNS,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
+
+
+def _save_csv(ctx: ExperimentContext, df: pd.DataFrame, path) -> None:
+    save_csv_with_registry(ctx, df, path)
+
+
+def _read_csv_if_exists(path: Path) -> pd.DataFrame | None:
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
+def _copy_csv_if_exists(src: Path, dst: Path, ctx: ExperimentContext) -> bool:
+    df = _read_csv_if_exists(src)
+    if df is None:
+        return False
+    _save_csv(ctx, df, dst)
+    return True
+
+
+def _ms_to_steps(value_ms: int | float, dt: float) -> int:
+    return max(1, int(round((float(value_ms) * ms) / float(dt))))
+
+
+def _resize_array(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _resize_array as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def _class_readout_vector_from_trace(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _class_readout_vector_from_trace as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def _as_float_or_nan(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _as_float_or_nan as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def _sem(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _sem as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def _safe_div(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _safe_div as _impl
+
+    return _impl(*args, **kwargs)
 
 def _sequence_support_maps(
     ctx: ExperimentContext,
@@ -1012,6 +1090,8 @@ def _ablation_condition_metrics(
     }
 
 def _ensure_probe_trials(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
+    from src.experiments.paper_figures.fig6.subexperiments.real_reentry_rollout import build_probe_candidate_trials
+
     if bank.probe_trials.empty:
         bank.probe_trials = build_probe_candidate_trials(ctx, bank)
         ctx.n_probe_candidates = int(len(bank.probe_trials))

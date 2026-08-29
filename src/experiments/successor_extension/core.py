@@ -11,48 +11,37 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.experiments.common.inference import crossed_bootstrap_mean_ci, stable_seed
 from src.experiments.c5_l2_successor_closure import (
     PRIMARY_ENDPOINTS,
     build_c_anchor_mapping,
     donor_transfer,
+    run_c5_prefix,
     summarize_c5_endpoints,
-    _audit_stsp_only_restore,
-    _boundary_exact_equal,
-    _concatenate_boundaries,
-    _crossed_bootstrap_mean_ci,
-    _layer2_mix_is_exact,
-    _layer_ux_checkpoint,
-    _load_parent,
-    _mix_layer2_stsp_by_index,
-    _paired_history_indices,
-    _passive_corrected_effects,
-    _repeat_boundary,
-    _run_prefix,
-    _run_transition_capture,
-    _snapshot_numpy,
-    _validate_history_pairs,
 )
-from src.experiments.common.monitored_dms import build_layer_input_shapes
-from src.experiments.common.runtime import seed_everything
 from src.experiments.paper_figures.fig2.artifacts import write_cache_key
 from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
     FixedBArtifact,
-    load_fixed_b_artifact,
     save_fixed_b_artifact,
 )
-from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
+from src.experiments.paper_figures.fig2.fixed_b_substrate import (
+    encode_fixed_b_sources,
+    load_fixed_b_parent,
+    load_paired_history_slice,
+    run_fixed_b_branch,
+    simulate_fixed_b_histories,
+)
+from src.experiments.paper_figures.fig2.successor_replay import (
     FAST_STATE_KEYS,
     STSP_STATE_KEYS,
-    _encode_source_rows,
-    _history_rows_at_k,
-    _load_boundary,
-    _network_step,
-    _restore_boundary,
-    _run_branch,
-    _simulate_history_rows,
+    audit_stsp_only_restore,
+    capture_successor_transition,
+    continue_successor_transition,
+    correct_passive_successor_effects,
+    prepare_layer2_stsp_transplant,
+    repeat_boundary,
+    snapshot_boundary_numpy,
 )
-from src.experiments.paper_figures.fig2.run_task import _build_context, _resolve_model_path
-from src.experiments.paper_figures.fig2.types import Fig2Config
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
@@ -60,6 +49,13 @@ from src.experiments.paper_figures.run_paper_figures import (
 from src.experiments.common.dataset import build_class_index
 from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.successor_extension.runtime import (
+    parent_entry,
+    resolve_repo_path,
+    seed_root,
+    sha256_file,
+    write_json,
+)
 
 EXPERIMENT_ID = "successor_extension"
 SCHEMA_NAME = "successor_extension"
@@ -111,53 +107,13 @@ class ExtensionConfig:
 
 
 # --------------------------------------------------------------------------- #
-# path / artifact helpers
+# artifact helpers
 # --------------------------------------------------------------------------- #
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
-def _resolve(repo_root: Path, value: str | Path) -> Path:
-    path = Path(value)
-    return path.resolve() if path.is_absolute() else (repo_root / path).resolve()
-
-
-def _sha256_file(path: Path) -> str:
-    hasher = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
-def _load_artifact_from_dir(task_dir: Path, *, task_id: str) -> FixedBArtifact:
-    cache_path = Path(task_dir) / "cache_key.json"
-    if not cache_path.exists():
-        raise FileNotFoundError(f"Required parent cache key is missing: {cache_path}")
-    wrapper = json.loads(cache_path.read_text(encoding="utf-8"))
-    expected = wrapper.get("cache_key") if isinstance(wrapper, dict) else None
-    if not isinstance(expected, dict):
-        raise RuntimeError(f"Unreadable cache key at {task_dir}")
-    return load_fixed_b_artifact(Path(task_dir), expected, task_id=task_id)
-
-
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _write_csv(path: Path, frame: pd.DataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False, encoding="utf-8", lineterminator="\n")
-
-
-def _parent_entry(task_dir: Path) -> dict[str, Any]:
-    cache_path = Path(task_dir) / "cache_key.json"
-    return {
-        "path": str(Path(task_dir).resolve()),
-        "cache_key_sha256": _sha256_file(cache_path) if cache_path.exists() else "missing",
-    }
 
 
 def _write_task_manifest(
@@ -168,7 +124,7 @@ def _write_task_manifest(
     params: Mapping[str, Any],
     inference_scope: str = "single_seed_cohort_unit",
 ) -> None:
-    _write_json(
+    write_json(
         Path(task_dir) / "task_manifest.json",
         {
             "schema_name": SCHEMA_NAME,
@@ -199,42 +155,22 @@ def _cache_key(
     }
 
 
-def _build_ctx(cfg: ExtensionConfig, *, load_model: bool) -> Any:
-    repo_root = _repo_root()
-    model_path = _resolve_model_path(
-        None, str(cfg.model_path_glob), int(cfg.network_seed), smoke=bool(cfg.smoke)
-    )
-    fig_cfg = Fig2Config(
-        model_path=str(model_path),
-        dataset_root=str(_resolve(repo_root, cfg.dataset_root)),
-        output_root=str(_resolve(repo_root, cfg.output_root)),
-        network_seed=int(cfg.network_seed),
-        device=str(cfg.device),
-        smoke=False,
-    )
-    return _build_context(fig_cfg, load_model=load_model)
-
-
 def _load_frozen_protocol(cfg: ExtensionConfig) -> FixedBArtifact:
-    return _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.frozen_protocol_dir), task_id=FROZEN_PROTOCOL_TASK_ID
+    return load_fixed_b_parent(
+        resolve_repo_path(cfg.frozen_protocol_dir),
+        task_id=FROZEN_PROTOCOL_TASK_ID,
     )
 
 
 def _load_frozen_seed_artifact(cfg: ExtensionConfig, task_name: str) -> FixedBArtifact:
-    return _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.frozen_root)
+    return load_fixed_b_parent(
+        resolve_repo_path(cfg.frozen_root)
         / f"seed_{int(cfg.network_seed)}"
         / "data"
         / "intermediates"
         / task_name,
         task_id=task_name,
     )
-
-
-def _seed_root(cfg: ExtensionConfig) -> Path:
-    return _resolve(_repo_root(), cfg.output_root) / f"seed_{int(cfg.network_seed)}"
-
 
 def _metric_summary_payload(
     cfg: ExtensionConfig, *, experiment: str, endpoints: Mapping[str, Any], extra: Mapping[str, Any]
@@ -359,7 +295,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
     addressable like every other successor-extension artifact.
     """
     specs = build_k10_extension_specs(cfg, dataset)
-    task_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS
+    task_dir = resolve_repo_path(cfg.output_root) / TASK_K10_SPECS
     task_dir.mkdir(parents=True, exist_ok=True)
     specs.to_csv(task_dir / "history_specs.csv", index=False, lineterminator="\n")
     key = _cache_key(
@@ -368,7 +304,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
         parents={},
         params={
             **SPECS_TASK_PARAMS,
-            "history_specs_sha256": _sha256_file(task_dir / "history_specs.csv"),
+            "history_specs_sha256": sha256_file(task_dir / "history_specs.csv"),
         },
     )
     write_cache_key(task_dir, key)
@@ -388,7 +324,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
 
 def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
     protocol = _load_frozen_protocol(cfg)
-    specs = pd.read_csv(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
+    specs = pd.read_csv(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
     used = set(int(value) for value in protocol.tables["history_input_manifest"]["image_id"])
 
     encode_rows: list[dict[str, Any]] = []
@@ -410,7 +346,7 @@ def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArti
     encode_frame = pd.DataFrame(encode_rows).sort_values("image_id").reset_index(drop=True)
 
     item_steps = int(ctx.cfg.fixed_b_item_steps)
-    new_spikes = _encode_source_rows(
+    new_spikes = encode_fixed_b_sources(
         ctx, encode_frame, image_column="image_id", seed_column="encoding_seed", steps=item_steps
     ).astype(np.bool_, copy=False)
 
@@ -440,16 +376,16 @@ def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArti
         [protocol.arrays["history_spikes"], np.asarray(new_spikes)], axis=0
     ).astype(np.bool_, copy=False)
 
-    task_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT
-    specs_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS
+    task_dir = resolve_repo_path(cfg.output_root) / TASK_K10_INPUT
+    specs_dir = resolve_repo_path(cfg.output_root) / TASK_K10_SPECS
     if not (specs_dir / "cache_key.json").exists():
         raise FileNotFoundError(
             "K10 extension specs parent has no cache key; run the "
             f"{TASK_K10_SPECS} task first: {specs_dir / 'cache_key.json'}"
         )
     parents = {
-        TASK_K10_SPECS: _parent_entry(specs_dir),
-        "fixed_b_frozen_protocol": _parent_entry(_resolve(_repo_root(), cfg.frozen_protocol_dir)),
+        TASK_K10_SPECS: parent_entry(specs_dir),
+        "fixed_b_frozen_protocol": parent_entry(resolve_repo_path(cfg.frozen_protocol_dir)),
     }
     key = _cache_key(
         TASK_K10_INPUT,
@@ -497,11 +433,11 @@ def _bitwise_compare_rows(first: np.ndarray, second: np.ndarray) -> tuple[bool, 
 def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
     """Simulate the 10-item A/C histories from t=0; audit the 5-item checkpoint
     against the frozen per-seed K=5 history bank (bitwise identity gate)."""
-    ext_inputs = _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+    ext_inputs = load_fixed_b_parent(
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
-    specs = pd.read_csv(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
+    specs = pd.read_csv(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
 
     k5_specs = specs.copy()
     k5_specs["prefix_k"] = 5
@@ -519,8 +455,8 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
         for encoded in specs["sequence_encoding_seeds"]
     ]
 
-    audit_arrays, _ = _simulate_history_rows(ctx, k5_specs, ext_inputs)
-    k10_arrays, prestate_features = _simulate_history_rows(ctx, specs, ext_inputs)
+    audit_arrays, _ = simulate_fixed_b_histories(ctx, k5_specs, ext_inputs)
+    k10_arrays, prestate_features = simulate_fixed_b_histories(ctx, specs, ext_inputs)
 
     frozen_k5_specs = (
         frozen_k5_bank.tables["history_specs"]
@@ -561,12 +497,12 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
             "does not reproduce the frozen K=5 history bank bitwise; K=10 parent bank rejected."
         )
 
-    task_dir = _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY
+    task_dir = seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY
     parents = {
-        TASK_K10_SPECS: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
-        "frozen_k5_history_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        TASK_K10_SPECS: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
+        "frozen_k5_history_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_history_bank"
         ),
     }
@@ -592,7 +528,7 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
             }
         },
     )
-    _write_csv(_seed_root(cfg) / "data" / "metrics" / "k10_history_bank_k5_identity_audit.csv", audit)
+    _write_csv(seed_root(cfg) / "data" / "metrics" / "k10_history_bank_k5_identity_audit.csv", audit)
     _write_task_manifest(task_dir, task_id=TASK_K10_HISTORY, parents=parents, params=key["params"])
     return artifact
 
@@ -639,15 +575,15 @@ def _extension_screening_verdict(
 
 
 def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
-    ext_inputs = _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+    ext_inputs = load_fixed_b_parent(
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
-    k10_bank = _load_artifact_from_dir(
-        _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
+    k10_bank = load_fixed_b_parent(
+        seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
     c_map = build_c_anchor_mapping(k10_bank.tables["b_anchor_specs"])
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_A
-    _write_json(
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_A
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_A,
@@ -662,7 +598,7 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "k1_k5_published_results_reused_not_rerun": True,
         },
     )
-    cells, audit = _run_prefix(
+    cells, audit = run_c5_prefix(
         ctx,
         inputs=ext_inputs,
         histories=k10_bank,
@@ -677,10 +613,10 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "c5_k10_cell_metrics.csv", cells)
     _write_csv(out_dir / "c5_k10_endpoint_summary.csv", endpoint_summary)
     _write_csv(out_dir / "c5_k10_identity_audit.csv", audit)
-    _write_json(out_dir / "c5_k10_screening_verdict.json", verdict)
+    write_json(out_dir / "c5_k10_screening_verdict.json", verdict)
     parents = {
-        TASK_K10_HISTORY: _parent_entry(_seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
+        TASK_K10_HISTORY: parent_entry(seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
     }
     _write_task_manifest(
         out_dir, task_id=TASK_EXP_A, parents=parents,
@@ -703,7 +639,7 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         },
         extra={"verdict": verdict, "n_cells": int(len(cells)), "n_chunks": int(audit["chunk_id"].nunique())},
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
 
 
@@ -792,14 +728,14 @@ def _history_contrast_attenuation(
 
 
 def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
-    ext_inputs = _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+    ext_inputs = load_fixed_b_parent(
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
-    k10_bank = _load_artifact_from_dir(
-        _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
+    k10_bank = load_fixed_b_parent(
+        seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_B
-    _write_json(
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_B
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_B,
@@ -818,19 +754,14 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             ],
         },
     )
-    rows = _history_rows_at_k(k10_bank.tables["history_specs"], K10)
-    selected = rows.loc[rows["history_condition"].isin(HISTORY_CONDITIONS)].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(cfg.families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].reset_index(drop=True)
-    _validate_history_pairs(selected)
-    k10_specs_sorted = k10_bank.tables["history_specs"].sort_values("history_row_id").reset_index(drop=True)
-    position_map = {int(row.history_row_id): int(position) for position, row in k10_specs_sorted.iterrows()}
-    row_indices = [position_map[int(value)] for value in selected["history_row_id"]]
-    boundary = _load_boundary(k10_bank, K10, row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K=10: {elapsed}")
-    current_time = int(elapsed[0])
+    history_slice = load_paired_history_slice(
+        k10_bank,
+        prefix_k=K10,
+        max_families=int(cfg.families),
+    )
+    selected = history_slice.rows
+    boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(ext_inputs.arrays["exact_b_spikes"], dtype=np.bool_)
     anchor_ids = sorted(int(value) for value in k10_bank.tables["b_anchor_specs"]["b_anchor_id"])[: int(cfg.anchors)]
@@ -894,21 +825,23 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         }
         b_input = torch.as_tensor(np.stack(batch_inputs, axis=0), device=ctx.device)
         base_seed = int(cfg.network_seed) + 914_000 + 10_000 * K10 + chunk_id
-        early_active = _run_transition_capture(
+        early_active = capture_successor_transition(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             passive=False, random_seed=base_seed + 0,
         )
-        early_passive = _run_transition_capture(
+        early_passive = capture_successor_transition(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             passive=True, random_seed=base_seed + 1,
         )
-        early_corrected = _passive_corrected_effects(early_active, early_passive)["early_layer2_event_map"]
-        free = _run_branch(
+        early_corrected = correct_passive_successor_effects(early_active, early_passive)[
+            "early_layer2_event_map"
+        ]
+        free = run_fixed_b_branch(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             restore_mode="stsp_only", branch="free", replay_l1_pooled=None,
             capture_l1_pooled=False, capture_strong_path=False, random_seed=base_seed + 2,
         )
-        passive = _run_branch(
+        passive = run_fixed_b_branch(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             restore_mode="stsp_only", branch="passive", replay_l1_pooled=None,
             capture_l1_pooled=False, capture_strong_path=False, random_seed=base_seed + 3,
@@ -922,7 +855,7 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "early_layer2_b_history_contrast_attenuation": early_corrected.reshape(len(batch_rows), -1),
             "post_b_layer2_ux_history_contrast_attenuation": l2_corrected.reshape(len(batch_rows), -1),
         }
-        for family_id in families:
+        for family_id in history_slice.family_ids:
             for anchor_id in chunk_anchor_ids:
                 d0_by_endpoint: dict[str, np.ndarray] = {}
                 atten: dict[str, dict[str, float]] = {}
@@ -964,7 +897,13 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         valid = part.loc[part["valid"].eq(1)].copy()
         margins = valid["overlap_specific_margin"].to_numpy(dtype=np.float64)
         ci_low, ci_high = (
-            _crossed_bootstrap_mean_ci(valid, "overlap_specific_margin", draws=int(cfg.bootstrap_draws), seed=_stable_hash_seed(endpoint))
+            crossed_bootstrap_mean_ci(
+                margins,
+                valid["history_family_id"].to_numpy(dtype=np.int64),
+                valid["b_anchor_id"].to_numpy(dtype=np.int64),
+                draws=int(cfg.bootstrap_draws),
+                seed=stable_seed(endpoint),
+            )
             if len(valid) else (float("nan"), float("nan"))
         )
         summary_rows.append(
@@ -989,8 +928,8 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "exp_b_mask_audit.csv", mask_audit)
     _write_csv(out_dir / "exp_b_network_summary.csv", summary_frame)
     parents = {
-        TASK_K10_HISTORY: _parent_entry(_seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
+        TASK_K10_HISTORY: parent_entry(seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
     }
     _write_task_manifest(out_dir, task_id=TASK_EXP_B, parents=parents, params={"prefix_k": K10, "families": cfg.families, "anchors": cfg.anchors})
     summary = _metric_summary_payload(
@@ -1017,7 +956,7 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "overlap_empty_cells": int(mask_audit["overlap_empty"].sum()),
         }},
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
 
 
@@ -1058,64 +997,14 @@ def build_d_anchor_mapping(b_specs: pd.DataFrame) -> pd.DataFrame:
     return mapping
 
 
-def _run_hop_continuation(
-    ctx: Any,
-    *,
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    input_seq: torch.Tensor,
-    current_time: int,
-    passive: bool,
-    random_seed: int,
-    restore_mode: str,
-) -> dict[str, np.ndarray]:
-    """Run one input from a captured boundary without any further transplant.
-
-    restore_mode="full_boundary" continues the complete post-C state (the primary
-    two-hop branch); restore_mode="stsp_only" is the secondary attribution branch
-    that keeps only STSP and re-initializes fast variables. Only the Layer-3
-    per-item decision timer is reset, as in every probe protocol.
-    """
-    seed_everything(int(random_seed))
-    batch_size, stimulus_steps, channels, height, width = input_seq.shape
-    shapes = build_layer_input_shapes(ctx.net, batch_size, channels, height, width)
-    _restore_boundary(ctx.net, boundary, shapes, mode=restore_mode, device=ctx.device)
-    ctx.net.layer3.reset_decision_state()
-    l3_pre = _layer_ux_checkpoint(ctx.net.layer3, batch_size)
-    zero = torch.zeros((batch_size, channels, height, width), dtype=torch.bool, device=ctx.device)
-    early_map: torch.Tensor | None = None
-    total_steps = int(stimulus_steps + ctx.cfg.fixed_b_post_steps)
-    early_cutoff = min(int(ctx.cfg.fixed_b_early_window_steps), int(stimulus_steps))
-    with torch.no_grad():
-        for local_step in range(total_steps):
-            external = input_seq[:, local_step] if local_step < stimulus_steps and not passive else zero
-            _, _, s2, _, _, _ = _network_step(
-                ctx.net,
-                external,
-                current_time=int(current_time) + local_step,
-                layer2_replay_input=None,
-                layer3_time=local_step,
-                monitor_layer1=False,
-            )
-            if local_step < early_cutoff:
-                value = s2.detach().to(torch.float32)
-                early_map = value.clone() if early_map is None else early_map + value
-    if early_map is None:
-        raise RuntimeError("Early Layer-2 capture window was empty")
-    return {
-        "early_layer2_event_map": early_map.cpu().numpy().astype(np.float32, copy=False),
-        "layer3_ux_pre": l3_pre,
-        "layer3_ux_post": _layer_ux_checkpoint(ctx.net.layer3, batch_size),
-    }
-
-
 def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
     frozen_input_bank = _load_frozen_seed_artifact(cfg, "fixed_b_input_bank")
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_C
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_C
     b_specs = frozen_k5_bank.tables["b_anchor_specs"]
     c_map = build_c_anchor_mapping(b_specs)
     d_map = build_d_anchor_mapping(b_specs)
-    _write_json(
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_C,
@@ -1135,24 +1024,14 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "post_c_endpoints_are_gates_not_primary": True,
         },
     )
-    rows = _history_rows_at_k(frozen_k5_bank.tables["history_specs"], 5)
-    selected = rows.loc[rows["history_condition"].isin(HISTORY_CONDITIONS)].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(cfg.families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].reset_index(drop=True)
-    _validate_history_pairs(selected)
-    frozen_k5_specs = (
-        frozen_k5_bank.tables["history_specs"]
-        .loc[frozen_k5_bank.tables["history_specs"]["prefix_k"].eq(5)]
-        .sort_values("history_row_id")
-        .reset_index(drop=True)
+    history_slice = load_paired_history_slice(
+        frozen_k5_bank,
+        prefix_k=5,
+        max_families=int(cfg.families),
     )
-    position_map = {int(row.history_row_id): int(position) for position, row in frozen_k5_specs.iterrows()}
-    row_indices = [position_map[int(value)] for value in selected["history_row_id"]]
-    history_boundary = _load_boundary(frozen_k5_bank, 5, row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K=5: {elapsed}")
-    current_time = int(elapsed[0])
+    selected = history_slice.rows
+    history_boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(frozen_input_bank.arrays["exact_b_spikes"], dtype=np.bool_)
     spatial_shape = tuple(int(value) for value in exact_inputs.shape[2:])
@@ -1161,7 +1040,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     mapping_by_anchor = mapping.set_index("b_anchor_id", drop=False)
     d_by_anchor = d_map.set_index("b_anchor_id", drop=False)
     history_count = int(len(selected))
-    local_donor_indices = _paired_history_indices(selected)
+    local_donor_indices = history_slice.donor_indices
 
     cell_rows: list[dict[str, Any]] = []
     audit_rows: list[dict[str, Any]] = []
@@ -1169,11 +1048,11 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         chunk_anchor_ids = anchor_ids[start : start + int(cfg.anchors_per_chunk)]
         anchor_count = int(len(chunk_anchor_ids))
         cell_count = int(anchor_count * history_count)
-        repeated_history = _repeat_boundary(history_boundary, anchor_count)
+        repeated_history = repeat_boundary(history_boundary, anchor_count)
         b_input = np.repeat(
             exact_inputs[np.asarray(chunk_anchor_ids, dtype=np.int64)], history_count, axis=0
         )
-        _run_branch(
+        run_fixed_b_branch(
             ctx,
             boundary=repeated_history,
             input_seq=torch.as_tensor(b_input, device=ctx.device),
@@ -1185,18 +1064,17 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             capture_strong_path=False,
             random_seed=int(ctx.cfg.network_seed) + 810_000 + 10_000 * 5 + chunk_id,
         )
-        post_b = _snapshot_numpy(ctx.net)
+        post_b = snapshot_boundary_numpy(ctx.net)
         donor_indices = np.concatenate(
             [local_donor_indices + anchor_index * history_count for anchor_index in range(anchor_count)]
         ).astype(np.int64, copy=False)
-        identity_indices = np.arange(cell_count, dtype=np.int64)
-        l2_swap = _mix_layer2_stsp_by_index(post_b, donor_indices)
-        own_sham = _mix_layer2_stsp_by_index(post_b, identity_indices)
-        mix_exact = _layer2_mix_is_exact(l2_swap, post_b, donor_indices)
-        sham_boundary_exact = _boundary_exact_equal(own_sham, post_b)
-
-        conditions = _concatenate_boundaries([post_b, l2_swap, own_sham])
-        restore_audit = _audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
+        conditions, slices, transplant_audit = prepare_layer2_stsp_transplant(
+            post_b,
+            donor_indices,
+        )
+        mix_exact = transplant_audit["layer2_only_mix_exact"]
+        sham_boundary_exact = transplant_audit["own_sham_boundary_exact"]
+        restore_audit = audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
         c_anchor_ids = [int(mapping_by_anchor.loc[anchor_id, "c_anchor_id"]) for anchor_id in chunk_anchor_ids]
         c_input = np.repeat(
             exact_inputs[np.asarray(c_anchor_ids, dtype=np.int64)], history_count, axis=0
@@ -1206,7 +1084,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             {_array_sha256(combined_c[index * cell_count : (index + 1) * cell_count]) for index in range(3)}
         ) == 1
         probe_time = current_time + int(ctx.cfg.fixed_b_stimulus_steps) + int(ctx.cfg.fixed_b_post_steps)
-        c_result = _run_transition_capture(
+        c_result = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -1214,8 +1092,8 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             passive=False,
             random_seed=int(ctx.cfg.network_seed) + 820_000 + 10_000 * 5 + chunk_id,
         )
-        post_c_full = _snapshot_numpy(ctx.net)
-        c_zero = _run_transition_capture(
+        post_c_full = snapshot_boundary_numpy(ctx.net)
+        c_zero = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -1223,12 +1101,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             passive=True,
             random_seed=int(ctx.cfg.network_seed) + 821_000 + 10_000 * 5 + chunk_id,
         )
-        corrected = _passive_corrected_effects(c_result, c_zero)
-        slices = {
-            "native": slice(0, cell_count),
-            "layer2_swap": slice(cell_count, 2 * cell_count),
-            "own_sham": slice(2 * cell_count, 3 * cell_count),
-        }
+        corrected = correct_passive_successor_effects(c_result, c_zero)
         native_l2 = corrected["early_layer2_event_map"][slices["native"]]
         swap_l2 = corrected["early_layer2_event_map"][slices["layer2_swap"]]
         sham_l2 = corrected["early_layer2_event_map"][slices["own_sham"]]
@@ -1252,24 +1125,24 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         ) == 1
         d_time = probe_time + int(ctx.cfg.fixed_b_stimulus_steps) + int(ctx.cfg.fixed_b_post_steps)
         base_seed = int(ctx.cfg.network_seed) + EXTENSION_SEED_OFFSETS["exp_c_d_hop"] + 10_000 * 5 + chunk_id
-        d_result = _run_hop_continuation(
+        d_result = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=False, random_seed=base_seed + 0, restore_mode="full_boundary",
         )
-        d_zero = _run_hop_continuation(
+        d_zero = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=True, random_seed=base_seed + 1, restore_mode="full_boundary",
         )
-        d_secondary = _run_hop_continuation(
+        d_secondary = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=False, random_seed=base_seed + 2, restore_mode="stsp_only",
         )
-        d_secondary_zero = _run_hop_continuation(
+        d_secondary_zero = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=True, random_seed=base_seed + 3, restore_mode="stsp_only",
         )
-        d_corrected = _passive_corrected_effects(d_result, d_zero)
-        d_secondary_corrected = _passive_corrected_effects(d_secondary, d_secondary_zero)
+        d_corrected = correct_passive_successor_effects(d_result, d_zero)
+        d_secondary_corrected = correct_passive_successor_effects(d_secondary, d_secondary_zero)
 
         d_native_l2 = d_corrected["early_layer2_event_map"][slices["native"]]
         d_swap_l2 = d_corrected["early_layer2_event_map"][slices["layer2_swap"]]
@@ -1361,7 +1234,13 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         valid = cells.loc[cells[valid_column].eq(1) & np.isfinite(cells[endpoint])].copy()
         values = valid[endpoint].to_numpy(dtype=np.float64)
         ci_low, ci_high = (
-            _crossed_bootstrap_mean_ci(valid, endpoint, draws=int(cfg.bootstrap_draws), seed=_stable_hash_seed(endpoint))
+            crossed_bootstrap_mean_ci(
+                values,
+                valid["history_family_id"].to_numpy(dtype=np.int64),
+                valid["b_anchor_id"].to_numpy(dtype=np.int64),
+                draws=int(cfg.bootstrap_draws),
+                seed=stable_seed(endpoint),
+            )
             if len(valid) else (float("nan"), float("nan"))
         )
         summary_rows.append(
@@ -1384,12 +1263,12 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "exp_c_identity_audit.csv", audit)
     _write_csv(out_dir / "exp_c_network_summary.csv", summary_frame)
     parents = {
-        "frozen_k5_history_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        "frozen_k5_history_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_history_bank"
         ),
-        "frozen_input_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        "frozen_input_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_input_bank"
         ),
     }
@@ -1416,12 +1295,8 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "postC_fast_residual_l2_vmem_max_abs": float(audit["postC_fast_residual_l2_vmem_max_abs"].max()),
         },
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
-
-
-def _stable_hash_seed(value: str) -> int:
-    return int.from_bytes(hashlib.sha256(str(value).encode("utf-8")).digest()[:4], "little")
 
 
 def _fast_state_residual(
@@ -1447,5 +1322,3 @@ def _array_sha256(value: np.ndarray | torch.Tensor) -> str:
     hasher.update(json.dumps(list(array.shape), separators=(",", ":")).encode("ascii"))
     hasher.update(array.tobytes(order="C"))
     return hasher.hexdigest()
-
-

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+import pandas as pd
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _save_csv
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _mean_col
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def compute_fig6_downstream_exploratory(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     if bank.downstream_metrics.empty:

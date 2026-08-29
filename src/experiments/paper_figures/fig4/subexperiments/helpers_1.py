@@ -1,12 +1,61 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
-from src.experiments.common.input_masks import entry_mask_from_image, foreground_mask, overlap_mask
+import json
+import math
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.input_masks import entry_mask_from_image, foreground_mask, overlap_mask
+from src.experiments.common.voltage_readout import resolve_readout_step
+from src.experiments.distractor.shared.masking import normalize_pattern_vector
+from src.experiments.paper_figures.common.bundle_io import json_safe as _json_safe, write_json_file as _write_json
+from src.experiments.paper_figures.fig4.constants import NUM_CLASSES, SAMPLE_SIDE_MASKS
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    Fig4Config,
+    OverlapReentryDMSBank,
+    SimilarityBiasCompatibleBank,
+)
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
+
+
+def _accuracy_pair_columns() -> list[str]:
+    from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _accuracy_pair_columns as impl
+
+    return impl()
+
+
+def _iso_match_columns() -> list[str]:
+    from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _iso_match_columns as impl
+
+    return impl()
+
+
+def _iso_match_row(match_id: int, bin_name: str, high: pd.Series, low: pd.Series) -> dict[str, Any]:
+    from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _iso_match_row as impl
+
+    return impl(match_id, bin_name, high, low)
+
+
+def _relative_difference(a: float, b: float) -> float:
+    from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _relative_difference as impl
+
+    return impl(a, b)
+
 
 def _fig4c_high_similarity_summary(ctx: ExperimentContext) -> dict[str, Any]:
     contrast_path = ctx.metrics_dir / "panel_c_high_similarity_overlap_accuracy_drop_contrast.csv"
@@ -916,4 +965,4 @@ def _highest_bin_label(values: pd.Series) -> str:
 
     return sorted(labels, key=key)[-1]
 
-__all__ = ('_fig4c_high_similarity_summary', '_fig4d_l1_stsp_summary', '_json_float', '_json_int', '_any_metric_stage', '_n_iso_similarity_matches', '_resolve_fig4_readout_step', '_image_cache', '_aggregate_prediction', '_compute_bvec', '_bvec_summary', '_cti_summary', '_sample_input_mask_for_condition', '_l3_summary_rows', '_condition_sample_image', '_prepare_condition_batch', '_encode_batch', '_class_evidence_trace', '_foreground_mask', '_build_masks', '_random_matched_mask', '_mask_energy', '_dice', '_safe_div', '_assign_bins', '_balanced_select_pairs', '_assign_matched_groups', '_matched_pairs_table', '_write_panel_a_example', '_cond_row', '_trace', '_vector', '_vec_distance', '_cosine', '_projection', '_dpi_timecourse', '_mean_dpi', '_decision_deflection', '_summary_by_bin', '_panel_b_accuracy_drop_summary', '_pair_effect_table', '_panel_c_matched_comparison', '_overlap_regression', '_two_by_two', '_matching_diagnostics', '_accuracy_pair_table', '_build_iso_similarity_overlap_matches', '_high_similarity_overlap_accuracy_drop_tables', '_highest_bin_label')
+__all__ = ('_fig4c_high_similarity_summary', '_fig4d_l1_stsp_summary', '_json_float', '_json_int', '_any_metric_stage', '_n_iso_similarity_matches', '_resolve_fig4_readout_step', '_image_cache', '_aggregate_prediction', '_compute_bvec', '_bvec_summary', '_cti_summary', '_sample_input_mask_for_condition', '_l3_summary_rows', '_condition_sample_image', '_prepare_condition_batch', '_encode_batch', '_class_evidence_trace', '_foreground_mask', '_build_masks', '_random_matched_mask', '_mask_energy', '_dice', '_safe_div', '_assign_bins', '_balanced_select_pairs', '_assign_matched_groups', '_matched_pairs_table', '_write_panel_a_example', '_cond_row', '_trace', '_vector', '_vec_distance', '_cosine', '_projection', '_dpi_timecourse', '_mean_dpi', '_decision_deflection', '_summary_by_bin', '_panel_b_accuracy_drop_summary', '_pair_effect_table', '_panel_c_matched_comparison', '_overlap_regression', '_two_by_two', '_matching_diagnostics', '_accuracy_pair_table', '_build_iso_similarity_overlap_matches', '_high_similarity_overlap_accuracy_drop_tables', '_highest_bin_label', '_progress')

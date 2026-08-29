@@ -19,6 +19,7 @@ if __name__ == "__main__" and (
     raise SystemExit(_final_statistics_main("fig1", _early_args))
 
 import argparse
+import math
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -33,13 +34,17 @@ from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
-from src.experiments.paper_figures import fig1_functional_stsp_substrate_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import (
+    prepare_seed_dirs,
+    relative_to_root,
+    resolve_seed_dir,
+    save_csv_with_registry,
+)
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig1.artifacts import (
     DmsBoundaryBank,
     boundary_shard_path,
-    cache_key_matches,
     default_artifact_root,
-    load_delay_feature_bank,
     load_dms_boundary_bank,
     load_trial_specs_artifact,
     read_json,
@@ -56,9 +61,12 @@ from src.experiments.paper_figures.fig1.cache_keys import (
     cache_key_digest,
     trial_specs_hash,
 )
+from src.experiments.paper_figures.fig1.constants import FIGURE_ID, NUM_CLASSES
+from src.experiments.paper_figures.fig1.output import utc_now, write_config_files, write_run_log, write_summary
 from src.experiments.paper_figures.fig1.schemas import (
     REUSE_MODES,
     TASK_BASELINE,
+    TASK_BOTH_SCOPE,
     TASK_DELAY_DECODER,
     TASK_DELAY_FEATURE_BANK,
     TASK_DMS_BOUNDARY_BANK,
@@ -67,6 +75,8 @@ from src.experiments.paper_figures.fig1.schemas import (
     TASK_FIRING_RATE_CONTROL,
     TASK_TIME_BINNED_FIRING_RATE_CONTROL,
     TASK_IDS,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
     TASK_TRIAL_SPECS,
     normalize_reuse_mode,
 )
@@ -95,13 +105,12 @@ from src.experiments.paper_figures.fig1.subexperiments.time_binned_firing_rate i
 from src.experiments.paper_figures.fig1.subexperiments.helpers import (
     _encode_cached,
     _iter_batches,
+    _progress,
     _run_sample_multi_delay_boundary_capture_with_phase,
+    _write_empty_phase_rates,
 )
+from src.experiments.paper_figures.fig1.trial_specs import build_trial_specs
 from src.experiments.paper_figures.fig1.types import ExperimentContext, Fig1Config
-
-
-FIGURE_ID = legacy.FIGURE_ID
-NUM_CLASSES = legacy.NUM_CLASSES
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -126,7 +135,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     write_run_info(ctx.seed_dir / "meta", run_info)
     try:
-        legacy._write_config_files(ctx)
+        write_config_files(ctx)
         artifact_root = _artifact_root_from_args(args, ctx.seed_dir)
         specs = _get_trial_specs(ctx, task_id=str(args.task), mode=mode, artifact_root=artifact_root)
         _annotate_run_info_with_trial_specs(run_info, ctx)
@@ -150,24 +159,21 @@ def _get_trial_specs(
     expected_key = build_trial_specs_cache_key(ctx.cfg)
     if task_id == TASK_TRIAL_SPECS:
         return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    if mode == "off":
-        specs = legacy.build_trial_specs(ctx)
+
+    def build_fresh() -> dict[str, pd.DataFrame]:
+        specs = build_trial_specs(ctx)
         _set_trial_specs_metadata(ctx, source="built", artifact_dir=task_dir, digest=trial_specs_hash(specs), cache_key=expected_key)
         return specs
-    if mode == "require":
-        return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-    if mode == "auto":
-        if cache_key_matches(task_dir, expected_key):
-            try:
-                return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-            except Exception:
-                pass
-        return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    if mode == "force":
-        if task_dir.exists():
-            return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-        return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    raise ValueError(f"Unsupported reuse-artifacts mode: {mode}")
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key),
+        build=lambda: _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key),
+        fresh=build_fresh,
+        force_load_existing=True,
+    )
 
 
 def _build_and_save_trial_specs(
@@ -176,10 +182,10 @@ def _build_and_save_trial_specs(
     task_dir: Path,
     cache_key: Mapping[str, Any],
 ) -> dict[str, pd.DataFrame]:
-    specs = legacy.build_trial_specs(ctx)
+    specs = build_trial_specs(ctx)
     artifact = save_trial_specs_artifact(task_dir, specs, cache_key=cache_key)
     _set_trial_specs_metadata(ctx, source="built", artifact_dir=task_dir, digest=artifact.digest, cache_key=cache_key)
-    ctx.run_log.append(f"{legacy._now()} trial_specs source=built artifact={task_dir}")
+    ctx.run_log.append(f"{utc_now()} trial_specs source=built artifact={task_dir}")
     return specs
 
 
@@ -192,16 +198,16 @@ def _load_trial_specs_for_bundle(
     artifact = load_trial_specs_artifact(task_dir, expected_key=expected_key)
     _write_loaded_trial_specs_to_bundle(ctx, artifact.specs)
     _set_trial_specs_metadata(ctx, source="loaded", artifact_dir=task_dir, digest=artifact.digest, cache_key=expected_key)
-    ctx.run_log.append(f"{legacy._now()} trial_specs source=loaded artifact={task_dir}")
+    ctx.run_log.append(f"{utc_now()} trial_specs source=loaded artifact={task_dir}")
     return artifact.specs
 
 
 def _write_loaded_trial_specs_to_bundle(ctx: ExperimentContext, specs: Mapping[str, pd.DataFrame]) -> None:
-    legacy._save_csv(ctx, specs["baseline"], ctx.trial_specs_dir / "baseline_eval_trials.csv")
-    legacy._save_csv(ctx, specs["delay_train"], ctx.trial_specs_dir / "delay_decode_train_trials.csv")
-    legacy._save_csv(ctx, specs["delay_test"], ctx.trial_specs_dir / "delay_decode_test_trials.csv")
-    legacy._save_csv(ctx, specs["dms"], ctx.trial_specs_dir / "dms_shuffle_trials.csv")
-    legacy._save_csv(ctx, _trial_condition_audit_from_dms(ctx, specs["dms"]), ctx.metrics_dir / "supp_trial_condition_audit.csv")
+    save_csv_with_registry(ctx, specs["baseline"], ctx.trial_specs_dir / "baseline_eval_trials.csv")
+    save_csv_with_registry(ctx, specs["delay_train"], ctx.trial_specs_dir / "delay_decode_train_trials.csv")
+    save_csv_with_registry(ctx, specs["delay_test"], ctx.trial_specs_dir / "delay_decode_test_trials.csv")
+    save_csv_with_registry(ctx, specs["dms"], ctx.trial_specs_dir / "dms_shuffle_trials.csv")
+    save_csv_with_registry(ctx, _trial_condition_audit_from_dms(ctx, specs["dms"]), ctx.metrics_dir / "supp_trial_condition_audit.csv")
     ctx.n_trials.update(
         {
             "baseline": len(specs["baseline"]),
@@ -278,6 +284,46 @@ def _run_task(
     mode: str,
     artifact_root: Path,
 ) -> None:
+    if task_id in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+        run_baseline_eval(ctx, specs["baseline"])
+        if mode == "off":
+            run_delay_stsp_decode(ctx, specs["delay_train"], specs["delay_test"])
+        else:
+            features = _get_delay_features(
+                ctx,
+                specs["delay_train"],
+                specs["delay_test"],
+                artifact_root=artifact_root,
+                mode=mode,
+                producer=False,
+            )
+            run_delay_decoder_from_bank(ctx, features)
+        if task_id in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}:
+            if mode == "off":
+                run_dms_functional_delay_sweep(ctx, specs["dms"])
+            else:
+                delay_bank = _get_dms_boundary_bank(
+                    ctx,
+                    specs["dms"],
+                    artifact_root=artifact_root,
+                    mode=mode,
+                    producer=False,
+                )
+                run_dms_functional_delay_sweep(ctx, specs["dms"], boundary_bank=delay_bank)
+        if mode == "off":
+            dms_outputs = run_dms_substrate_shuffle(ctx, specs["dms"])
+            run_phase_firing_rate_control(ctx, dms_outputs.get("phase_rate_rows", []))
+        else:
+            dms_bank = _get_dms_boundary_bank(
+                ctx,
+                specs["dms"],
+                artifact_root=artifact_root,
+                mode=mode,
+                producer=False,
+            )
+            run_dms_substrate_shuffle(ctx, specs["dms"], boundary_bank=dms_bank)
+            run_phase_firing_rate_control_from_bank(ctx, dms_bank)
+        return
     if task_id == TASK_TRIAL_SPECS:
         return
     if task_id == TASK_BASELINE:
@@ -319,7 +365,7 @@ def _run_task(
         return
     if task_id == TASK_FIRING_RATE_CONTROL:
         if mode == "off":
-            legacy._write_empty_phase_rates(ctx)
+            _write_empty_phase_rates(ctx)
             ctx.completed_modules["firing_rate_control"] = True
         else:
             bank = _get_dms_boundary_bank(ctx, specs["dms"], artifact_root=artifact_root, mode=mode, producer=False)
@@ -346,20 +392,20 @@ def _get_delay_features(
 ) -> dict[tuple[str, int, str], tuple[Any, Any, Any]]:
     task_dir = task_artifact_dir(artifact_root, TASK_DELAY_FEATURE_BANK)
     expected_key = _delay_feature_cache_key(ctx, train_trials, test_trials)
-    if mode != "off":
-        if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-            try:
-                return load_delay_feature_bank_for_decode(task_dir, expected_key=expected_key)
-            except Exception:
-                if mode == "require":
-                    raise
-        elif mode == "require":
-            load_delay_feature_bank(task_dir, expected_key=expected_key)
-        if mode == "require":
-            raise RuntimeError("delay_feature_bank require-mode load failed without producing features.")
-    if mode == "off" and not producer:
-        return build_delay_feature_bank(ctx, train_trials, test_trials)
-    return build_delay_feature_bank(ctx, train_trials, test_trials, artifact_dir=task_dir, cache_key=expected_key)
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: load_delay_feature_bank_for_decode(task_dir, expected_key=expected_key),
+        build=lambda: build_delay_feature_bank(
+            ctx,
+            train_trials,
+            test_trials,
+            artifact_dir=task_dir,
+            cache_key=expected_key,
+        ),
+        fresh=None if producer else lambda: build_delay_feature_bank(ctx, train_trials, test_trials),
+    )
 
 
 def _get_dms_boundary_bank(
@@ -372,28 +418,25 @@ def _get_dms_boundary_bank(
 ) -> DmsBoundaryBank:
     task_dir = task_artifact_dir(artifact_root, TASK_DMS_BOUNDARY_BANK)
     expected_key = _dms_boundary_cache_key(ctx, dms_trials)
-    if mode != "off":
-        if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-            try:
-                return load_dms_boundary_bank(
-                    task_dir,
-                    expected_key=expected_key,
-                    dms_trials=dms_trials,
-                    batch_size=int(ctx.cfg.dms_batch_size),
-                )
-            except Exception:
-                if mode == "require":
-                    raise
-        elif mode == "require":
-            return load_dms_boundary_bank(
-                task_dir,
-                expected_key=expected_key,
-                dms_trials=dms_trials,
-                batch_size=int(ctx.cfg.dms_batch_size),
-            )
     if mode == "off" and not producer:
         raise RuntimeError("Internal error: DMS boundary bank requested for reuse-artifacts=off.")
-    return _build_dms_boundary_bank(ctx, dms_trials, task_dir=task_dir, cache_key=expected_key)
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: load_dms_boundary_bank(
+            task_dir,
+            expected_key=expected_key,
+            dms_trials=dms_trials,
+            batch_size=int(ctx.cfg.dms_batch_size),
+        ),
+        build=lambda: _build_dms_boundary_bank(
+            ctx,
+            dms_trials,
+            task_dir=task_dir,
+            cache_key=expected_key,
+        ),
+    )
 
 
 def _build_dms_boundary_bank(
@@ -411,9 +454,9 @@ def _build_dms_boundary_bank(
     phase_rate_rows: list[dict[str, Any]] = []
     layer_input_shapes_by_batch: dict[int, dict[str, tuple[int, ...]]] = {}
     batches = _iter_batches(dms_trials, ctx.cfg.dms_batch_size)
-    total_batches = legacy.math.ceil(len(dms_trials) / max(1, int(ctx.cfg.dms_batch_size)))
+    total_batches = math.ceil(len(dms_trials) / max(1, int(ctx.cfg.dms_batch_size)))
     for batch_id, batch in enumerate(
-        legacy._progress(
+        _progress(
             batches,
             total=total_batches,
             desc="fig1 dms boundary bank batches",
@@ -485,8 +528,8 @@ def _build_context(cfg: Fig1Config) -> ExperimentContext:
     seed_everything(int(cfg.network_seed))
     if not Path(cfg.model_path).exists():
         raise FileNotFoundError(f"Model checkpoint not found: {cfg.model_path}")
-    seed_dir = legacy._resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = legacy._prepare_dirs(seed_dir)
+    seed_dir = resolve_seed_dir(Path(cfg.output_root), int(cfg.network_seed))
+    dirs = prepare_seed_dirs(seed_dir, include_root_layout=True)
     device = resolve_device(cfg.device)
     dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
     class_index = build_class_index(dataset, NUM_CLASSES)
@@ -514,7 +557,7 @@ def _build_context(cfg: Fig1Config) -> ExperimentContext:
         completed_modules={},
         n_trials={},
         donor_constraint_summary={},
-        run_log=[f"{legacy._now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
+        run_log=[f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke}"],
     )
 
 
@@ -557,12 +600,12 @@ def _output_root_from_args(args: argparse.Namespace) -> Path:
 
 def _finalize_bundle(ctx: ExperimentContext) -> None:
     _mark_completed_from_existing_outputs(ctx)
-    legacy._write_config_files(ctx)
+    write_config_files(ctx)
     _refresh_output_file_registry(ctx)
-    summary = legacy._write_summary(ctx)
+    summary = write_summary(ctx)
     summary.update(_trial_specs_metadata(ctx))
     write_json(summary, ctx.seed_dir / "summary.json")
-    legacy._write_run_log(ctx)
+    write_run_log(ctx)
 
 
 def _mark_completed_from_existing_outputs(ctx: ExperimentContext) -> None:
@@ -627,7 +670,7 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
     for path in sorted(ctx.seed_dir.rglob("*")):
         if not path.is_file():
             continue
-        rel = legacy._rel(path, ctx.seed_dir)
+        rel = relative_to_root(path, ctx.seed_dir)
         if rel.startswith("data/intermediates/"):
             continue
         if path.suffix.lower() in {".csv", ".json", ".txt"}:
@@ -636,6 +679,9 @@ def _refresh_output_file_registry(ctx: ExperimentContext) -> None:
 
 def _config_from_args(args: argparse.Namespace) -> Fig1Config:
     smoke = bool(args.smoke)
+    task = str(args.task)
+    scope_task = task in {TASK_MAIN_SCOPE, TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
+    supplement_scope = task in {TASK_SUPPLEMENT_SCOPE, TASK_BOTH_SCOPE}
     delay_points_ms = tuple(int(v) for v in str(args.delay_points_ms).split(",") if str(v).strip())
     dms_delay_sweep_ms = tuple(int(v) for v in str(args.dms_delay_sweep_ms).split(",") if str(v).strip())
     if smoke:
@@ -667,11 +713,11 @@ def _config_from_args(args: argparse.Namespace) -> Fig1Config:
         firing_bin_ms=int(args.firing_bin_ms),
         delay_decode_backend=str(args.delay_decode_backend),
         delay_decode_torch_ridge_lambda=float(args.delay_decode_torch_ridge_lambda),
-        run_baseline=False,
-        run_delay_decode=False,
-        run_dms_delay_sweep=False,
-        run_dms_shuffle=False,
-        run_firing_rate_control=False,
+        run_baseline=scope_task or task == TASK_BASELINE,
+        run_delay_decode=scope_task or task == TASK_DELAY_DECODER,
+        run_dms_delay_sweep=supplement_scope or task == TASK_DMS_DELAY_SWEEP_READOUT,
+        run_dms_shuffle=scope_task or task == TASK_DMS_SHUFFLE_READOUT,
+        run_firing_rate_control=scope_task or task == TASK_FIRING_RATE_CONTROL,
         save_debug_figures=bool(args.save_debug_figures),
         save_feature_cache=bool(args.save_feature_cache),
         show_progress=not bool(args.no_progress),

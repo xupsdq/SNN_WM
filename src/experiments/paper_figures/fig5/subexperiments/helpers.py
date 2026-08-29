@@ -1,12 +1,54 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
-from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
+import json
+from pathlib import Path
+from typing import Any, Iterable, Mapping, Sequence
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask
+from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
+from src.experiments.common.monitored_dms import snapshot_boundary_state
+from src.experiments.common.ping_common import prepare_network_state
+from src.experiments.paper_figures.common.bundle_io import (
+    copy_csv_alias,
+    record_optional_missing,
+    relative_to_root as _rel,
+    save_csv_with_registry as _save_csv,
+    write_empty_csv_with_warning,
+)
+from src.experiments.paper_figures.fig5.constants import (
+    L1_STSP_PERTURBATION_CONDITIONS,
+    LEGACY_REGION_PERTURBATION_CONDITIONS,
+    MAIN_CONDITIONS,
+    PANEL_B_SUMMARY_COLUMNS,
+    PANEL_C_TRACE_COLUMNS,
+    PANEL_D_L1_STSP_CONTRAST_COLUMNS,
+    PANEL_D_L1_STSP_SUMMARY_COLUMNS,
+    PANEL_D_TRANSITION_CONTRAST_COLUMNS,
+    PANEL_D_TRANSITION_SUMMARY_COLUMNS,
+    PERTURBATION_UNIT_COLUMNS,
+    PRIMARY_LAYER,
+    SUPP_CONDITIONS,
+    UNIT_GROUP_COLUMNS,
+)
+from src.experiments.paper_figures.fig5.types import BranchTrace, ExperimentContext, LocalSupportCompetitionBank
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
 
 def _entry_mask_cache(ctx: ExperimentContext) -> dict[tuple[Any, ...], np.ndarray]:
     cache = getattr(ctx, "_entry_mask_cache", None)

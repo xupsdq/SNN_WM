@@ -25,7 +25,7 @@ from typing import Any, Sequence
 
 import pandas as pd
 
-from src.experiments.paper_figures.fig2.run_task import _resolve_model_path
+from src.experiments.paper_figures.fig2.fixed_b_substrate import resolve_fixed_b_model_path
 from src.experiments.paper_figures.run_paper_figures import DEFAULT_MODEL_PATH_GLOB
 from src.experiments.successor_extension.aggregate import run_aggregate
 from src.experiments.successor_extension.core import (
@@ -38,10 +38,12 @@ from src.experiments.successor_extension.core import (
     TASK_K10_HISTORY,
     TASK_K10_INPUT,
     TASK_K10_SPECS,
-    _repo_root,
-    _resolve,
-    _sha256_file,
-    _write_json,
+)
+from src.experiments.successor_extension.runtime import (
+    repository_root,
+    resolve_repo_path,
+    sha256_file,
+    write_json,
 )
 
 DEFAULT_OUTPUT_ROOT = "results/successor_extension_v1_confirmatory_20seed"
@@ -134,7 +136,7 @@ def _verify_baseline_hashes(repo_root: Path) -> dict[str, str]:
     observed: dict[str, str] = {}
     failures: list[str] = []
     for name, relative, pinned in BASELINE_HASHES:
-        actual = _sha256_file(repo_root / relative)
+        actual = sha256_file(repo_root / relative)
         observed[name] = actual
         if actual != pinned:
             failures.append(f"{name}: expected {pinned}, observed {actual}")
@@ -288,7 +290,7 @@ def _run_one_task(
 
 def _write_seed_manifest(cfg: CohortConfig, root: Path, seed: int) -> None:
     """Generic per-seed metadata: identity, config, task status, key hashes."""
-    model_path = _resolve_model_path(
+    model_path = resolve_fixed_b_model_path(
         None, DEFAULT_MODEL_PATH_GLOB, int(seed), smoke=False,
     )
     tasks: dict[str, dict[str, Any]] = {}
@@ -303,10 +305,10 @@ def _write_seed_manifest(cfg: CohortConfig, root: Path, seed: int) -> None:
             "status": "completed" if complete else "incomplete",
             "completion_check_problems": problems,
             "summary_sha256": (
-                _sha256_file(summary_path) if summary_path is not None and summary_path.exists() else ""
+                sha256_file(summary_path) if summary_path is not None and summary_path.exists() else ""
             ),
         }
-    _write_json(
+    write_json(
         root / f"seed_{int(seed)}" / "seed_manifest.json",
         {
             "schema_name": SCHEMA_NAME,
@@ -314,7 +316,7 @@ def _write_seed_manifest(cfg: CohortConfig, root: Path, seed: int) -> None:
             "network_seed": int(seed),
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "model_path": str(model_path),
-            "model_sha256": _sha256_file(model_path) if model_path.exists() else "missing",
+            "model_sha256": sha256_file(model_path) if model_path.exists() else "missing",
             "dataset_root": "test split of the shared MNIST skeleton dataset",
             "device": str(cfg.device),
             "families": int(cfg.families),
@@ -344,8 +346,8 @@ def _plan(cfg: CohortConfig, root: Path) -> dict[str, Any]:
 
 
 def run_cohort(cfg: CohortConfig) -> dict[str, Any]:
-    repo_root = _repo_root()
-    root = _resolve(repo_root, cfg.output_root)
+    repo_root = repository_root()
+    root = resolve_repo_path(cfg.output_root)
     root.mkdir(parents=True, exist_ok=True)
     logs_dir = root / "cohort_logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -358,7 +360,7 @@ def run_cohort(cfg: CohortConfig) -> dict[str, Any]:
     plan = _plan(cfg, root)
     if cfg.dry_run:
         _log(log_path, "dry-run plan computed; not executing any GPU work")
-        _write_json(root / "cohort_dry_run_plan.json", plan)
+        write_json(root / "cohort_dry_run_plan.json", plan)
         return {"status": "dry_run", "plan": plan}
 
     failures: list[str] = []
@@ -445,7 +447,7 @@ def run_cohort(cfg: CohortConfig) -> dict[str, Any]:
         "baseline_hashes_unchanged": baseline == after,
         "device": str(cfg.device),
     }
-    _write_json(root / "cohort_status.json", status)
+    write_json(root / "cohort_status.json", status)
     _log(log_path, f"cohort finished status={status['status']} aggregate={aggregate_status}")
     return status
 

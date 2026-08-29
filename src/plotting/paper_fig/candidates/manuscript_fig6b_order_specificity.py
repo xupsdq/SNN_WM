@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Pilot figure renderer for the Fig.6b order-specificity experiment.
 
-Shared by the canonical runtime (analysis task) and the plot-only entrypoint
-(src/plotting/experiments/manuscript_fig6b_order_specificity_plot.py); the
-plot-only run never executes simulation.
+Used by the plot-only entrypoint
+(src/plotting/experiments/manuscript_fig6b_order_specificity_plot.py), which
+reads a completed analysis bundle and never executes simulation.
 
 Panel content (evidence review only, not a manuscript-final replacement):
 (a) 6x6 aggregate confusion matrix of true vs predicted temporal order;
@@ -56,12 +56,15 @@ def render_manuscript_fig6b_order_specificity(input_dir: str | Path, *, plot_onl
     cmap = get_plot_cmap("stsp_support")
 
     agg = confusion[confusion["network_seed"].eq(-1)].copy()
-    expected_cells = 6 * 6
-    if len(agg) != expected_cells:
+    expected_orders = set(range(6))
+    observed_orders = set(agg["true_order"].astype(int))
+    if observed_orders != expected_orders:
         raise RuntimeError(
-            f"Aggregate confusion matrix must materialize all {expected_cells} cells, found {len(agg)}"
+            "Aggregate confusion matrix must contain all six true orders, "
+            f"found {sorted(observed_orders)}"
         )
-    # Row-normalized proportions for the heatmap (each true-order row sums to 1).
+    # Early pilot bundles omit zero-count cells; the zero-initialized matrix
+    # preserves their meaning while current bundles still provide all 36 rows.
     row_totals = agg.groupby("true_order", sort=True)["count"].transform("sum")
     agg["row_proportion"] = agg["count"] / row_totals.clip(lower=1)
     matrix = np.zeros((6, 6), dtype=np.float64)

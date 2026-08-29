@@ -1,8 +1,37 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+import math
+from typing import Any
 
-inherit_legacy_globals(globals())
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig1.constants import (
+    MAIN_CONDITIONS,
+    SUBSTRATE_BY_CONDITION,
+    SUPP_CONDITIONS,
+)
+from src.experiments.paper_figures.fig1.subexperiments.helpers import (
+    _attribution_metrics,
+    _build_constrained_trial_shuffle_plan,
+    _compat_trial_readout,
+    _condition_metrics,
+    _donor_constraint_audit,
+    _encode_cached,
+    _intervention_manifest_row,
+    _iter_batches,
+    _progress,
+    _reset_all_layer_states_from_shapes,
+    _run_probe_conditions_from_boundary,
+    _run_sample_delay_capture,
+    _sort_trial_readout,
+    _validate_fig1_shuffle_pairing,
+    _write_compatibility_metrics,
+)
+from src.experiments.paper_figures.fig1.types import ExperimentContext
 
 def run_dms_substrate_shuffle(ctx: ExperimentContext, dms_trials: pd.DataFrame, boundary_bank: Any | None = None) -> dict[str, Any]:
     trial_rows: list[dict[str, Any]] = []

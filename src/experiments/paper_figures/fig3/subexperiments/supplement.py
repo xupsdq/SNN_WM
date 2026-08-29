@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+import math
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import _centered_cosine, _cosine_distance, _first_float
+from src.experiments.paper_figures.fig3.subexperiments.peak_cue_main import compute_peak_cue_serial_position_metrics
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def compute_supplementary_metrics(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     if (ctx.metrics_dir / "supp_partial_cue_fraction_sweep.csv").exists():

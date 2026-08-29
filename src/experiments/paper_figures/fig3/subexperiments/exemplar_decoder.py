@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.experiments.common.results import prepare_result_layout, save_log_lines, save_run_config, save_summary_json
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.artifacts import (
     TableBundleArtifact,
     cache_key_matches,
@@ -787,20 +787,20 @@ def _write_specs_to_bundle(ctx: ExperimentContext, artifact: TableBundleArtifact
         "analysis_spec": ctx.trial_specs_dir / "exemplar_decoder_analysis_spec.csv",
     }
     for name, path in mapping.items():
-        legacy._save_csv(ctx, artifact.tables[name], path)
+        _save_csv(ctx, artifact.tables[name], path)
     ctx.completed_modules[TASK_EXEMPLAR_DECODER_SPECS] = True
 
 
 def _write_state_bank_to_bundle(ctx: ExperimentContext, bank: ExemplarDecoderStateBank) -> None:
     path = ctx.raw_dir / "fig3c_exemplar_decoder_state_manifest.csv"
-    legacy._save_csv(ctx, bank.manifest, path)
+    _save_csv(ctx, bank.manifest, path)
     ctx.completed_modules[TASK_EXEMPLAR_DECODER_STATE_BANK] = True
 
 
 def _write_decoder_tables_to_bundle(ctx: ExperimentContext, tables: Mapping[str, pd.DataFrame]) -> None:
-    legacy._save_csv(ctx, tables["predictions"], ctx.raw_dir / "fig3c_exemplar_decoder_predictions.csv")
-    legacy._save_csv(ctx, tables["network_metrics"], ctx.metrics_dir / "fig3c_exemplar_decoder_network_metrics.csv")
-    legacy._save_csv(ctx, tables["hash_validation"], ctx.metrics_dir / "fig3c_exemplar_decoder_hash_validation.csv")
+    _save_csv(ctx, tables["predictions"], ctx.raw_dir / "fig3c_exemplar_decoder_predictions.csv")
+    _save_csv(ctx, tables["network_metrics"], ctx.metrics_dir / "fig3c_exemplar_decoder_network_metrics.csv")
+    _save_csv(ctx, tables["hash_validation"], ctx.metrics_dir / "fig3c_exemplar_decoder_hash_validation.csv")
     ctx.completed_modules[TASK_EXEMPLAR_DECODER] = True
 
 

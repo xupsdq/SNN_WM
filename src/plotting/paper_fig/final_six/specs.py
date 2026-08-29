@@ -976,7 +976,7 @@ FIGURE_SPECS: dict[str, dict[str, Any]] = {
 }
 
 
-def _layout_contract(spec: dict[str, Any]) -> dict[str, Any]:
+def build_layout_contract(spec: dict[str, Any]) -> dict[str, Any]:
     panels = spec["panels"]
     panel_ids = list(panels)
     rows: dict[float, list[str]] = {}
@@ -1299,8 +1299,13 @@ def get_figure_spec(figure_id: str) -> dict[str, Any]:
         "topology_invariants": ["frozen slots", "row-major panel order"],
         "topology_freedoms": ["optical padding inside each slot"],
     }
-    spec["layout_contract"] = _layout_contract(spec)
+    spec["layout_contract"] = build_layout_contract(spec)
     return spec
 
 
-__all__ = ["CANVAS_MM", "FIGURE_SPECS", "get_figure_spec"]
+__all__ = [
+    "CANVAS_MM",
+    "FIGURE_SPECS",
+    "build_layout_contract",
+    "get_figure_spec",
+]

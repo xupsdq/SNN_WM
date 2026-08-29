@@ -1,15 +1,51 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig2_pair_fused_stsp_state_experiment as _legacy
+import math
+from pathlib import Path
+from typing import Any, Iterable, Mapping, Sequence
+
+import numpy as np
+import pandas as pd
+import torch
+
+from src.config.units import ms
+from src.experiments.common.dataset import encode_images
+from src.experiments.common.decoding import decode_prediction_and_fire_time_from_layer3
 from src.experiments.common.monitored_dms import (
     boundary_state_to_restore_ux_by_layer,
     restore_functional_probe_state_in_place,
+    snapshot_boundary_state,
 )
+from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state, snapshot_ux_state
+from src.experiments.paper_figures.fig2.constants import STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.types import ExperimentContext, FunctionalReadout, PairEpisodeStateBank
 
-# Keep module-level names identical while Fig.2 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - tqdm is optional
+    tqdm = None
+
+
+def _progress(iterable, *, total=None, desc: str = "", enabled: bool = True):
+    if not enabled or tqdm is None:
+        return iterable
+    return tqdm(iterable, total=total, desc=desc, leave=False)
+
+
+def _ms_to_steps(value_ms: int | float, dt: float) -> int:
+    return max(1, int(round((float(value_ms) * ms) / float(dt))))
+
+
+def _maybe_float(value: Any) -> float:
+    if value is None:
+        return float("nan")
+    return float(value)
+
+
+def _maybe_int(value: Any) -> int | float:
+    if value is None or (isinstance(value, float) and not math.isfinite(value)):
+        return float("nan")
+    return int(value)
 
 def _make_weak_probe_spikes_encoded_dropout(
     full_probe_spikes: torch.Tensor,
@@ -975,4 +1011,4 @@ def _iter_batches(df: pd.DataFrame, batch_size: int) -> Iterable[pd.DataFrame]:
     for start in range(0, len(df), int(batch_size)):
         yield df.iloc[start : start + int(batch_size)].reset_index(drop=True)
 
-__all__ = ('_make_weak_probe_spikes_encoded_dropout', '_make_weak_probe_spikes_image_foreground', '_weak_probe_mask_row', '_capture_pair_batch', '_step_network_once', '_fit_mixture_models', '_linear_model_metrics', '_fixed_model_metrics', '_fit_single', '_fit_single_coeffs', '_fit_two', '_fit_two_coeffs', '_convex_weight', '_convex_prediction', '_cv_r2', '_predict_model', '_r2', '_access_scores', '_prediction_from_scores', '_partial_cue_metrics', '_ping_sweep_metrics', '_completion_delay_sweep_metrics', '_completion_delay_sweep_contrast', '_stable_sweep_seed', '_partial_cue_auc_metrics', '_partial_cue_pair_metrics', '_normalized_auc', '_p50_from_curve', '_nan_diff', '_mode_value', '_compat_fig4_weak_probe_outputs', '_cue_gain', 'run_ping_readout_from_boundary', 'run_probe_readout_from_boundary', 'restore_condition_state_for_functional_readout', 'boundary_state_to_restore_ux_by_layer', 'slice_boundary_state', 'concat_condition_boundaries', '_forward_three_layers_with_optional_trace', '_layer_input_shapes_from_boundary', '_layer_input_shapes_for_batch', '_pack_trace', '_readout_margin_for_class', '_readout_margin_value', '_ping_spike_count', '_ping_energy', '_neutral_ping_metrics', '_metric_lookup', '_linear_metric_lookup', '_pair_sampling_audit', '_trial_condition_audit', '_image_similarity_and_overlap', '_selection_bin', '_row_centered_cosine', '_centered_cosine', '_slice_boundary_state', '_concat_boundary_states', '_images_for_ids', '_encode_cached', '_iter_batches')
+__all__ = ('_make_weak_probe_spikes_encoded_dropout', '_make_weak_probe_spikes_image_foreground', '_weak_probe_mask_row', '_capture_pair_batch', '_step_network_once', '_fit_mixture_models', '_linear_model_metrics', '_fixed_model_metrics', '_fit_single', '_fit_single_coeffs', '_fit_two', '_fit_two_coeffs', '_convex_weight', '_convex_prediction', '_cv_r2', '_predict_model', '_r2', '_access_scores', '_prediction_from_scores', '_partial_cue_metrics', '_ping_sweep_metrics', '_completion_delay_sweep_metrics', '_completion_delay_sweep_contrast', '_stable_sweep_seed', '_partial_cue_auc_metrics', '_partial_cue_pair_metrics', '_normalized_auc', '_p50_from_curve', '_nan_diff', '_mode_value', '_compat_fig4_weak_probe_outputs', '_cue_gain', 'run_ping_readout_from_boundary', 'run_probe_readout_from_boundary', 'restore_condition_state_for_functional_readout', 'boundary_state_to_restore_ux_by_layer', 'slice_boundary_state', 'concat_condition_boundaries', '_forward_three_layers_with_optional_trace', '_layer_input_shapes_from_boundary', '_layer_input_shapes_for_batch', '_pack_trace', '_readout_margin_for_class', '_readout_margin_value', '_ping_spike_count', '_ping_energy', '_neutral_ping_metrics', '_metric_lookup', '_linear_metric_lookup', '_pair_sampling_audit', '_trial_condition_audit', '_image_similarity_and_overlap', '_selection_bin', '_row_centered_cosine', '_slice_boundary_state', '_concat_boundary_states', '_images_for_ids', '_encode_cached', '_iter_batches', '_progress', '_ms_to_steps', '_maybe_float', '_maybe_int')

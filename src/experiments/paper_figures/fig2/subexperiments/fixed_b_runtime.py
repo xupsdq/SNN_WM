@@ -16,16 +16,18 @@ from src.experiments.common.ping_common import LAYER_KEYS, prepare_network_state
 from src.experiments.common.runtime import seed_everything
 from src.experiments.paper_figures.fig2.fixed_b_artifacts import FixedBArtifact, array_hash
 from src.experiments.paper_figures.fig2.fixed_b_protocol import select_history_families
+from src.experiments.paper_figures.fig2.successor_replay import (
+    FAST_STATE_KEYS,
+    STSP_STATE_KEYS,
+    advance_network_step,
+    layer_ux_checkpoint,
+    restore_boundary_state,
+)
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_specs import (
     FIXED_B_SCHEMA_VERSION,
     materialize_selected_specs,
 )
 from src.experiments.paper_figures.fig2.types import ExperimentContext
-
-
-FAST_STATE_KEYS = ("v_mem", "g_e", "res", "inh_trace")
-STSP_STATE_KEYS = ("u", "x")
-
 
 def build_exact_b_input_bank(
     ctx: ExperimentContext,
@@ -682,14 +684,22 @@ def _simulate_history_rows(
                     source_index = int(manifest.loc[image_ids[position], "row_index"])
                     item_spikes[local_index] = torch.as_tensor(encoded_history[source_index], device=ctx.device)
                 for step in range(int(item_spikes.shape[1])):
-                    s1, _, s2, _, s3, _ = _network_step(ctx.net, item_spikes[:, step], current_time=current_time)
+                    s1, _, s2, _, s3, _ = advance_network_step(
+                        ctx.net,
+                        item_spikes[:, step],
+                        current_time=current_time,
+                    )
                     counts["layer1"] += s1.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
                     counts["layer2"] += s2.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
                     counts["layer3"] += s3.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
                     current_time += 1
                 zero = torch.zeros((len(part), *first_shape), dtype=torch.bool, device=ctx.device)
                 for _ in range(int(ctx.cfg.fixed_b_inter_delay_steps)):
-                    s1, _, s2, _, s3, _ = _network_step(ctx.net, zero, current_time=current_time)
+                    s1, _, s2, _, s3, _ = advance_network_step(
+                        ctx.net,
+                        zero,
+                        current_time=current_time,
+                    )
                     counts["layer1"] += s1.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
                     counts["layer2"] += s2.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
                     counts["layer3"] += s3.reshape(len(part), -1).sum(dim=1).cpu().numpy().astype(np.int64)
@@ -740,36 +750,6 @@ def _candidate_overlap_table(
     return pd.DataFrame(rows)
 
 
-def _network_step(
-    net: Any,
-    input_spikes: torch.Tensor,
-    *,
-    current_time: int,
-    layer2_replay_input: torch.Tensor | None = None,
-    layer3_time: int | None = None,
-    monitor_layer1: bool = False,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
-    s1, monitor = net.layer1.forward_step(
-        input_spikes,
-        current_time,
-        training=False,
-        monitor=monitor_layer1,
-        stsp_mode="dynamic",
-    )
-    s1_p = net.pool1(s1.float())
-    l2_input = s1_p if layer2_replay_input is None else layer2_replay_input
-    s2, _ = net.layer2.forward_step(l2_input, current_time, training=False, monitor=False, stsp_mode="dynamic")
-    s2_p = net.pool2(s2.float())
-    s3, _ = net.layer3.forward_step(
-        s2_p,
-        current_time if layer3_time is None else int(layer3_time),
-        training=False,
-        monitor=False,
-        stsp_mode="dynamic",
-    )
-    return s1, s1_p, s2, s2_p, s3, monitor
-
-
 def _run_branch(
     ctx: ExperimentContext,
     *,
@@ -791,7 +771,7 @@ def _run_branch(
     batch_size, stimulus_steps, channels, height, width = input_seq.shape
     layer_input_shapes = build_layer_input_shapes(net, batch_size, channels, height, width)
     if not skip_restore:
-        _restore_boundary(net, boundary, layer_input_shapes, mode=restore_mode, device=ctx.device)
+        restore_boundary_state(net, boundary, layer_input_shapes, mode=restore_mode, device=ctx.device)
     net.layer3.reset_decision_state()
     with torch.no_grad():
         net.layer3.v_mem.fill_(net.layer3.V_L)
@@ -812,16 +792,16 @@ def _run_branch(
     captured_early: list[torch.Tensor] = []
     captured_layer2_presynaptic: list[torch.Tensor] = []
     strong_maps: dict[str, torch.Tensor | None] = {name: None for name in ("drive", "voltage", "inhibition", "events")}
-    checkpoint_ux = {"pre": _layer_ux_checkpoint(net.layer2, batch_size)}
+    checkpoint_ux = {"pre": layer_ux_checkpoint(net.layer2, batch_size)}
     checkpoint_scores = {"pre": _class_scores_checkpoint(net)}
     checkpoint_counts = {"pre": tuple(np.zeros(batch_size, dtype=np.int64) for _ in range(3))}
-    layer1_pre = _layer_ux_checkpoint(net.layer1, batch_size)
-    layer3_pre = _layer_ux_checkpoint(net.layer3, batch_size)
+    layer1_pre = layer_ux_checkpoint(net.layer1, batch_size)
+    layer3_pre = layer_ux_checkpoint(net.layer3, batch_size)
     for local_step in range(total_steps):
         external = input_seq[:, local_step] if local_step < stimulus_steps and branch != "passive" else zero
         replay_step = None if replay_tensor is None else replay_tensor[:, local_step].to(torch.float32)
         monitor_now = bool(capture_strong_path and local_step < early_cutoff)
-        s1, s1_p, s2, _, s3, monitor = _network_step(
+        s1, s1_p, s2, _, s3, monitor = advance_network_step(
             net,
             external,
             current_time=current_time + local_step,
@@ -867,8 +847,8 @@ def _run_branch(
         if completed_steps == stimulus_steps:
             _capture_branch_checkpoint(net, batch_size, "b_end", checkpoint_ux, checkpoint_scores, checkpoint_counts, counts)
     _capture_branch_checkpoint(net, batch_size, "post", checkpoint_ux, checkpoint_scores, checkpoint_counts, counts)
-    layer1_post = _layer_ux_checkpoint(net.layer1, batch_size)
-    layer3_post = _layer_ux_checkpoint(net.layer3, batch_size)
+    layer1_post = layer_ux_checkpoint(net.layer1, batch_size)
+    layer3_post = layer_ux_checkpoint(net.layer3, batch_size)
     layer2_g = _gain_from_ux(checkpoint_ux["post"])
     firing_times = net.layer3.firing_times.detach()
     fired = torch.isfinite(firing_times).any(dim=1)
@@ -924,7 +904,7 @@ def _capture_branch_checkpoint(
     checkpoint_counts: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]],
     counts: Mapping[str, torch.Tensor],
 ) -> None:
-    ux[name] = _layer_ux_checkpoint(net.layer2, batch_size)
+    ux[name] = layer_ux_checkpoint(net.layer2, batch_size)
     scores[name] = _class_scores_checkpoint(net)
     checkpoint_counts[name] = tuple(counts[layer].detach().cpu().numpy().copy() for layer in LAYER_KEYS)
 
@@ -1051,7 +1031,13 @@ def _restoration_audit(
         branch_results: dict[str, tuple[dict[str, np.ndarray], dict[str, np.ndarray]]] = {}
         for branch, sequence in (("free", repeated_b), ("passive", zero)):
             layer_shapes = build_layer_input_shapes(ctx.net, batch_size, *[int(value) for value in exact_b.shape[1:]])
-            _restore_boundary(ctx.net, boundary, layer_shapes, mode="full_boundary", device=ctx.device)
+            restore_boundary_state(
+                ctx.net,
+                boundary,
+                layer_shapes,
+                mode="full_boundary",
+                device=ctx.device,
+            )
             native_net = copy.deepcopy(ctx.net)
             native = _run_branch(
                 ctx,
@@ -1122,7 +1108,13 @@ def _prestate_hashes(
 ) -> tuple[list[str], list[str]]:
     batch_size = int(next(iter(boundary["layer1"].values())).shape[0])
     layer_shapes = build_layer_input_shapes(ctx.net, batch_size, *[int(value) for value in input_shape])
-    _restore_boundary(ctx.net, boundary, layer_shapes, mode="stsp_only", device=ctx.device)
+    restore_boundary_state(
+        ctx.net,
+        boundary,
+        layer_shapes,
+        mode="stsp_only",
+        device=ctx.device,
+    )
     fast_hashes: list[str] = []
     stsp_hashes: list[str] = []
     for row_index in range(batch_size):
@@ -1138,34 +1130,6 @@ def _prestate_hashes(
         fast_hashes.append(fast.hexdigest())
         stsp_hashes.append(stsp.hexdigest())
     return fast_hashes, stsp_hashes
-
-
-def _restore_boundary(
-    net: Any,
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    layer_input_shapes: Mapping[str, tuple[int, ...]],
-    *,
-    mode: str,
-    device: torch.device,
-) -> None:
-    prepare_network_state(net, *[int(value) for value in layer_input_shapes["layer1"]])
-    keys = FAST_STATE_KEYS + STSP_STATE_KEYS if mode == "full_boundary" else STSP_STATE_KEYS
-    with torch.no_grad():
-        for layer_name in LAYER_KEYS:
-            layer = getattr(net, layer_name)
-            for state_name in keys:
-                if state_name not in boundary[layer_name]:
-                    continue
-                value = torch.as_tensor(boundary[layer_name][state_name], device=device)
-                if state_name == "inh_trace":
-                    target = layer.lateral_inh.inh_trace
-                elif state_name == "u":
-                    target = layer.u_pre
-                elif state_name == "x":
-                    target = layer.x_pre
-                else:
-                    target = getattr(layer, state_name)
-                target.copy_(value.to(dtype=target.dtype))
 
 
 def _load_boundary(
@@ -1238,12 +1202,6 @@ def _map_event_features(value: torch.Tensor | None) -> torch.Tensor:
     channel = value.sum(dim=(2, 3))
     spatial = value.sum(dim=1).reshape(value.shape[0], -1)
     return torch.cat([scalars, channel, spatial], dim=1).detach().cpu().to(torch.float32)
-
-
-def _layer_ux_checkpoint(layer: Any, batch_size: int) -> np.ndarray:
-    u = layer.u_pre.detach().reshape(batch_size, -1).cpu().numpy()
-    x = layer.x_pre.detach().reshape(batch_size, -1).cpu().numpy()
-    return np.concatenate([u, x], axis=1).astype(np.float32, copy=False)
 
 
 def _gain_from_ux(ux: np.ndarray) -> np.ndarray:

@@ -14,7 +14,15 @@ import numpy as np
 
 from src.plotting.common.colors import NATURE_COMPATIBLE_PALETTE
 
-from .artifacts import REQUIRED_PLOT_INPUTS, layout_for, read_json, require_files, write_manifest
+from .artifacts import (
+    input_lineage,
+    layout_for,
+    profile_requires_decode_plot,
+    read_json,
+    require_files,
+    required_plot_inputs,
+    write_manifest,
+)
 from .config import (
     CLASS_MATCH,
     RULE_START_MS,
@@ -200,15 +208,33 @@ def _plot_example_trial(
     return _export(fig, prefix)
 
 
+def _plot_decode(decode: dict[str, Any], prefix: Path) -> list[str]:
+    spike = decode.get("spike_decode", {})
+    stsp = decode.get("stsp_decode", {})
+    labels = ["Spike overall", "Spike DMS", "Spike DMRS90"]
+    values = [spike.get("overall", 0.0), spike.get("dms", 0.0), spike.get("dmrs90", 0.0)]
+    if stsp:
+        labels.extend(["STSP overall", "STSP DMS", "STSP DMRS90"])
+        values.extend([stsp.get("overall", 0.0), stsp.get("dms", 0.0), stsp.get("dmrs90", 0.0)])
+    fig, axis = plt.subplots(figsize=(6.4, 2.8), constrained_layout=True)
+    axis.bar(labels, values, color=NATURE_COMPATIBLE_PALETTE["mechanism_teal"])
+    axis.set_ylim(0.0, 1.0)
+    axis.set_ylabel("Sample decode accuracy")
+    axis.tick_params(axis="x", rotation=30)
+    _style(axis)
+    return _export(fig, prefix)
+
+
 def plot_run(run_directory: Path) -> dict[str, Any]:
     run_directory = Path(run_directory)
-    require_files(run_directory, REQUIRED_PLOT_INPUTS)
+    config = _load_config(run_directory)
+    plot_inputs = required_plot_inputs(config)
+    require_files(run_directory, plot_inputs)
     layout = layout_for(run_directory)
     history = read_json(layout.data_dir / "train_history.json")
     metrics = read_json(layout.metrics_dir / "test_metrics.json")
     with (layout.data_dir / "test_predictions.csv").open("r", encoding="utf-8", newline="") as handle:
         records = list(csv.DictReader(handle))
-    config = _load_config(run_directory)
     outputs = {
         "training_curves": _plot_training_curves(history, layout.figures_dir / "training_curves"),
         "condition_accuracy": _plot_condition_accuracy(metrics, layout.figures_dir / "condition_accuracy"),
@@ -217,5 +243,15 @@ def plot_run(run_directory: Path) -> dict[str, Any]:
             records, config, layout.figures_dir / "example_trial_timeline"
         ),
     }
-    write_manifest(run_directory, extra={"plot_only": True})
+    decode_path = layout.metrics_dir / "decode_metrics.json"
+    if profile_requires_decode_plot(config.profile) or decode_path.is_file():
+        decode = read_json(decode_path)
+        outputs["decode_accuracy"] = _plot_decode(decode, layout.figures_dir / "decode_accuracy")
+    write_manifest(
+        run_directory,
+        extra={
+            "plot_only": True,
+            "plot_lineage": input_lineage(run_directory, plot_inputs),
+        },
+    )
     return {"plot_only": True, "outputs": outputs}

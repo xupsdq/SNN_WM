@@ -1,12 +1,35 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
-from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask as build_overlap_mask
+import json
+import math
+from typing import Any, Mapping
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.input_masks import entry_mask_from_image, overlap_mask as build_overlap_mask
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig5.constants import (
+    PANEL_D_L1_STSP_AUDIT_COLUMNS,
+    PERTURBATION_UNIT_COLUMNS,
+    PERTURBATION_UX_AUDIT_COLUMNS,
+    TRIAL_COLUMNS,
+    UNIT_GROUP_COLUMNS,
+)
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _centered_cosine,
+    _image_array,
+    _iter_batches,
+    _perturbation_unit_rows,
+    _progress,
+    _run_batch_network_checked,
+    _save_panel_a_example,
+    _save_probe_trace_manifest,
+    _save_trial_mask_npz,
+    _unit_group_rows,
+)
+from src.experiments.paper_figures.fig5.types import BranchTrace, ExperimentContext, LocalSupportCompetitionBank
 
 def build_local_competition_trials(ctx: ExperimentContext) -> pd.DataFrame:
     cfg = ctx.cfg

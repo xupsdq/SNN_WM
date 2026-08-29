@@ -67,6 +67,8 @@ S3–S5 在正文中各自承担独立补充结论；不是与主图共用一个
 |---|---|
 | `CORE_SCIENTIFIC_LOGIC_CONTRACT.md` | 固定中心科学问题、层间 successor-state 方向和不可越界主张 |
 | `RESULTS_EVIDENCE_BOUNDARIES.md` | 固定证据来源、claim-to-number 检查和 retired edges |
+| `V6_2_RECURRENT_NETWORK_POSITIONING_RESEARCH_CN.md` | 循环网络作为 V6.2 successor-state 机制压力测试与边界扩展的研究定位、可证伪假设和最小实验门；是研究参考，不构成实现授权或稿件权威 |
+| `V6_2_BIOLOGICALLY_PLAUSIBLE_RECURRENT_BASELINE_RESEARCH_CN.md` | 在固定 Masse 行为任务上构建可训练的 Dale 稀疏 LIF、逐边 TM-STSP 与局部学习桥的基线研究；区分前向架构生物约束与学习规则生物合理性 |
 | `results_state_transition_program/v6_1_main_figure_story_contract.md` | 当前稿件 Fig.1–Fig.7 的故事图、统一语义词典、视觉语法与跨图交接工作合同 |
 | `results_state_transition_program/` | 内部 final-six panel contracts、序列合同和统计/绘图约束；其 `fig1`–`fig6` 不是稿件图号 |
 | `review_standard/NATURE_PORTFOLIO_REVIEW_STANDARD_20260807.md` | 当前期刊自审参考 |

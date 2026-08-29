@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+import pandas as pd
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.fig3.types import ExperimentContext
+from src.plotting.common.io import apply_publication_style, save_figure_all_formats
 
 def save_debug_figures(ctx: ExperimentContext) -> None:
     apply_publication_style()

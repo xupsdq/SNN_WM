@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig4_runtime_artifacts"
 SCHEMA_VERSION = 1
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_PAIR_SAMPLING = "pair_sampling"
 TASK_SIMILARITY_ENTRY = "similarity_entry"
 TASK_ROLLOUTS = "rollouts"
@@ -16,6 +21,9 @@ TASK_SUPPLEMENT = "supplement"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_PAIR_SAMPLING,
     TASK_SIMILARITY_ENTRY,
     TASK_ROLLOUTS,
@@ -26,8 +34,6 @@ TASK_IDS = (
     TASK_OVERLAP_PERTURBATION,
     TASK_SUPPLEMENT,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -77,14 +83,6 @@ ARRAY_MANIFEST_COLUMNS = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "ARRAY_MANIFEST_COLUMNS",
     "PAIR_MASK_MANIFEST_COLUMNS",
@@ -96,9 +94,11 @@ __all__ = [
     "SIMILARITY_ENTRY_FILES",
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_DECISION_DEFLECTION",
     "TASK_DECISION_SPIKE_DISPLACEMENT",
     "TASK_IDS",
+    "TASK_MAIN_SCOPE",
     "TASK_OVERLAP_ACCURACY_IDENTIFICATION",
     "TASK_OVERLAP_LOCALIZATION",
     "TASK_OVERLAP_PERTURBATION",
@@ -106,5 +106,6 @@ __all__ = [
     "TASK_ROLLOUTS",
     "TASK_SIMILARITY_ENTRY",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "normalize_reuse_mode",
 ]

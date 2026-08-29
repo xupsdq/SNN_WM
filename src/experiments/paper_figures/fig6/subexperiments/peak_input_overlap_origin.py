@@ -1,11 +1,27 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+import json
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import json_safe as _json_safe
+from src.experiments.paper_figures.fig6.constants import PANEL_C_ORIGIN_COLUMNS, PANEL_C_ORIGIN_SUMMARY_COLUMNS
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _progress, _save_csv
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _dice,
+    _high_overlap_mask,
+    _jaccard,
+    _mean_col,
+    _plain_cosine,
+    _safe_div,
+    _sem,
+    _spearman,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def compute_peak_input_overlap_origin(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     rows: list[dict[str, Any]] = []

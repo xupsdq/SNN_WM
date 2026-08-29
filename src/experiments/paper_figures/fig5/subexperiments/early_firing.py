@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig5_local_support_competition_experiment as _legacy
+from typing import Any
 
-# Keep module-level names identical while Fig.5 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig5.constants import PANEL_B_UNIT_COLUMNS
+from src.experiments.paper_figures.fig5.subexperiments.helpers import (
+    _early_window_robustness,
+    _first_spike_map,
+    _latency_delta,
+    _progress,
+    _transition_summary,
+    _transition_type,
+)
+from src.experiments.paper_figures.fig5.types import ExperimentContext, LocalSupportCompetitionBank
 
 def compute_early_firing_transition_metrics(ctx: ExperimentContext, bank: LocalSupportCompetitionBank) -> None:
     rows: list[dict[str, Any]] = []

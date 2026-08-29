@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig6_runtime_artifacts"
 SCHEMA_VERSION = 1
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_SEQUENCE_TRIALS = "sequence_trials"
 TASK_SEQUENCE_BANK = "sequence_bank"
 TASK_FIELD_PING_READOUT = "field_ping_readout"
@@ -17,6 +22,9 @@ TASK_OVERLAP_THRESHOLD_SENSITIVITY = "overlap_threshold_sensitivity"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_SEQUENCE_TRIALS,
     TASK_SEQUENCE_BANK,
     TASK_FIELD_PING_READOUT,
@@ -28,8 +36,6 @@ TASK_IDS = (
     TASK_SCORE_SHUFFLE_NULL,
     TASK_OVERLAP_THRESHOLD_SENSITIVITY,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -76,14 +82,6 @@ SEQUENCE_BANK_ARRAY_FILES = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "ARRAY_MANIFEST_COLUMNS",
     "BOUNDARY_MANIFEST_COLUMNS",
@@ -95,10 +93,12 @@ __all__ = [
     "SEQUENCE_TRIAL_FILES",
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_FIELD_PING_READOUT",
     "TASK_GLOBAL_PING_SCORE_SPIKE_PREDICTION",
     "TASK_HIGH_STSP_OVERLAP_ABLATION",
     "TASK_IDS",
+    "TASK_MAIN_SCOPE",
     "TASK_OVERLAP_GATED_STSP_RECRUITMENT",
     "TASK_OVERLAP_THRESHOLD_SENSITIVITY",
     "TASK_REAL_PROBE_SCORE_SPIKE_DEFLECTION",
@@ -106,5 +106,6 @@ __all__ = [
     "TASK_SEQUENCE_BANK",
     "TASK_SEQUENCE_TRIALS",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "normalize_reuse_mode",
 ]

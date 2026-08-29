@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+import pandas as pd
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _matching_diagnostics,
+    _overlap_regression,
+    _pair_effect_table,
+    _panel_c_matched_comparison,
+    _two_by_two,
+)
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    OverlapPerturbationCompatibleBank,
+    OverlapReentryDMSBank,
+)
 
 def compute_overlap_localization_metrics(ctx: ExperimentContext, bank: OverlapReentryDMSBank | OverlapPerturbationCompatibleBank) -> None:
     b_path = ctx.metrics_dir / "panel_b_similarity_entry_metrics.csv"

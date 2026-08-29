@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig3_runtime_artifacts"
 SCHEMA_VERSION = 4
 CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY = "same_label_different_image_excluding_sequence_v1"
 
 TASK_ALL = "all"
+TASK_MAIN_SCOPE = "main_scope"
+TASK_SUPPLEMENT_SCOPE = "supplement_scope"
+TASK_BOTH_SCOPE = "both_scope"
 TASK_SEQUENCE_TRIAL_SPECS = "sequence_trial_specs"
 TASK_STATE_BANK = "state_bank"
 TASK_BOUNDARY_CONDITION_SPECS = "boundary_condition_specs"
@@ -31,6 +36,9 @@ TASK_SUPPLEMENT = "supplement"
 
 TASK_IDS = (
     TASK_ALL,
+    TASK_MAIN_SCOPE,
+    TASK_SUPPLEMENT_SCOPE,
+    TASK_BOTH_SCOPE,
     TASK_SEQUENCE_TRIAL_SPECS,
     TASK_STATE_BANK,
     TASK_BOUNDARY_CONDITION_SPECS,
@@ -55,8 +63,6 @@ TASK_IDS = (
     TASK_WEAK_PROBE,
     TASK_SUPPLEMENT,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -369,14 +375,6 @@ LANDSCAPE_MANIFEST_COLUMNS = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "BOUNDARY_SUMMARY_REQUIRED_COLUMNS",
     "BOUNDARY_MANIFEST_COLUMNS",
@@ -401,6 +399,7 @@ __all__ = [
     "TABLE_MANIFEST_COLUMNS",
     "TASK_ACCESS_JOB_SPECS",
     "TASK_ALL",
+    "TASK_BOTH_SCOPE",
     "TASK_BOUNDARY_CONDITION_SPECS",
     "TASK_BOUNDARY_STATE_BANK",
     "TASK_BOUNDARY_SUMMARY",
@@ -412,6 +411,7 @@ __all__ = [
     "TASK_EXEMPLAR_DECODER_SUMMARY",
     "TASK_MORPHOLOGY_DECOMPOSITION",
     "TASK_MORPHOLOGY_FUNCTION_COUPLING",
+    "TASK_MAIN_SCOPE",
     "TASK_IDS",
     "TASK_NEUTRAL_PING",
     "TASK_NEUTRAL_PING_ACCESS",
@@ -420,6 +420,7 @@ __all__ = [
     "TASK_SEQUENCE_TRIAL_SPECS",
     "TASK_STATE_BANK",
     "TASK_SUPPLEMENT",
+    "TASK_SUPPLEMENT_SCOPE",
     "TASK_WEAK_CUE_ACCESS",
     "TASK_WEAK_PROBE",
     "normalize_reuse_mode",

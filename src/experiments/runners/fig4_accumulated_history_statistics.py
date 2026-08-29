@@ -41,11 +41,11 @@ REPO_ROOT = _repo_root()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.experiments.paper_figures.new_results_reanalysis import (  # noqa: E402
-    _bootstrap_mean_ci,
-    _exact_sign_flip_p,
-    _holm_adjust,
-    _stable_seed,
+from src.experiments.common.inference import (  # noqa: E402
+    bootstrap_mean_ci,
+    exact_sign_flip_p,
+    holm_adjust,
+    stable_seed,
 )
 
 
@@ -164,10 +164,10 @@ class CandidateAnalysis:
             raise ValueError(
                 f"{panel}/{endpoint}/{condition}: expected 20 network values, got {len(array)}"
             )
-        low, high = _bootstrap_mean_ci(
+        low, high = bootstrap_mean_ci(
             array,
             draws=BOOTSTRAP_DRAWS,
-            seed=_stable_seed(RANDOM_SEED, panel, endpoint, condition),
+            seed=stable_seed(RANDOM_SEED, panel, endpoint, condition),
         )
         self.descriptive_rows.append(
             {
@@ -204,10 +204,10 @@ class CandidateAnalysis:
         array = array[np.isfinite(array)]
         if len(array) != len(EXPECTED_SEEDS):
             raise ValueError(f"{panel}/{endpoint}: expected 20 network values, got {len(array)}")
-        low, high = _bootstrap_mean_ci(
+        low, high = bootstrap_mean_ci(
             array,
             draws=BOOTSTRAP_DRAWS,
-            seed=_stable_seed(RANDOM_SEED, panel, endpoint, family),
+            seed=stable_seed(RANDOM_SEED, panel, endpoint, family),
         )
         centered = array - float(null)
         self.new_inference_rows.append(
@@ -227,7 +227,7 @@ class CandidateAnalysis:
                 "alternative": alternative,
                 "n_above_null": int(np.sum(centered > 0)),
                 "n_below_null": int(np.sum(centered < 0)),
-                "p_value": _exact_sign_flip_p(centered, alternative=alternative),
+                "p_value": exact_sign_flip_p(centered, alternative=alternative),
                 "p_holm_family": float("nan"),
                 "p_holm_all_new": float("nan"),
                 "correction_family": family,
@@ -892,10 +892,10 @@ def _finalize_inference(ctx: CandidateAnalysis) -> pd.DataFrame:
     new = pd.DataFrame(ctx.new_inference_rows)
     for _, indices in new.groupby("correction_family", sort=True).groups.items():
         idx = list(indices)
-        new.loc[idx, "p_holm_family"] = _holm_adjust(
+        new.loc[idx, "p_holm_family"] = holm_adjust(
             new.loc[idx, "p_value"].to_numpy(dtype=np.float64)
         )
-    new["p_holm_all_new"] = _holm_adjust(new["p_value"].to_numpy(dtype=np.float64))
+    new["p_holm_all_new"] = holm_adjust(new["p_value"].to_numpy(dtype=np.float64))
     return new.sort_values(["panel", "correction_family", "endpoint"], kind="stable")
 
 

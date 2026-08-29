@@ -5,17 +5,13 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
 import torch
 
-from src.experiments.common.monitored_dms import (
-    build_layer_input_shapes,
-    snapshot_boundary_state,
-)
-from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.common.inference import crossed_bootstrap_mean_ci, stable_seed
 from src.experiments.common.results import (
     save_log_lines,
     save_run_config,
@@ -26,27 +22,27 @@ from src.experiments.common.run_info import (
     finalize_run_info,
     write_run_info,
 )
-from src.experiments.common.runtime import seed_everything
-from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
-    FixedBArtifact,
-    load_fixed_b_artifact,
+from src.experiments.paper_figures.fig2.fixed_b_artifacts import FixedBArtifact
+from src.experiments.paper_figures.fig2.fixed_b_substrate import (
+    build_fixed_b_context,
+    load_fixed_b_parent,
+    load_paired_history_slice,
+    resolve_fixed_b_model_path,
+    run_fixed_b_branch,
 )
-from src.experiments.paper_figures.fig2.run_task import (
-    _build_context,
-    _resolve_model_path,
+from src.experiments.paper_figures.fig2.successor_replay import (
+    FAST_STATE_KEYS,
+    STSP_STATE_KEYS,
+    audit_stsp_only_restore,
+    capture_successor_transition,
+    correct_passive_successor_effects,
+    prepare_layer2_stsp_transplant,
+    repeat_boundary,
+    snapshot_boundary_numpy,
 )
 from src.experiments.paper_figures.fig2.schemas import (
     TASK_FIXED_B_HISTORY_BANK,
     TASK_FIXED_B_INPUT_BANK,
-)
-from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    FAST_STATE_KEYS,
-    STSP_STATE_KEYS,
-    _history_rows_at_k,
-    _load_boundary,
-    _network_step,
-    _restore_boundary,
-    _run_branch,
 )
 from src.experiments.paper_figures.fig2.types import Fig2Config
 from src.experiments.paper_figures.run_paper_figures import (
@@ -104,10 +100,10 @@ def run_c5_seed(
         TASK_FIXED_B_HISTORY_BANK: history_dir,
     }
     before_hashes = _parent_file_hashes(parents)
-    inputs = _load_parent(input_dir, TASK_FIXED_B_INPUT_BANK)
-    histories = _load_parent(history_dir, TASK_FIXED_B_HISTORY_BANK)
+    inputs = load_fixed_b_parent(input_dir, task_id=TASK_FIXED_B_INPUT_BANK)
+    histories = load_fixed_b_parent(history_dir, task_id=TASK_FIXED_B_HISTORY_BANK)
 
-    model_path = _resolve_model_path(
+    model_path = resolve_fixed_b_model_path(
         None,
         str(cfg.model_path_glob),
         int(network_seed),
@@ -122,7 +118,7 @@ def run_c5_seed(
         fixed_b_prefix_depths=tuple(int(value) for value in cfg.prefixes),
         smoke=False,
     )
-    ctx = _build_context(fig_cfg, load_model=True)
+    ctx = build_fixed_b_context(fig_cfg, load_model=True)
     dirs = _prepare_bundle_dirs(ctx.seed_dir)
     run_info = build_run_info(
         experiment_name=EXPERIMENT_ID,
@@ -144,7 +140,7 @@ def run_c5_seed(
         cell_frames: list[pd.DataFrame] = []
         audit_frames: list[pd.DataFrame] = []
         for prefix_k in tuple(int(value) for value in cfg.prefixes):
-            cells, audit = _run_prefix(
+            cells, audit = run_c5_prefix(
                 ctx,
                 inputs=inputs,
                 histories=histories,
@@ -294,11 +290,12 @@ def summarize_c5_endpoints(cells: pd.DataFrame, cfg: C5Config) -> pd.DataFrame:
             valid = part[valid_column].eq(1) & np.isfinite(part[endpoint])
             selected = part.loc[valid].copy()
             values = selected[endpoint].to_numpy(dtype=np.float64)
-            ci_low, ci_high = _crossed_bootstrap_mean_ci(
-                selected,
-                endpoint,
+            ci_low, ci_high = crossed_bootstrap_mean_ci(
+                values,
+                selected["history_family_id"].to_numpy(dtype=np.int64),
+                selected["b_anchor_id"].to_numpy(dtype=np.int64),
                 draws=int(cfg.bootstrap_draws),
-                seed=_stable_seed(endpoint, int(prefix_k)),
+                seed=stable_seed(endpoint, int(prefix_k)),
             )
             mean = float(values.mean()) if len(values) else float("nan")
             positive_fraction = float(np.mean(values > 0.0)) if len(values) else float("nan")
@@ -368,7 +365,7 @@ def screening_verdict(endpoint_summary: pd.DataFrame, identity: pd.DataFrame) ->
     }
 
 
-def _run_prefix(
+def run_c5_prefix(
     ctx: Any,
     *,
     inputs: FixedBArtifact,
@@ -379,18 +376,14 @@ def _run_prefix(
     max_anchors: int,
     max_history_families: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    all_rows = _history_rows_at_k(histories.tables["history_specs"], int(prefix_k))
-    selected = all_rows.loc[all_rows["history_condition"].isin(("A", "C"))].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(max_history_families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].copy()
-    _validate_history_pairs(selected)
-    row_indices = [int(value) for value in selected.index]
-    selected = selected.reset_index(drop=True)
-    history_boundary = _load_boundary(histories, int(prefix_k), row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K={prefix_k}: {elapsed}")
-    current_time = int(elapsed[0])
+    history_slice = load_paired_history_slice(
+        histories,
+        prefix_k=int(prefix_k),
+        max_families=int(max_history_families),
+    )
+    selected = history_slice.rows
+    history_boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(inputs.arrays["exact_b_spikes"], dtype=np.bool_)
     spatial_shape = tuple(int(value) for value in exact_inputs.shape[2:])
@@ -398,7 +391,7 @@ def _run_prefix(
     anchor_ids = [int(value) for value in mapping["b_anchor_id"]][: int(max_anchors)]
     mapping_by_anchor = mapping.set_index("b_anchor_id", drop=False)
     history_count = int(len(selected))
-    local_donor_indices = _paired_history_indices(selected)
+    local_donor_indices = history_slice.donor_indices
 
     cell_rows: list[dict[str, Any]] = []
     audit_rows: list[dict[str, Any]] = []
@@ -406,13 +399,13 @@ def _run_prefix(
         chunk_anchor_ids = anchor_ids[start : start + int(anchors_per_chunk)]
         anchor_count = int(len(chunk_anchor_ids))
         cell_count = int(anchor_count * history_count)
-        repeated_history = _repeat_boundary(history_boundary, anchor_count)
+        repeated_history = repeat_boundary(history_boundary, anchor_count)
         b_input = np.repeat(
             exact_inputs[np.asarray(chunk_anchor_ids, dtype=np.int64)],
             history_count,
             axis=0,
         )
-        _run_branch(
+        run_fixed_b_branch(
             ctx,
             boundary=repeated_history,
             input_seq=torch.as_tensor(b_input, device=ctx.device),
@@ -424,18 +417,17 @@ def _run_prefix(
             capture_strong_path=False,
             random_seed=int(ctx.cfg.network_seed) + 810_000 + 10_000 * int(prefix_k) + chunk_id,
         )
-        post_b = _snapshot_numpy(ctx.net)
+        post_b = snapshot_boundary_numpy(ctx.net)
         donor_indices = np.concatenate(
             [local_donor_indices + anchor_index * history_count for anchor_index in range(anchor_count)]
         ).astype(np.int64, copy=False)
-        identity_indices = np.arange(cell_count, dtype=np.int64)
-        l2_swap = _mix_layer2_stsp_by_index(post_b, donor_indices)
-        own_sham = _mix_layer2_stsp_by_index(post_b, identity_indices)
-        mix_exact = _layer2_mix_is_exact(l2_swap, post_b, donor_indices)
-        sham_boundary_exact = _boundary_exact_equal(own_sham, post_b)
-
-        conditions = _concatenate_boundaries([post_b, l2_swap, own_sham])
-        restore_audit = _audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
+        conditions, slices, transplant_audit = prepare_layer2_stsp_transplant(
+            post_b,
+            donor_indices,
+        )
+        mix_exact = transplant_audit["layer2_only_mix_exact"]
+        sham_boundary_exact = transplant_audit["own_sham_boundary_exact"]
+        restore_audit = audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
         c_anchor_ids = [int(mapping_by_anchor.loc[anchor_id, "c_anchor_id"]) for anchor_id in chunk_anchor_ids]
         c_input = np.repeat(
             exact_inputs[np.asarray(c_anchor_ids, dtype=np.int64)],
@@ -449,7 +441,7 @@ def _run_prefix(
         ]
         c_tensor_identical = len(set(c_hashes)) == 1
         probe_time = current_time + int(ctx.cfg.fixed_b_stimulus_steps) + int(ctx.cfg.fixed_b_post_steps)
-        c_result = _run_transition_capture(
+        c_result = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -457,7 +449,7 @@ def _run_prefix(
             passive=False,
             random_seed=int(ctx.cfg.network_seed) + 820_000 + 10_000 * int(prefix_k) + chunk_id,
         )
-        zero_result = _run_transition_capture(
+        zero_result = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -465,12 +457,7 @@ def _run_prefix(
             passive=True,
             random_seed=int(ctx.cfg.network_seed) + 821_000 + 10_000 * int(prefix_k) + chunk_id,
         )
-        corrected = _passive_corrected_effects(c_result, zero_result)
-        slices = {
-            "native": slice(0, cell_count),
-            "layer2_swap": slice(cell_count, 2 * cell_count),
-            "own_sham": slice(2 * cell_count, 3 * cell_count),
-        }
+        corrected = correct_passive_successor_effects(c_result, zero_result)
         native_l2 = corrected["early_layer2_event_map"][slices["native"]]
         swap_l2 = corrected["early_layer2_event_map"][slices["layer2_swap"]]
         sham_l2 = corrected["early_layer2_event_map"][slices["own_sham"]]
@@ -562,178 +549,6 @@ def _run_prefix(
     return cells, audit
 
 
-def _run_transition_capture(
-    ctx: Any,
-    *,
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    input_seq: torch.Tensor,
-    current_time: int,
-    passive: bool,
-    random_seed: int,
-) -> dict[str, np.ndarray]:
-    seed_everything(int(random_seed))
-    batch_size, stimulus_steps, channels, height, width = input_seq.shape
-    shapes = build_layer_input_shapes(ctx.net, batch_size, channels, height, width)
-    _restore_boundary(ctx.net, boundary, shapes, mode="stsp_only", device=ctx.device)
-    ctx.net.layer3.reset_decision_state()
-    with torch.no_grad():
-        ctx.net.layer3.v_mem.fill_(ctx.net.layer3.V_L)
-        ctx.net.layer3.lateral_inh.reset_state(ctx.net.layer3.output_shape)
-    l3_pre = _layer_ux_checkpoint(ctx.net.layer3, batch_size)
-    zero = torch.zeros((batch_size, channels, height, width), dtype=torch.bool, device=ctx.device)
-    early_map: torch.Tensor | None = None
-    total_steps = int(stimulus_steps + ctx.cfg.fixed_b_post_steps)
-    early_cutoff = min(int(ctx.cfg.fixed_b_early_window_steps), int(stimulus_steps))
-    with torch.no_grad():
-        for local_step in range(total_steps):
-            external = input_seq[:, local_step] if local_step < stimulus_steps and not passive else zero
-            _, _, s2, _, _, _ = _network_step(
-                ctx.net,
-                external,
-                current_time=int(current_time) + local_step,
-                layer2_replay_input=None,
-                layer3_time=local_step,
-                monitor_layer1=False,
-            )
-            if local_step < early_cutoff:
-                value = s2.detach().to(torch.float32)
-                early_map = value.clone() if early_map is None else early_map + value
-    if early_map is None:
-        raise RuntimeError("Early Layer-2 capture window was empty")
-    return {
-        "early_layer2_event_map": early_map.cpu().numpy().astype(np.float32, copy=False),
-        "layer3_ux_pre": l3_pre,
-        "layer3_ux_post": _layer_ux_checkpoint(ctx.net.layer3, batch_size),
-    }
-
-
-def _passive_corrected_effects(
-    active: Mapping[str, np.ndarray],
-    passive: Mapping[str, np.ndarray],
-) -> dict[str, np.ndarray]:
-    active_l3 = np.asarray(active["layer3_ux_post"], dtype=np.float32) - np.asarray(
-        active["layer3_ux_pre"], dtype=np.float32
-    )
-    passive_l3 = np.asarray(passive["layer3_ux_post"], dtype=np.float32) - np.asarray(
-        passive["layer3_ux_pre"], dtype=np.float32
-    )
-    return {
-        "early_layer2_event_map": np.asarray(active["early_layer2_event_map"], dtype=np.float32)
-        - np.asarray(passive["early_layer2_event_map"], dtype=np.float32),
-        "layer3_successor_ux": active_l3 - passive_l3,
-    }
-
-
-def _mix_layer2_stsp_by_index(
-    receiver: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    donor_indices: np.ndarray,
-) -> dict[str, dict[str, np.ndarray]]:
-    donor_indices = np.asarray(donor_indices, dtype=np.int64)
-    output: dict[str, dict[str, np.ndarray]] = {}
-    for layer in LAYER_KEYS:
-        output[layer] = {}
-        for state, value in receiver[layer].items():
-            array = _to_numpy(value)
-            source = array[donor_indices] if layer == "layer2" and state in STSP_STATE_KEYS else array
-            output[layer][state] = source.copy()
-    return output
-
-
-def _layer2_mix_is_exact(
-    mixed: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    receiver: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    donor_indices: np.ndarray,
-) -> bool:
-    for layer in LAYER_KEYS:
-        for state, value in mixed[layer].items():
-            receiver_value = _to_numpy(receiver[layer][state])
-            expected = (
-                receiver_value[np.asarray(donor_indices, dtype=np.int64)]
-                if layer == "layer2" and state in STSP_STATE_KEYS
-                else receiver_value
-            )
-            if not _arrays_bitwise_equal(value, expected):
-                return False
-    return True
-
-
-def _audit_stsp_only_restore(
-    ctx: Any,
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    *,
-    input_shape: Sequence[int],
-) -> dict[str, bool]:
-    batch_size = int(_to_numpy(boundary["layer1"]["u"]).shape[0])
-    shapes = build_layer_input_shapes(ctx.net, batch_size, *[int(value) for value in input_shape])
-    _restore_boundary(ctx.net, boundary, shapes, mode="stsp_only", device=ctx.device)
-    restored = _snapshot_numpy(ctx.net)
-    all_stsp_exact = all(
-        _arrays_bitwise_equal(boundary[layer][state], restored[layer][state])
-        for layer in LAYER_KEYS
-        for state in STSP_STATE_KEYS
-        if state in boundary[layer]
-    )
-    fast_state_uniform = True
-    for layer in LAYER_KEYS:
-        for state in FAST_STATE_KEYS:
-            value = restored[layer][state]
-            if len(value) > 1 and not _arrays_bitwise_equal(value, np.repeat(value[:1], len(value), axis=0)):
-                fast_state_uniform = False
-    return {"all_stsp_exact": bool(all_stsp_exact), "fast_state_uniform": bool(fast_state_uniform)}
-
-
-def _validate_history_pairs(selected: pd.DataFrame) -> None:
-    if selected.empty:
-        raise RuntimeError("No A/C histories were selected")
-    counts = selected.groupby(["history_family_id", "history_condition"]).size().unstack(fill_value=0)
-    if set(counts.columns) != {"A", "C"} or not counts.eq(1).all().all():
-        raise RuntimeError("Every selected history family must contain exactly one A and one C row")
-
-
-def _paired_history_indices(selected: pd.DataFrame) -> np.ndarray:
-    lookup = {
-        (int(row.history_family_id), str(row.history_condition)): int(index)
-        for index, row in enumerate(selected.itertuples(index=False))
-    }
-    output = []
-    for row in selected.itertuples(index=False):
-        donor_condition = "C" if str(row.history_condition) == "A" else "A"
-        output.append(lookup[(int(row.history_family_id), donor_condition)])
-    return np.asarray(output, dtype=np.int64)
-
-
-def _crossed_bootstrap_mean_ci(
-    frame: pd.DataFrame,
-    value_column: str,
-    *,
-    draws: int,
-    seed: int,
-) -> tuple[float, float]:
-    if frame.empty:
-        return float("nan"), float("nan")
-    families = sorted(int(value) for value in frame["history_family_id"].unique())
-    anchors = sorted(int(value) for value in frame["b_anchor_id"].unique())
-    family_index = {value: index for index, value in enumerate(families)}
-    anchor_index = {value: index for index, value in enumerate(anchors)}
-    f_rows = frame["history_family_id"].astype(int).map(family_index).to_numpy(dtype=np.int64)
-    a_rows = frame["b_anchor_id"].astype(int).map(anchor_index).to_numpy(dtype=np.int64)
-    values = frame[value_column].to_numpy(dtype=np.float64)
-    rng = np.random.default_rng(int(seed))
-    means = np.empty(int(draws), dtype=np.float64)
-    for draw in range(int(draws)):
-        f_sample = rng.integers(0, len(families), size=len(families))
-        a_sample = rng.integers(0, len(anchors), size=len(anchors))
-        f_weight = np.bincount(f_sample, minlength=len(families))[f_rows]
-        a_weight = np.bincount(a_sample, minlength=len(anchors))[a_rows]
-        weights = f_weight * a_weight
-        denominator = float(weights.sum())
-        means[draw] = float(np.sum(values * weights) / denominator) if denominator > 0 else float("nan")
-    finite = means[np.isfinite(means)]
-    if not len(finite):
-        return float("nan"), float("nan")
-    return float(np.percentile(finite, 2.5)), float(np.percentile(finite, 97.5))
-
-
 def _row_cosine(first: np.ndarray, second: np.ndarray) -> np.ndarray:
     a = np.asarray(first, dtype=np.float32).reshape(len(first), -1)
     b = np.asarray(second, dtype=np.float32).reshape(len(second), -1)
@@ -745,12 +560,6 @@ def _row_cosine(first: np.ndarray, second: np.ndarray) -> np.ndarray:
     return out
 
 
-def _layer_ux_checkpoint(layer: Any, batch_size: int) -> np.ndarray:
-    u = layer.u_pre.detach().reshape(batch_size, -1).cpu().numpy()
-    x = layer.x_pre.detach().reshape(batch_size, -1).cpu().numpy()
-    return np.concatenate([u, x], axis=1).astype(np.float32, copy=False)
-
-
 def _flatten_ux(
     boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
     *,
@@ -759,65 +568,6 @@ def _flatten_ux(
     u = _to_numpy(boundary[layer]["u"]).reshape(_to_numpy(boundary[layer]["u"]).shape[0], -1)
     x = _to_numpy(boundary[layer]["x"]).reshape(_to_numpy(boundary[layer]["x"]).shape[0], -1)
     return np.concatenate([u, x], axis=1).astype(np.float32, copy=False)
-
-
-def _snapshot_numpy(net: Any) -> dict[str, dict[str, np.ndarray]]:
-    snapshot = snapshot_boundary_state(net)
-    return {
-        layer: {state: _to_numpy(value).copy() for state, value in layer_values.items()}
-        for layer, layer_values in snapshot.items()
-    }
-
-
-def _repeat_boundary(
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    repeats: int,
-) -> dict[str, dict[str, np.ndarray]]:
-    return {
-        layer: {
-            state: np.concatenate([_to_numpy(value)] * int(repeats), axis=0)
-            for state, value in layer_values.items()
-        }
-        for layer, layer_values in boundary.items()
-    }
-
-
-def _concatenate_boundaries(
-    boundaries: Sequence[Mapping[str, Mapping[str, np.ndarray | torch.Tensor]]],
-) -> dict[str, dict[str, np.ndarray]]:
-    if not boundaries:
-        raise ValueError("At least one boundary is required")
-    return {
-        layer: {
-            state: np.concatenate([_to_numpy(boundary[layer][state]) for boundary in boundaries], axis=0)
-            for state in boundaries[0][layer]
-        }
-        for layer in boundaries[0]
-    }
-
-
-def _boundary_exact_equal(
-    first: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    second: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-) -> bool:
-    if set(first) != set(second):
-        return False
-    return all(
-        set(first[layer]) == set(second[layer])
-        and all(_arrays_bitwise_equal(first[layer][state], second[layer][state]) for state in first[layer])
-        for layer in first
-    )
-
-
-def _load_parent(task_dir: Path, task_id: str) -> FixedBArtifact:
-    cache_path = Path(task_dir) / "cache_key.json"
-    if not cache_path.exists():
-        raise FileNotFoundError(f"Required parent cache key is missing: {cache_path}")
-    wrapper = json.loads(cache_path.read_text(encoding="utf-8"))
-    expected = wrapper.get("cache_key")
-    if not isinstance(expected, dict) or str(expected.get("task_id")) != str(task_id):
-        raise RuntimeError(f"Parent task/cache-key mismatch at {task_dir}")
-    return load_fixed_b_artifact(Path(task_dir), expected, task_id=str(task_id))
 
 
 def _parent_file_hashes(parents: Mapping[str, Path]) -> pd.DataFrame:
@@ -926,30 +676,12 @@ def _array_sha256(value: np.ndarray | torch.Tensor) -> str:
     return hasher.hexdigest()
 
 
-def _arrays_bitwise_equal(
-    first: np.ndarray | torch.Tensor,
-    second: np.ndarray | torch.Tensor,
-) -> bool:
-    left = np.ascontiguousarray(_to_numpy(first))
-    right = np.ascontiguousarray(_to_numpy(second))
-    return (
-        left.shape == right.shape
-        and left.dtype == right.dtype
-        and left.tobytes(order="C") == right.tobytes(order="C")
-    )
-
-
 def _sha256_file(path: Path) -> str:
     hasher = hashlib.sha256()
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
-
-
-def _stable_seed(endpoint: str, prefix_k: int) -> int:
-    payload = f"{endpoint}:{int(prefix_k)}".encode("utf-8")
-    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
 
 
 def _to_numpy(value: np.ndarray | torch.Tensor) -> np.ndarray:

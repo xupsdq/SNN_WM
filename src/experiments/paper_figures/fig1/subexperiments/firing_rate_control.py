@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures.fig1.subexperiments.legacy_scope import inherit_legacy_globals
+from typing import Any, Mapping, Sequence
 
-inherit_legacy_globals(globals())
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig1.types import ExperimentContext
 
 def run_phase_firing_rate_control(ctx: ExperimentContext, rows: Sequence[Mapping[str, Any]]) -> None:
     df = pd.DataFrame(list(rows))

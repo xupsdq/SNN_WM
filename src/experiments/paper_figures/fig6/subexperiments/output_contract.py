@@ -1,11 +1,68 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from dataclasses import asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import (
+    prepare_seed_dirs,
+    relative_to_root as _rel,
+    resolve_seed_dir,
+    save_csv_with_registry,
+    write_json_file as _write_json,
+    write_run_log,
+)
+from src.experiments.paper_figures.fig6.constants import (
+    FIG6_DESIGN_VERSION,
+    FIGURE_ID,
+    MAIN_CLAIM,
+    MAIN_PANELS,
+    MAIN_REQUIRED_OUTPUTS,
+    MECHANISM_BOUNDARY,
+    MODEL_NAMES,
+    OPTIONAL_MAIN_OUTPUTS,
+    OPTIONAL_SUPPLEMENTARY_OUTPUTS,
+    PERTURBATION_UNIT_SET_ORDER,
+    SUPPLEMENT_PLAN,
+    SUPPLEMENTARY_OUTPUTS,
+    UPDATE_GROUPS,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _bool_col,
+    _peak_perturbation_claim_upgrade_allowed,
+    _peak_perturbation_status,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def write_run_log_file(ctx: ExperimentContext) -> None:
+    write_run_log(ctx, now_text=utc_now())
+
+
+def prepare_dirs(seed_dir: Path) -> dict[str, Path]:
+    return prepare_seed_dirs(seed_dir, include_root_layout=True)
+
+
+def seed_output_dir(output_root: Path, network_seed: int) -> Path:
+    return resolve_seed_dir(output_root, network_seed)
+
+
+def save_csv(ctx: ExperimentContext, df: pd.DataFrame, path: Path) -> None:
+    save_csv_with_registry(ctx, df, path)
+
+
+def rel(path: Path, root: Path) -> str:
+    return _rel(path, root)
+
+
 
 def _write_config_files(ctx: ExperimentContext) -> None:
     cfg = ctx.cfg

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as legacy
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
 from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 
@@ -107,9 +107,9 @@ def compute_morphology_decomposition(
         "morphology_serial_profile": pd.DataFrame(profile_rows),
         "morphology_boundary_metrics": pd.DataFrame(boundary_rows),
     }
-    legacy._save_csv(ctx, tables["morphology_item_support"], ctx.raw_dir / "panel_b_morphology_item_support.csv")
-    legacy._save_csv(ctx, tables["morphology_serial_profile"], ctx.metrics_dir / "panel_b_morphology_serial_profile.csv")
-    legacy._save_csv(ctx, tables["morphology_boundary_metrics"], ctx.metrics_dir / "panel_c_morphology_boundary_metrics.csv")
+    _save_csv(ctx, tables["morphology_item_support"], ctx.raw_dir / "panel_b_morphology_item_support.csv")
+    _save_csv(ctx, tables["morphology_serial_profile"], ctx.metrics_dir / "panel_b_morphology_serial_profile.csv")
+    _save_csv(ctx, tables["morphology_boundary_metrics"], ctx.metrics_dir / "panel_c_morphology_boundary_metrics.csv")
     ctx.completed_modules["morphology_decomposition"] = True
     return tables
 
@@ -175,8 +175,8 @@ def write_morphology_fit_outputs(ctx: ExperimentContext, boundary_metrics: pd.Da
             "saturating_fit_N_eff": saturating_pred,
         }
     )
-    legacy._save_csv(ctx, fit, ctx.metrics_dir / "supp_s3a_morphology_fit_comparison.csv")
-    legacy._save_csv(ctx, curve_points, ctx.metrics_dir / "supp_s3a_morphology_fit_curve_points.csv")
+    _save_csv(ctx, fit, ctx.metrics_dir / "supp_s3a_morphology_fit_comparison.csv")
+    _save_csv(ctx, curve_points, ctx.metrics_dir / "supp_s3a_morphology_fit_curve_points.csv")
     return fit, curve_points
 
 

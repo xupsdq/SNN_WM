@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+from typing import Any, Mapping
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.fig4.constants import CORE_CONDITIONS
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import _assign_bins
+from src.experiments.paper_figures.fig4.types import ExperimentContext, Fig4Config, OverlapReentryDMSBank
 
 def _iso_match_row(match_id: int, bin_name: str, high: pd.Series, low: pd.Series) -> dict[str, Any]:
     sim_diff = abs(float(high["pixel_similarity"]) - float(low["pixel_similarity"]))

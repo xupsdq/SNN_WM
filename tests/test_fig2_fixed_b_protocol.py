@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 import torch
 
+from src.experiments.common.inference import exact_sign_flip_p, holm_adjust
 from src.core.network import SDNN_Network
 from src.experiments.common.monitored_dms import build_layer_input_shapes, snapshot_boundary_state
 from src.experiments.common.ping_common import prepare_network_state
@@ -20,24 +21,22 @@ from src.experiments.paper_figures.fig2.fixed_b_protocol import (
     select_history_families,
     validate_seed_permission,
 )
+from src.experiments.paper_figures.fig2.successor_replay import (
+    FAST_STATE_KEYS,
+    STSP_STATE_KEYS,
+    restore_boundary_state,
+)
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_analysis import (
     _exact_b_audit,
     _fit_feature_model,
     _two_axis_masks,
 )
-from src.experiments.paper_figures.fig2.subexperiments.fixed_b_cohort import (
-    _exact_sign_flip_p,
-    _holm_adjust,
-)
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_mechanism_analysis import (
     _matched_random_coordinate_mean,
 )
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    FAST_STATE_KEYS,
     LAYER_KEYS,
-    STSP_STATE_KEYS,
     _mixed_swap_boundary,
-    _restore_boundary,
     pack_event_bits,
     unpack_event_bits,
 )
@@ -204,7 +203,7 @@ def test_serialized_boundary_restores_every_fast_and_stsp_state_exactly() -> Non
             layer.u_pre.zero_()
             layer.x_pre.zero_()
     shapes = build_layer_input_shapes(net, 2, 1, 28, 28)
-    _restore_boundary(net, expected, shapes, mode="full_boundary", device=torch.device("cpu"))
+    restore_boundary_state(net, expected, shapes, mode="full_boundary", device=torch.device("cpu"))
     restored = snapshot_boundary_state(net)
     for layer_name in LAYER_KEYS:
         for state_name in FAST_STATE_KEYS + STSP_STATE_KEYS:
@@ -294,17 +293,17 @@ def test_remaining_seed_gate_requires_exact_runtime_authorization(tmp_path: Path
 
 def test_v4_network_inference_helpers_are_exact_and_deterministic() -> None:
     values = np.ones(len(FULL_COHORT_SEEDS), dtype=np.float64)
-    assert _exact_sign_flip_p(values) == pytest.approx(
+    assert exact_sign_flip_p(values, alternative="greater") == pytest.approx(
         1.0 / (2 ** len(FULL_COHORT_SEEDS))
     )
     confirmatory_values = np.ones(
         len(CONFIRMATORY_SEEDS),
         dtype=np.float64,
     )
-    assert _exact_sign_flip_p(confirmatory_values) == pytest.approx(
+    assert exact_sign_flip_p(confirmatory_values, alternative="greater") == pytest.approx(
         1.0 / (2 ** len(CONFIRMATORY_SEEDS))
     )
-    adjusted = _holm_adjust(np.asarray([0.001, 0.02, 0.04]))
+    adjusted = holm_adjust(np.asarray([0.001, 0.02, 0.04]))
     assert np.allclose(adjusted, np.asarray([0.003, 0.04, 0.04]))
 
     coordinates = np.arange(20, dtype=np.float64)

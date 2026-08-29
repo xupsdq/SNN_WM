@@ -21,22 +21,14 @@ from PIL import Image
 
 from src.plotting.common.colors import get_plot_cmap, get_plot_color
 from src.plotting.paper_fig.final_six.renderer import (
-    MM_TO_INCH,
-    _as_figure_axes,
-    _plot_heatmap,
-    _plot_ordered_bars,
-    _plot_ordered_lines,
+    render_composed_figure,
 )
 from src.plotting.paper_fig.final_six.specs import get_figure_spec
-from src.plotting.paper_fig.typography import (
-    VECTOR_TEXT_RCPARAMS,
-    apply_paper_figure_typography,
-    mark_panel_label,
-)
 
 
 CANDIDATE_ID = "manuscript_fig6_reader_first_v3"
 CANVAS_MM = (165.0, 152.0)
+MM_TO_INCH = 1.0 / 25.4
 
 
 class BundleReader:
@@ -113,7 +105,15 @@ def _plot_order_confusion(
     for spine in axis.spines.values():
         spine.set_visible(False)
 
-    cax = fig.add_axes(_as_figure_axes((94.5, 9.8, 65.5, 1.4), CANVAS_MM))
+    x_mm, y_mm, width_mm, height_mm = (94.5, 9.8, 65.5, 1.4)
+    cax = fig.add_axes(
+        (
+            x_mm / CANVAS_MM[0],
+            1.0 - (y_mm + height_mm) / CANVAS_MM[1],
+            width_mm / CANVAS_MM[0],
+            height_mm / CANVAS_MM[1],
+        )
+    )
     colorbar = fig.colorbar(mesh, cax=cax, orientation="horizontal")
     colorbar.set_ticks([0.0, 0.5, 1.0])
     colorbar.ax.xaxis.set_ticks_position("top")
@@ -317,6 +317,7 @@ def render_manuscript_fig6_order_specificity(
         "plot_bbox_mm": [94.5, 12.0, 65.5, 32.0],
         "role": "establish structural temporal-order identification",
         "legend_owner": "colorbar",
+        "apply_standard_axis_style": False,
     }
     layout_contract = spec["layout_contract"]
     layout_contract["status"] = "candidate"
@@ -367,55 +368,30 @@ def render_manuscript_fig6_order_specificity(
     _write_json(output / "meta/plot_spec.json", spec)
 
     canvas_width, canvas_height = CANVAS_MM
-    with plt.rc_context({**VECTOR_TEXT_RCPARAMS, "svg.hashsalt": CANDIDATE_ID}):
-        fig = plt.figure(
-            figsize=(canvas_width * MM_TO_INCH, canvas_height * MM_TO_INCH),
-            dpi=300,
-            facecolor="white",
-        )
-        axes: dict[str, plt.Axes] = {}
-        colorbar_axes: dict[str, plt.Axes] = {}
-        for panel_id in ("a", "c", "d", "e", "f"):
-            panel_spec = spec["panels"][panel_id]
-            bbox = tuple(float(value) for value in panel_spec["plot_bbox_mm"])
-            axis = fig.add_axes(_as_figure_axes(bbox, CANVAS_MM))
-            axes[panel_id] = axis
-            if panel_spec["chart"] == "ordered_bars":
-                _plot_ordered_bars(axis, frames[panel_id], panel_spec)
-            elif panel_spec["chart"] == "ordered_lines":
-                _plot_ordered_lines(axis, frames[panel_id], panel_spec)
-            elif panel_spec["chart"] == "heatmap":
-                _plot_heatmap(fig, axis, frames[panel_id], panel_spec)
-                if panel_id in {"e", "f"}:
-                    colorbar_axes[panel_id] = fig.axes[-1]
-                    colorbar_axes[panel_id].tick_params(
-                        axis="x",
-                        pad=float(panel_spec["colorbar_tick_pad_pt"]),
-                    )
-            else:
-                raise RuntimeError(f"Unsupported retained panel chart: {panel_spec['chart']}")
+    order_artists: dict[str, Any] = {}
 
-        b_axis = fig.add_axes(_as_figure_axes((94.5, 12.0, 65.5, 32.0), CANVAS_MM))
-        axes["b"] = b_axis
-        b_colorbar_axis, b_colorbar_label = _plot_order_confusion(fig, b_axis, confusion)
+    def draw_order_confusion(
+        figure: plt.Figure,
+        axis: plt.Axes,
+        frame: pd.DataFrame,
+        _panel_spec: Mapping[str, Any],
+    ) -> None:
+        colorbar_axis, colorbar_label = _plot_order_confusion(figure, axis, frame)
+        order_artists["colorbar_axis"] = colorbar_axis
+        order_artists["colorbar_label"] = colorbar_label
 
-        panel_labels: dict[str, plt.Text] = {}
-        for panel_id, slot in spec["slots"].items():
-            x, y, _, _ = [float(value) for value in slot]
-            label = fig.text(
-                (x + 0.3) / canvas_width,
-                1.0 - (y + 0.6) / canvas_height,
-                panel_id,
-                ha="left",
-                va="top",
-                color=get_plot_color("ink"),
-                zorder=100,
-            )
-            mark_panel_label(label)
-            panel_labels[panel_id] = label
-        apply_paper_figure_typography(fig)
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
+    def verify_rendered_layout(
+        figure: plt.Figure,
+        axes: Mapping[str, plt.Axes],
+        panel_labels: Mapping[str, plt.Text],
+        auxiliary_axes: Mapping[str, tuple[plt.Axes, ...]],
+    ) -> None:
+        renderer = figure.canvas.get_renderer()
+        colorbar_axes = {
+            panel_id: auxiliary_axes[panel_id][-1] for panel_id in ("e", "f")
+        }
+        b_colorbar_axis = order_artists["colorbar_axis"]
+        b_colorbar_label = order_artists["colorbar_label"]
 
         def rendered_bbox_mm(artists: list[Any]) -> dict[str, float]:
             extents = [artist.get_tightbbox(renderer).extents for artist in artists]
@@ -423,7 +399,7 @@ def render_manuscript_fig6_order_specificity(
             y0 = min(float(extent[1]) for extent in extents)
             x1 = max(float(extent[2]) for extent in extents)
             y1 = max(float(extent[3]) for extent in extents)
-            scale = 25.4 / fig.dpi
+            scale = 25.4 / figure.dpi
             return {
                 "left": x0 * scale,
                 "right": x1 * scale,
@@ -444,19 +420,27 @@ def render_manuscript_fig6_order_specificity(
             [axes["f"], colorbar_axes["f"], panel_labels["f"]]
         )
 
-        def colorbar_label_tick_gap_mm(label: plt.Text, colorbar_axis: plt.Axes) -> float:
+        def colorbar_label_tick_gap_mm(
+            label: plt.Text, colorbar_axis: plt.Axes
+        ) -> float:
             label_box = label.get_tightbbox(renderer)
             tick_boxes = [
                 tick.get_tightbbox(renderer)
                 for tick in colorbar_axis.get_xticklabels()
                 if tick.get_visible()
             ]
-            return (float(label_box.y0) - max(float(box.y1) for box in tick_boxes)) * 25.4 / fig.dpi
+            return (
+                float(label_box.y0) - max(float(box.y1) for box in tick_boxes)
+            ) * 25.4 / figure.dpi
 
         colorbar_gaps = {
             "b": colorbar_label_tick_gap_mm(b_colorbar_label, b_colorbar_axis),
-            "e": colorbar_label_tick_gap_mm(colorbar_axes["e"].xaxis.label, colorbar_axes["e"]),
-            "f": colorbar_label_tick_gap_mm(colorbar_axes["f"].xaxis.label, colorbar_axes["f"]),
+            "e": colorbar_label_tick_gap_mm(
+                colorbar_axes["e"].xaxis.label, colorbar_axes["e"]
+            ),
+            "f": colorbar_label_tick_gap_mm(
+                colorbar_axes["f"].xaxis.label, colorbar_axes["f"]
+            ),
         }
         row_1_height_delta = abs(rendered_a["height"] - rendered_b["height"])
         row_1_top_delta = abs(rendered_a["top"] - rendered_b["top"])
@@ -486,20 +470,20 @@ def render_manuscript_fig6_order_specificity(
             raise RuntimeError(f"Rendered layout failed: {rendered_layout_qa}")
         _write_json(output / "meta/rendered_layout_qa.json", rendered_layout_qa)
 
-        figures = output / "figures"
-        png = figures / f"{CANDIDATE_ID}.png"
-        svg = figures / f"{CANDIDATE_ID}.svg"
-        pdf = figures / f"{CANDIDATE_ID}.pdf"
-        fig.savefig(svg, format="svg", facecolor="white", bbox_inches=None, metadata={"Date": None})
-        fig.savefig(pdf, format="pdf", facecolor="white", bbox_inches=None, metadata={"CreationDate": None})
-        fig.savefig(png, format="png", facecolor="white", bbox_inches=None, dpi=300)
-        plt.close(fig)
+    rendered = render_composed_figure(
+        spec=spec,
+        frames={**frames, "b": confusion},
+        figure_dir=output,
+        svg_hashsalt=CANDIDATE_ID,
+        custom_renderers={"order_confusion": draw_order_confusion},
+        after_draw=verify_rendered_layout,
+        export_mode="matplotlib",
+    )
+    png = rendered["png"]
+    svg = rendered["svg"]
+    pdf = rendered["pdf"]
 
     image = Image.open(png)
-    image.convert("L").save(
-        output / f"figures/qa/{CANDIDATE_ID}_grayscale.png",
-        dpi=(300, 300),
-    )
     expected_pixels = (
         round(canvas_width * MM_TO_INCH * 300),
         round(canvas_height * MM_TO_INCH * 300),

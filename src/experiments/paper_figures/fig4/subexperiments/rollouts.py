@@ -1,12 +1,41 @@
 from __future__ import annotations
 
-from src.experiments.distractor.shared.l3_replay import Layer3ReplaySnapshot
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+import math
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.common.monitored_dms import run_dms_snapshot_rollout, run_monitored_dms_rollout
+from src.experiments.common.voltage_readout import extract_class_voltage_scores
+from src.experiments.distractor.shared.l3_replay import Layer3ReplaySnapshot
+from src.experiments.distractor.shared.masking import run_overlap_perturbed_dms
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig4.constants import CORE_CONDITIONS, NUM_CLASSES, SAMPLE_SIDE_MASKS
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import (
+    _aggregate_prediction,
+    _bvec_summary,
+    _class_evidence_trace,
+    _compute_bvec,
+    _condition_sample_image,
+    _cti_summary,
+    _encode_batch,
+    _image_cache,
+    _panel_b_accuracy_drop_summary,
+    _progress,
+    _resolve_fig4_readout_step,
+    _sample_input_mask_for_condition,
+    _summary_by_bin,
+)
+from src.experiments.paper_figures.fig4.types import (
+    ExperimentContext,
+    Fig4Config,
+    OverlapPerturbationCompatibleBank,
+    OverlapReentryDMSBank,
+    SimilarityBiasCompatibleBank,
+)
+
 
 def _stsp_mode_for_condition(condition: str) -> str:
     return "static_frozen" if str(condition) == "full_static" else "dynamic"

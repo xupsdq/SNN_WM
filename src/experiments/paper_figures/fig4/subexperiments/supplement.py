@@ -1,11 +1,51 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig4_overlap_reentry_experiment as _legacy
+from pathlib import Path
+from typing import Sequence
 
-# Keep module-level names identical while Fig.4 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import (
+    copy_csv_alias,
+    save_csv_with_registry as _save_csv,
+    write_empty_csv_with_warning,
+)
+from src.experiments.paper_figures.fig4.subexperiments.helpers_1 import _iso_match_columns, _pair_effect_table
+from src.experiments.paper_figures.fig4.subexperiments.helpers_2 import _condition_audit, _random_mask_controls
+from src.experiments.paper_figures.fig4.types import ExperimentContext, OverlapReentryDMSBank
+
+
+def _csv_nonempty(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        return bool(not pd.read_csv(path).empty)
+    except Exception:
+        return False
+
+
+def _copy_csv_alias(
+    ctx: ExperimentContext,
+    src: Path,
+    dst: Path,
+    *,
+    empty_columns: Sequence[str],
+    reason: str,
+) -> None:
+    copy_csv_alias(ctx, src, dst, empty_columns=empty_columns, reason=reason, message_label="Fig.4 alias")
+
+
+def _write_empty_csv(ctx: ExperimentContext, dst: Path, columns: Sequence[str], reason: str) -> None:
+    write_empty_csv_with_warning(ctx, dst, columns, reason, message_label="Fig.4 alias")
+
+
+def _mean_existing(df: pd.DataFrame, columns: Sequence[str]) -> float:
+    for column in columns:
+        if column in df.columns:
+            values = pd.to_numeric(df[column], errors="coerce").dropna()
+            return float(values.mean()) if not values.empty else float("nan")
+    return float("nan")
 
 def compute_supplement_outputs(ctx: ExperimentContext, bank: OverlapReentryDMSBank) -> None:
     effect = _pair_effect_table(ctx, bank)

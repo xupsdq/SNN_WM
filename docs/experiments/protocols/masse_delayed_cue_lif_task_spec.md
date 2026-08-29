@@ -260,3 +260,4 @@ python -m src.experiments.masse_delayed_cue_lif.run plot           --profile smo
 - Masse 论文的主 DMS 与 DMRS90 比较分别训练任务网络；其 delayed-cue 变体让同一个网络在延迟中段接收规则。本规格选择后者作为最终任务，因为它在同一模型中同时包含维持与操作条件。
 - 本规格中的“操作”严格指任务关系从样本同向匹配变为顺时针 90° 匹配；任务成功不自动证明网络内部形成了某种特定神经或突触机制。
 - 如果正式模型未达到门槛，诊断顺序固定为：先验证 32 条件过拟合，再检查时间 mask 和标签，再检查梯度与状态重置，最后才调整 SFA 比例、隐藏单元数或优化参数。
+- 去慢电流/SFA 后的有/无 STSP 匹配对照不在本规格范围内，见 [`masse_delayed_cue_lif_stsp_match_spec.md`](masse_delayed_cue_lif_stsp_match_spec.md)。本规格的 formal 检查点在该对照中只作历史基线，不得覆盖。

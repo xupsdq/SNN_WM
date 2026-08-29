@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from typing import Any, Mapping, Sequence
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+import torch
+
+from src.experiments.paper_figures.common.bundle_io import save_csv_with_registry as _save_csv
+from src.experiments.paper_figures.fig3.constants import CUE_CONDITIONS, MEMORY_CONDITIONS, NUM_CLASSES
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _bottom_mask,
+    _encode_image_tensor_cached,
+    _first_float,
+    _foreground_mask,
+    _masked_image,
+    _progress,
+    _random_mask_like,
+    _run_weak_cue_multi_boundary_batch,
+    _top_mask,
+    _trim_or_expand_mask,
+)
+from src.experiments.paper_figures.fig3.types import ExperimentContext, MultiItemSequenceLandscapeBank
 
 def run_structural_weak_cue_classification_supplement(ctx: ExperimentContext, bank: MultiItemSequenceLandscapeBank) -> None:
     rng = np.random.default_rng(int(ctx.cfg.network_seed) + 707)

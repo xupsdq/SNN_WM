@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from src.experiments.paper_figures.fig6.constants import DOWNSTREAM_METRICS
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _save_csv
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _df_all_proxy, _regression_rows
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+
+def _write_standardized_panel_e_outputs(*args, **kwargs):
+    from src.experiments.paper_figures.fig6.subexperiments.supplement import _write_standardized_panel_e_outputs as _impl
+
+    return _impl(*args, **kwargs)
+
+
 
 def compute_real_peak_overlap_downstream_metrics(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     df = bank.downstream_metrics.copy()

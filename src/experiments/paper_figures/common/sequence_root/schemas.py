@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig3_fig6_shared_sequence_root"
 SCHEMA_VERSION = 1
 
@@ -16,8 +18,6 @@ TASK_IDS = (
     TASK_FIG3_STATE_BANK_VIEW,
     TASK_FIG6_SEQUENCE_BANK_VIEW,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 SEQUENCE_SPEC_FILES = {
     "sequence_trials": "sequence_trials.csv",
@@ -42,14 +42,6 @@ ROOT_BANK_MANIFEST_COLUMNS = (
 )
 
 
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
-
-
 __all__ = [
     "REUSE_MODES",
     "ROOT_BANK_MANIFEST_COLUMNS",
@@ -65,4 +57,3 @@ __all__ = [
     "TASK_SHARED_SEQUENCE_SPECS",
     "normalize_reuse_mode",
 ]
-

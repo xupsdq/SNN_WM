@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
 
+from src.experiments.paper_figures.common.artifact_runtime import cache_key_digest
 from src.experiments.paper_figures.fig4.schemas import (
     SCHEMA_NAME,
     SCHEMA_VERSION,
@@ -182,14 +182,6 @@ def build_rollouts_cache_key(cfg: Any, *, pair_hash: str) -> dict[str, Any]:
         "overlap_mask_mode": str(getattr(cfg, "overlap_mask_mode")),
         "smoke": bool(getattr(cfg, "smoke", False)),
     }
-
-
-def cache_key_digest(cache_key: Mapping[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(cache_key).encode("utf-8")).hexdigest()
-
-
-def _canonical_json(payload: Mapping[str, Any]) -> str:
-    return json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _json_safe(value: Any) -> Any:

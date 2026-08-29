@@ -1,11 +1,43 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig3_multiitem_peak_landscape_experiment as _legacy
+from dataclasses import asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
-# Keep module-level names identical while Fig.3 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import (
+    json_safe as _json_safe,
+    relative_to_root as _rel,
+    write_artifact_manifest,
+    write_json_file as _write_json,
+    write_run_log,
+)
+from src.experiments.paper_figures.fig3.constants import (
+    CUE_CONDITIONS,
+    FIG3_DESIGN_VERSION,
+    FIGURE_ID,
+    MEMORY_CONDITIONS,
+    PRIMARY_LAYER,
+    PRIMARY_STATE_VARIABLE,
+    SINGLE_NETWORK_MODE,
+)
+from src.experiments.paper_figures.fig3.subexperiments.helpers_1 import (
+    _first_float,
+    _missing_csv_columns,
+    _read_csv_if_exists,
+    _region_ping_current_matching_status,
+)
+from src.experiments.paper_figures.fig3.types import ExperimentContext
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def write_run_log_file(ctx: ExperimentContext) -> None:
+    write_run_log(ctx, now_text=utc_now())
 
 def _write_config_files(ctx: ExperimentContext) -> None:
     cfg = ctx.cfg

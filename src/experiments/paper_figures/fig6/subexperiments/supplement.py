@@ -1,11 +1,67 @@
 from __future__ import annotations
 
-from src.experiments.paper_figures import fig6_peak_amplified_reentry_experiment as _legacy
+from collections.abc import Sequence
+from typing import Any
 
-# Keep module-level names identical while Fig.6 is split into smaller files.
-for _name, _value in vars(_legacy).items():
-    if _name not in globals() and _name != "__builtins__":
-        globals()[_name] = _value
+import numpy as np
+import pandas as pd
+
+from src.experiments.paper_figures.common.bundle_io import write_json_file as _write_json
+from src.experiments.paper_figures.fig6.constants import DOWNSTREAM_METRICS, UPDATE_GROUPS
+from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
+    _copy_csv_if_exists,
+    _encode_sequence_cached,
+    _ensure_probe_trials,
+    _ms_to_steps,
+    _overlap_gated_group_metrics,
+    _overlap_gated_interaction_row,
+    _probe_entry_mask,
+    _progress,
+    _read_csv_if_exists,
+    _run_masked_ping_layer1_capture,
+    _run_real_probe_layer1_capture,
+    _save_csv,
+    collapse_layer1_spikes_spatial,
+    compute_entry_gated_stsp_score_map,
+    compute_gain_ratio_map,
+    compute_probe_overlap_map,
+    compute_score_quantile_metrics,
+    compute_spike_deflection_metrics,
+)
+from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
+    _alternative_peak_definitions,
+    _bool_col,
+    _claim_strength,
+    _cv_r2,
+    _df_all_proxy,
+    _df_all_true,
+    _fit_ols,
+    _global_support_controls,
+    _group_mask,
+    _is_proxy_mode,
+    _leave_one_out_timing_controls,
+    _matched_peak_comparison,
+    _mean_col,
+    _model_formula,
+    _peak_source_old_vs_recent,
+    _random_window_overlap_controls,
+    _real_downstream_metric_definitions,
+    _real_reentry_control_s0_static,
+    _recent_overlap_window_robustness,
+    _sequence_index,
+    _standardized_coef,
+    _trial_condition_audit,
+    _visual_energy_controls,
+)
+from src.experiments.paper_figures.fig6.subexperiments.peak_perturbation import (
+    _write_standardized_peak_perturbation_outputs,
+)
+from src.experiments.paper_figures.fig6.subexperiments.update_recency_model import (
+    compute_supp_update_recency_support_model,
+)
+from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
+
+
 
 def compute_supplement_outputs(ctx: ExperimentContext, bank: PeakAmplifiedReentryBank) -> None:
     """Active Fig.6 S11 reanalysis for overlap-gated STSP recruitment controls."""

@@ -1,6 +1,7 @@
 """Masse delayed-cue DMS+DMRS recurrent LIF experiment package."""
 
-from .config import MasseDelayedCueConfig, formal_config, overfit_config, smoke_config
+from .config import MasseDelayedCueConfig, formal_config, overfit_config, smoke_config, stripped_no_stsp_config, stripped_stsp_config
+from .decode import decode_run
 from .evaluate import evaluate_run
 from .model import RecurrentLifSfa
 from .plot import plot_run
@@ -21,5 +22,8 @@ __all__ = [
     "overfit_config",
     "plot_run",
     "smoke_config",
+    "stripped_no_stsp_config",
+    "stripped_stsp_config",
     "train_run",
+    "decode_run",
 ]

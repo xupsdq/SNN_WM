@@ -4,16 +4,19 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
+from src.experiments.common.input_masks import entry_mask_from_image
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.common.sequence_root.artifacts import (
     cache_key_matches,
     default_artifact_root,
     load_sequence_specs_artifact,
+    require_cache_key_match,
     save_root_bank_artifact,
     save_sequence_specs_artifact,
     task_artifact_dir,
@@ -33,6 +36,10 @@ from src.experiments.paper_figures.common.sequence_root.schemas import (
     TASK_SHARED_SEQUENCE_ROOT_BANK,
     TASK_SHARED_SEQUENCE_SPECS,
     normalize_reuse_mode,
+)
+from src.experiments.paper_figures.common.sequence_root.selection import (
+    select_matched_nonpeak_mask,
+    select_top_mask,
 )
 from src.experiments.paper_figures.common.specs.artifacts import materialize_spec_view
 from src.experiments.paper_figures.fig3 import run_task as fig3_rt
@@ -57,9 +64,6 @@ from src.experiments.paper_figures.fig6.cache_keys import (
 )
 from src.experiments.paper_figures.fig6.schemas import TASK_SEQUENCE_BANK as FIG6_TASK_SEQUENCE_BANK
 from src.experiments.paper_figures.fig6.schemas import TASK_SEQUENCE_TRIALS as FIG6_TASK_SEQUENCE_TRIALS
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _item_entry_mask
-from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _top_mask
-from src.experiments.paper_figures.fig6.subexperiments.sequence_bank import _matched_nonpeak_mask
 from src.experiments.paper_figures.fig6.types import PeakAmplifiedReentryBank
 from src.experiments.paper_figures.run_paper_figures import DEFAULT_DATASET_ROOT, DEFAULT_MODEL_PATH_GLOB
 
@@ -92,22 +96,52 @@ def main(argv: Sequence[str] | None = None) -> int:
     raise ValueError(f"Unsupported shared sequence-root task: {args.task}")
 
 
+def _materialize_sequence_root_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        recover_auto_load_errors=False,
+        cache_is_reusable=lambda: cache_key_matches(task_dir, expected_key),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_shared_sequence_specs(fig3_ctx, *, mode: str, artifact_root: Path, phase_timings: dict[str, float] | None = None):
     start = time.perf_counter()
     task_dir = task_artifact_dir(artifact_root, TASK_SHARED_SEQUENCE_SPECS)
     expected_key = build_shared_sequence_specs_cache_key(fig3_ctx.cfg)
     try:
-        if mode == "require":
-            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-        if mode == "auto" and cache_key_matches(task_dir, expected_key):
-            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-        sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
-        return save_sequence_specs_artifact(
-            task_dir,
-            sequence_trials=sequence_trials,
-            singleton_reference_trials=singleton_trials,
-            partial_cue_trials=partial_trials,
-            cache_key=expected_key,
+        def build():
+            sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
+            return save_sequence_specs_artifact(
+                task_dir,
+                sequence_trials=sequence_trials,
+                singleton_reference_trials=singleton_trials,
+                partial_cue_trials=partial_trials,
+                cache_key=expected_key,
+            )
+
+        return _materialize_sequence_root_artifact(
+            mode=mode,
+            task_dir=task_dir,
+            expected_key=expected_key,
+            load=lambda: load_sequence_specs_artifact(task_dir, expected_key=expected_key),
+            build=build,
         )
     finally:
         if phase_timings is not None:
@@ -126,7 +160,7 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         fig3_state_bank_key_digest=fig3_cache_key_digest(fig3_bank_key),
         fig6_sequence_bank_key_digest=fig6_cache_key_digest(fig6_bank_key),
     )
-    if mode == "require" and not cache_key_matches(task_dir, expected_key):
+    def load():
         from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
         start = time.perf_counter()
@@ -134,22 +168,17 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         if phase_timings is not None:
             phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
         return artifact
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
-        start = time.perf_counter()
-        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
-        if phase_timings is not None:
-            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
-        return artifact
-    if mode == "require":
-        from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
-
-        start = time.perf_counter()
-        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
-        if phase_timings is not None:
-            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
-        return artifact
+    build_requested = object()
+    selected = _materialize_sequence_root_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: build_requested,
+    )
+    if selected is not build_requested:
+        return selected
 
     shared_work = task_artifact_dir(artifact_root, "_shared_sequence_root_work")
     fig3_artifact_root = shared_work / "fig3"
@@ -274,7 +303,22 @@ def _materialize_fig6_bank_from_fig3(fig6_ctx, sequence_trials: pd.DataFrame, fi
         seq_len = int(group["seq_len"].iloc[0])
         image_ids = [int(v) for v in group["item_image_id"].tolist()]
         labels = [int(v) for v in group["item_label"].tolist()]
-        masks = np.stack([_item_entry_mask(fig6_ctx, image_id, fig6_ctx.cfg.sample_steps, cache=encode_cache) for image_id in image_ids], axis=0)
+        masks = np.stack(
+            [
+                entry_mask_from_image(
+                    fig6_ctx.dataset[int(image_id)][0],
+                    mode=str(fig6_ctx.cfg.real_probe_entry_mode),
+                    encoder=fig6_ctx.encoder,
+                    steps=int(fig6_ctx.cfg.sample_steps),
+                    device=fig6_ctx.device,
+                    foreground_threshold=float(fig6_ctx.cfg.foreground_threshold),
+                    cache=encode_cache,
+                    image_id=int(image_id),
+                )
+                for image_id in image_ids
+            ],
+            axis=0,
+        )
         exposure = masks.reshape(seq_len, -1).astype(np.float32)
         update_exposure_by_item[row_idx, :seq_len, :] = exposure
         item_activation_history[row_idx, :seq_len, :] = exposure
@@ -288,9 +332,17 @@ def _materialize_fig6_bank_from_fig3(fig6_ctx, sequence_trials: pd.DataFrame, fi
         g_baseline[row_idx] = _fig3_layer1_support(fig3_bank.arrays[int(sequence_id)]["S0"]["layer1"]["g"]).reshape(-1)
         g_final[row_idx] = _fig3_layer1_support(fig3_bank.arrays[int(sequence_id)]["S_final"]["layer1"]["g"]).reshape(-1)
         delta_support[row_idx] = g_final[row_idx] - g_baseline[row_idx]
-        peaks = _top_mask(delta_support[row_idx].reshape(28, 28), fig6_ctx.cfg.peak_q, positive=delta_support[row_idx].reshape(28, 28) > 0)
+        peaks = select_top_mask(
+            delta_support[row_idx].reshape(28, 28),
+            fig6_ctx.cfg.peak_q,
+            positive=delta_support[row_idx].reshape(28, 28) > 0,
+        )
         peak_mask[row_idx] = peaks.reshape(-1)
-        nonpeak_mask[row_idx] = _matched_nonpeak_mask(peak_mask[row_idx], prior_updated_mask[row_idx], int(fig6_ctx.cfg.network_seed) + sequence_id)
+        nonpeak_mask[row_idx] = select_matched_nonpeak_mask(
+            peak_mask[row_idx],
+            prior_updated_mask[row_idx],
+            int(fig6_ctx.cfg.network_seed) + sequence_id,
+        )
         boundaries[int(sequence_id)] = fig3_bank.boundaries[int(sequence_id)]["S_final"]
         sequence_meta_rows.append(
             {
