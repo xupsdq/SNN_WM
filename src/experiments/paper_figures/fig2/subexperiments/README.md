@@ -9,7 +9,7 @@
 - `fixed_b_analysis.py` 汇总固定 B 协议的主分析指标。
 - `fixed_b_cohort.py` 构建固定 B 多网络队列统计。
 - `fixed_b_mechanism_analysis.py` 计算固定 B 机制分解指标。
-- `fixed_b_runtime.py` 执行固定 B 的运行时流程。
+- `fixed_b_runtime.py` 执行固定 B 的运行时流程，并通过上层 successor replay Interface 进行网络步进和边界恢复。
 - `fixed_b_specs.py` 构造固定 B 试验规格。
 - `helpers.py` 提供共享状态、掩膜、读取和统计计算原语。
 - `linear_mixture.py` 拟合线性混合与残差模型。

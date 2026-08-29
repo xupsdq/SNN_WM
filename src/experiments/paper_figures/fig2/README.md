@@ -14,5 +14,6 @@
 - `run_task.py` 通过公共 artifact 生命周期按声明依赖执行 Fig.2 单项或 scope DAG task。
 - `run.py` 提供 Fig.2 批量运行入口。
 - `schemas.py` 定义 task 和表格 schema，并复用公共复用模式。
+- `successor_replay.py` 集中边界快照与恢复、successor transition capture、状态移植和精确性审计的公共 Interface。
 - `subexperiments/` 实现各项科学计算和共享计算原语。
 - `types.py` 定义 Fig.2 配置、运行上下文和状态库类型。

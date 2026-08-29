@@ -16,24 +16,12 @@ from src.experiments.c5_l2_successor_closure import (
     build_c_anchor_mapping,
     donor_transfer,
     summarize_c5_endpoints,
-    _audit_stsp_only_restore,
-    _boundary_exact_equal,
-    _concatenate_boundaries,
     _crossed_bootstrap_mean_ci,
-    _layer2_mix_is_exact,
-    _layer_ux_checkpoint,
     _load_parent,
-    _mix_layer2_stsp_by_index,
     _paired_history_indices,
-    _passive_corrected_effects,
-    _repeat_boundary,
     _run_prefix,
-    _run_transition_capture,
-    _snapshot_numpy,
     _validate_history_pairs,
 )
-from src.experiments.common.monitored_dms import build_layer_input_shapes
-from src.experiments.common.runtime import seed_everything
 from src.experiments.paper_figures.fig2.artifacts import write_cache_key
 from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
     FixedBArtifact,
@@ -41,17 +29,24 @@ from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
     save_fixed_b_artifact,
 )
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    FAST_STATE_KEYS,
-    STSP_STATE_KEYS,
     _encode_source_rows,
     _history_rows_at_k,
     _load_boundary,
-    _network_step,
-    _restore_boundary,
     _run_branch,
     _simulate_history_rows,
 )
 from src.experiments.paper_figures.fig2.run_task import _build_context, _resolve_model_path
+from src.experiments.paper_figures.fig2.successor_replay import (
+    FAST_STATE_KEYS,
+    STSP_STATE_KEYS,
+    audit_stsp_only_restore,
+    capture_successor_transition,
+    continue_successor_transition,
+    correct_passive_successor_effects,
+    prepare_layer2_stsp_transplant,
+    repeat_boundary,
+    snapshot_boundary_numpy,
+)
 from src.experiments.paper_figures.fig2.types import Fig2Config
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
@@ -894,15 +889,17 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         }
         b_input = torch.as_tensor(np.stack(batch_inputs, axis=0), device=ctx.device)
         base_seed = int(cfg.network_seed) + 914_000 + 10_000 * K10 + chunk_id
-        early_active = _run_transition_capture(
+        early_active = capture_successor_transition(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             passive=False, random_seed=base_seed + 0,
         )
-        early_passive = _run_transition_capture(
+        early_passive = capture_successor_transition(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             passive=True, random_seed=base_seed + 1,
         )
-        early_corrected = _passive_corrected_effects(early_active, early_passive)["early_layer2_event_map"]
+        early_corrected = correct_passive_successor_effects(early_active, early_passive)[
+            "early_layer2_event_map"
+        ]
         free = _run_branch(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             restore_mode="stsp_only", branch="free", replay_l1_pooled=None,
@@ -1058,56 +1055,6 @@ def build_d_anchor_mapping(b_specs: pd.DataFrame) -> pd.DataFrame:
     return mapping
 
 
-def _run_hop_continuation(
-    ctx: Any,
-    *,
-    boundary: Mapping[str, Mapping[str, np.ndarray | torch.Tensor]],
-    input_seq: torch.Tensor,
-    current_time: int,
-    passive: bool,
-    random_seed: int,
-    restore_mode: str,
-) -> dict[str, np.ndarray]:
-    """Run one input from a captured boundary without any further transplant.
-
-    restore_mode="full_boundary" continues the complete post-C state (the primary
-    two-hop branch); restore_mode="stsp_only" is the secondary attribution branch
-    that keeps only STSP and re-initializes fast variables. Only the Layer-3
-    per-item decision timer is reset, as in every probe protocol.
-    """
-    seed_everything(int(random_seed))
-    batch_size, stimulus_steps, channels, height, width = input_seq.shape
-    shapes = build_layer_input_shapes(ctx.net, batch_size, channels, height, width)
-    _restore_boundary(ctx.net, boundary, shapes, mode=restore_mode, device=ctx.device)
-    ctx.net.layer3.reset_decision_state()
-    l3_pre = _layer_ux_checkpoint(ctx.net.layer3, batch_size)
-    zero = torch.zeros((batch_size, channels, height, width), dtype=torch.bool, device=ctx.device)
-    early_map: torch.Tensor | None = None
-    total_steps = int(stimulus_steps + ctx.cfg.fixed_b_post_steps)
-    early_cutoff = min(int(ctx.cfg.fixed_b_early_window_steps), int(stimulus_steps))
-    with torch.no_grad():
-        for local_step in range(total_steps):
-            external = input_seq[:, local_step] if local_step < stimulus_steps and not passive else zero
-            _, _, s2, _, _, _ = _network_step(
-                ctx.net,
-                external,
-                current_time=int(current_time) + local_step,
-                layer2_replay_input=None,
-                layer3_time=local_step,
-                monitor_layer1=False,
-            )
-            if local_step < early_cutoff:
-                value = s2.detach().to(torch.float32)
-                early_map = value.clone() if early_map is None else early_map + value
-    if early_map is None:
-        raise RuntimeError("Early Layer-2 capture window was empty")
-    return {
-        "early_layer2_event_map": early_map.cpu().numpy().astype(np.float32, copy=False),
-        "layer3_ux_pre": l3_pre,
-        "layer3_ux_post": _layer_ux_checkpoint(ctx.net.layer3, batch_size),
-    }
-
-
 def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
     frozen_input_bank = _load_frozen_seed_artifact(cfg, "fixed_b_input_bank")
@@ -1169,7 +1116,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         chunk_anchor_ids = anchor_ids[start : start + int(cfg.anchors_per_chunk)]
         anchor_count = int(len(chunk_anchor_ids))
         cell_count = int(anchor_count * history_count)
-        repeated_history = _repeat_boundary(history_boundary, anchor_count)
+        repeated_history = repeat_boundary(history_boundary, anchor_count)
         b_input = np.repeat(
             exact_inputs[np.asarray(chunk_anchor_ids, dtype=np.int64)], history_count, axis=0
         )
@@ -1185,18 +1132,17 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             capture_strong_path=False,
             random_seed=int(ctx.cfg.network_seed) + 810_000 + 10_000 * 5 + chunk_id,
         )
-        post_b = _snapshot_numpy(ctx.net)
+        post_b = snapshot_boundary_numpy(ctx.net)
         donor_indices = np.concatenate(
             [local_donor_indices + anchor_index * history_count for anchor_index in range(anchor_count)]
         ).astype(np.int64, copy=False)
-        identity_indices = np.arange(cell_count, dtype=np.int64)
-        l2_swap = _mix_layer2_stsp_by_index(post_b, donor_indices)
-        own_sham = _mix_layer2_stsp_by_index(post_b, identity_indices)
-        mix_exact = _layer2_mix_is_exact(l2_swap, post_b, donor_indices)
-        sham_boundary_exact = _boundary_exact_equal(own_sham, post_b)
-
-        conditions = _concatenate_boundaries([post_b, l2_swap, own_sham])
-        restore_audit = _audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
+        conditions, slices, transplant_audit = prepare_layer2_stsp_transplant(
+            post_b,
+            donor_indices,
+        )
+        mix_exact = transplant_audit["layer2_only_mix_exact"]
+        sham_boundary_exact = transplant_audit["own_sham_boundary_exact"]
+        restore_audit = audit_stsp_only_restore(ctx, conditions, input_shape=spatial_shape)
         c_anchor_ids = [int(mapping_by_anchor.loc[anchor_id, "c_anchor_id"]) for anchor_id in chunk_anchor_ids]
         c_input = np.repeat(
             exact_inputs[np.asarray(c_anchor_ids, dtype=np.int64)], history_count, axis=0
@@ -1206,7 +1152,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             {_array_sha256(combined_c[index * cell_count : (index + 1) * cell_count]) for index in range(3)}
         ) == 1
         probe_time = current_time + int(ctx.cfg.fixed_b_stimulus_steps) + int(ctx.cfg.fixed_b_post_steps)
-        c_result = _run_transition_capture(
+        c_result = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -1214,8 +1160,8 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             passive=False,
             random_seed=int(ctx.cfg.network_seed) + 820_000 + 10_000 * 5 + chunk_id,
         )
-        post_c_full = _snapshot_numpy(ctx.net)
-        c_zero = _run_transition_capture(
+        post_c_full = snapshot_boundary_numpy(ctx.net)
+        c_zero = capture_successor_transition(
             ctx,
             boundary=conditions,
             input_seq=torch.as_tensor(combined_c, device=ctx.device),
@@ -1223,12 +1169,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             passive=True,
             random_seed=int(ctx.cfg.network_seed) + 821_000 + 10_000 * 5 + chunk_id,
         )
-        corrected = _passive_corrected_effects(c_result, c_zero)
-        slices = {
-            "native": slice(0, cell_count),
-            "layer2_swap": slice(cell_count, 2 * cell_count),
-            "own_sham": slice(2 * cell_count, 3 * cell_count),
-        }
+        corrected = correct_passive_successor_effects(c_result, c_zero)
         native_l2 = corrected["early_layer2_event_map"][slices["native"]]
         swap_l2 = corrected["early_layer2_event_map"][slices["layer2_swap"]]
         sham_l2 = corrected["early_layer2_event_map"][slices["own_sham"]]
@@ -1252,24 +1193,24 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         ) == 1
         d_time = probe_time + int(ctx.cfg.fixed_b_stimulus_steps) + int(ctx.cfg.fixed_b_post_steps)
         base_seed = int(ctx.cfg.network_seed) + EXTENSION_SEED_OFFSETS["exp_c_d_hop"] + 10_000 * 5 + chunk_id
-        d_result = _run_hop_continuation(
+        d_result = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=False, random_seed=base_seed + 0, restore_mode="full_boundary",
         )
-        d_zero = _run_hop_continuation(
+        d_zero = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=True, random_seed=base_seed + 1, restore_mode="full_boundary",
         )
-        d_secondary = _run_hop_continuation(
+        d_secondary = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=False, random_seed=base_seed + 2, restore_mode="stsp_only",
         )
-        d_secondary_zero = _run_hop_continuation(
+        d_secondary_zero = continue_successor_transition(
             ctx, boundary=post_c_full, input_seq=torch.as_tensor(combined_d, device=ctx.device),
             current_time=d_time, passive=True, random_seed=base_seed + 3, restore_mode="stsp_only",
         )
-        d_corrected = _passive_corrected_effects(d_result, d_zero)
-        d_secondary_corrected = _passive_corrected_effects(d_secondary, d_secondary_zero)
+        d_corrected = correct_passive_successor_effects(d_result, d_zero)
+        d_secondary_corrected = correct_passive_successor_effects(d_secondary, d_secondary_zero)
 
         d_native_l2 = d_corrected["early_layer2_event_map"][slices["native"]]
         d_swap_l2 = d_corrected["early_layer2_event_map"][slices["layer2_swap"]]
@@ -1447,5 +1388,3 @@ def _array_sha256(value: np.ndarray | torch.Tensor) -> str:
     hasher.update(json.dumps(list(array.shape), separators=(",", ":")).encode("ascii"))
     hasher.update(array.tobytes(order="C"))
     return hasher.hexdigest()
-
-

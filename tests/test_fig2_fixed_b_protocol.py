@@ -20,6 +20,11 @@ from src.experiments.paper_figures.fig2.fixed_b_protocol import (
     select_history_families,
     validate_seed_permission,
 )
+from src.experiments.paper_figures.fig2.successor_replay import (
+    FAST_STATE_KEYS,
+    STSP_STATE_KEYS,
+    restore_boundary_state,
+)
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_analysis import (
     _exact_b_audit,
     _fit_feature_model,
@@ -33,11 +38,8 @@ from src.experiments.paper_figures.fig2.subexperiments.fixed_b_mechanism_analysi
     _matched_random_coordinate_mean,
 )
 from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    FAST_STATE_KEYS,
     LAYER_KEYS,
-    STSP_STATE_KEYS,
     _mixed_swap_boundary,
-    _restore_boundary,
     pack_event_bits,
     unpack_event_bits,
 )
@@ -204,7 +206,7 @@ def test_serialized_boundary_restores_every_fast_and_stsp_state_exactly() -> Non
             layer.u_pre.zero_()
             layer.x_pre.zero_()
     shapes = build_layer_input_shapes(net, 2, 1, 28, 28)
-    _restore_boundary(net, expected, shapes, mode="full_boundary", device=torch.device("cpu"))
+    restore_boundary_state(net, expected, shapes, mode="full_boundary", device=torch.device("cpu"))
     restored = snapshot_boundary_state(net)
     for layer_name in LAYER_KEYS:
         for state_name in FAST_STATE_KEYS + STSP_STATE_KEYS:
