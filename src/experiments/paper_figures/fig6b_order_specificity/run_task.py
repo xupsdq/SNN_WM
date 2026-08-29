@@ -11,7 +11,7 @@ Tasks:
   data/singleton_reference_specs.csv (shared by all networks).
 - state_bank: simulate one network; persist data/intermediates/seed_<n>/.
 - analysis: load-only for parents; runs the pre-registered leave-one-set-out
-  candidate matching; writes metrics, summary, figure.
+  candidate matching; writes metrics, caption, and summary.
 - all: sequence_specs + state_bank (with --network-seed) or + analysis
   (without --network-seed).
 """

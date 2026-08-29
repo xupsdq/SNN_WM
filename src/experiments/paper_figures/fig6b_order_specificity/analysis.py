@@ -50,12 +50,6 @@ from src.experiments.paper_figures.fig6b_order_specificity.types import (
     ORDER_PERMUTATIONS,
     OrderSpecificityConfig,
 )
-from src.plotting.paper_fig.candidates.manuscript_fig6b_order_specificity import (
-    render_manuscript_fig6b_order_specificity,
-)
-from src.plotting.paper_fig.candidates.manuscript_fig6b_order_specificity_formal import (
-    render_formal_fig6b,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -689,21 +683,7 @@ def run_analysis(
         for seed in seeds
     }
 
-    # --- 5. Figure + visual QA (runtime render; plot-only replay is separate) --
-    if is_formal:
-        visual_qa = render_formal_fig6b(layout.root, plot_only=False)
-        visual_qa_path = layout.meta_file("formal_panel_visual_qa.json")
-    else:
-        visual_qa = render_manuscript_fig6b_order_specificity(
-            layout.root, plot_only=False
-        )
-        visual_qa_path = layout.meta_file("visual_qa.json")
-    visual_qa_path.write_text(
-        json.dumps(visual_qa, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-
-    # --- 6. Caption draft -----------------------------------------------------
+    # --- 5. Caption draft -----------------------------------------------------
     if is_formal:
         assert formal_statistics is not None
         _write_formal_caption_draft(
@@ -723,7 +703,7 @@ def run_analysis(
             per_network_margin,
         )
 
-    # --- 7. Summary -----------------------------------------------------------
+    # --- 6. Summary -----------------------------------------------------------
     null_summary = permutation_null.loc[
         permutation_null["is_summary_row"].fillna(0).astype(int).eq(1)
     ].copy()
