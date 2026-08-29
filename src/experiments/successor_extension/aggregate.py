@@ -33,11 +33,12 @@ from src.experiments.successor_extension.core import (
     TASK_EXP_C,
     TASK_K10_INPUT,
     TASK_K10_SPECS,
-    _parent_entry,
-    _repo_root,
-    _resolve,
-    _sha256_file,
-    _write_json,
+)
+from src.experiments.successor_extension.runtime import (
+    parent_entry,
+    resolve_repo_path,
+    sha256_file,
+    write_json,
 )
 
 AGGREGATE_EXPERIMENT_ID = "successor_extension_v1_confirmatory_20seed_aggregate"
@@ -265,8 +266,7 @@ def run_aggregate(
     bootstrap_draws: int = BOOTSTRAP_DRAWS,
     random_seed: int = RANDOM_SEED,
 ) -> dict[str, Any]:
-    repo_root = _repo_root()
-    root = _resolve(repo_root, output_root)
+    root = resolve_repo_path(output_root)
     seeds = tuple(int(value) for value in seeds)
     sensitivity_seeds = tuple(int(value) for value in sensitivity_seeds)
     _verify_coverage(root, seeds)
@@ -309,7 +309,7 @@ def run_aggregate(
         all_verdicts[scope] = verdicts
 
     verdict_path = out_dir / "verdict.json"
-    _write_json(
+    write_json(
         verdict_path,
         {
             "schema_name": SCHEMA_NAME,
@@ -336,18 +336,18 @@ def run_aggregate(
     saved[verdict_path.name] = str(verdict_path)
 
     parents: dict[str, Mapping[str, Any]] = {
-        TASK_K10_SPECS: _parent_entry(root / TASK_K10_SPECS),
-        TASK_K10_INPUT: _parent_entry(root / TASK_K10_INPUT),
+        TASK_K10_SPECS: parent_entry(root / TASK_K10_SPECS),
+        TASK_K10_INPUT: parent_entry(root / TASK_K10_INPUT),
     }
     for seed in seeds:
         for task in EXPERIMENT_ENDPOINTS:
             summary_path = root / f"seed_{int(seed)}" / "data" / "metrics" / task / "summary.json"
             parents[f"seed_{int(seed)}_{task}"] = {
                 "path": str(summary_path.resolve()),
-                "cache_key_sha256": _sha256_file(summary_path),
+                "cache_key_sha256": sha256_file(summary_path),
             }
     manifest_path = out_dir / "task_manifest.json"
-    _write_json(
+    write_json(
         manifest_path,
         {
             "schema_name": SCHEMA_NAME,
@@ -381,20 +381,20 @@ def run_aggregate(
         "saved_files": dict(sorted(saved.items())),
     }
     summary_path = out_dir / "summary.json"
-    _write_json(summary_path, summary)
+    write_json(summary_path, summary)
     saved[summary_path.name] = str(summary_path)
 
     artifact_manifest = {
         "experiment_id": AGGREGATE_EXPERIMENT_ID,
         "title": "20-seed confirmatory successor-extension population aggregate",
         "files": {
-            path.name: _sha256_file(path)
+            path.name: sha256_file(path)
             for path in sorted(out_dir.rglob("*"))
             if path.is_file() and path.name != "artifact_manifest.json"
         },
     }
     artifact_manifest_path = out_dir / "artifact_manifest.json"
-    _write_json(artifact_manifest_path, artifact_manifest)
+    write_json(artifact_manifest_path, artifact_manifest)
     saved[artifact_manifest_path.name] = str(artifact_manifest_path)
     return summary
 

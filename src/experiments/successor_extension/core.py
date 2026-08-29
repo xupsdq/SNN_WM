@@ -25,11 +25,9 @@ from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
     save_fixed_b_artifact,
 )
 from src.experiments.paper_figures.fig2.fixed_b_substrate import (
-    build_fixed_b_context,
     encode_fixed_b_sources,
     load_fixed_b_parent,
     load_paired_history_slice,
-    resolve_fixed_b_model_path,
     run_fixed_b_branch,
     simulate_fixed_b_histories,
 )
@@ -44,7 +42,6 @@ from src.experiments.paper_figures.fig2.successor_replay import (
     repeat_boundary,
     snapshot_boundary_numpy,
 )
-from src.experiments.paper_figures.fig2.types import Fig2Config
 from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
@@ -52,6 +49,13 @@ from src.experiments.paper_figures.run_paper_figures import (
 from src.experiments.common.dataset import build_class_index
 from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.ping_common import LAYER_KEYS
+from src.experiments.successor_extension.runtime import (
+    parent_entry,
+    resolve_repo_path,
+    seed_root,
+    sha256_file,
+    write_json,
+)
 
 EXPERIMENT_ID = "successor_extension"
 SCHEMA_NAME = "successor_extension"
@@ -103,42 +107,13 @@ class ExtensionConfig:
 
 
 # --------------------------------------------------------------------------- #
-# path / artifact helpers
+# artifact helpers
 # --------------------------------------------------------------------------- #
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
-def _resolve(repo_root: Path, value: str | Path) -> Path:
-    path = Path(value)
-    return path.resolve() if path.is_absolute() else (repo_root / path).resolve()
-
-
-def _sha256_file(path: Path) -> str:
-    hasher = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _write_csv(path: Path, frame: pd.DataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False, encoding="utf-8", lineterminator="\n")
-
-
-def _parent_entry(task_dir: Path) -> dict[str, Any]:
-    cache_path = Path(task_dir) / "cache_key.json"
-    return {
-        "path": str(Path(task_dir).resolve()),
-        "cache_key_sha256": _sha256_file(cache_path) if cache_path.exists() else "missing",
-    }
 
 
 def _write_task_manifest(
@@ -149,7 +124,7 @@ def _write_task_manifest(
     params: Mapping[str, Any],
     inference_scope: str = "single_seed_cohort_unit",
 ) -> None:
-    _write_json(
+    write_json(
         Path(task_dir) / "task_manifest.json",
         {
             "schema_name": SCHEMA_NAME,
@@ -180,43 +155,22 @@ def _cache_key(
     }
 
 
-def _build_ctx(cfg: ExtensionConfig, *, load_model: bool) -> Any:
-    repo_root = _repo_root()
-    model_path = resolve_fixed_b_model_path(
-        None, str(cfg.model_path_glob), int(cfg.network_seed), smoke=bool(cfg.smoke)
-    )
-    fig_cfg = Fig2Config(
-        model_path=str(model_path),
-        dataset_root=str(_resolve(repo_root, cfg.dataset_root)),
-        output_root=str(_resolve(repo_root, cfg.output_root)),
-        network_seed=int(cfg.network_seed),
-        device=str(cfg.device),
-        smoke=False,
-    )
-    return build_fixed_b_context(fig_cfg, load_model=load_model)
-
-
 def _load_frozen_protocol(cfg: ExtensionConfig) -> FixedBArtifact:
     return load_fixed_b_parent(
-        _resolve(_repo_root(), cfg.frozen_protocol_dir),
+        resolve_repo_path(cfg.frozen_protocol_dir),
         task_id=FROZEN_PROTOCOL_TASK_ID,
     )
 
 
 def _load_frozen_seed_artifact(cfg: ExtensionConfig, task_name: str) -> FixedBArtifact:
     return load_fixed_b_parent(
-        _resolve(_repo_root(), cfg.frozen_root)
+        resolve_repo_path(cfg.frozen_root)
         / f"seed_{int(cfg.network_seed)}"
         / "data"
         / "intermediates"
         / task_name,
         task_id=task_name,
     )
-
-
-def _seed_root(cfg: ExtensionConfig) -> Path:
-    return _resolve(_repo_root(), cfg.output_root) / f"seed_{int(cfg.network_seed)}"
-
 
 def _metric_summary_payload(
     cfg: ExtensionConfig, *, experiment: str, endpoints: Mapping[str, Any], extra: Mapping[str, Any]
@@ -341,7 +295,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
     addressable like every other successor-extension artifact.
     """
     specs = build_k10_extension_specs(cfg, dataset)
-    task_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS
+    task_dir = resolve_repo_path(cfg.output_root) / TASK_K10_SPECS
     task_dir.mkdir(parents=True, exist_ok=True)
     specs.to_csv(task_dir / "history_specs.csv", index=False, lineterminator="\n")
     key = _cache_key(
@@ -350,7 +304,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
         parents={},
         params={
             **SPECS_TASK_PARAMS,
-            "history_specs_sha256": _sha256_file(task_dir / "history_specs.csv"),
+            "history_specs_sha256": sha256_file(task_dir / "history_specs.csv"),
         },
     )
     write_cache_key(task_dir, key)
@@ -370,7 +324,7 @@ def save_k10_extension_specs(cfg: ExtensionConfig, dataset: Any) -> pd.DataFrame
 
 def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
     protocol = _load_frozen_protocol(cfg)
-    specs = pd.read_csv(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
+    specs = pd.read_csv(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
     used = set(int(value) for value in protocol.tables["history_input_manifest"]["image_id"])
 
     encode_rows: list[dict[str, Any]] = []
@@ -422,16 +376,16 @@ def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArti
         [protocol.arrays["history_spikes"], np.asarray(new_spikes)], axis=0
     ).astype(np.bool_, copy=False)
 
-    task_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT
-    specs_dir = _resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS
+    task_dir = resolve_repo_path(cfg.output_root) / TASK_K10_INPUT
+    specs_dir = resolve_repo_path(cfg.output_root) / TASK_K10_SPECS
     if not (specs_dir / "cache_key.json").exists():
         raise FileNotFoundError(
             "K10 extension specs parent has no cache key; run the "
             f"{TASK_K10_SPECS} task first: {specs_dir / 'cache_key.json'}"
         )
     parents = {
-        TASK_K10_SPECS: _parent_entry(specs_dir),
-        "fixed_b_frozen_protocol": _parent_entry(_resolve(_repo_root(), cfg.frozen_protocol_dir)),
+        TASK_K10_SPECS: parent_entry(specs_dir),
+        "fixed_b_frozen_protocol": parent_entry(resolve_repo_path(cfg.frozen_protocol_dir)),
     }
     key = _cache_key(
         TASK_K10_INPUT,
@@ -480,10 +434,10 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
     """Simulate the 10-item A/C histories from t=0; audit the 5-item checkpoint
     against the frozen per-seed K=5 history bank (bitwise identity gate)."""
     ext_inputs = load_fixed_b_parent(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
-    specs = pd.read_csv(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
+    specs = pd.read_csv(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS / "history_specs.csv")
 
     k5_specs = specs.copy()
     k5_specs["prefix_k"] = 5
@@ -543,12 +497,12 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
             "does not reproduce the frozen K=5 history bank bitwise; K=10 parent bank rejected."
         )
 
-    task_dir = _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY
+    task_dir = seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY
     parents = {
-        TASK_K10_SPECS: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_SPECS),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
-        "frozen_k5_history_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        TASK_K10_SPECS: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_SPECS),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
+        "frozen_k5_history_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_history_bank"
         ),
     }
@@ -574,7 +528,7 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
             }
         },
     )
-    _write_csv(_seed_root(cfg) / "data" / "metrics" / "k10_history_bank_k5_identity_audit.csv", audit)
+    _write_csv(seed_root(cfg) / "data" / "metrics" / "k10_history_bank_k5_identity_audit.csv", audit)
     _write_task_manifest(task_dir, task_id=TASK_K10_HISTORY, parents=parents, params=key["params"])
     return artifact
 
@@ -622,14 +576,14 @@ def _extension_screening_verdict(
 
 def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     ext_inputs = load_fixed_b_parent(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
     k10_bank = load_fixed_b_parent(
-        _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
+        seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
     c_map = build_c_anchor_mapping(k10_bank.tables["b_anchor_specs"])
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_A
-    _write_json(
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_A
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_A,
@@ -659,10 +613,10 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "c5_k10_cell_metrics.csv", cells)
     _write_csv(out_dir / "c5_k10_endpoint_summary.csv", endpoint_summary)
     _write_csv(out_dir / "c5_k10_identity_audit.csv", audit)
-    _write_json(out_dir / "c5_k10_screening_verdict.json", verdict)
+    write_json(out_dir / "c5_k10_screening_verdict.json", verdict)
     parents = {
-        TASK_K10_HISTORY: _parent_entry(_seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
+        TASK_K10_HISTORY: parent_entry(seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
     }
     _write_task_manifest(
         out_dir, task_id=TASK_EXP_A, parents=parents,
@@ -685,7 +639,7 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         },
         extra={"verdict": verdict, "n_cells": int(len(cells)), "n_chunks": int(audit["chunk_id"].nunique())},
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
 
 
@@ -775,13 +729,13 @@ def _history_contrast_attenuation(
 
 def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     ext_inputs = load_fixed_b_parent(
-        _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
+        resolve_repo_path(cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
     k10_bank = load_fixed_b_parent(
-        _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
+        seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_B
-    _write_json(
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_B
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_B,
@@ -974,8 +928,8 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "exp_b_mask_audit.csv", mask_audit)
     _write_csv(out_dir / "exp_b_network_summary.csv", summary_frame)
     parents = {
-        TASK_K10_HISTORY: _parent_entry(_seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
-        TASK_K10_INPUT: _parent_entry(_resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT),
+        TASK_K10_HISTORY: parent_entry(seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY),
+        TASK_K10_INPUT: parent_entry(resolve_repo_path(cfg.output_root) / TASK_K10_INPUT),
     }
     _write_task_manifest(out_dir, task_id=TASK_EXP_B, parents=parents, params={"prefix_k": K10, "families": cfg.families, "anchors": cfg.anchors})
     summary = _metric_summary_payload(
@@ -1002,7 +956,7 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "overlap_empty_cells": int(mask_audit["overlap_empty"].sum()),
         }},
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
 
 
@@ -1046,11 +1000,11 @@ def build_d_anchor_mapping(b_specs: pd.DataFrame) -> pd.DataFrame:
 def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
     frozen_input_bank = _load_frozen_seed_artifact(cfg, "fixed_b_input_bank")
-    out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_C
+    out_dir = seed_root(cfg) / "data" / "metrics" / TASK_EXP_C
     b_specs = frozen_k5_bank.tables["b_anchor_specs"]
     c_map = build_c_anchor_mapping(b_specs)
     d_map = build_d_anchor_mapping(b_specs)
-    _write_json(
+    write_json(
         out_dir / "protocol_freeze.json",
         {
             "experiment_id": TASK_EXP_C,
@@ -1309,12 +1263,12 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     _write_csv(out_dir / "exp_c_identity_audit.csv", audit)
     _write_csv(out_dir / "exp_c_network_summary.csv", summary_frame)
     parents = {
-        "frozen_k5_history_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        "frozen_k5_history_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_history_bank"
         ),
-        "frozen_input_bank": _parent_entry(
-            _resolve(_repo_root(), cfg.frozen_root)
+        "frozen_input_bank": parent_entry(
+            resolve_repo_path(cfg.frozen_root)
             / f"seed_{int(cfg.network_seed)}" / "data" / "intermediates" / "fixed_b_input_bank"
         ),
     }
@@ -1341,7 +1295,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "postC_fast_residual_l2_vmem_max_abs": float(audit["postC_fast_residual_l2_vmem_max_abs"].max()),
         },
     )
-    _write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "summary.json", summary)
     return summary
 
 

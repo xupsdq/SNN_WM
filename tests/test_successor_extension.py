@@ -8,8 +8,13 @@ donor-transfer invariants, and the outcome-blind overlap-mask builder.
 
 from __future__ import annotations
 
+import ast
+import hashlib
+import importlib
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -21,11 +26,97 @@ from src.experiments.c5_l2_successor_closure import (
     donor_transfer,
 )
 from src.experiments.successor_extension.core import (
+    _array_sha256,
     _extension_label,
     build_d_anchor_mapping,
     build_overlap_masks,
     pick_suffix_images_for_families,
 )
+
+
+def test_experiment_c_array_identity_hash_is_available_and_stable():
+    value = np.array([[1, 2], [3, 4]], dtype=np.int16)
+    assert _array_sha256(value) == (
+        "03fd8197b1e1033acd10db0dc8637d3e44a14f604ed0cd1592282e4462bcb6eb"
+    )
+
+
+def test_successor_extension_runner_entrypoint_imports():
+    importlib.import_module("src.experiments.successor_extension.runner")
+
+
+def test_successor_runtime_owns_paths_json_and_parent_identity(tmp_path):
+    runtime = importlib.import_module("src.experiments.successor_extension.runtime")
+    expected_repo_root = Path(__file__).resolve().parents[1]
+    assert runtime.repository_root() == expected_repo_root
+    assert runtime.resolve_repo_path("results/example") == (
+        expected_repo_root / "results" / "example"
+    ).resolve()
+
+    task_dir = tmp_path / "task"
+    task_dir.mkdir()
+    cache_bytes = b'{"cache_key":"frozen"}\n'
+    (task_dir / "cache_key.json").write_bytes(cache_bytes)
+
+    summary_path = tmp_path / "nested" / "summary.json"
+    runtime.write_json(summary_path, {"status": "completed", "seed": 1000})
+
+    summary_text = summary_path.read_text(encoding="utf-8")
+    assert summary_text == '{\n  "seed": 1000,\n  "status": "completed"\n}\n'
+    assert json.loads(summary_text) == {
+        "seed": 1000,
+        "status": "completed",
+    }
+    assert runtime.parent_entry(task_dir) == {
+        "path": str(task_dir.resolve()),
+        "cache_key_sha256": hashlib.sha256(cache_bytes).hexdigest(),
+    }
+    cfg = SimpleNamespace(output_root=str(tmp_path / "results"), network_seed=1000)
+    assert runtime.seed_root(cfg) == (tmp_path / "results" / "seed_1000").resolve()
+
+
+def test_successor_callers_cross_the_public_runtime_seam():
+    callers = (
+        Path("src/experiments/successor_extension/runner.py"),
+        Path("src/experiments/successor_extension/cohort.py"),
+        Path("src/experiments/successor_extension/aggregate.py"),
+    )
+    private_core_imports: list[str] = []
+    runtime_callers: set[Path] = set()
+    for path in callers:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom) or node.module is None:
+                continue
+            if node.module == "src.experiments.successor_extension.runtime":
+                runtime_callers.add(path)
+            if node.module == "src.experiments.successor_extension.core":
+                private_core_imports.extend(
+                    f"{path}:{node.lineno}:{alias.name}"
+                    for alias in node.names
+                    if alias.name.startswith("_")
+                )
+
+    assert private_core_imports == []
+    assert runtime_callers == set(callers)
+
+    core_path = Path("src/experiments/successor_extension/core.py")
+    core_tree = ast.parse(core_path.read_text(encoding="utf-8"), filename=str(core_path))
+    retired_helpers = {
+        "_build_ctx",
+        "_parent_entry",
+        "_repo_root",
+        "_resolve",
+        "_seed_root",
+        "_sha256_file",
+        "_write_json",
+    }
+    defined_names = {
+        node.name
+        for node in ast.walk(core_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert defined_names.isdisjoint(retired_helpers)
 
 
 def _synthetic_b_specs() -> pd.DataFrame:
