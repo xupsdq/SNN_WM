@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
+from src.experiments.common.input_masks import entry_mask_from_image
 from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.common.sequence_root.artifacts import (
     cache_key_matches,
@@ -36,6 +37,10 @@ from src.experiments.paper_figures.common.sequence_root.schemas import (
     TASK_SHARED_SEQUENCE_SPECS,
     normalize_reuse_mode,
 )
+from src.experiments.paper_figures.common.sequence_root.selection import (
+    select_matched_nonpeak_mask,
+    select_top_mask,
+)
 from src.experiments.paper_figures.common.specs.artifacts import materialize_spec_view
 from src.experiments.paper_figures.fig3 import run_task as fig3_rt
 from src.experiments.paper_figures.fig3.artifacts import save_sequence_specs_artifact as save_fig3_sequence_specs_artifact
@@ -59,9 +64,6 @@ from src.experiments.paper_figures.fig6.cache_keys import (
 )
 from src.experiments.paper_figures.fig6.schemas import TASK_SEQUENCE_BANK as FIG6_TASK_SEQUENCE_BANK
 from src.experiments.paper_figures.fig6.schemas import TASK_SEQUENCE_TRIALS as FIG6_TASK_SEQUENCE_TRIALS
-from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import _item_entry_mask
-from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import _top_mask
-from src.experiments.paper_figures.fig6.subexperiments.sequence_bank import _matched_nonpeak_mask
 from src.experiments.paper_figures.fig6.types import PeakAmplifiedReentryBank
 from src.experiments.paper_figures.run_paper_figures import DEFAULT_DATASET_ROOT, DEFAULT_MODEL_PATH_GLOB
 
@@ -301,7 +303,22 @@ def _materialize_fig6_bank_from_fig3(fig6_ctx, sequence_trials: pd.DataFrame, fi
         seq_len = int(group["seq_len"].iloc[0])
         image_ids = [int(v) for v in group["item_image_id"].tolist()]
         labels = [int(v) for v in group["item_label"].tolist()]
-        masks = np.stack([_item_entry_mask(fig6_ctx, image_id, fig6_ctx.cfg.sample_steps, cache=encode_cache) for image_id in image_ids], axis=0)
+        masks = np.stack(
+            [
+                entry_mask_from_image(
+                    fig6_ctx.dataset[int(image_id)][0],
+                    mode=str(fig6_ctx.cfg.real_probe_entry_mode),
+                    encoder=fig6_ctx.encoder,
+                    steps=int(fig6_ctx.cfg.sample_steps),
+                    device=fig6_ctx.device,
+                    foreground_threshold=float(fig6_ctx.cfg.foreground_threshold),
+                    cache=encode_cache,
+                    image_id=int(image_id),
+                )
+                for image_id in image_ids
+            ],
+            axis=0,
+        )
         exposure = masks.reshape(seq_len, -1).astype(np.float32)
         update_exposure_by_item[row_idx, :seq_len, :] = exposure
         item_activation_history[row_idx, :seq_len, :] = exposure
@@ -315,9 +332,17 @@ def _materialize_fig6_bank_from_fig3(fig6_ctx, sequence_trials: pd.DataFrame, fi
         g_baseline[row_idx] = _fig3_layer1_support(fig3_bank.arrays[int(sequence_id)]["S0"]["layer1"]["g"]).reshape(-1)
         g_final[row_idx] = _fig3_layer1_support(fig3_bank.arrays[int(sequence_id)]["S_final"]["layer1"]["g"]).reshape(-1)
         delta_support[row_idx] = g_final[row_idx] - g_baseline[row_idx]
-        peaks = _top_mask(delta_support[row_idx].reshape(28, 28), fig6_ctx.cfg.peak_q, positive=delta_support[row_idx].reshape(28, 28) > 0)
+        peaks = select_top_mask(
+            delta_support[row_idx].reshape(28, 28),
+            fig6_ctx.cfg.peak_q,
+            positive=delta_support[row_idx].reshape(28, 28) > 0,
+        )
         peak_mask[row_idx] = peaks.reshape(-1)
-        nonpeak_mask[row_idx] = _matched_nonpeak_mask(peak_mask[row_idx], prior_updated_mask[row_idx], int(fig6_ctx.cfg.network_seed) + sequence_id)
+        nonpeak_mask[row_idx] = select_matched_nonpeak_mask(
+            peak_mask[row_idx],
+            prior_updated_mask[row_idx],
+            int(fig6_ctx.cfg.network_seed) + sequence_id,
+        )
         boundaries[int(sequence_id)] = fig3_bank.boundaries[int(sequence_id)]["S_final"]
         sequence_meta_rows.append(
             {

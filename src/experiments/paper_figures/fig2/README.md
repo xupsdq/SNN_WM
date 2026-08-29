@@ -8,6 +8,7 @@
 - `constants.py` 定义 Fig.2 标识、状态条件、分析模型和输出常量。
 - `fixed_b_artifacts.py` 管理固定 B 协议的中间 artifact。
 - `fixed_b_protocol.py` 定义固定 B 配对采样和评估协议。
+- `fixed_b_substrate.py` 提供固定 B 模型上下文、冻结父产物、成对历史切片和分支运行的公共实验底座。
 - `fixed_b_transition.py` 执行固定 B 的状态转换分析。
 - `output.py` 写入配置、指标表、摘要、日志和 artifact manifest。
 - `registry.py` 将正式 scope 和仍受支持的兼容子实验映射到当前 DAG task，并声明严格归档项。

@@ -11,6 +11,7 @@ import torch
 
 from src.experiments.common.input_masks import foreground_mask
 from src.experiments.paper_figures.common.bundle_io import json_safe as _json_safe
+from src.experiments.paper_figures.common.sequence_root.selection import select_top_mask
 from src.experiments.paper_figures.fig6.constants import MATCHED_GROUP_COLUMNS, UPDATE_GROUPS
 from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
     _image_array,
@@ -147,30 +148,6 @@ def _blur3(arr: np.ndarray) -> np.ndarray:
         for dc in range(3):
             out += padded[dr : dr + arr.shape[0], dc : dc + arr.shape[1]]
     return out / 9.0
-
-def _top_mask(values: np.ndarray, q: float, *, positive: np.ndarray | None = None) -> np.ndarray:
-    arr = np.asarray(values, dtype=float)
-    eligible = np.isfinite(arr)
-    if positive is not None:
-        eligible &= np.asarray(positive, dtype=bool)
-    idx = np.flatnonzero(eligible.reshape(-1))
-    mask = np.zeros(arr.size, dtype=bool)
-    if idx.size:
-        count = max(1, int(math.ceil(float(q) * idx.size)))
-        chosen = idx[np.argsort(arr.reshape(-1)[idx])[-count:]]
-        mask[chosen] = True
-    return mask.reshape(arr.shape)
-
-def _matched_nonpeak_mask(peak: np.ndarray, pool: np.ndarray, seed: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    candidates = np.flatnonzero((~peak) & pool)
-    count = int(np.sum(peak))
-    if candidates.size < count:
-        candidates = np.flatnonzero(~peak)
-    chosen = rng.choice(candidates, size=min(count, candidates.size), replace=False) if candidates.size else np.asarray([], dtype=int)
-    out = np.zeros_like(peak, dtype=bool)
-    out[chosen] = True
-    return out
 
 def _matched_raw_overlap_groups(ctx: ExperimentContext, df: pd.DataFrame) -> pd.DataFrame:
     rows = []
@@ -633,8 +610,8 @@ def _alternative_peak_definitions(ctx: ExperimentContext, bank: PeakAmplifiedRee
     rows = []
     delta = bank.delta_support.reshape(-1)
     definitions = {
-        "top_10_percent": _top_mask(delta, 0.10, positive=delta > 0).reshape(-1),
-        "top_20_percent": _top_mask(delta, 0.20, positive=delta > 0).reshape(-1),
+        "top_10_percent": select_top_mask(delta, 0.10, positive=delta > 0).reshape(-1),
+        "top_20_percent": select_top_mask(delta, 0.20, positive=delta > 0).reshape(-1),
         "zscore_threshold": delta > (float(np.nanmean(delta)) + float(np.nanstd(delta))),
         "delta_support_threshold": delta > 0,
         "support_gini_based": delta > np.nanpercentile(delta, 80),
@@ -729,4 +706,4 @@ def _perturbation_unit_sets(ctx: ExperimentContext, bank: PeakAmplifiedReentryBa
             rows.append({"network_seed": int(ctx.cfg.network_seed), "sequence_id": int(meta.sequence_id), "probe_id": -1, "condition": "candidate_peak_unit", "unit_id": int(unit_id), "notes": "candidate set for overlap-aligned peak perturbation"})
     return pd.DataFrame(rows)
 
-__all__ = ('_foreground_mask', '_pairwise_image_sims', '_centered_cosine', '_safe_div', '_as_float_or_nan', '_nan_subtract', '_num', '_bool_value', '_mean_col', '_mean_bool', '_sem', '_dice', '_jaccard', '_plain_cosine', '_spearman', '_high_overlap_mask', '_normalize', '_resize_array', '_blur3', '_top_mask', '_matched_nonpeak_mask', '_matched_raw_overlap_groups', '_matched_lookup', '_sequence_index', '_is_proxy_mode', '_df_all_proxy', '_bool_col', '_df_all_true', '_main_proxy_mode', '_model_formula', '_perturbation_target', '_peak_perturbation_status', '_peak_perturbation_claim_upgrade_allowed', '_claim_strength', '_save_panel_d_example', '_save_panel_c_example', '_first_nonzero_step', '_class_readout_vector_from_trace', '_label_evidence', '_fire_delta', '_early_spike_count', '_spike_timing_metrics', '_regression_rows', '_fit_ols', '_cv_r2', '_normal_two_sided_p', '_standardized_coef', '_sigmoid', '_group_mask', '_shuffle_peak_enrichment', '_matched_random_controls', '_matched_peak_comparison', '_visual_energy_controls', '_alternative_peak_definitions', '_global_support_controls', '_leave_one_out_timing_controls', '_peak_source_old_vs_recent', '_recent_overlap_window_robustness', '_random_window_overlap_controls', '_real_reentry_control_s0_static', '_real_downstream_metric_definitions', '_trial_condition_audit', '_perturbation_unit_sets')
+__all__ = ('_foreground_mask', '_pairwise_image_sims', '_centered_cosine', '_safe_div', '_as_float_or_nan', '_nan_subtract', '_num', '_bool_value', '_mean_col', '_mean_bool', '_sem', '_dice', '_jaccard', '_plain_cosine', '_spearman', '_high_overlap_mask', '_normalize', '_resize_array', '_blur3', '_matched_raw_overlap_groups', '_matched_lookup', '_sequence_index', '_is_proxy_mode', '_df_all_proxy', '_bool_col', '_df_all_true', '_main_proxy_mode', '_model_formula', '_perturbation_target', '_peak_perturbation_status', '_peak_perturbation_claim_upgrade_allowed', '_claim_strength', '_save_panel_d_example', '_save_panel_c_example', '_first_nonzero_step', '_class_readout_vector_from_trace', '_label_evidence', '_fire_delta', '_early_spike_count', '_spike_timing_metrics', '_regression_rows', '_fit_ols', '_cv_r2', '_normal_two_sided_p', '_standardized_coef', '_sigmoid', '_group_mask', '_shuffle_peak_enrichment', '_matched_random_controls', '_matched_peak_comparison', '_visual_energy_controls', '_alternative_peak_definitions', '_global_support_controls', '_leave_one_out_timing_controls', '_peak_source_old_vs_recent', '_recent_overlap_window_robustness', '_random_window_overlap_controls', '_real_reentry_control_s0_static', '_real_downstream_metric_definitions', '_trial_condition_audit', '_perturbation_unit_sets')

@@ -22,9 +22,13 @@ from src.experiments.common.run_info import (
     finalize_run_info,
     write_run_info,
 )
-from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
-    FixedBArtifact,
-    load_fixed_b_artifact,
+from src.experiments.paper_figures.fig2.fixed_b_artifacts import FixedBArtifact
+from src.experiments.paper_figures.fig2.fixed_b_substrate import (
+    build_fixed_b_context,
+    load_fixed_b_parent,
+    load_paired_history_slice,
+    resolve_fixed_b_model_path,
+    run_fixed_b_branch,
 )
 from src.experiments.paper_figures.fig2.successor_replay import (
     FAST_STATE_KEYS,
@@ -36,18 +40,9 @@ from src.experiments.paper_figures.fig2.successor_replay import (
     repeat_boundary,
     snapshot_boundary_numpy,
 )
-from src.experiments.paper_figures.fig2.run_task import (
-    _build_context,
-    _resolve_model_path,
-)
 from src.experiments.paper_figures.fig2.schemas import (
     TASK_FIXED_B_HISTORY_BANK,
     TASK_FIXED_B_INPUT_BANK,
-)
-from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    _history_rows_at_k,
-    _load_boundary,
-    _run_branch,
 )
 from src.experiments.paper_figures.fig2.types import Fig2Config
 from src.experiments.paper_figures.run_paper_figures import (
@@ -105,10 +100,10 @@ def run_c5_seed(
         TASK_FIXED_B_HISTORY_BANK: history_dir,
     }
     before_hashes = _parent_file_hashes(parents)
-    inputs = _load_parent(input_dir, TASK_FIXED_B_INPUT_BANK)
-    histories = _load_parent(history_dir, TASK_FIXED_B_HISTORY_BANK)
+    inputs = load_fixed_b_parent(input_dir, task_id=TASK_FIXED_B_INPUT_BANK)
+    histories = load_fixed_b_parent(history_dir, task_id=TASK_FIXED_B_HISTORY_BANK)
 
-    model_path = _resolve_model_path(
+    model_path = resolve_fixed_b_model_path(
         None,
         str(cfg.model_path_glob),
         int(network_seed),
@@ -123,7 +118,7 @@ def run_c5_seed(
         fixed_b_prefix_depths=tuple(int(value) for value in cfg.prefixes),
         smoke=False,
     )
-    ctx = _build_context(fig_cfg, load_model=True)
+    ctx = build_fixed_b_context(fig_cfg, load_model=True)
     dirs = _prepare_bundle_dirs(ctx.seed_dir)
     run_info = build_run_info(
         experiment_name=EXPERIMENT_ID,
@@ -145,7 +140,7 @@ def run_c5_seed(
         cell_frames: list[pd.DataFrame] = []
         audit_frames: list[pd.DataFrame] = []
         for prefix_k in tuple(int(value) for value in cfg.prefixes):
-            cells, audit = _run_prefix(
+            cells, audit = run_c5_prefix(
                 ctx,
                 inputs=inputs,
                 histories=histories,
@@ -370,7 +365,7 @@ def screening_verdict(endpoint_summary: pd.DataFrame, identity: pd.DataFrame) ->
     }
 
 
-def _run_prefix(
+def run_c5_prefix(
     ctx: Any,
     *,
     inputs: FixedBArtifact,
@@ -381,18 +376,14 @@ def _run_prefix(
     max_anchors: int,
     max_history_families: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    all_rows = _history_rows_at_k(histories.tables["history_specs"], int(prefix_k))
-    selected = all_rows.loc[all_rows["history_condition"].isin(("A", "C"))].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(max_history_families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].copy()
-    _validate_history_pairs(selected)
-    row_indices = [int(value) for value in selected.index]
-    selected = selected.reset_index(drop=True)
-    history_boundary = _load_boundary(histories, int(prefix_k), row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K={prefix_k}: {elapsed}")
-    current_time = int(elapsed[0])
+    history_slice = load_paired_history_slice(
+        histories,
+        prefix_k=int(prefix_k),
+        max_families=int(max_history_families),
+    )
+    selected = history_slice.rows
+    history_boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(inputs.arrays["exact_b_spikes"], dtype=np.bool_)
     spatial_shape = tuple(int(value) for value in exact_inputs.shape[2:])
@@ -400,7 +391,7 @@ def _run_prefix(
     anchor_ids = [int(value) for value in mapping["b_anchor_id"]][: int(max_anchors)]
     mapping_by_anchor = mapping.set_index("b_anchor_id", drop=False)
     history_count = int(len(selected))
-    local_donor_indices = _paired_history_indices(selected)
+    local_donor_indices = history_slice.donor_indices
 
     cell_rows: list[dict[str, Any]] = []
     audit_rows: list[dict[str, Any]] = []
@@ -414,7 +405,7 @@ def _run_prefix(
             history_count,
             axis=0,
         )
-        _run_branch(
+        run_fixed_b_branch(
             ctx,
             boundary=repeated_history,
             input_seq=torch.as_tensor(b_input, device=ctx.device),
@@ -558,26 +549,6 @@ def _run_prefix(
     return cells, audit
 
 
-def _validate_history_pairs(selected: pd.DataFrame) -> None:
-    if selected.empty:
-        raise RuntimeError("No A/C histories were selected")
-    counts = selected.groupby(["history_family_id", "history_condition"]).size().unstack(fill_value=0)
-    if set(counts.columns) != {"A", "C"} or not counts.eq(1).all().all():
-        raise RuntimeError("Every selected history family must contain exactly one A and one C row")
-
-
-def _paired_history_indices(selected: pd.DataFrame) -> np.ndarray:
-    lookup = {
-        (int(row.history_family_id), str(row.history_condition)): int(index)
-        for index, row in enumerate(selected.itertuples(index=False))
-    }
-    output = []
-    for row in selected.itertuples(index=False):
-        donor_condition = "C" if str(row.history_condition) == "A" else "A"
-        output.append(lookup[(int(row.history_family_id), donor_condition)])
-    return np.asarray(output, dtype=np.int64)
-
-
 def _row_cosine(first: np.ndarray, second: np.ndarray) -> np.ndarray:
     a = np.asarray(first, dtype=np.float32).reshape(len(first), -1)
     b = np.asarray(second, dtype=np.float32).reshape(len(second), -1)
@@ -597,17 +568,6 @@ def _flatten_ux(
     u = _to_numpy(boundary[layer]["u"]).reshape(_to_numpy(boundary[layer]["u"]).shape[0], -1)
     x = _to_numpy(boundary[layer]["x"]).reshape(_to_numpy(boundary[layer]["x"]).shape[0], -1)
     return np.concatenate([u, x], axis=1).astype(np.float32, copy=False)
-
-
-def _load_parent(task_dir: Path, task_id: str) -> FixedBArtifact:
-    cache_path = Path(task_dir) / "cache_key.json"
-    if not cache_path.exists():
-        raise FileNotFoundError(f"Required parent cache key is missing: {cache_path}")
-    wrapper = json.loads(cache_path.read_text(encoding="utf-8"))
-    expected = wrapper.get("cache_key")
-    if not isinstance(expected, dict) or str(expected.get("task_id")) != str(task_id):
-        raise RuntimeError(f"Parent task/cache-key mismatch at {task_dir}")
-    return load_fixed_b_artifact(Path(task_dir), expected, task_id=str(task_id))
 
 
 def _parent_file_hashes(parents: Mapping[str, Path]) -> pd.DataFrame:

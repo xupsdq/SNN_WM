@@ -6,6 +6,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.experiments.paper_figures.common.sequence_root.selection import (
+    select_matched_nonpeak_mask,
+    select_top_mask,
+)
 from src.experiments.paper_figures.fig6.constants import (
     PRIMARY_LAYER,
     SEQUENCE_TRIAL_COLUMNS,
@@ -23,9 +27,7 @@ from src.experiments.paper_figures.fig6.subexperiments.helpers_1 import (
 )
 from src.experiments.paper_figures.fig6.subexperiments.helpers_2 import (
     _is_proxy_mode,
-    _matched_nonpeak_mask,
     _pairwise_image_sims,
-    _top_mask,
 )
 from src.experiments.paper_figures.fig6.types import ExperimentContext, PeakAmplifiedReentryBank
 
@@ -126,9 +128,17 @@ def run_sequence_bank(ctx: ExperimentContext, sequence_trials: pd.DataFrame) -> 
             g_baseline[row_idx] = baseline_map.reshape(-1).astype(np.float32)
             g_final[row_idx] = final_map.reshape(-1).astype(np.float32)
             delta_support[row_idx] = g_final[row_idx] - g_baseline[row_idx]
-            peaks = _top_mask(delta_support[row_idx].reshape(28, 28), ctx.cfg.peak_q, positive=delta_support[row_idx].reshape(28, 28) > 0)
+            peaks = select_top_mask(
+                delta_support[row_idx].reshape(28, 28),
+                ctx.cfg.peak_q,
+                positive=delta_support[row_idx].reshape(28, 28) > 0,
+            )
             peak_mask[row_idx] = peaks.reshape(-1)
-            nonpeak_mask[row_idx] = _matched_nonpeak_mask(peak_mask[row_idx], prior_updated_mask[row_idx], int(ctx.cfg.network_seed) + sequence_id)
+            nonpeak_mask[row_idx] = select_matched_nonpeak_mask(
+                peak_mask[row_idx],
+                prior_updated_mask[row_idx],
+                int(ctx.cfg.network_seed) + sequence_id,
+            )
             sequence_meta_rows.append(
                 {
                     "network_seed": int(ctx.cfg.network_seed),

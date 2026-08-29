@@ -28,14 +28,8 @@ import pandas as pd
 import torch
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
-from src.config.units import ms
-from src.core.network import SDNN_Network
-from src.data.encoding import DoGSpikeEncoder
-from src.experiments.common.dataset import build_class_index, encode_images
-from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
-from src.experiments.common.model_io import load_model_and_encoder
+from src.experiments.common.dataset import encode_images
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
-from src.experiments.common.runtime import resolve_device, seed_everything
 from src.experiments.paper_figures.common.bundle_io import (
     prepare_seed_dirs,
     relative_to_root,
@@ -79,10 +73,12 @@ from src.experiments.paper_figures.fig2.cache_keys import (
     pair_specs_hash,
 )
 from src.experiments.paper_figures.fig2.constants import FIGURE_ID, NUM_CLASSES, STATE_CONDITIONS
+from src.experiments.paper_figures.fig2.fixed_b_substrate import (
+    build_fixed_b_context,
+    resolve_fixed_b_model_path,
+)
 from src.experiments.paper_figures.fig2.output import (
     ms_to_steps,
-    prepare_dirs,
-    seed_output_dir,
     utc_now,
     write_config_files,
     write_run_log_file,
@@ -171,7 +167,6 @@ from src.experiments.paper_figures.run_paper_figures import (
     DEFAULT_DATASET_ROOT,
     DEFAULT_MODEL_PATH_GLOB,
     DEFAULT_OUTPUT_ROOT,
-    discover_checkpoints,
 )
 
 
@@ -207,7 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             and mode == "require"
         )
     )
-    ctx = _build_context(cfg, load_model=load_model)
+    ctx = build_fixed_b_context(cfg, load_model=load_model)
     artifact_root = _artifact_root_from_args(args, ctx.seed_dir)
     run_info = build_run_info(
         experiment_name=f"{FIGURE_ID}.{args.task}",
@@ -1017,54 +1012,6 @@ def _empty_bank(pair_trials: pd.DataFrame) -> PairEpisodeStateBank:
     )
 
 
-def _build_context(cfg: Fig2Config, *, load_model: bool = True) -> ExperimentContext:
-    seed_everything(int(cfg.network_seed))
-    seed_dir = seed_output_dir(Path(cfg.output_root), int(cfg.network_seed))
-    dirs = prepare_dirs(seed_dir)
-    device = resolve_device(cfg.device)
-    dataset = load_mnist_skeleton_dataset(cfg.dataset_root, cfg.split)
-    class_index = build_class_index(dataset, NUM_CLASSES)
-    max_duration = max(cfg.sample_ms, cfg.second_item_ms, cfg.weak_probe_ms, 100)
-    warnings: list[str] = []
-    if not load_model:
-        net = None
-        encoder = None
-    elif Path(cfg.model_path).exists():
-        net, encoder = load_model_and_encoder(cfg.model_path, device=device, dt=cfg.dt, max_duration_ms=max_duration)
-    elif cfg.smoke:
-        seed_everything(int(cfg.network_seed))
-        net = SDNN_Network(device=str(device)).to(device)
-        net.eval()
-        encoder = DoGSpikeEncoder(dt=cfg.dt, max_duration=max_duration * ms, device=str(device))
-        warnings.append(
-            "Model checkpoint missing; smoke mode used an untrained repo SDNN_Network instance. "
-            "Functional outputs are real network rollouts, but are not manuscript evidence."
-        )
-    else:
-        raise FileNotFoundError(f"Model checkpoint not found: {cfg.model_path}")
-    return ExperimentContext(
-        cfg=cfg,
-        seed_dir=seed_dir,
-        config_dir=dirs["config"],
-        trial_specs_dir=dirs["trial_specs"],
-        raw_dir=dirs["raw"],
-        metrics_dir=dirs["metrics"],
-        debug_dir=dirs["debug"],
-        device=device,
-        dataset=dataset,
-        class_index=class_index,
-        net=net,
-        encoder=encoder,
-        warnings=warnings,
-        output_files={},
-        completed_modules={},
-        run_log=[
-            f"{utc_now()} start {FIGURE_ID} task runner seed={cfg.network_seed} smoke={cfg.smoke} "
-            f"model_loaded={bool(load_model)}"
-        ],
-    )
-
-
 def _artifact_root_from_args(args: argparse.Namespace, seed_dir: Path) -> Path:
     if not args.artifact_root:
         root = default_artifact_root(seed_dir)
@@ -1080,24 +1027,6 @@ def _resolve_repo_path(value: str | Path) -> Path:
     if path.is_absolute():
         return path.resolve()
     return (DEFAULT_PROJECT_DEFAULTS.paths.repo_root / path).resolve()
-
-
-def _resolve_model_path(model_path: str | None, model_path_glob: str, network_seed: int, *, smoke: bool) -> Path:
-    if model_path:
-        return _resolve_repo_path(model_path)
-    try:
-        checkpoints = discover_checkpoints(str(model_path_glob))
-    except FileNotFoundError:
-        if smoke:
-            return _resolve_repo_path("results/missing_fig2_smoke_model.pth")
-        raise
-    by_seed = {int(item.seed): item.model_path for item in checkpoints}
-    if int(network_seed) not in by_seed:
-        if smoke:
-            return _resolve_repo_path("results/missing_fig2_smoke_model.pth")
-        known = ", ".join(str(seed) for seed in sorted(by_seed))
-        raise FileNotFoundError(f"No checkpoint for network seed {network_seed} matched --model-path-glob. Known seeds: {known}")
-    return by_seed[int(network_seed)]
 
 
 def _output_root_from_args(args: argparse.Namespace) -> Path:
@@ -1295,7 +1224,12 @@ def _config_from_args(args: argparse.Namespace) -> Fig2Config:
     run_all = task == TASK_ALL
     scope_subexperiments = set(SCOPE_SUBEXPERIMENTS.get(task, ()))
     scope_task = bool(scope_subexperiments)
-    model_path = _resolve_model_path(args.model_path, str(args.model_path_glob), int(args.network_seed), smoke=smoke)
+    model_path = resolve_fixed_b_model_path(
+        args.model_path,
+        str(args.model_path_glob),
+        int(args.network_seed),
+        smoke=smoke,
+    )
     return Fig2Config(
         model_path=str(model_path),
         dataset_root=str(_resolve_repo_path(args.dataset_root)),

@@ -16,26 +16,23 @@ from src.experiments.c5_l2_successor_closure import (
     PRIMARY_ENDPOINTS,
     build_c_anchor_mapping,
     donor_transfer,
+    run_c5_prefix,
     summarize_c5_endpoints,
-    _load_parent,
-    _paired_history_indices,
-    _run_prefix,
-    _validate_history_pairs,
 )
 from src.experiments.paper_figures.fig2.artifacts import write_cache_key
 from src.experiments.paper_figures.fig2.fixed_b_artifacts import (
     FixedBArtifact,
-    load_fixed_b_artifact,
     save_fixed_b_artifact,
 )
-from src.experiments.paper_figures.fig2.subexperiments.fixed_b_runtime import (
-    _encode_source_rows,
-    _history_rows_at_k,
-    _load_boundary,
-    _run_branch,
-    _simulate_history_rows,
+from src.experiments.paper_figures.fig2.fixed_b_substrate import (
+    build_fixed_b_context,
+    encode_fixed_b_sources,
+    load_fixed_b_parent,
+    load_paired_history_slice,
+    resolve_fixed_b_model_path,
+    run_fixed_b_branch,
+    simulate_fixed_b_histories,
 )
-from src.experiments.paper_figures.fig2.run_task import _build_context, _resolve_model_path
 from src.experiments.paper_figures.fig2.successor_replay import (
     FAST_STATE_KEYS,
     STSP_STATE_KEYS,
@@ -126,17 +123,6 @@ def _sha256_file(path: Path) -> str:
     return hasher.hexdigest()
 
 
-def _load_artifact_from_dir(task_dir: Path, *, task_id: str) -> FixedBArtifact:
-    cache_path = Path(task_dir) / "cache_key.json"
-    if not cache_path.exists():
-        raise FileNotFoundError(f"Required parent cache key is missing: {cache_path}")
-    wrapper = json.loads(cache_path.read_text(encoding="utf-8"))
-    expected = wrapper.get("cache_key") if isinstance(wrapper, dict) else None
-    if not isinstance(expected, dict):
-        raise RuntimeError(f"Unreadable cache key at {task_dir}")
-    return load_fixed_b_artifact(Path(task_dir), expected, task_id=task_id)
-
-
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -196,7 +182,7 @@ def _cache_key(
 
 def _build_ctx(cfg: ExtensionConfig, *, load_model: bool) -> Any:
     repo_root = _repo_root()
-    model_path = _resolve_model_path(
+    model_path = resolve_fixed_b_model_path(
         None, str(cfg.model_path_glob), int(cfg.network_seed), smoke=bool(cfg.smoke)
     )
     fig_cfg = Fig2Config(
@@ -207,17 +193,18 @@ def _build_ctx(cfg: ExtensionConfig, *, load_model: bool) -> Any:
         device=str(cfg.device),
         smoke=False,
     )
-    return _build_context(fig_cfg, load_model=load_model)
+    return build_fixed_b_context(fig_cfg, load_model=load_model)
 
 
 def _load_frozen_protocol(cfg: ExtensionConfig) -> FixedBArtifact:
-    return _load_artifact_from_dir(
-        _resolve(_repo_root(), cfg.frozen_protocol_dir), task_id=FROZEN_PROTOCOL_TASK_ID
+    return load_fixed_b_parent(
+        _resolve(_repo_root(), cfg.frozen_protocol_dir),
+        task_id=FROZEN_PROTOCOL_TASK_ID,
     )
 
 
 def _load_frozen_seed_artifact(cfg: ExtensionConfig, task_name: str) -> FixedBArtifact:
-    return _load_artifact_from_dir(
+    return load_fixed_b_parent(
         _resolve(_repo_root(), cfg.frozen_root)
         / f"seed_{int(cfg.network_seed)}"
         / "data"
@@ -405,7 +392,7 @@ def build_k10_extension_input_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArti
     encode_frame = pd.DataFrame(encode_rows).sort_values("image_id").reset_index(drop=True)
 
     item_steps = int(ctx.cfg.fixed_b_item_steps)
-    new_spikes = _encode_source_rows(
+    new_spikes = encode_fixed_b_sources(
         ctx, encode_frame, image_column="image_id", seed_column="encoding_seed", steps=item_steps
     ).astype(np.bool_, copy=False)
 
@@ -492,7 +479,7 @@ def _bitwise_compare_rows(first: np.ndarray, second: np.ndarray) -> tuple[bool, 
 def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
     """Simulate the 10-item A/C histories from t=0; audit the 5-item checkpoint
     against the frozen per-seed K=5 history bank (bitwise identity gate)."""
-    ext_inputs = _load_artifact_from_dir(
+    ext_inputs = load_fixed_b_parent(
         _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
     frozen_k5_bank = _load_frozen_seed_artifact(cfg, "fixed_b_history_bank")
@@ -514,8 +501,8 @@ def build_k10_history_bank(cfg: ExtensionConfig, ctx: Any) -> FixedBArtifact:
         for encoded in specs["sequence_encoding_seeds"]
     ]
 
-    audit_arrays, _ = _simulate_history_rows(ctx, k5_specs, ext_inputs)
-    k10_arrays, prestate_features = _simulate_history_rows(ctx, specs, ext_inputs)
+    audit_arrays, _ = simulate_fixed_b_histories(ctx, k5_specs, ext_inputs)
+    k10_arrays, prestate_features = simulate_fixed_b_histories(ctx, specs, ext_inputs)
 
     frozen_k5_specs = (
         frozen_k5_bank.tables["history_specs"]
@@ -634,10 +621,10 @@ def _extension_screening_verdict(
 
 
 def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
-    ext_inputs = _load_artifact_from_dir(
+    ext_inputs = load_fixed_b_parent(
         _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
-    k10_bank = _load_artifact_from_dir(
+    k10_bank = load_fixed_b_parent(
         _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
     c_map = build_c_anchor_mapping(k10_bank.tables["b_anchor_specs"])
@@ -657,7 +644,7 @@ def run_experiment_a(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "k1_k5_published_results_reused_not_rerun": True,
         },
     )
-    cells, audit = _run_prefix(
+    cells, audit = run_c5_prefix(
         ctx,
         inputs=ext_inputs,
         histories=k10_bank,
@@ -787,10 +774,10 @@ def _history_contrast_attenuation(
 
 
 def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
-    ext_inputs = _load_artifact_from_dir(
+    ext_inputs = load_fixed_b_parent(
         _resolve(_repo_root(), cfg.output_root) / TASK_K10_INPUT, task_id=TASK_K10_INPUT
     )
-    k10_bank = _load_artifact_from_dir(
+    k10_bank = load_fixed_b_parent(
         _seed_root(cfg) / "data" / "intermediates" / TASK_K10_HISTORY, task_id=TASK_K10_HISTORY
     )
     out_dir = _seed_root(cfg) / "data" / "metrics" / TASK_EXP_B
@@ -813,19 +800,14 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             ],
         },
     )
-    rows = _history_rows_at_k(k10_bank.tables["history_specs"], K10)
-    selected = rows.loc[rows["history_condition"].isin(HISTORY_CONDITIONS)].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(cfg.families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].reset_index(drop=True)
-    _validate_history_pairs(selected)
-    k10_specs_sorted = k10_bank.tables["history_specs"].sort_values("history_row_id").reset_index(drop=True)
-    position_map = {int(row.history_row_id): int(position) for position, row in k10_specs_sorted.iterrows()}
-    row_indices = [position_map[int(value)] for value in selected["history_row_id"]]
-    boundary = _load_boundary(k10_bank, K10, row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K=10: {elapsed}")
-    current_time = int(elapsed[0])
+    history_slice = load_paired_history_slice(
+        k10_bank,
+        prefix_k=K10,
+        max_families=int(cfg.families),
+    )
+    selected = history_slice.rows
+    boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(ext_inputs.arrays["exact_b_spikes"], dtype=np.bool_)
     anchor_ids = sorted(int(value) for value in k10_bank.tables["b_anchor_specs"]["b_anchor_id"])[: int(cfg.anchors)]
@@ -900,12 +882,12 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         early_corrected = correct_passive_successor_effects(early_active, early_passive)[
             "early_layer2_event_map"
         ]
-        free = _run_branch(
+        free = run_fixed_b_branch(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             restore_mode="stsp_only", branch="free", replay_l1_pooled=None,
             capture_l1_pooled=False, capture_strong_path=False, random_seed=base_seed + 2,
         )
-        passive = _run_branch(
+        passive = run_fixed_b_branch(
             ctx, boundary=batch_boundary, input_seq=b_input, current_time=current_time,
             restore_mode="stsp_only", branch="passive", replay_l1_pooled=None,
             capture_l1_pooled=False, capture_strong_path=False, random_seed=base_seed + 3,
@@ -919,7 +901,7 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "early_layer2_b_history_contrast_attenuation": early_corrected.reshape(len(batch_rows), -1),
             "post_b_layer2_ux_history_contrast_attenuation": l2_corrected.reshape(len(batch_rows), -1),
         }
-        for family_id in families:
+        for family_id in history_slice.family_ids:
             for anchor_id in chunk_anchor_ids:
                 d0_by_endpoint: dict[str, np.ndarray] = {}
                 atten: dict[str, dict[str, float]] = {}
@@ -1088,24 +1070,14 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
             "post_c_endpoints_are_gates_not_primary": True,
         },
     )
-    rows = _history_rows_at_k(frozen_k5_bank.tables["history_specs"], 5)
-    selected = rows.loc[rows["history_condition"].isin(HISTORY_CONDITIONS)].copy()
-    families = sorted(int(value) for value in selected["history_family_id"].unique())[: int(cfg.families)]
-    selected = selected.loc[selected["history_family_id"].isin(families)].reset_index(drop=True)
-    _validate_history_pairs(selected)
-    frozen_k5_specs = (
-        frozen_k5_bank.tables["history_specs"]
-        .loc[frozen_k5_bank.tables["history_specs"]["prefix_k"].eq(5)]
-        .sort_values("history_row_id")
-        .reset_index(drop=True)
+    history_slice = load_paired_history_slice(
+        frozen_k5_bank,
+        prefix_k=5,
+        max_families=int(cfg.families),
     )
-    position_map = {int(row.history_row_id): int(position) for position, row in frozen_k5_specs.iterrows()}
-    row_indices = [position_map[int(value)] for value in selected["history_row_id"]]
-    history_boundary = _load_boundary(frozen_k5_bank, 5, row_indices=row_indices)
-    elapsed = sorted(int(value) for value in selected["elapsed_steps"].unique())
-    if len(elapsed) != 1:
-        raise RuntimeError(f"Non-unique elapsed_steps for K=5: {elapsed}")
-    current_time = int(elapsed[0])
+    selected = history_slice.rows
+    history_boundary = history_slice.boundary
+    current_time = history_slice.current_time
 
     exact_inputs = np.asarray(frozen_input_bank.arrays["exact_b_spikes"], dtype=np.bool_)
     spatial_shape = tuple(int(value) for value in exact_inputs.shape[2:])
@@ -1114,7 +1086,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     mapping_by_anchor = mapping.set_index("b_anchor_id", drop=False)
     d_by_anchor = d_map.set_index("b_anchor_id", drop=False)
     history_count = int(len(selected))
-    local_donor_indices = _paired_history_indices(selected)
+    local_donor_indices = history_slice.donor_indices
 
     cell_rows: list[dict[str, Any]] = []
     audit_rows: list[dict[str, Any]] = []
@@ -1126,7 +1098,7 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         b_input = np.repeat(
             exact_inputs[np.asarray(chunk_anchor_ids, dtype=np.int64)], history_count, axis=0
         )
-        _run_branch(
+        run_fixed_b_branch(
             ctx,
             boundary=repeated_history,
             input_seq=torch.as_tensor(b_input, device=ctx.device),

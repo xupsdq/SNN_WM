@@ -11,7 +11,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import matplotlib
 
@@ -2162,7 +2162,9 @@ def _plot_heatmap(
         if tick_position not in {"top", "bottom"}:
             raise ValueError(f"Unsupported horizontal colorbar tick position: {tick_position}")
         colorbar.ax.xaxis.set_ticks_position(tick_position)
-        colorbar.ax.tick_params(axis="x", pad=1.0)
+        colorbar.ax.tick_params(
+            axis="x", pad=float(spec.get("colorbar_tick_pad_pt", 1.0))
+        )
         colorbar_label = str(spec.get("colorbar_label") or "")
         if label_position in {"top", "bottom"}:
             colorbar.ax.xaxis.set_label_position(label_position)
@@ -3856,6 +3858,278 @@ def _prepare_panel_frame(
     return frame, statistics_frame
 
 
+def _draw_standard_panel(
+    fig: plt.Figure,
+    axis: plt.Axes,
+    frame: pd.DataFrame,
+    auxiliary: pd.DataFrame | None,
+    panel_spec: Mapping[str, Any],
+    *,
+    figure_id: str,
+    panel_id: str,
+    slot: Sequence[float],
+    canvas_width: float,
+    canvas_height: float,
+) -> None:
+    chart = str(panel_spec["chart"])
+    if chart == "svg_asset":
+        axis.axis("off")
+        if panel_spec.get("asset_annotation"):
+            annotation = fig.text(
+                (float(slot[0]) + float(slot[2]) / 2.0) / canvas_width,
+                1.0 - (float(slot[1]) + 1.5) / canvas_height,
+                str(panel_spec["asset_annotation"]),
+                ha="center",
+                va="top",
+                color=INK,
+            )
+            mark_relative_text_size(annotation, 0.9)
+    elif chart == "schematic":
+        custom_renderer = str(panel_spec.get("custom_renderer") or "")
+        if custom_renderer == "fig2_paired_dms":
+            _plot_fig2_paired_dms_schematic(axis, frame, panel_spec)
+        elif custom_renderer:
+            raise ValueError(
+                f"{figure_id}{panel_id}: unknown schematic renderer "
+                f"{custom_renderer!r}"
+            )
+        else:
+            raise ValueError(
+                f"{figure_id}{panel_id}: schematic renderer is not configured"
+            )
+    elif chart == "protocol":
+        if auxiliary is None:
+            raise AssertionError("protocol edges were not loaded")
+        _plot_protocol(axis, frame, auxiliary, panel_spec)
+    elif chart in {"forest", "estimate_strip"}:
+        _plot_forest(axis, frame, panel_spec)
+    elif chart == "grouped_bars":
+        _plot_grouped_bars(axis, frame, panel_spec)
+    elif chart == "joint_endpoint_plane":
+        _plot_joint_endpoint_plane(axis, frame, panel_spec)
+    elif chart == "threshold_margin_bars":
+        if auxiliary is None:
+            raise AssertionError("threshold-margin statistics were not loaded")
+        _plot_threshold_margin_bars(axis, frame, auxiliary, panel_spec)
+    elif chart == "seed_paired_dumbbells":
+        _plot_seed_paired_dumbbells(axis, frame, panel_spec)
+    elif chart == "state_space_glyph":
+        _plot_state_space_glyph(axis, frame, panel_spec)
+    elif chart == "boxplot":
+        _plot_boxplot(axis, frame, panel_spec)
+    elif chart == "bullet_gauges":
+        _plot_bullet_gauges(axis, frame, panel_spec)
+    elif chart == "paired_slope":
+        if auxiliary is None:
+            raise AssertionError("paired-slope statistics were not loaded")
+        _plot_paired_slope(axis, frame, auxiliary, panel_spec)
+    elif chart == "ordered_bars":
+        _plot_ordered_bars(axis, frame, panel_spec)
+    elif chart == "category_points":
+        _plot_category_points(axis, frame, panel_spec)
+    elif chart == "ordered_lines":
+        _plot_ordered_lines(axis, frame, panel_spec)
+    elif chart == "seed_trajectory":
+        _plot_seed_trajectory(axis, frame, panel_spec)
+    elif chart == "time_binned_lines":
+        _plot_time_binned_lines(axis, frame, panel_spec)
+    elif chart == "stacked_composition":
+        _plot_stacked_composition(axis, frame, panel_spec)
+    elif chart == "partial_cue_split":
+        _plot_partial_cue_split(axis, frame, panel_spec)
+    elif chart == "heatmap":
+        _plot_heatmap(fig, axis, frame, panel_spec)
+    elif chart == "split_conditions":
+        _plot_split_conditions(fig, axis, frame, panel_spec)
+    elif chart == "line_with_contrast":
+        _plot_line_with_contrast(fig, axis, frame, panel_spec)
+    elif chart == "two_by_two":
+        _plot_two_by_two(fig, axis, frame, panel_spec)
+    else:
+        raise ValueError(f"{figure_id}{panel_id}: unknown chart {chart}")
+
+
+def render_composed_figure(
+    *,
+    spec: Mapping[str, Any],
+    frames: Mapping[
+        str,
+        pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame | None],
+    ],
+    figure_dir: str | os.PathLike[str],
+    svg_hashsalt: str,
+    custom_renderers: Mapping[
+        str,
+        Callable[[plt.Figure, plt.Axes, pd.DataFrame, Mapping[str, Any]], None],
+    ]
+    | None = None,
+    svg_asset: Mapping[str, Any] | None = None,
+    after_draw: Callable[
+        [
+            plt.Figure,
+            Mapping[str, plt.Axes],
+            Mapping[str, plt.Text],
+            Mapping[str, tuple[plt.Axes, ...]],
+        ],
+        None,
+    ]
+    | None = None,
+    export_mode: str = "deterministic_svg",
+) -> dict[str, Any]:
+    """Render persisted panel frames through one composition-level Interface."""
+
+    if export_mode not in {"deterministic_svg", "matplotlib"}:
+        raise ValueError(f"unsupported export mode: {export_mode}")
+    if export_mode == "matplotlib" and svg_asset is not None:
+        raise ValueError("matplotlib export does not support post-save SVG assets")
+
+    figure_id = str(spec["figure_id"])
+    canvas_mm = tuple(float(value) for value in spec.get("canvas_mm", CANVAS_MM))
+    canvas_width, canvas_height = canvas_mm
+    layout_report = validate_layout_contract(spec)
+    if not layout_report.ok:
+        raise ValueError(
+            f"{figure_id}: layout contract failed: {layout_report.failures}"
+        )
+
+    root = Path(figure_dir).resolve()
+    figures_dir = root / "figures"
+    panels_dir = figures_dir / "panels"
+    qa_dir = figures_dir / "qa"
+    panels_dir.mkdir(parents=True, exist_ok=True)
+    qa_dir.mkdir(parents=True, exist_ok=True)
+    _wireframe(spec, qa_dir / f"{figure_id}_wireframe.png")
+
+    final_svg = figures_dir / f"{figure_id}.svg"
+    final_pdf = figures_dir / f"{figure_id}.pdf"
+    final_png = figures_dir / f"{figure_id}.png"
+    base_svg = qa_dir / f"{figure_id}_base.svg"
+    renderers = dict(custom_renderers or {})
+    plot_bboxes: dict[str, tuple[float, float, float, float]] = {}
+    axes: dict[str, plt.Axes] = {}
+    labels: dict[str, plt.Text] = {}
+    auxiliary_axes: dict[str, tuple[plt.Axes, ...]] = {}
+
+    with plt.rc_context({**VECTOR_TEXT_RCPARAMS, "svg.hashsalt": svg_hashsalt}):
+        fig = plt.figure(
+            figsize=(canvas_width * MM_TO_INCH, canvas_height * MM_TO_INCH),
+            dpi=300,
+            facecolor="white",
+        )
+        for panel_id, panel_spec in spec["panels"].items():
+            slot = spec["slots"][panel_id]
+            chart = str(panel_spec["chart"])
+            plot_bbox = _plot_bbox_mm(slot, chart, panel_spec)
+            plot_bboxes[panel_id] = plot_bbox
+            axis = fig.add_axes(_as_figure_axes(plot_bbox, canvas_mm))
+            axes[panel_id] = axis
+            payload = frames[panel_id]
+            if isinstance(payload, tuple):
+                frame, auxiliary = payload
+            else:
+                frame, auxiliary = payload, None
+            existing_axes = set(fig.axes)
+            if chart in renderers:
+                renderers[chart](fig, axis, frame, panel_spec)
+                if panel_spec.get("apply_standard_axis_style", True):
+                    _style_axis(axis)
+                if panel_spec.get("legend_owner") == "panel":
+                    _legend(axis, ncol=panel_spec.get("legend_ncol"))
+            else:
+                _draw_standard_panel(
+                    fig,
+                    axis,
+                    frame,
+                    auxiliary,
+                    panel_spec,
+                    figure_id=figure_id,
+                    panel_id=panel_id,
+                    slot=slot,
+                    canvas_width=canvas_width,
+                    canvas_height=canvas_height,
+                )
+            auxiliary_axes[panel_id] = tuple(
+                candidate for candidate in fig.axes if candidate not in existing_axes
+            )
+            x, y, _, _ = [float(value) for value in slot]
+            label = fig.text(
+                (x + 0.3) / canvas_width,
+                1.0 - (y + 0.6) / canvas_height,
+                panel_id,
+                ha="left",
+                va="top",
+                color=INK,
+                zorder=100,
+            )
+            mark_panel_label(label)
+            labels[panel_id] = label
+        apply_paper_figure_typography(fig)
+        if after_draw is not None:
+            fig.canvas.draw()
+            after_draw(fig, axes, labels, auxiliary_axes)
+        if export_mode == "matplotlib":
+            fig.savefig(
+                final_svg,
+                format="svg",
+                facecolor="white",
+                bbox_inches=None,
+                metadata={"Date": None},
+            )
+            fig.savefig(
+                final_pdf,
+                format="pdf",
+                facecolor="white",
+                bbox_inches=None,
+                metadata={"CreationDate": None},
+            )
+            fig.savefig(
+                final_png,
+                format="png",
+                facecolor="white",
+                bbox_inches=None,
+                dpi=300,
+            )
+        else:
+            fig.savefig(
+                base_svg,
+                format="svg",
+                facecolor="white",
+                bbox_inches=None,
+                metadata={"Date": None},
+            )
+        plt.close(fig)
+
+    if export_mode == "deterministic_svg":
+        if svg_asset is not None:
+            panel_id = str(svg_asset["panel_id"])
+            _inject_svg_asset(
+                base_svg,
+                final_svg,
+                asset_bytes=svg_asset["asset_bytes"],
+                asset_viewbox=str(svg_asset["asset_viewbox"]),
+                slot=spec["slots"][panel_id],
+                embedding_mode=str(svg_asset.get("embedding_mode") or "inline"),
+                top_padding_mm=float(svg_asset.get("top_padding_mm", 5.0)),
+            )
+        else:
+            shutil.copyfile(base_svg, final_svg)
+        _export_pdf_and_png(final_svg, final_pdf, final_png, canvas_mm)
+
+    with Image.open(final_png) as image:
+        image.convert("L").save(
+            qa_dir / f"{figure_id}_grayscale.png", dpi=(300, 300)
+        )
+    _write_panel_qa(final_svg, final_png, panels_dir, spec)
+    return {
+        "figure_id": figure_id,
+        "svg": final_svg,
+        "pdf": final_pdf,
+        "png": final_png,
+        "plot_bboxes": plot_bboxes,
+        "layout_passes": layout_report.passes,
+    }
+
+
 def render_figure(
     figure_id: str,
     input_dir: str | os.PathLike[str],
@@ -3863,8 +4137,6 @@ def render_figure(
     check_only: bool = False,
 ) -> dict[str, Any]:
     spec = get_figure_spec(figure_id)
-    canvas_mm = tuple(float(value) for value in spec.get("canvas_mm", CANVAS_MM))
-    canvas_width, canvas_height = canvas_mm
     layout_report = validate_layout_contract(spec)
     if not layout_report.ok:
         raise ValueError(
@@ -3899,163 +4171,36 @@ def render_figure(
             "panel_count": len(spec["panels"]),
         }
 
-    figures_dir = figure_dir / "figures"
-    panels_dir = figures_dir / "panels"
-    qa_dir = figures_dir / "qa"
-    panels_dir.mkdir(parents=True, exist_ok=True)
-    qa_dir.mkdir(parents=True, exist_ok=True)
     _write_spec(figure_dir, spec)
-    _wireframe(spec, qa_dir / f"{figure_id}_wireframe.png")
-
-    plot_bboxes: dict[str, tuple[float, float, float, float]] = {}
-    with plt.rc_context(
-        {
-            **VECTOR_TEXT_RCPARAMS,
-            "svg.hashsalt": "net_torch_final_six_figures_v1",
-        }
-    ):
-        fig = plt.figure(
-            figsize=(canvas_width * MM_TO_INCH, canvas_height * MM_TO_INCH),
-            dpi=300,
-            facecolor="white",
-        )
-        for panel_id, panel_spec in spec["panels"].items():
-            slot = spec["slots"][panel_id]
-            chart = str(panel_spec["chart"])
-            plot_bbox = _plot_bbox_mm(slot, chart, panel_spec)
-            plot_bboxes[panel_id] = plot_bbox
-            axis = fig.add_axes(_as_figure_axes(plot_bbox, canvas_mm))
-            frame, auxiliary = loaded[panel_id]
-            if chart == "svg_asset":
-                axis.axis("off")
-                if panel_spec.get("asset_annotation"):
-                    annotation = fig.text(
-                        (float(slot[0]) + float(slot[2]) / 2.0) / canvas_width,
-                        1.0 - (float(slot[1]) + 1.5) / canvas_height,
-                        str(panel_spec["asset_annotation"]),
-                        ha="center",
-                        va="top",
-                        color=INK,
-                    )
-                    mark_relative_text_size(annotation, 0.9)
-            elif chart == "schematic":
-                custom_renderer = str(panel_spec.get("custom_renderer") or "")
-                if custom_renderer == "fig2_paired_dms":
-                    _plot_fig2_paired_dms_schematic(axis, frame, panel_spec)
-                elif custom_renderer:
-                    raise ValueError(
-                        f"{figure_id}{panel_id}: unknown schematic renderer "
-                        f"{custom_renderer!r}"
-                    )
-                else:
-                    raise ValueError(
-                        f"{figure_id}{panel_id}: schematic renderer is not configured"
-                    )
-            elif chart == "protocol":
-                if auxiliary is None:
-                    raise AssertionError("protocol edges were not loaded")
-                _plot_protocol(axis, frame, auxiliary, panel_spec)
-            elif chart in {"forest", "estimate_strip"}:
-                _plot_forest(axis, frame, panel_spec)
-            elif chart == "grouped_bars":
-                _plot_grouped_bars(axis, frame, panel_spec)
-            elif chart == "joint_endpoint_plane":
-                _plot_joint_endpoint_plane(axis, frame, panel_spec)
-            elif chart == "threshold_margin_bars":
-                if auxiliary is None:
-                    raise AssertionError(
-                        "threshold-margin statistics were not loaded"
-                    )
-                _plot_threshold_margin_bars(
-                    axis, frame, auxiliary, panel_spec
-                )
-            elif chart == "seed_paired_dumbbells":
-                _plot_seed_paired_dumbbells(axis, frame, panel_spec)
-            elif chart == "state_space_glyph":
-                _plot_state_space_glyph(axis, frame, panel_spec)
-            elif chart == "boxplot":
-                _plot_boxplot(axis, frame, panel_spec)
-            elif chart == "bullet_gauges":
-                _plot_bullet_gauges(axis, frame, panel_spec)
-            elif chart == "paired_slope":
-                if auxiliary is None:
-                    raise AssertionError("paired-slope statistics were not loaded")
-                _plot_paired_slope(axis, frame, auxiliary, panel_spec)
-            elif chart == "ordered_bars":
-                _plot_ordered_bars(axis, frame, panel_spec)
-            elif chart == "category_points":
-                _plot_category_points(axis, frame, panel_spec)
-            elif chart == "ordered_lines":
-                _plot_ordered_lines(axis, frame, panel_spec)
-            elif chart == "seed_trajectory":
-                _plot_seed_trajectory(axis, frame, panel_spec)
-            elif chart == "time_binned_lines":
-                _plot_time_binned_lines(axis, frame, panel_spec)
-            elif chart == "stacked_composition":
-                _plot_stacked_composition(axis, frame, panel_spec)
-            elif chart == "partial_cue_split":
-                _plot_partial_cue_split(axis, frame, panel_spec)
-            elif chart == "heatmap":
-                _plot_heatmap(fig, axis, frame, panel_spec)
-            elif chart == "split_conditions":
-                _plot_split_conditions(fig, axis, frame, panel_spec)
-            elif chart == "line_with_contrast":
-                _plot_line_with_contrast(fig, axis, frame, panel_spec)
-            elif chart == "two_by_two":
-                _plot_two_by_two(fig, axis, frame, panel_spec)
-            else:
-                raise ValueError(f"{figure_id}{panel_id}: unknown chart {chart}")
-            x, y, _, _ = [float(value) for value in slot]
-            panel_label = fig.text(
-                (x + 0.3) / canvas_width,
-                1.0 - (y + 0.6) / canvas_height,
-                panel_id,
-                ha="left",
-                va="top",
-                color=INK,
-                zorder=100,
-            )
-            mark_panel_label(panel_label)
-        apply_paper_figure_typography(fig)
-        base_svg = qa_dir / f"{figure_id}_base.svg"
-        fig.savefig(
-            base_svg,
-            format="svg",
-            facecolor="white",
-            bbox_inches=None,
-            metadata={"Date": None},
-        )
-        plt.close(fig)
-
-    final_svg = figures_dir / f"{figure_id}.svg"
-    if asset_payload is not None:
-        _inject_svg_asset(
-            base_svg,
-            final_svg,
-            asset_bytes=asset_payload[1],
-            asset_viewbox=asset_payload[2],
-            slot=spec["slots"][asset_payload[0]],
-            embedding_mode=asset_payload[3],
-            top_padding_mm=float(
-                spec["panels"][asset_payload[0]].get("asset_top_padding_mm", 5.0)
-            ),
-        )
-    else:
-        shutil.copyfile(base_svg, final_svg)
-    final_pdf = figures_dir / f"{figure_id}.pdf"
-    final_png = figures_dir / f"{figure_id}.png"
-    _export_pdf_and_png(final_svg, final_pdf, final_png, canvas_mm)
-    Image.open(final_png).convert("L").save(
-        qa_dir / f"{figure_id}_grayscale.png", dpi=(300, 300)
+    rendered = render_composed_figure(
+        spec=spec,
+        frames=loaded,
+        figure_dir=figure_dir,
+        svg_hashsalt="net_torch_final_six_figures_v1",
+        svg_asset=(
+            {
+                "panel_id": asset_payload[0],
+                "asset_bytes": asset_payload[1],
+                "asset_viewbox": asset_payload[2],
+                "embedding_mode": asset_payload[3],
+                "top_padding_mm": spec["panels"][asset_payload[0]].get(
+                    "asset_top_padding_mm", 5.0
+                ),
+            }
+            if asset_payload is not None
+            else None
+        ),
     )
-    _write_panel_qa(final_svg, final_png, panels_dir, spec)
+    final_png = rendered["png"]
+    final_pdf = rendered["pdf"]
+    final_svg = rendered["svg"]
     qa_report = _write_qa_report(
         figure_dir,
         spec,
         final_png,
         final_pdf,
         final_svg,
-        plot_bboxes,
+        rendered["plot_bboxes"],
     )
     reader.write_access_log()
     summary = reader.read_json("summary.json", f"{figure_id} bundle summary update")
@@ -4093,4 +4238,4 @@ def render_figure(
     }
 
 
-__all__ = ["RENDERER_VERSION", "render_figure"]
+__all__ = ["RENDERER_VERSION", "render_composed_figure", "render_figure"]

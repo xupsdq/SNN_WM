@@ -25,7 +25,7 @@ from typing import Any, Sequence
 
 import pandas as pd
 
-from src.experiments.paper_figures.fig2.run_task import _resolve_model_path
+from src.experiments.paper_figures.fig2.fixed_b_substrate import resolve_fixed_b_model_path
 from src.experiments.paper_figures.run_paper_figures import DEFAULT_MODEL_PATH_GLOB
 from src.experiments.successor_extension.aggregate import run_aggregate
 from src.experiments.successor_extension.core import (
@@ -288,7 +288,7 @@ def _run_one_task(
 
 def _write_seed_manifest(cfg: CohortConfig, root: Path, seed: int) -> None:
     """Generic per-seed metadata: identity, config, task status, key hashes."""
-    model_path = _resolve_model_path(
+    model_path = resolve_fixed_b_model_path(
         None, DEFAULT_MODEL_PATH_GLOB, int(seed), smoke=False,
     )
     tasks: dict[str, dict[str, Any]] = {}
