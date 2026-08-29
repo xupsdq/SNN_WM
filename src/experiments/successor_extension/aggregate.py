@@ -5,8 +5,7 @@ endpoints; per experiment we run a one-sided exact sign-flip test against zero,
 a deterministic 20k-draw bootstrap 95% CI, and Holm correction within the
 experiment (the two endpoints form one correction family per cohort scope).
 
-Stats helpers are imported verbatim from new_results_reanalysis so the cohort
-does not introduce a fourth statistics implementation.
+Statistics use the shared reproducible-inference seam.
 """
 
 from __future__ import annotations
@@ -20,11 +19,11 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from src.experiments.paper_figures.new_results_reanalysis import (
-    _bootstrap_mean_ci,
-    _exact_sign_flip_p,
-    _holm_adjust,
-    _stable_seed,
+from src.experiments.common.inference import (
+    bootstrap_mean_ci,
+    exact_sign_flip_p,
+    holm_adjust,
+    stable_seed,
 )
 from src.experiments.successor_extension.core import (
     SCHEMA_NAME,
@@ -192,12 +191,12 @@ def _scope_inference(
         p_values: dict[str, float] = {}
         for endpoint in spec["endpoints"]:
             values = values_by_endpoint[endpoint]
-            low, high = _bootstrap_mean_ci(
+            low, high = bootstrap_mean_ci(
                 values,
                 draws=int(bootstrap_draws),
-                seed=_stable_seed(int(random_seed), scope, task, endpoint),
+                seed=stable_seed(int(random_seed), scope, task, endpoint),
             )
-            p_one = float(_exact_sign_flip_p(values - NULL_VALUE, alternative=ALTERNATIVE))
+            p_one = float(exact_sign_flip_p(values - NULL_VALUE, alternative=ALTERNATIVE))
             endpoint_stats[endpoint] = {
                 "mean": float(values.mean()),
                 "median": float(np.median(values)),
@@ -208,7 +207,7 @@ def _scope_inference(
                 "positive_network_fraction": float(np.mean(values > NULL_VALUE)),
             }
             p_values[endpoint] = p_one
-        holm = _holm_adjust(np.asarray([p_values[endpoint] for endpoint in spec["endpoints"]]))
+        holm = holm_adjust(np.asarray([p_values[endpoint] for endpoint in spec["endpoints"]]))
         for index, endpoint in enumerate(spec["endpoints"]):
             stats = endpoint_stats[endpoint]
             values = values_by_endpoint[endpoint]

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -8,6 +7,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.experiments.common.inference import (
+    bootstrap_mean_ci,
+    exact_sign_flip_p,
+    holm_adjust,
+    stable_seed,
+)
 from src.experiments.paper_figures.fig2.artifacts import write_json
 from src.experiments.paper_figures.fig2.fixed_b_protocol import (
     CONFIRMATORY_SEEDS,
@@ -158,9 +163,10 @@ def _network_level_inference(scalars: pd.DataFrame) -> pd.DataFrame:
         values = (
             part.sort_values("network_seed")["value"].to_numpy(dtype=np.float64)
         )
-        low, high = _bootstrap_ci(
+        low, high = bootstrap_mean_ci(
             values,
-            seed=_stable_seed(str(endpoint), int(prefix_k)),
+            draws=20_000,
+            seed=stable_seed(str(endpoint), int(prefix_k)),
         )
         rows.append(
             {
@@ -178,13 +184,13 @@ def _network_level_inference(scalars: pd.DataFrame) -> pd.DataFrame:
                 "fraction_meeting_threshold": float(
                     np.mean(values >= float(threshold))
                 ),
-                "p_one_sided": _exact_sign_flip_p(values),
+                "p_one_sided": exact_sign_flip_p(values, alternative="greater"),
                 "holm_adjusted_p": float("nan"),
             }
         )
     table = pd.DataFrame(rows)
     core_indices = table.index[table["family"].eq("core_primary")].tolist()
-    table.loc[core_indices, "holm_adjusted_p"] = _holm_adjust(
+    table.loc[core_indices, "holm_adjusted_p"] = holm_adjust(
         table.loc[core_indices, "p_one_sided"].to_numpy(dtype=np.float64)
     )
     return table
@@ -319,58 +325,6 @@ def _core_conditions(
     return common_pass, gamma_sesoi_pass, primary_pass
 
 
-def _exact_sign_flip_p(values: np.ndarray) -> float:
-    values = np.asarray(values, dtype=np.float64)
-    observed = float(values.mean())
-    total = 1 << len(values)
-    count = 0
-    for mask in range(total):
-        signs = np.fromiter(
-            (
-                1.0 if mask & (1 << index) else -1.0
-                for index in range(len(values))
-            ),
-            dtype=np.float64,
-            count=len(values),
-        )
-        count += int(float(np.mean(values * signs)) >= observed - 1e-15)
-    return float(count / total)
-
-
-def _bootstrap_ci(
-    values: np.ndarray,
-    *,
-    seed: int,
-    draws: int = 20_000,
-) -> tuple[float, float]:
-    rng = np.random.default_rng(int(seed))
-    indices = rng.integers(0, len(values), size=(int(draws), len(values)))
-    means = values[indices].mean(axis=1)
-    return (
-        float(np.percentile(means, 2.5)),
-        float(np.percentile(means, 97.5)),
-    )
-
-
-def _holm_adjust(p_values: np.ndarray) -> np.ndarray:
-    p = np.asarray(p_values, dtype=np.float64)
-    order = np.argsort(p)
-    adjusted = np.empty_like(p)
-    running = 0.0
-    total = len(p)
-    for rank, index in enumerate(order):
-        running = max(running, (total - rank) * float(p[index]))
-        adjusted[index] = min(running, 1.0)
-    return adjusted
-
-
-def _stable_seed(endpoint: str, prefix_k: int) -> int:
-    payload = f"{endpoint}:{prefix_k}".encode("utf-8")
-    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
-
-
 __all__ = [
     "aggregate_fixed_b_cohort",
-    "_exact_sign_flip_p",
-    "_holm_adjust",
 ]

@@ -11,12 +11,12 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.experiments.common.inference import crossed_bootstrap_mean_ci, stable_seed
 from src.experiments.c5_l2_successor_closure import (
     PRIMARY_ENDPOINTS,
     build_c_anchor_mapping,
     donor_transfer,
     summarize_c5_endpoints,
-    _crossed_bootstrap_mean_ci,
     _load_parent,
     _paired_history_indices,
     _run_prefix,
@@ -961,7 +961,13 @@ def run_experiment_b(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         valid = part.loc[part["valid"].eq(1)].copy()
         margins = valid["overlap_specific_margin"].to_numpy(dtype=np.float64)
         ci_low, ci_high = (
-            _crossed_bootstrap_mean_ci(valid, "overlap_specific_margin", draws=int(cfg.bootstrap_draws), seed=_stable_hash_seed(endpoint))
+            crossed_bootstrap_mean_ci(
+                margins,
+                valid["history_family_id"].to_numpy(dtype=np.int64),
+                valid["b_anchor_id"].to_numpy(dtype=np.int64),
+                draws=int(cfg.bootstrap_draws),
+                seed=stable_seed(endpoint),
+            )
             if len(valid) else (float("nan"), float("nan"))
         )
         summary_rows.append(
@@ -1302,7 +1308,13 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
         valid = cells.loc[cells[valid_column].eq(1) & np.isfinite(cells[endpoint])].copy()
         values = valid[endpoint].to_numpy(dtype=np.float64)
         ci_low, ci_high = (
-            _crossed_bootstrap_mean_ci(valid, endpoint, draws=int(cfg.bootstrap_draws), seed=_stable_hash_seed(endpoint))
+            crossed_bootstrap_mean_ci(
+                values,
+                valid["history_family_id"].to_numpy(dtype=np.int64),
+                valid["b_anchor_id"].to_numpy(dtype=np.int64),
+                draws=int(cfg.bootstrap_draws),
+                seed=stable_seed(endpoint),
+            )
             if len(valid) else (float("nan"), float("nan"))
         )
         summary_rows.append(
@@ -1359,10 +1371,6 @@ def run_experiment_c(cfg: ExtensionConfig, ctx: Any) -> dict[str, Any]:
     )
     _write_json(out_dir / "summary.json", summary)
     return summary
-
-
-def _stable_hash_seed(value: str) -> int:
-    return int.from_bytes(hashlib.sha256(str(value).encode("utf-8")).digest()[:4], "little")
 
 
 def _fast_state_residual(

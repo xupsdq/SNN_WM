@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.experiments.common.inference import crossed_bootstrap_mean_ci, stable_seed
 from src.experiments.common.results import (
     save_log_lines,
     save_run_config,
@@ -294,11 +295,12 @@ def summarize_c5_endpoints(cells: pd.DataFrame, cfg: C5Config) -> pd.DataFrame:
             valid = part[valid_column].eq(1) & np.isfinite(part[endpoint])
             selected = part.loc[valid].copy()
             values = selected[endpoint].to_numpy(dtype=np.float64)
-            ci_low, ci_high = _crossed_bootstrap_mean_ci(
-                selected,
-                endpoint,
+            ci_low, ci_high = crossed_bootstrap_mean_ci(
+                values,
+                selected["history_family_id"].to_numpy(dtype=np.int64),
+                selected["b_anchor_id"].to_numpy(dtype=np.int64),
                 draws=int(cfg.bootstrap_draws),
-                seed=_stable_seed(endpoint, int(prefix_k)),
+                seed=stable_seed(endpoint, int(prefix_k)),
             )
             mean = float(values.mean()) if len(values) else float("nan")
             positive_fraction = float(np.mean(values > 0.0)) if len(values) else float("nan")
@@ -576,38 +578,6 @@ def _paired_history_indices(selected: pd.DataFrame) -> np.ndarray:
     return np.asarray(output, dtype=np.int64)
 
 
-def _crossed_bootstrap_mean_ci(
-    frame: pd.DataFrame,
-    value_column: str,
-    *,
-    draws: int,
-    seed: int,
-) -> tuple[float, float]:
-    if frame.empty:
-        return float("nan"), float("nan")
-    families = sorted(int(value) for value in frame["history_family_id"].unique())
-    anchors = sorted(int(value) for value in frame["b_anchor_id"].unique())
-    family_index = {value: index for index, value in enumerate(families)}
-    anchor_index = {value: index for index, value in enumerate(anchors)}
-    f_rows = frame["history_family_id"].astype(int).map(family_index).to_numpy(dtype=np.int64)
-    a_rows = frame["b_anchor_id"].astype(int).map(anchor_index).to_numpy(dtype=np.int64)
-    values = frame[value_column].to_numpy(dtype=np.float64)
-    rng = np.random.default_rng(int(seed))
-    means = np.empty(int(draws), dtype=np.float64)
-    for draw in range(int(draws)):
-        f_sample = rng.integers(0, len(families), size=len(families))
-        a_sample = rng.integers(0, len(anchors), size=len(anchors))
-        f_weight = np.bincount(f_sample, minlength=len(families))[f_rows]
-        a_weight = np.bincount(a_sample, minlength=len(anchors))[a_rows]
-        weights = f_weight * a_weight
-        denominator = float(weights.sum())
-        means[draw] = float(np.sum(values * weights) / denominator) if denominator > 0 else float("nan")
-    finite = means[np.isfinite(means)]
-    if not len(finite):
-        return float("nan"), float("nan")
-    return float(np.percentile(finite, 2.5)), float(np.percentile(finite, 97.5))
-
-
 def _row_cosine(first: np.ndarray, second: np.ndarray) -> np.ndarray:
     a = np.asarray(first, dtype=np.float32).reshape(len(first), -1)
     b = np.asarray(second, dtype=np.float32).reshape(len(second), -1)
@@ -752,11 +722,6 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
-
-
-def _stable_seed(endpoint: str, prefix_k: int) -> int:
-    payload = f"{endpoint}:{int(prefix_k)}".encode("utf-8")
-    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
 
 
 def _to_numpy(value: np.ndarray | torch.Tensor) -> np.ndarray:

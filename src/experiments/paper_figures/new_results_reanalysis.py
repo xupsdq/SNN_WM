@@ -11,6 +11,12 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from src.experiments.common.inference import (
+    bootstrap_mean_ci,
+    exact_sign_flip_p,
+    holm_adjust,
+    stable_seed,
+)
 from src.experiments.common.results import (
     ResultLayout,
     prepare_result_layout,
@@ -94,7 +100,7 @@ def run_reanalysis(cfg: ReanalysisConfig, *, command: str | None = None) -> dict
         inference["p_holm"] = np.nan
         for _, indices in inference.groupby("correction_family", sort=True).groups.items():
             ordered = list(indices)
-            inference.loc[ordered, "p_holm"] = _holm_adjust(
+            inference.loc[ordered, "p_holm"] = holm_adjust(
                 inference.loc[ordered, "p_one_sided"].to_numpy(dtype=np.float64)
             )
         _save_metric(ctx, inference, "inference_long.csv")
@@ -1063,10 +1069,10 @@ def _add_inference(
         raise ValueError(
             f"{figure}/{endpoint}: expected {len(ctx.cfg.seeds)} network values, got {len(array)}"
         )
-    low, high = _bootstrap_mean_ci(
+    low, high = bootstrap_mean_ci(
         array,
         draws=int(ctx.cfg.bootstrap_draws),
-        seed=_stable_seed(ctx.cfg.random_seed, figure, endpoint),
+        seed=stable_seed(ctx.cfg.random_seed, figure, endpoint),
     )
     ctx.inference_rows.append(
         {
@@ -1082,7 +1088,7 @@ def _add_inference(
             "null_value": float(null),
             "alternative": alternative,
             "effect_vs_null": float(array.mean() - null),
-            "p_one_sided": _exact_sign_flip_p(
+            "p_one_sided": exact_sign_flip_p(
                 array - float(null),
                 alternative=alternative,
             ),
@@ -1092,51 +1098,6 @@ def _add_inference(
             "source_file": source,
         }
     )
-
-
-def _exact_sign_flip_p(values: np.ndarray, *, alternative: str) -> float:
-    array = np.asarray(values, dtype=np.float64)
-    array = array[np.isfinite(array)]
-    if len(array) == 0:
-        return float("nan")
-    if len(array) > 24:
-        raise ValueError("Exact sign-flip is bounded to 24 network values")
-    sums = np.array([0.0], dtype=np.float64)
-    observed = 0.0
-    for value in array:
-        # accumulate the observed statistic in the same order as the
-        # enumeration so the observed sign pattern is always bitwise counted
-        observed += value
-        sums = np.concatenate((sums + value, sums - value))
-    tolerance = 1e-15
-    if alternative == "greater":
-        return float(np.mean(sums >= observed - tolerance))
-    if alternative == "less":
-        return float(np.mean(sums <= observed + tolerance))
-    if alternative == "two-sided":
-        return float(np.mean(np.abs(sums) >= abs(observed) - tolerance))
-    raise ValueError(f"Unsupported alternative: {alternative}")
-
-
-def _bootstrap_mean_ci(values: np.ndarray, *, draws: int, seed: int) -> tuple[float, float]:
-    array = np.asarray(values, dtype=np.float64)
-    rng = np.random.default_rng(int(seed))
-    indices = rng.integers(0, len(array), size=(int(draws), len(array)))
-    samples = array[indices].mean(axis=1)
-    return float(np.percentile(samples, 2.5)), float(np.percentile(samples, 97.5))
-
-
-def _holm_adjust(p_values: np.ndarray) -> np.ndarray:
-    values = np.asarray(p_values, dtype=np.float64)
-    order = np.argsort(values)
-    adjusted = np.empty_like(values)
-    running = 0.0
-    count = len(values)
-    for rank, index in enumerate(order):
-        candidate = float((count - rank) * values[index])
-        running = max(running, candidate)
-        adjusted[index] = min(1.0, running)
-    return adjusted
 
 
 def _layer2_ux(bank: Mapping[str, np.ndarray], sequence_id: int, state: str) -> np.ndarray:
@@ -1193,11 +1154,6 @@ def _sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _stable_seed(base: int, *parts: str) -> int:
-    payload = ":".join([str(base), *map(str, parts)]).encode("utf-8")
-    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
 
 
 def _rel(path: Path, root: Path) -> str:
