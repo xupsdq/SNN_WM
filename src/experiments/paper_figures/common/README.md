@@ -3,6 +3,7 @@
 本目录提供 paper figure DAG 共用的运行、持久化、资源规划和兼容入口 Adapter。
 
 - `__init__.py` 标记共用 Python package。
+- `artifact_runtime.py` 统一 persisted artifact 的路径、cache identity、复用模式和加载或构建生命周期。
 - `bundle_io.py` 管理 seed bundle 的目录、表格、清单和 JSON 写入。
 - `figure_wrappers.py` 将 figure 与子实验便捷入口委托给当前 task runner。
 - `legacy_cli_adapter.py` 将仍受支持的旧选择参数翻译为当前 DAG task，并拒绝严格归档项。

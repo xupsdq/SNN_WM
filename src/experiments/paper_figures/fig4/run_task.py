@@ -22,7 +22,7 @@ import argparse
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,7 @@ from src.experiments.paper_figures.common.bundle_io import (
     resolve_seed_dir,
     save_csv_with_registry,
 )
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig4.artifacts import (
     cache_key_matches,
     copy_rollout_artifact_npz_to_raw,
@@ -50,6 +51,7 @@ from src.experiments.paper_figures.fig4.artifacts import (
     load_pair_sampling_artifact,
     load_rollout_bank_artifact,
     load_similarity_entry_artifact,
+    require_cache_key_match,
     save_pair_sampling_artifact,
     save_rollout_bank_artifact,
     save_similarity_entry_artifact,
@@ -185,6 +187,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise
 
 
+def _materialize_fig4_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+    fresh: Callable[[], Any] | None = None,
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        fresh=fresh,
+        recover_auto_load_errors=False,
+        cache_is_reusable=lambda: cache_key_matches(task_dir, expected_key),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_pair_sampling(
     ctx: ExperimentContext,
     *,
@@ -193,7 +222,18 @@ def _get_pair_sampling(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[int, dict[str, np.ndarray]], str]:
     task_dir = task_artifact_dir(artifact_root, TASK_PAIR_SAMPLING)
     expected_key = build_pair_sampling_cache_key(ctx.cfg)
-    if mode == "require":
+
+    def artifact_values(artifact) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[int, dict[str, np.ndarray]], str]:
+        return (
+            artifact.pair_trials,
+            artifact.candidate_pool,
+            artifact.overlap_matched_pairs,
+            artifact.perturbation_masks,
+            artifact.mask_bank,
+            artifact.digest,
+        )
+
+    def load():
         artifact = load_pair_sampling_artifact(task_dir, expected_key=expected_key)
         _write_pair_sampling_to_bundle(
             ctx,
@@ -204,70 +244,48 @@ def _get_pair_sampling(
             artifact.mask_bank,
         )
         _set_artifact_metadata(ctx, "pair_sampling", "loaded", task_dir, artifact.digest, expected_key)
-        return (
-            artifact.pair_trials,
-            artifact.candidate_pool,
-            artifact.overlap_matched_pairs,
-            artifact.perturbation_masks,
-            artifact.mask_bank,
-            artifact.digest,
-        )
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        artifact = load_pair_sampling_artifact(task_dir, expected_key=expected_key)
-        _write_pair_sampling_to_bundle(
-            ctx,
-            artifact.pair_trials,
-            artifact.candidate_pool,
-            artifact.overlap_matched_pairs,
-            artifact.perturbation_masks,
-            artifact.mask_bank,
-        )
-        _set_artifact_metadata(ctx, "pair_sampling", "loaded", task_dir, artifact.digest, expected_key)
-        return (
-            artifact.pair_trials,
-            artifact.candidate_pool,
-            artifact.overlap_matched_pairs,
-            artifact.perturbation_masks,
-            artifact.mask_bank,
-            artifact.digest,
-        )
-    pair_trials, candidate_pool, perturbation_masks, mask_bank = build_pair_trials(ctx)
-    overlap_path = ctx.trial_specs_dir / "overlap_matched_pairs.csv"
-    if not overlap_path.exists():
-        raise FileNotFoundError(f"Fig.4 pair sampling did not write overlap matched pairs: {overlap_path}")
-    overlap_matched = _read_overlap_matched_pairs(overlap_path)
-    if mode != "off":
-        artifact = save_pair_sampling_artifact(
-            task_dir,
-            pair_trials=pair_trials,
-            candidate_pool=candidate_pool,
-            overlap_matched_pairs=overlap_matched,
-            perturbation_masks=perturbation_masks,
-            mask_bank=mask_bank,
-            cache_key=expected_key,
-            network_seed=ctx.cfg.network_seed,
-        )
-        _write_pair_sampling_to_bundle(
-            ctx,
-            artifact.pair_trials,
-            artifact.candidate_pool,
-            artifact.overlap_matched_pairs,
-            artifact.perturbation_masks,
-            artifact.mask_bank,
-        )
-        _set_artifact_metadata(ctx, "pair_sampling", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{utc_now()} pair_sampling source=built artifact={task_dir}")
-        return (
-            artifact.pair_trials,
-            artifact.candidate_pool,
-            artifact.overlap_matched_pairs,
-            artifact.perturbation_masks,
-            artifact.mask_bank,
-            artifact.digest,
-        )
-    pair_hash = pair_sampling_hash(pair_trials, candidate_pool, overlap_matched, perturbation_masks, mask_bank)
-    _set_artifact_metadata(ctx, "pair_sampling", "fresh", task_dir, pair_hash, expected_key)
-    return pair_trials, candidate_pool, overlap_matched, perturbation_masks, mask_bank, pair_hash
+        return artifact_values(artifact)
+
+    def create(*, persist: bool):
+        pair_trials, candidate_pool, perturbation_masks, mask_bank = build_pair_trials(ctx)
+        overlap_path = ctx.trial_specs_dir / "overlap_matched_pairs.csv"
+        if not overlap_path.exists():
+            raise FileNotFoundError(f"Fig.4 pair sampling did not write overlap matched pairs: {overlap_path}")
+        overlap_matched = _read_overlap_matched_pairs(overlap_path)
+        if persist:
+            artifact = save_pair_sampling_artifact(
+                task_dir,
+                pair_trials=pair_trials,
+                candidate_pool=candidate_pool,
+                overlap_matched_pairs=overlap_matched,
+                perturbation_masks=perturbation_masks,
+                mask_bank=mask_bank,
+                cache_key=expected_key,
+                network_seed=ctx.cfg.network_seed,
+            )
+            _write_pair_sampling_to_bundle(
+                ctx,
+                artifact.pair_trials,
+                artifact.candidate_pool,
+                artifact.overlap_matched_pairs,
+                artifact.perturbation_masks,
+                artifact.mask_bank,
+            )
+            _set_artifact_metadata(ctx, "pair_sampling", "built", task_dir, artifact.digest, expected_key)
+            ctx.run_log.append(f"{utc_now()} pair_sampling source=built artifact={task_dir}")
+            return artifact_values(artifact)
+        pair_hash = pair_sampling_hash(pair_trials, candidate_pool, overlap_matched, perturbation_masks, mask_bank)
+        _set_artifact_metadata(ctx, "pair_sampling", "fresh", task_dir, pair_hash, expected_key)
+        return pair_trials, candidate_pool, overlap_matched, perturbation_masks, mask_bank, pair_hash
+
+    return _materialize_fig4_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _run_task(
@@ -368,26 +386,32 @@ def _get_similarity_entry(
 ) -> SimilarityBiasCompatibleBank:
     task_dir = task_artifact_dir(artifact_root, TASK_SIMILARITY_ENTRY)
     expected_key = build_similarity_entry_cache_key(ctx.cfg, pair_hash=pair_hash)
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+
+    def load() -> SimilarityBiasCompatibleBank:
         artifact = load_similarity_entry_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
         _write_similarity_entry_to_bundle(ctx, artifact.bank)
         _set_artifact_metadata(ctx, "similarity_entry", "loaded", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["similarity_entry"] = True
         return artifact.bank
-    if mode == "require":
-        artifact = load_similarity_entry_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
-        _write_similarity_entry_to_bundle(ctx, artifact.bank)
-        _set_artifact_metadata(ctx, "similarity_entry", "loaded", task_dir, artifact.digest, expected_key)
-        ctx.completed_modules["similarity_entry"] = True
-        return artifact.bank
-    bank = run_similarity_bias_compatible_trials(ctx, pair_trials)
-    if mode != "off":
-        artifact = save_similarity_entry_artifact(task_dir, bank, cache_key=expected_key)
-        _write_similarity_entry_to_bundle(ctx, artifact.bank)
-        _set_artifact_metadata(ctx, "similarity_entry", "built", task_dir, artifact.digest, expected_key)
-        return artifact.bank
-    _set_artifact_metadata(ctx, "similarity_entry", "fresh", task_dir, "", expected_key)
-    return bank
+
+    def create(*, persist: bool) -> SimilarityBiasCompatibleBank:
+        bank = run_similarity_bias_compatible_trials(ctx, pair_trials)
+        if persist:
+            artifact = save_similarity_entry_artifact(task_dir, bank, cache_key=expected_key)
+            _write_similarity_entry_to_bundle(ctx, artifact.bank)
+            _set_artifact_metadata(ctx, "similarity_entry", "built", task_dir, artifact.digest, expected_key)
+            return artifact.bank
+        _set_artifact_metadata(ctx, "similarity_entry", "fresh", task_dir, "", expected_key)
+        return bank
+
+    return _materialize_fig4_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_rollouts(
@@ -402,26 +426,32 @@ def _get_rollouts(
 ) -> OverlapPerturbationCompatibleBank:
     task_dir = task_artifact_dir(artifact_root, TASK_ROLLOUTS)
     expected_key = build_rollouts_cache_key(ctx.cfg, pair_hash=pair_hash)
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+
+    def load() -> OverlapPerturbationCompatibleBank:
         artifact = load_rollout_bank_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
         _write_rollouts_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "rollouts", "loaded", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["rollouts"] = True
         return artifact.bank
-    if mode == "require":
-        artifact = load_rollout_bank_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
-        _write_rollouts_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "rollouts", "loaded", task_dir, artifact.digest, expected_key)
-        ctx.completed_modules["rollouts"] = True
-        return artifact.bank
-    bank = run_overlap_perturbation_compatible_rollouts(ctx, pair_trials, perturbation_masks, mask_bank)
-    if mode != "off":
-        artifact = save_rollout_bank_artifact(task_dir, bank, raw_dir=ctx.raw_dir, cache_key=expected_key)
-        _write_rollouts_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "rollouts", "built", task_dir, artifact.digest, expected_key)
-        return artifact.bank
-    _set_artifact_metadata(ctx, "rollouts", "fresh", task_dir, "", expected_key)
-    return bank
+
+    def create(*, persist: bool) -> OverlapPerturbationCompatibleBank:
+        bank = run_overlap_perturbation_compatible_rollouts(ctx, pair_trials, perturbation_masks, mask_bank)
+        if persist:
+            artifact = save_rollout_bank_artifact(task_dir, bank, raw_dir=ctx.raw_dir, cache_key=expected_key)
+            _write_rollouts_to_bundle(ctx, artifact.bank, task_dir=task_dir)
+            _set_artifact_metadata(ctx, "rollouts", "built", task_dir, artifact.digest, expected_key)
+            return artifact.bank
+        _set_artifact_metadata(ctx, "rollouts", "fresh", task_dir, "", expected_key)
+        return bank
+
+    return _materialize_fig4_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _write_pair_sampling_to_bundle(

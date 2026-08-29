@@ -9,6 +9,13 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from src.experiments.paper_figures.common.artifact_runtime import (
+    CACHE_KEY_FILE,
+    default_artifact_root,
+    reset_task_artifact_dir,
+    task_artifact_dir,
+    write_cache_key,
+)
 from src.experiments.paper_figures.fig5.cache_keys import (
     cache_key_digest,
     sha256_file,
@@ -25,9 +32,6 @@ from src.experiments.paper_figures.fig5.schemas import (
     TRIAL_SAMPLING_FILES,
 )
 from src.experiments.paper_figures.fig5.types import BranchTrace, LocalSupportCompetitionBank
-
-
-CACHE_KEY_FILE = "cache_key.json"
 
 
 @dataclass(frozen=True)
@@ -74,31 +78,6 @@ class TableBundle:
     tables: dict[str, pd.DataFrame]
     manifest: pd.DataFrame
     digest: str
-
-
-def default_artifact_root(seed_dir: Path) -> Path:
-    return Path(seed_dir) / "data" / "intermediates"
-
-
-def task_artifact_dir(artifact_root: Path, task_id: str) -> Path:
-    return Path(artifact_root) / str(task_id)
-
-
-def reset_task_artifact_dir(path: Path) -> None:
-    path = Path(path)
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def write_cache_key(task_dir: Path, cache_key: Mapping[str, Any]) -> None:
-    write_json(
-        {
-            "cache_key": _json_safe(cache_key),
-            "cache_key_digest": cache_key_digest(cache_key),
-        },
-        Path(task_dir) / CACHE_KEY_FILE,
-    )
 
 
 def read_cache_key(task_dir: Path) -> dict[str, Any]:

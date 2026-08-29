@@ -42,6 +42,7 @@ from src.experiments.paper_figures.common.bundle_io import (
     resolve_seed_dir,
     save_csv_with_registry,
 )
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig2.artifacts import (
     CompletionDelayBoundaryBank,
     cache_key_matches,
@@ -261,34 +262,38 @@ def _get_pair_specs(
             return artifact.pair_trials
         if mode == "require":
             load_pair_trial_specs_artifact(task_dir)
-    if mode == "require":
+
+    def load() -> pd.DataFrame:
         artifact = load_pair_trial_specs_artifact(task_dir, expected_key=expected_key)
         _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
         _set_artifact_metadata(ctx, "pair_trial_specs", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.pair_trials
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        try:
-            artifact = load_pair_trial_specs_artifact(task_dir, expected_key=expected_key)
-            _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
-            _set_artifact_metadata(ctx, "pair_trial_specs", "loaded", task_dir, artifact.digest, expected_key)
-            return artifact.pair_trials
-        except Exception:
-            pass
-    pair_trials = build_pair_trial_specs(ctx)
-    pool_path = ctx.trial_specs_dir / "pair_candidate_pool.csv"
-    if not pool_path.exists():
-        raise FileNotFoundError(f"Pair candidate pool was not written by trial spec builder: {pool_path}")
-    candidate_pool = pd.read_csv(pool_path)
-    artifact = save_pair_trial_specs_artifact(
-        task_dir,
-        pair_trials=pair_trials,
-        candidate_pool=candidate_pool,
-        cache_key=expected_key,
+
+    def build() -> pd.DataFrame:
+        pair_trials = build_pair_trial_specs(ctx)
+        pool_path = ctx.trial_specs_dir / "pair_candidate_pool.csv"
+        if not pool_path.exists():
+            raise FileNotFoundError(f"Pair candidate pool was not written by trial spec builder: {pool_path}")
+        candidate_pool = pd.read_csv(pool_path)
+        artifact = save_pair_trial_specs_artifact(
+            task_dir,
+            pair_trials=pair_trials,
+            candidate_pool=candidate_pool,
+            cache_key=expected_key,
+        )
+        _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
+        _set_artifact_metadata(ctx, "pair_trial_specs", "built", task_dir, artifact.digest, expected_key)
+        ctx.run_log.append(f"{utc_now()} pair_trial_specs source=built artifact={task_dir}")
+        return artifact.pair_trials
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        cache_mismatch_hint="Rebuild the producer task before using --reuse-artifacts require.",
     )
-    _write_pair_specs_to_bundle(ctx, artifact.pair_trials, artifact.candidate_pool)
-    _set_artifact_metadata(ctx, "pair_trial_specs", "built", task_dir, artifact.digest, expected_key)
-    ctx.run_log.append(f"{utc_now()} pair_trial_specs source=built artifact={task_dir}")
-    return artifact.pair_trials
 
 
 def _validate_portable_pair_parent(
@@ -720,21 +725,30 @@ def _get_state_bank(
 ) -> PairEpisodeStateBank:
     task_dir = task_artifact_dir(artifact_root, TASK_STATE_BANK)
     expected_key = build_state_bank_cache_key(ctx.cfg, pair_hash=pair_specs_hash(pair_trials))
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+
+    def load() -> PairEpisodeStateBank:
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
         _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, "", expected_key)
         ctx.completed_modules["state_bank"] = True
         return artifact.bank
-    if mode == "require":
-        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, pair_trials=pair_trials)
-        _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, "", expected_key)
-        ctx.completed_modules["state_bank"] = True
-        return artifact.bank
-    bank = run_pair_episode_state_bank(ctx, pair_trials)
-    if mode != "off":
-        save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
-    _set_artifact_metadata(ctx, "state_bank", "built", task_dir, "", expected_key)
-    return bank
+
+    def build(*, persist: bool) -> PairEpisodeStateBank:
+        bank = run_pair_episode_state_bank(ctx, pair_trials)
+        if persist:
+            save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
+        _set_artifact_metadata(ctx, "state_bank", "built", task_dir, "", expected_key)
+        return bank
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: build(persist=True),
+        fresh=lambda: build(persist=False),
+        cache_mismatch_hint="Rebuild the producer task before using --reuse-artifacts require.",
+        recover_auto_load_errors=False,
+    )
 
 
 def _get_completion_boundary_bank(
@@ -747,34 +761,40 @@ def _get_completion_boundary_bank(
 ) -> CompletionDelayBoundaryBank:
     task_dir = task_artifact_dir(artifact_root, TASK_COMPLETION_DELAY_BOUNDARY_BANK)
     expected_key = build_completion_boundary_cache_key(ctx.cfg, pair_hash=pair_specs_hash(pair_trials))
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-        return load_completion_boundary_bank_artifact(
-            task_dir,
-            expected_key=expected_key,
-            pair_trials=pair_trials,
-            expected_delays=tuple(ctx.cfg.completion_delay_sweep_ms),
-        )
-    if mode == "require":
-        return load_completion_boundary_bank_artifact(
-            task_dir,
-            expected_key=expected_key,
-            pair_trials=pair_trials,
-            expected_delays=tuple(ctx.cfg.completion_delay_sweep_ms),
-        )
     if mode == "off" and not producer:
         raise RuntimeError("Internal error: completion boundary bank requested for reuse-artifacts=off.")
-    bank = _build_completion_boundary_bank(ctx, pair_trials)
-    artifact = save_completion_boundary_bank_artifact(
-        task_dir,
-        boundary_states_by_delay=bank.boundary_states_by_delay,
-        layer_input_shapes_by_delay=bank.layer_input_shapes_by_delay,
-        cache_key=expected_key,
-        network_seed=ctx.cfg.network_seed,
-        row_count=len(pair_trials),
+
+    def load() -> CompletionDelayBoundaryBank:
+        return load_completion_boundary_bank_artifact(
+            task_dir,
+            expected_key=expected_key,
+            pair_trials=pair_trials,
+            expected_delays=tuple(ctx.cfg.completion_delay_sweep_ms),
+        )
+
+    def build() -> CompletionDelayBoundaryBank:
+        bank = _build_completion_boundary_bank(ctx, pair_trials)
+        artifact = save_completion_boundary_bank_artifact(
+            task_dir,
+            boundary_states_by_delay=bank.boundary_states_by_delay,
+            layer_input_shapes_by_delay=bank.layer_input_shapes_by_delay,
+            cache_key=expected_key,
+            network_seed=ctx.cfg.network_seed,
+            row_count=len(pair_trials),
+        )
+        ctx.completed_modules["completion_delay_boundary_bank"] = True
+        _set_artifact_metadata(ctx, "completion_delay_boundary_bank", "built", task_dir, "", expected_key)
+        return artifact
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        cache_mismatch_hint="Rebuild the producer task before using --reuse-artifacts require.",
+        recover_auto_load_errors=False,
     )
-    ctx.completed_modules["completion_delay_boundary_bank"] = True
-    _set_artifact_metadata(ctx, "completion_delay_boundary_bank", "built", task_dir, "", expected_key)
-    return artifact
 
 
 def _build_completion_boundary_bank(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> CompletionDelayBoundaryBank:
@@ -812,18 +832,24 @@ def _get_partial_cue_mask_specs(
 ) -> pd.DataFrame:
     task_dir = task_artifact_dir(artifact_root, TASK_PARTIAL_CUE_MASK_SPECS)
     expected_key = build_partial_cue_mask_cache_key(ctx.cfg, pair_hash=pair_specs_hash(pair_trials))
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-        try:
-            return load_partial_cue_mask_specs_artifact(task_dir, expected_key=expected_key).table.copy()
-        except Exception:
-            if mode == "require":
-                raise
-    if mode == "require":
+
+    def load() -> pd.DataFrame:
         return load_partial_cue_mask_specs_artifact(task_dir, expected_key=expected_key).table.copy()
-    specs = _build_partial_cue_mask_specs(ctx, pair_trials)
-    artifact = save_partial_cue_mask_specs_artifact(task_dir, specs, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "partial_cue_mask_specs", "built", task_dir, artifact.digest, expected_key)
-    return artifact.table.copy()
+
+    def build() -> pd.DataFrame:
+        specs = _build_partial_cue_mask_specs(ctx, pair_trials)
+        artifact = save_partial_cue_mask_specs_artifact(task_dir, specs, cache_key=expected_key)
+        _set_artifact_metadata(ctx, "partial_cue_mask_specs", "built", task_dir, artifact.digest, expected_key)
+        return artifact.table.copy()
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        cache_mismatch_hint="Rebuild the producer task before using --reuse-artifacts require.",
+    )
 
 
 def _build_partial_cue_mask_specs(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> pd.DataFrame:
@@ -880,18 +906,24 @@ def _get_completion_delay_mask_specs(
 ) -> pd.DataFrame:
     task_dir = task_artifact_dir(artifact_root, TASK_COMPLETION_DELAY_MASK_SPECS)
     expected_key = build_completion_mask_cache_key(ctx.cfg, pair_hash=pair_specs_hash(pair_trials))
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-        try:
-            return load_completion_delay_mask_specs_artifact(task_dir, expected_key=expected_key).table.copy()
-        except Exception:
-            if mode == "require":
-                raise
-    if mode == "require":
+
+    def load() -> pd.DataFrame:
         return load_completion_delay_mask_specs_artifact(task_dir, expected_key=expected_key).table.copy()
-    specs = _build_completion_delay_mask_specs(ctx, pair_trials)
-    artifact = save_completion_delay_mask_specs_artifact(task_dir, specs, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "completion_delay_mask_specs", "built", task_dir, artifact.digest, expected_key)
-    return artifact.table.copy()
+
+    def build() -> pd.DataFrame:
+        specs = _build_completion_delay_mask_specs(ctx, pair_trials)
+        artifact = save_completion_delay_mask_specs_artifact(task_dir, specs, cache_key=expected_key)
+        _set_artifact_metadata(ctx, "completion_delay_mask_specs", "built", task_dir, artifact.digest, expected_key)
+        return artifact.table.copy()
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        cache_mismatch_hint="Rebuild the producer task before using --reuse-artifacts require.",
+    )
 
 
 def _build_completion_delay_mask_specs(ctx: ExperimentContext, pair_trials: pd.DataFrame) -> pd.DataFrame:

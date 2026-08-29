@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig5_runtime_artifacts"
 SCHEMA_VERSION = 1
 
@@ -32,8 +34,6 @@ TASK_IDS = (
     TASK_PROBE_STSP_UPDATE_BANK,
     TASK_POSTPROBE_STSP_UPDATE,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -278,14 +278,6 @@ POSTPROBE_MAGNITUDE_QC_COLUMNS = (
     "mean_abs_delta_G",
     "early_fire_fraction",
 )
-
-
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
 
 
 __all__ = [

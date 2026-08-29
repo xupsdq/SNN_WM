@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig3_runtime_artifacts"
 SCHEMA_VERSION = 4
 CUE_SPECIFICITY_MISMATCHED_SELECTION_POLICY = "same_label_different_image_excluding_sequence_v1"
@@ -61,8 +63,6 @@ TASK_IDS = (
     TASK_WEAK_PROBE,
     TASK_SUPPLEMENT,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -373,14 +373,6 @@ LANDSCAPE_MANIFEST_COLUMNS = (
     "storage_key",
     "sha256",
 )
-
-
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
 
 
 __all__ = [

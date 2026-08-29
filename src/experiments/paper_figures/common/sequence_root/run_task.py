@@ -4,16 +4,18 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
 from src.config.defaults import DEFAULT_PROJECT_DEFAULTS
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.common.sequence_root.artifacts import (
     cache_key_matches,
     default_artifact_root,
     load_sequence_specs_artifact,
+    require_cache_key_match,
     save_root_bank_artifact,
     save_sequence_specs_artifact,
     task_artifact_dir,
@@ -92,22 +94,52 @@ def main(argv: Sequence[str] | None = None) -> int:
     raise ValueError(f"Unsupported shared sequence-root task: {args.task}")
 
 
+def _materialize_sequence_root_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        recover_auto_load_errors=False,
+        cache_is_reusable=lambda: cache_key_matches(task_dir, expected_key),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_shared_sequence_specs(fig3_ctx, *, mode: str, artifact_root: Path, phase_timings: dict[str, float] | None = None):
     start = time.perf_counter()
     task_dir = task_artifact_dir(artifact_root, TASK_SHARED_SEQUENCE_SPECS)
     expected_key = build_shared_sequence_specs_cache_key(fig3_ctx.cfg)
     try:
-        if mode == "require":
-            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-        if mode == "auto" and cache_key_matches(task_dir, expected_key):
-            return load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-        sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
-        return save_sequence_specs_artifact(
-            task_dir,
-            sequence_trials=sequence_trials,
-            singleton_reference_trials=singleton_trials,
-            partial_cue_trials=partial_trials,
-            cache_key=expected_key,
+        def build():
+            sequence_trials, singleton_trials, partial_trials = build_sequence_trial_specs(fig3_ctx)
+            return save_sequence_specs_artifact(
+                task_dir,
+                sequence_trials=sequence_trials,
+                singleton_reference_trials=singleton_trials,
+                partial_cue_trials=partial_trials,
+                cache_key=expected_key,
+            )
+
+        return _materialize_sequence_root_artifact(
+            mode=mode,
+            task_dir=task_dir,
+            expected_key=expected_key,
+            load=lambda: load_sequence_specs_artifact(task_dir, expected_key=expected_key),
+            build=build,
         )
     finally:
         if phase_timings is not None:
@@ -126,7 +158,7 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         fig3_state_bank_key_digest=fig3_cache_key_digest(fig3_bank_key),
         fig6_sequence_bank_key_digest=fig6_cache_key_digest(fig6_bank_key),
     )
-    if mode == "require" and not cache_key_matches(task_dir, expected_key):
+    def load():
         from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
         start = time.perf_counter()
@@ -134,22 +166,17 @@ def _get_shared_root_bank(fig3_ctx, *, fig6_cfg, mode: str, artifact_root: Path,
         if phase_timings is not None:
             phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
         return artifact
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
 
-        start = time.perf_counter()
-        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
-        if phase_timings is not None:
-            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
-        return artifact
-    if mode == "require":
-        from src.experiments.paper_figures.common.sequence_root.artifacts import load_root_bank_artifact
-
-        start = time.perf_counter()
-        artifact = load_root_bank_artifact(task_dir, expected_key=expected_key)
-        if phase_timings is not None:
-            phase_timings["shared_sequence_root_load_seconds"] = float(time.perf_counter() - start)
-        return artifact
+    build_requested = object()
+    selected = _materialize_sequence_root_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: build_requested,
+    )
+    if selected is not build_requested:
+        return selected
 
     shared_work = task_artifact_dir(artifact_root, "_shared_sequence_root_work")
     fig3_artifact_root = shared_work / "fig3"

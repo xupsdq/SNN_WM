@@ -22,7 +22,7 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -45,6 +45,7 @@ from src.experiments.paper_figures.common.bundle_io import (
     save_csv_with_registry,
     write_json_file,
 )
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig3.artifacts import (
     StateBankArtifact,
     TableBundleArtifact,
@@ -53,6 +54,7 @@ from src.experiments.paper_figures.fig3.artifacts import (
     load_sequence_specs_artifact,
     load_state_bank_artifact,
     load_table_bundle_artifact,
+    require_cache_key_match,
     save_sequence_specs_artifact,
     save_state_bank_artifact,
     save_table_bundle_artifact,
@@ -262,6 +264,33 @@ def _run_exemplar_decoder_task(
     get_exemplar_decoder_results(ctx, specs, state_bank, mode=mode, artifact_root=artifact_root)
 
 
+def _materialize_fig3_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+    fresh: Callable[[], Any] | None = None,
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        fresh=fresh,
+        recover_auto_load_errors=False,
+        cache_is_reusable=lambda: cache_key_matches(task_dir, expected_key),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_sequence_specs(
     ctx: ExperimentContext,
     *,
@@ -293,31 +322,37 @@ def _get_sequence_specs(
         _write_sequence_specs_to_bundle(ctx, artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials)
         _set_artifact_metadata(ctx, "sequence_trial_specs", "shared_sequence_root", task_dir, artifact.digest, expected_key)
         return artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials
-    if mode == "require":
+    def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         artifact = load_sequence_specs_artifact(task_dir, expected_key=expected_key)
         _write_sequence_specs_to_bundle(ctx, artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials)
         _set_artifact_metadata(ctx, "sequence_trial_specs", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
-        artifact = load_sequence_specs_artifact(task_dir, expected_key=expected_key)
-        _write_sequence_specs_to_bundle(ctx, artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials)
-        _set_artifact_metadata(ctx, "sequence_trial_specs", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact.sequence_trials, artifact.singleton_reference_trials, artifact.partial_cue_trials
-    seq_trials, singleton_trials, partial_trials = build_sequence_trial_specs(ctx)
-    if mode != "off":
-        artifact = save_sequence_specs_artifact(
-            task_dir,
-            sequence_trials=seq_trials,
-            singleton_reference_trials=singleton_trials,
-            partial_cue_trials=partial_trials,
-            cache_key=expected_key,
-        )
-        _set_artifact_metadata(ctx, "sequence_trial_specs", "built", task_dir, artifact.digest, expected_key)
-        seq_trials = artifact.sequence_trials
-        singleton_trials = artifact.singleton_reference_trials
-        partial_trials = artifact.partial_cue_trials
-    ctx.run_log.append(f"{utc_now()} sequence_trial_specs source=built task={task_id}")
-    return seq_trials, singleton_trials, partial_trials
+
+    def create(*, persist: bool) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        seq_trials, singleton_trials, partial_trials = build_sequence_trial_specs(ctx)
+        if persist:
+            artifact = save_sequence_specs_artifact(
+                task_dir,
+                sequence_trials=seq_trials,
+                singleton_reference_trials=singleton_trials,
+                partial_cue_trials=partial_trials,
+                cache_key=expected_key,
+            )
+            _set_artifact_metadata(ctx, "sequence_trial_specs", "built", task_dir, artifact.digest, expected_key)
+            seq_trials = artifact.sequence_trials
+            singleton_trials = artifact.singleton_reference_trials
+            partial_trials = artifact.partial_cue_trials
+        ctx.run_log.append(f"{utc_now()} sequence_trial_specs source=built task={task_id}")
+        return seq_trials, singleton_trials, partial_trials
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _write_sequence_specs_to_bundle(
@@ -611,26 +646,31 @@ def _get_state_bank_artifact(
         ctx.completed_modules["state_bank"] = True
         ctx.run_log.append(f"{utc_now()} state_bank source=shared_sequence_root artifact={root_bank.root}")
         return artifact
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> StateBankArtifact:
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         if write_compat_outputs:
             _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, artifact.digest, expected_key)
         ctx.completed_modules["state_bank"] = True
         return artifact
-    if mode == "require":
-        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        if write_compat_outputs:
-            _write_state_bank_compat_outputs(ctx, task_dir)
-        _set_artifact_metadata(ctx, "state_bank", "loaded", task_dir, artifact.digest, expected_key)
-        ctx.completed_modules["state_bank"] = True
-        return artifact
-    if mode == "off":
+
+    def reject_off() -> StateBankArtifact:
         raise ValueError("Fig.3 state-bank artifact helper cannot return a persisted artifact in reuse mode 'off'.")
-    bank = run_multiitem_sequence_state_bank(ctx, sequence_trials, write_compat_outputs=write_compat_outputs)
-    artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
-    _set_artifact_metadata(ctx, "state_bank", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    def build() -> StateBankArtifact:
+        bank = run_multiitem_sequence_state_bank(ctx, sequence_trials, write_compat_outputs=write_compat_outputs)
+        artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
+        _set_artifact_metadata(ctx, "state_bank", "built", task_dir, artifact.digest, expected_key)
+        return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        fresh=reject_off,
+    )
 
 
 
@@ -652,7 +692,7 @@ def _get_formation_intervention_specs(
     expected_columns = {
         "formation_intervention_specs": FORMATION_INTERVENTION_SPEC_REQUIRED_COLUMNS,
     }
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(
             task_dir,
             expected_key=expected_key,
@@ -662,30 +702,31 @@ def _get_formation_intervention_specs(
         _copy_formation_specs_to_bundle(ctx, task_dir)
         _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(
-            task_dir,
-            expected_key=expected_key,
-            expected_names=FORMATION_INTERVENTION_SPEC_FILES.keys(),
-            expected_columns=expected_columns,
-        )
-        _copy_formation_specs_to_bundle(ctx, task_dir)
-        _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    table = build_formation_intervention_specs(ctx, boundary_artifact.bank)
-    tables = {"formation_intervention_specs": table}
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        table = build_formation_intervention_specs(ctx, boundary_artifact.bank)
+        tables = {"formation_intervention_specs": table}
+        if persist:
+            artifact = save_table_bundle_artifact(
+                task_dir,
+                tables=tables,
+                filenames=FORMATION_INTERVENTION_SPEC_FILES,
+                cache_key=expected_key,
+            )
+            _copy_formation_specs_to_bundle(ctx, task_dir)
+            _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "built", task_dir, artifact.digest, expected_key)
+            return artifact
         _write_formation_specs_to_bundle(ctx, table)
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(
-        task_dir,
-        tables=tables,
-        filenames=FORMATION_INTERVENTION_SPEC_FILES,
-        cache_key=expected_key,
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
     )
-    _copy_formation_specs_to_bundle(ctx, task_dir)
-    _set_artifact_metadata(ctx, TASK_FORMATION_INTERVENTION_SPECS, "built", task_dir, artifact.digest, expected_key)
-    return artifact
 
 
 def _get_formation_necessity(
@@ -702,7 +743,7 @@ def _get_formation_necessity(
         boundary_state_digest=boundary_artifact.digest,
         intervention_specs_digest=specs_artifact.digest,
     )
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(
             task_dir,
             expected_key=expected_key,
@@ -712,33 +753,34 @@ def _get_formation_necessity(
         _copy_formation_tables_to_bundle(ctx, task_dir)
         _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(
-            task_dir,
-            expected_key=expected_key,
-            expected_names=FORMATION_RESULT_FILES.keys(),
-            expected_columns=FORMATION_RESULT_REQUIRED_COLUMNS,
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = run_formation_necessity(
+            ctx,
+            boundary_artifact.bank,
+            specs_artifact.tables["formation_intervention_specs"],
         )
-        _copy_formation_tables_to_bundle(ctx, task_dir)
-        _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = run_formation_necessity(
-        ctx,
-        boundary_artifact.bank,
-        specs_artifact.tables["formation_intervention_specs"],
-    )
-    if mode == "off":
+        if persist:
+            artifact = save_table_bundle_artifact(
+                task_dir,
+                tables=tables,
+                filenames=FORMATION_RESULT_FILES,
+                cache_key=expected_key,
+            )
+            _copy_formation_tables_to_bundle(ctx, task_dir)
+            _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "built", task_dir, artifact.digest, expected_key)
+            return artifact
         _write_formation_tables_to_bundle(ctx, tables)
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(
-        task_dir,
-        tables=tables,
-        filenames=FORMATION_RESULT_FILES,
-        cache_key=expected_key,
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
     )
-    _copy_formation_tables_to_bundle(ctx, task_dir)
-    _set_artifact_metadata(ctx, TASK_FORMATION_NECESSITY, "built", task_dir, artifact.digest, expected_key)
-    return artifact
 
 
 def _get_boundary_condition_specs(
@@ -752,22 +794,29 @@ def _get_boundary_condition_specs(
     task_dir = task_artifact_dir(artifact_root, TASK_BOUNDARY_CONDITION_SPECS)
     expected_key = build_boundary_condition_specs_cache_key(ctx.cfg, specs_hash=specs_hash)
     filenames = {"boundary_condition_specs": "boundary_condition_specs.csv"}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
         _write_boundary_condition_specs_to_bundle(ctx, artifact.tables["boundary_condition_specs"])
         _set_artifact_metadata(ctx, "boundary_condition_specs", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
-        _write_boundary_condition_specs_to_bundle(ctx, artifact.tables["boundary_condition_specs"])
-        _set_artifact_metadata(ctx, "boundary_condition_specs", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    table = build_boundary_condition_specs(ctx, sequence_trials)
-    if mode == "off":
-        return TableBundleArtifact(task_dir, {"boundary_condition_specs": table}, pd.DataFrame(), table_digest({"boundary_condition_specs": table}))
-    artifact = save_table_bundle_artifact(task_dir, tables={"boundary_condition_specs": table}, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "boundary_condition_specs", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        table = build_boundary_condition_specs(ctx, sequence_trials)
+        tables = {"boundary_condition_specs": table}
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "boundary_condition_specs", "built", task_dir, artifact.digest, expected_key)
+            return artifact
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_access_job_specs(
@@ -786,22 +835,29 @@ def _get_access_job_specs(
         condition_specs_digest=condition_artifact.digest,
     )
     filenames = {"access_job_specs": "access_job_specs.csv"}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
         _write_access_job_specs_to_bundle(ctx, artifact.tables["access_job_specs"])
         _set_artifact_metadata(ctx, "access_job_specs", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
-        _write_access_job_specs_to_bundle(ctx, artifact.tables["access_job_specs"])
-        _set_artifact_metadata(ctx, "access_job_specs", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    table = build_access_job_specs(ctx, sequence_trials, condition_artifact.tables["boundary_condition_specs"])
-    if mode == "off":
-        return TableBundleArtifact(task_dir, {"access_job_specs": table}, pd.DataFrame(), table_digest({"access_job_specs": table}))
-    artifact = save_table_bundle_artifact(task_dir, tables={"access_job_specs": table}, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "access_job_specs", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        table = build_access_job_specs(ctx, sequence_trials, condition_artifact.tables["boundary_condition_specs"])
+        tables = {"access_job_specs": table}
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "access_job_specs", "built", task_dir, artifact.digest, expected_key)
+            return artifact
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_boundary_state_bank(
@@ -820,37 +876,42 @@ def _get_boundary_state_bank(
         specs_hash=specs_hash,
         condition_specs_digest=condition_artifact.digest,
     )
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> StateBankArtifact:
         artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         materialize_boundary_state_bank(ctx, artifact.bank, condition_artifact.tables["boundary_condition_specs"], sequence_trials=sequence_trials)
         _write_state_bank_compat_outputs(ctx, task_dir)
         _set_artifact_metadata(ctx, "boundary_state_bank", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_state_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        materialize_boundary_state_bank(ctx, artifact.bank, condition_artifact.tables["boundary_condition_specs"], sequence_trials=sequence_trials)
-        _write_state_bank_compat_outputs(ctx, task_dir)
-        _set_artifact_metadata(ctx, "boundary_state_bank", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    condition_specs = condition_artifact.tables["boundary_condition_specs"]
-    condition_delays = sorted(int(v) for v in condition_specs["delay_ms"].dropna().unique())
-    source_bank = None
-    if condition_delays == [int(ctx.cfg.delay_ms)]:
-        source_bank = _get_state_bank(
-            ctx,
-            sequence_trials,
-            mode=mode,
-            artifact_root=artifact_root,
-            specs_hash=specs_hash,
-            shared_sequence_root=shared_sequence_root,
-        )
-    bank = materialize_boundary_state_bank(ctx, source_bank, condition_specs, sequence_trials=sequence_trials)
-    if mode == "off":
+
+    def create(*, persist: bool) -> StateBankArtifact:
+        condition_specs = condition_artifact.tables["boundary_condition_specs"]
+        condition_delays = sorted(int(v) for v in condition_specs["delay_ms"].dropna().unique())
+        source_bank = None
+        if condition_delays == [int(ctx.cfg.delay_ms)]:
+            source_bank = _get_state_bank(
+                ctx,
+                sequence_trials,
+                mode=mode,
+                artifact_root=artifact_root,
+                specs_hash=specs_hash,
+                shared_sequence_root=shared_sequence_root,
+            )
+        bank = materialize_boundary_state_bank(ctx, source_bank, condition_specs, sequence_trials=sequence_trials)
+        if persist:
+            artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
+            _write_state_bank_compat_outputs(ctx, task_dir)
+            _set_artifact_metadata(ctx, "boundary_state_bank", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return StateBankArtifact(task_dir, bank, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), "off")
-    artifact = save_state_bank_artifact(task_dir, bank, cache_key=expected_key, network_seed=ctx.cfg.network_seed)
-    _write_state_bank_compat_outputs(ctx, task_dir)
-    _set_artifact_metadata(ctx, "boundary_state_bank", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_boundary_access_parents(
@@ -896,22 +957,28 @@ def _get_morphology_decomposition(
         "morphology_boundary_metrics": "panel_c_morphology_boundary_metrics.csv",
     }
     expected_columns = {"morphology_boundary_metrics": MORPHOLOGY_BOUNDARY_REQUIRED_COLUMNS}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
         _write_morphology_tables_to_bundle(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "morphology_decomposition", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
-        _write_morphology_tables_to_bundle(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "morphology_decomposition", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = compute_morphology_decomposition(ctx, boundary_artifact.bank, condition_artifact.tables["boundary_condition_specs"])
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = compute_morphology_decomposition(ctx, boundary_artifact.bank, condition_artifact.tables["boundary_condition_specs"])
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "morphology_decomposition", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "morphology_decomposition", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_weak_cue_access(
@@ -935,22 +1002,28 @@ def _get_weak_cue_access(
         "functional_boundary_metrics": "panel_d_functional_boundary_metrics.csv",
     }
     expected_columns = {"functional_boundary_metrics": FUNCTIONAL_BOUNDARY_REQUIRED_COLUMNS}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
         _write_weak_cue_tables_to_bundle(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "weak_cue_access", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
-        _write_weak_cue_tables_to_bundle(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "weak_cue_access", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = run_weak_cue_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = run_weak_cue_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "weak_cue_access", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "weak_cue_access", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_cue_specificity_specs(
@@ -970,31 +1043,38 @@ def _get_cue_specificity_specs(
     )
     filenames = {"cue_specificity_specs": "cue_specificity_specs.csv"}
     expected_columns = {"cue_specificity_specs": CUE_SPECIFICITY_SPECS_REQUIRED_COLUMNS}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
         _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
         _set_artifact_metadata(ctx, "cue_specificity_specs", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
-        _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
-        _set_artifact_metadata(ctx, "cue_specificity_specs", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    table = build_cue_specificity_specs(
-        ctx,
-        sequence_trials,
-        access_artifact.tables["access_job_specs"],
-        seq_len=int(ctx.cfg.cue_specificity_seq_len),
-        delay_ms=int(ctx.cfg.cue_specificity_delay_ms),
-        keep_prob=float(ctx.cfg.cue_specificity_keep_prob),
-        cue_types=ctx.cfg.cue_specificity_cue_types,
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        table = build_cue_specificity_specs(
+            ctx,
+            sequence_trials,
+            access_artifact.tables["access_job_specs"],
+            seq_len=int(ctx.cfg.cue_specificity_seq_len),
+            delay_ms=int(ctx.cfg.cue_specificity_delay_ms),
+            keep_prob=float(ctx.cfg.cue_specificity_keep_prob),
+            cue_types=ctx.cfg.cue_specificity_cue_types,
+        )
+        tables = {"cue_specificity_specs": table}
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
+            _set_artifact_metadata(ctx, "cue_specificity_specs", "built", task_dir, artifact.digest, expected_key)
+            return artifact
+        return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
     )
-    if mode == "off":
-        return TableBundleArtifact(task_dir, {"cue_specificity_specs": table}, pd.DataFrame(), table_digest({"cue_specificity_specs": table}))
-    artifact = save_table_bundle_artifact(task_dir, tables={"cue_specificity_specs": table}, filenames=filenames, cache_key=expected_key)
-    _write_cue_specificity_specs_to_bundle(ctx, artifact.tables["cue_specificity_specs"])
-    _set_artifact_metadata(ctx, "cue_specificity_specs", "built", task_dir, artifact.digest, expected_key)
-    return artifact
 
 
 def _get_cue_specificity_access(
@@ -1020,35 +1100,40 @@ def _get_cue_specificity_access(
         "cue_specificity_summary": "panel_c_cue_specificity_summary.csv",
     }
     expected_columns = {"cue_specificity_metrics": CUE_SPECIFICITY_METRICS_REQUIRED_COLUMNS}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
         _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
         _validate_cue_specificity_science(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "cue_specificity_access", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
-        _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
-        _validate_cue_specificity_science(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "cue_specificity_access", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    cue_specs = cue_specs_artifact.tables["cue_specificity_specs"]
-    raw = run_cue_specificity_readout(
-        ctx,
-        boundary_artifact.bank,
-        cue_specs,
-        readout_batch_size=int(ctx.cfg.cue_specificity_readout_batch_size),
-    )
-    if len(raw) != len(cue_specs):
-        raise RuntimeError(f"Cue specificity raw row count mismatch: found {len(raw)}, expected {len(cue_specs)}.")
-    tables = compute_cue_specificity_tables(raw)
-    _validate_cue_specificity_science(ctx, tables)
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        cue_specs = cue_specs_artifact.tables["cue_specificity_specs"]
+        raw = run_cue_specificity_readout(
+            ctx,
+            boundary_artifact.bank,
+            cue_specs,
+            readout_batch_size=int(ctx.cfg.cue_specificity_readout_batch_size),
+        )
+        if len(raw) != len(cue_specs):
+            raise RuntimeError(f"Cue specificity raw row count mismatch: found {len(raw)}, expected {len(cue_specs)}.")
+        tables = compute_cue_specificity_tables(raw)
+        _validate_cue_specificity_science(ctx, tables)
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
+            _set_artifact_metadata(ctx, "cue_specificity_access", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _write_cue_specificity_access_tables_to_bundle(ctx, artifact.tables)
-    _set_artifact_metadata(ctx, "cue_specificity_access", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_neutral_ping_access(
@@ -1070,22 +1155,28 @@ def _get_neutral_ping_access(
         "neutral_ping_position_distribution": "panel_c_neutral_ping_position_distribution.csv",
         "neutral_ping_access_summary": "panel_c_neutral_ping_access_summary.csv",
     }
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
         _write_neutral_ping_tables_to_bundle(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "neutral_ping_access", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
-        _write_neutral_ping_tables_to_bundle(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "neutral_ping_access", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = run_neutral_ping_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = run_neutral_ping_access(ctx, boundary_artifact.bank, access_artifact.tables["access_job_specs"])
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "neutral_ping_access", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "neutral_ping_access", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_morphology_function_coupling(
@@ -1107,22 +1198,28 @@ def _get_morphology_function_coupling(
         "coupling_summary": "panel_e_coupling_summary.csv",
         "order_specificity_control": "panel_f_order_specificity_control.csv",
     }
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
         _write_coupling_tables_to_bundle(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "morphology_function_coupling", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys())
-        _write_coupling_tables_to_bundle(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "morphology_function_coupling", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = compute_morphology_function_coupling(ctx, morphology_artifact.tables, weak_cue_artifact.tables)
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = compute_morphology_function_coupling(ctx, morphology_artifact.tables, weak_cue_artifact.tables)
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "morphology_function_coupling", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "morphology_function_coupling", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_new_boundary_downstream_parents(
@@ -1169,22 +1266,28 @@ def _get_boundary_summary(
     )
     filenames = {"boundary_summary": "panel_f_boundary_summary.csv"}
     expected_columns = {"boundary_summary": BOUNDARY_SUMMARY_REQUIRED_COLUMNS}
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
+    def load() -> TableBundleArtifact:
         artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
         _write_boundary_summary_tables_to_bundle(ctx, artifact.tables)
         _set_artifact_metadata(ctx, "boundary_summary", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
-    if mode == "require":
-        artifact = load_table_bundle_artifact(task_dir, expected_key=expected_key, expected_names=filenames.keys(), expected_columns=expected_columns)
-        _write_boundary_summary_tables_to_bundle(ctx, artifact.tables)
-        _set_artifact_metadata(ctx, "boundary_summary", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    tables = compute_boundary_summary(ctx, morphology_artifact.tables, weak_cue_artifact.tables, neutral_ping_artifact.tables, coupling_artifact.tables)
-    if mode == "off":
+
+    def create(*, persist: bool) -> TableBundleArtifact:
+        tables = compute_boundary_summary(ctx, morphology_artifact.tables, weak_cue_artifact.tables, neutral_ping_artifact.tables, coupling_artifact.tables)
+        if persist:
+            artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
+            _set_artifact_metadata(ctx, "boundary_summary", "built", task_dir, artifact.digest, expected_key)
+            return artifact
         return TableBundleArtifact(task_dir, tables, pd.DataFrame(), table_digest(tables))
-    artifact = save_table_bundle_artifact(task_dir, tables=tables, filenames=filenames, cache_key=expected_key)
-    _set_artifact_metadata(ctx, "boundary_summary", "built", task_dir, artifact.digest, expected_key)
-    return artifact
+
+    return _materialize_fig3_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _write_state_bank_compat_outputs(ctx: ExperimentContext, task_dir: Path) -> None:

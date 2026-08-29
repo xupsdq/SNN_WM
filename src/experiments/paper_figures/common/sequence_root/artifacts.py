@@ -8,6 +8,12 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from src.experiments.paper_figures.common.artifact_runtime import (
+    CACHE_KEY_FILE,
+    default_artifact_root,
+    task_artifact_dir,
+    write_cache_key,
+)
 from src.experiments.paper_figures.common.sequence_root.cache_keys import (
     cache_key_digest,
     sequence_specs_hash,
@@ -29,17 +35,6 @@ from src.experiments.paper_figures.common.specs.artifacts import load_spec_artif
 from src.experiments.paper_figures.common.specs.cache_keys import rng_namespace_seed
 from src.experiments.paper_figures.common.specs.schemas import SCHEMA_VERSION as SPEC_SCHEMA_VERSION
 from src.experiments.paper_figures.common.specs.schemas import SpecFamily
-
-
-CACHE_KEY_FILE = "cache_key.json"
-
-
-def default_artifact_root(seed_dir: str | Path) -> Path:
-    return Path(seed_dir) / "data" / "intermediates"
-
-
-def task_artifact_dir(artifact_root: str | Path, task_id: str) -> Path:
-    return Path(artifact_root) / str(task_id)
 
 
 def resolve_root_bank_dir(path: str | Path) -> Path:
@@ -64,10 +59,6 @@ def write_json(payload: Mapping[str, Any], path: str | Path) -> None:
 
 def read_json(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
-def write_cache_key(task_dir: Path, cache_key: Mapping[str, Any]) -> None:
-    write_json({"cache_key": _json_safe(cache_key), "cache_key_digest": cache_key_digest(cache_key)}, task_dir / CACHE_KEY_FILE)
 
 
 def read_cache_key(task_dir: Path) -> dict[str, Any]:

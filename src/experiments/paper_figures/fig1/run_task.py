@@ -40,12 +40,11 @@ from src.experiments.paper_figures.common.bundle_io import (
     resolve_seed_dir,
     save_csv_with_registry,
 )
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig1.artifacts import (
     DmsBoundaryBank,
     boundary_shard_path,
-    cache_key_matches,
     default_artifact_root,
-    load_delay_feature_bank,
     load_dms_boundary_bank,
     load_trial_specs_artifact,
     read_json,
@@ -160,24 +159,21 @@ def _get_trial_specs(
     expected_key = build_trial_specs_cache_key(ctx.cfg)
     if task_id == TASK_TRIAL_SPECS:
         return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    if mode == "off":
+
+    def build_fresh() -> dict[str, pd.DataFrame]:
         specs = build_trial_specs(ctx)
         _set_trial_specs_metadata(ctx, source="built", artifact_dir=task_dir, digest=trial_specs_hash(specs), cache_key=expected_key)
         return specs
-    if mode == "require":
-        return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-    if mode == "auto":
-        if cache_key_matches(task_dir, expected_key):
-            try:
-                return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-            except Exception:
-                pass
-        return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    if mode == "force":
-        if task_dir.exists():
-            return _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key)
-        return _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key)
-    raise ValueError(f"Unsupported reuse-artifacts mode: {mode}")
+
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: _load_trial_specs_for_bundle(ctx, task_dir=task_dir, expected_key=expected_key),
+        build=lambda: _build_and_save_trial_specs(ctx, task_dir=task_dir, cache_key=expected_key),
+        fresh=build_fresh,
+        force_load_existing=True,
+    )
 
 
 def _build_and_save_trial_specs(
@@ -396,20 +392,20 @@ def _get_delay_features(
 ) -> dict[tuple[str, int, str], tuple[Any, Any, Any]]:
     task_dir = task_artifact_dir(artifact_root, TASK_DELAY_FEATURE_BANK)
     expected_key = _delay_feature_cache_key(ctx, train_trials, test_trials)
-    if mode != "off":
-        if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-            try:
-                return load_delay_feature_bank_for_decode(task_dir, expected_key=expected_key)
-            except Exception:
-                if mode == "require":
-                    raise
-        elif mode == "require":
-            load_delay_feature_bank(task_dir, expected_key=expected_key)
-        if mode == "require":
-            raise RuntimeError("delay_feature_bank require-mode load failed without producing features.")
-    if mode == "off" and not producer:
-        return build_delay_feature_bank(ctx, train_trials, test_trials)
-    return build_delay_feature_bank(ctx, train_trials, test_trials, artifact_dir=task_dir, cache_key=expected_key)
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: load_delay_feature_bank_for_decode(task_dir, expected_key=expected_key),
+        build=lambda: build_delay_feature_bank(
+            ctx,
+            train_trials,
+            test_trials,
+            artifact_dir=task_dir,
+            cache_key=expected_key,
+        ),
+        fresh=None if producer else lambda: build_delay_feature_bank(ctx, train_trials, test_trials),
+    )
 
 
 def _get_dms_boundary_bank(
@@ -422,28 +418,25 @@ def _get_dms_boundary_bank(
 ) -> DmsBoundaryBank:
     task_dir = task_artifact_dir(artifact_root, TASK_DMS_BOUNDARY_BANK)
     expected_key = _dms_boundary_cache_key(ctx, dms_trials)
-    if mode != "off":
-        if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-            try:
-                return load_dms_boundary_bank(
-                    task_dir,
-                    expected_key=expected_key,
-                    dms_trials=dms_trials,
-                    batch_size=int(ctx.cfg.dms_batch_size),
-                )
-            except Exception:
-                if mode == "require":
-                    raise
-        elif mode == "require":
-            return load_dms_boundary_bank(
-                task_dir,
-                expected_key=expected_key,
-                dms_trials=dms_trials,
-                batch_size=int(ctx.cfg.dms_batch_size),
-            )
     if mode == "off" and not producer:
         raise RuntimeError("Internal error: DMS boundary bank requested for reuse-artifacts=off.")
-    return _build_dms_boundary_bank(ctx, dms_trials, task_dir=task_dir, cache_key=expected_key)
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=lambda: load_dms_boundary_bank(
+            task_dir,
+            expected_key=expected_key,
+            dms_trials=dms_trials,
+            batch_size=int(ctx.cfg.dms_batch_size),
+        ),
+        build=lambda: _build_dms_boundary_bank(
+            ctx,
+            dms_trials,
+            task_dir=task_dir,
+            cache_key=expected_key,
+        ),
+    )
 
 
 def _build_dms_boundary_bank(

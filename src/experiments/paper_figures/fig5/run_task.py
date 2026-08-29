@@ -22,7 +22,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 import torch
@@ -32,6 +32,7 @@ from src.experiments.common.dataset import build_class_index
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig5.artifacts import (
     cache_key_matches,
     copy_probe_stsp_update_artifact_to_bundle,
@@ -44,6 +45,7 @@ from src.experiments.paper_figures.fig5.artifacts import (
     load_trial_sampling_artifact,
     read_cache_key,
     read_probe_stsp_update_unit_groups,
+    require_cache_key_match,
     save_support_bank_artifact,
     save_trial_sampling_artifact,
     task_artifact_dir,
@@ -176,6 +178,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise
 
 
+def _materialize_fig5_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+    fresh: Callable[[], Any] | None = None,
+    cache_is_reusable: Callable[[], bool] | None = None,
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        fresh=fresh,
+        recover_auto_load_errors=False,
+        cache_is_reusable=cache_is_reusable or (lambda: cache_key_matches(task_dir, expected_key)),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_trial_sampling(
     ctx: ExperimentContext,
     *,
@@ -184,41 +214,45 @@ def _get_trial_sampling(
 ) -> tuple[pd.DataFrame, str]:
     task_dir = task_artifact_dir(artifact_root, TASK_TRIAL_SAMPLING)
     expected_key = build_trial_sampling_cache_key(ctx.cfg)
-    if mode == "require":
-        artifact = _timed_artifact_io(ctx, load_trial_sampling_artifact, task_dir, expected_key=expected_key)
-        _write_trial_sampling_to_bundle(ctx, artifact.trials, artifact.audit, task_dir=task_dir)
-        trial_hash = trials_hash(artifact.trials)
-        _set_artifact_metadata(ctx, "trial_sampling", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact.trials, trial_hash
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
+
+    def load() -> tuple[pd.DataFrame, str]:
         artifact = _timed_artifact_io(ctx, load_trial_sampling_artifact, task_dir, expected_key=expected_key)
         _write_trial_sampling_to_bundle(ctx, artifact.trials, artifact.audit, task_dir=task_dir)
         trial_hash = trials_hash(artifact.trials)
         _set_artifact_metadata(ctx, "trial_sampling", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.trials, trial_hash
 
-    trials = build_local_competition_trials(ctx)
-    audit = pd.read_csv(ctx.metrics_dir / "supp_trial_condition_audit.csv")
-    if mode != "off":
-        artifact = _timed_artifact_io(
-            ctx,
-            save_trial_sampling_artifact,
-            task_dir,
-            trials=trials,
-            audit=audit,
-            raw_dir=ctx.raw_dir,
-            cache_key=expected_key,
-        )
-        _write_trial_sampling_to_bundle(ctx, artifact.trials, artifact.audit, task_dir=task_dir)
-        trial_hash = trials_hash(artifact.trials)
-        _set_artifact_metadata(ctx, "trial_sampling", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{utc_now()} trial_sampling source=built artifact={task_dir}")
-        return artifact.trials, trial_hash
+    def create(*, persist: bool) -> tuple[pd.DataFrame, str]:
+        trials = build_local_competition_trials(ctx)
+        audit = pd.read_csv(ctx.metrics_dir / "supp_trial_condition_audit.csv")
+        if persist:
+            artifact = _timed_artifact_io(
+                ctx,
+                save_trial_sampling_artifact,
+                task_dir,
+                trials=trials,
+                audit=audit,
+                raw_dir=ctx.raw_dir,
+                cache_key=expected_key,
+            )
+            _write_trial_sampling_to_bundle(ctx, artifact.trials, artifact.audit, task_dir=task_dir)
+            trial_hash = trials_hash(artifact.trials)
+            _set_artifact_metadata(ctx, "trial_sampling", "built", task_dir, artifact.digest, expected_key)
+            ctx.run_log.append(f"{utc_now()} trial_sampling source=built artifact={task_dir}")
+            return artifact.trials, trial_hash
+        trial_hash = trials_hash(trials)
+        _set_artifact_metadata(ctx, "trial_sampling", "fresh", task_dir, trial_hash, expected_key)
+        ctx.n_trials = int(len(trials))
+        return trials, trial_hash
 
-    trial_hash = trials_hash(trials)
-    _set_artifact_metadata(ctx, "trial_sampling", "fresh", task_dir, trial_hash, expected_key)
-    ctx.n_trials = int(len(trials))
-    return trials, trial_hash
+    return _materialize_fig5_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_support_bank(
@@ -231,29 +265,34 @@ def _get_support_bank(
 ) -> LocalSupportCompetitionBank:
     task_dir = task_artifact_dir(artifact_root, TASK_SUPPORT_BANK)
     expected_key = build_support_bank_cache_key(ctx.cfg, trial_hash=trial_hash)
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-        artifact = _timed_artifact_io(ctx, load_support_bank_artifact, task_dir, expected_key=expected_key, trials=trials)
-        _write_support_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "preprobe_support_bank", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact.bank
-    if mode == "require":
+
+    def load() -> LocalSupportCompetitionBank:
         artifact = _timed_artifact_io(ctx, load_support_bank_artifact, task_dir, expected_key=expected_key, trials=trials)
         _write_support_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "preprobe_support_bank", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.bank
 
-    bank = build_local_support_competition_bank(ctx, trials)
-    if mode != "off":
-        artifact = _timed_artifact_io(ctx, save_support_bank_artifact, task_dir, bank, raw_dir=ctx.raw_dir, cache_key=expected_key)
-        _write_support_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "preprobe_support_bank", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{utc_now()} preprobe_support_bank source=built artifact={task_dir}")
-        return artifact.bank
+    def create(*, persist: bool) -> LocalSupportCompetitionBank:
+        bank = build_local_support_competition_bank(ctx, trials)
+        if persist:
+            artifact = _timed_artifact_io(ctx, save_support_bank_artifact, task_dir, bank, raw_dir=ctx.raw_dir, cache_key=expected_key)
+            _write_support_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
+            _set_artifact_metadata(ctx, "preprobe_support_bank", "built", task_dir, artifact.digest, expected_key)
+            ctx.run_log.append(f"{utc_now()} preprobe_support_bank source=built artifact={task_dir}")
+            return artifact.bank
+        bank_hash = cache_key_digest(expected_key)
+        _set_artifact_metadata(ctx, "preprobe_support_bank", "fresh", task_dir, bank_hash, expected_key)
+        ctx.n_trials = int(len(trials))
+        return bank
 
-    bank_hash = cache_key_digest(expected_key)
-    _set_artifact_metadata(ctx, "preprobe_support_bank", "fresh", task_dir, bank_hash, expected_key)
-    ctx.n_trials = int(len(trials))
-    return bank
+    return _materialize_fig5_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _run_task(
@@ -418,32 +457,38 @@ def _get_probe_stsp_update_bank(
         conditions=probe_stsp_update_conditions(),
         variable_sets=probe_stsp_update_variable_sets(),
     )
-    if mode == "require":
-        artifact = _load_probe_stsp_update_bank(ctx, task_dir, trials, expected_key, trial_hash, support_digest)
-        _mirror_probe_stsp_update_artifact(ctx, task_dir)
-        _set_artifact_metadata(ctx, "probe_stsp_update_bank", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact
-    if mode == "auto" and _probe_stsp_cache_state(task_dir, expected_key) == "match":
+
+    def load():
         artifact = _load_probe_stsp_update_bank(ctx, task_dir, trials, expected_key, trial_hash, support_digest)
         _mirror_probe_stsp_update_artifact(ctx, task_dir)
         _set_artifact_metadata(ctx, "probe_stsp_update_bank", "loaded", task_dir, artifact.digest, expected_key)
         return artifact
 
-    _timed_artifact_io(
-        ctx,
-        build_and_save_probe_stsp_update_artifact,
-        ctx,
-        bank,
+    def build():
+        _timed_artifact_io(
+            ctx,
+            build_and_save_probe_stsp_update_artifact,
+            ctx,
+            bank,
+            task_dir=task_dir,
+            cache_key=expected_key,
+            trial_hash=trial_hash,
+            parent_support_bank_digest=support_digest,
+        )
+        artifact = _load_probe_stsp_update_bank(ctx, task_dir, trials, expected_key, trial_hash, support_digest)
+        _mirror_probe_stsp_update_artifact(ctx, task_dir)
+        _set_artifact_metadata(ctx, "probe_stsp_update_bank", "built", task_dir, artifact.digest, expected_key)
+        ctx.run_log.append(f"{utc_now()} probe_stsp_update_bank source=built artifact={task_dir}")
+        return artifact
+
+    return _materialize_fig5_artifact(
+        mode=mode,
         task_dir=task_dir,
-        cache_key=expected_key,
-        trial_hash=trial_hash,
-        parent_support_bank_digest=support_digest,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        cache_is_reusable=lambda: _probe_stsp_cache_state(task_dir, expected_key) == "match",
     )
-    artifact = _load_probe_stsp_update_bank(ctx, task_dir, trials, expected_key, trial_hash, support_digest)
-    _mirror_probe_stsp_update_artifact(ctx, task_dir)
-    _set_artifact_metadata(ctx, "probe_stsp_update_bank", "built", task_dir, artifact.digest, expected_key)
-    ctx.run_log.append(f"{utc_now()} probe_stsp_update_bank source=built artifact={task_dir}")
-    return artifact
 
 
 def _load_probe_stsp_update_bank(

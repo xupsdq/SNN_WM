@@ -21,7 +21,7 @@ if __name__ == "__main__" and (
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
@@ -31,12 +31,14 @@ from src.experiments.common.mnist_loader import load_mnist_skeleton_dataset
 from src.experiments.common.model_io import load_model_and_encoder
 from src.experiments.common.run_info import build_run_info, finalize_run_info, write_run_info
 from src.experiments.common.runtime import resolve_device, seed_everything
+from src.experiments.paper_figures.common.artifact_runtime import materialize_artifact
 from src.experiments.paper_figures.fig6.artifacts import (
     cache_key_matches,
     copy_sequence_bank_artifacts_to_raw,
     default_artifact_root,
     load_sequence_bank_artifact,
     load_sequence_trials_artifact,
+    require_cache_key_match,
     save_sequence_bank_artifact,
     save_sequence_trials_artifact,
     task_artifact_dir,
@@ -166,6 +168,33 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise
 
 
+def _materialize_fig6_artifact(
+    *,
+    mode: str,
+    task_dir: Path,
+    expected_key: Mapping[str, Any],
+    load: Callable[[], Any],
+    build: Callable[[], Any],
+    fresh: Callable[[], Any] | None = None,
+) -> Any:
+    task_id = str(expected_key.get("task_id", task_dir.name))
+    return materialize_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=build,
+        fresh=fresh,
+        recover_auto_load_errors=False,
+        cache_is_reusable=lambda: cache_key_matches(task_dir, expected_key),
+        require_reusable=lambda: require_cache_key_match(
+            task_dir,
+            expected_key,
+            task_id=task_id,
+        ),
+    )
+
+
 def _get_sequence_trials(
     ctx: ExperimentContext,
     *,
@@ -190,29 +219,33 @@ def _get_sequence_trials(
         _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
         _set_artifact_metadata(ctx, "sequence_trials", "shared_sequence_root", task_dir, artifact.digest, expected_key)
         return artifact.sequence_trials, artifact.digest
-    if mode == "require":
-        artifact = load_sequence_trials_artifact(task_dir, expected_key=expected_key)
-        _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
-        _set_artifact_metadata(ctx, "sequence_trials", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact.sequence_trials, artifact.digest
-    if mode == "auto" and cache_key_matches(task_dir, expected_key):
+    def load() -> tuple[pd.DataFrame, str]:
         artifact = load_sequence_trials_artifact(task_dir, expected_key=expected_key)
         _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
         _set_artifact_metadata(ctx, "sequence_trials", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.sequence_trials, artifact.digest
 
-    sequence_trials = build_sequence_trials(ctx)
-    if mode != "off":
-        artifact = save_sequence_trials_artifact(task_dir, sequence_trials=sequence_trials, cache_key=expected_key)
-        _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
-        _set_artifact_metadata(ctx, "sequence_trials", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{utc_now()} sequence_trials source=built artifact={task_dir}")
-        return artifact.sequence_trials, artifact.digest
+    def create(*, persist: bool) -> tuple[pd.DataFrame, str]:
+        sequence_trials = build_sequence_trials(ctx)
+        if persist:
+            artifact = save_sequence_trials_artifact(task_dir, sequence_trials=sequence_trials, cache_key=expected_key)
+            _write_sequence_trials_to_bundle(ctx, artifact.sequence_trials)
+            _set_artifact_metadata(ctx, "sequence_trials", "built", task_dir, artifact.digest, expected_key)
+            ctx.run_log.append(f"{utc_now()} sequence_trials source=built artifact={task_dir}")
+            return artifact.sequence_trials, artifact.digest
+        digest = sequence_trials_hash(sequence_trials)
+        _set_artifact_metadata(ctx, "sequence_trials", "fresh", task_dir, digest, expected_key)
+        ctx.n_sequences = int(sequence_trials["sequence_id"].nunique()) if "sequence_id" in sequence_trials.columns else 0
+        return sequence_trials, digest
 
-    digest = sequence_trials_hash(sequence_trials)
-    _set_artifact_metadata(ctx, "sequence_trials", "fresh", task_dir, digest, expected_key)
-    ctx.n_sequences = int(sequence_trials["sequence_id"].nunique()) if "sequence_id" in sequence_trials.columns else 0
-    return sequence_trials, digest
+    return _materialize_fig6_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _get_sequence_bank(
@@ -234,35 +267,39 @@ def _get_sequence_bank(
         _set_artifact_metadata(ctx, "sequence_bank", "shared_sequence_root", task_dir, artifact.digest, expected_key)
         ctx.run_log.append(f"{utc_now()} sequence_bank source=shared_sequence_root artifact={root_bank.root}")
         return artifact.bank
-    if mode in {"auto", "require"} and cache_key_matches(task_dir, expected_key):
-        artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
-        _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "sequence_bank", "loaded", task_dir, artifact.digest, expected_key)
-        return artifact.bank
-    if mode == "require":
+    def load() -> PeakAmplifiedReentryBank:
         artifact = load_sequence_bank_artifact(task_dir, expected_key=expected_key, sequence_trials=sequence_trials)
         _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
         _set_artifact_metadata(ctx, "sequence_bank", "loaded", task_dir, artifact.digest, expected_key)
         return artifact.bank
 
-    bank = run_sequence_bank(ctx, sequence_trials)
-    if mode != "off":
-        artifact = save_sequence_bank_artifact(
-            task_dir,
-            bank,
-            raw_dir=ctx.raw_dir,
-            cache_key=expected_key,
-            network_seed=ctx.cfg.network_seed,
-        )
-        _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
-        _set_artifact_metadata(ctx, "sequence_bank", "built", task_dir, artifact.digest, expected_key)
-        ctx.run_log.append(f"{utc_now()} sequence_bank source=built artifact={task_dir}")
-        return artifact.bank
+    def create(*, persist: bool) -> PeakAmplifiedReentryBank:
+        bank = run_sequence_bank(ctx, sequence_trials)
+        if persist:
+            artifact = save_sequence_bank_artifact(
+                task_dir,
+                bank,
+                raw_dir=ctx.raw_dir,
+                cache_key=expected_key,
+                network_seed=ctx.cfg.network_seed,
+            )
+            _write_sequence_bank_to_bundle(ctx, artifact.bank, task_dir=task_dir)
+            _set_artifact_metadata(ctx, "sequence_bank", "built", task_dir, artifact.digest, expected_key)
+            ctx.run_log.append(f"{utc_now()} sequence_bank source=built artifact={task_dir}")
+            return artifact.bank
+        bank_hash = cache_key_digest(expected_key)
+        _set_artifact_metadata(ctx, "sequence_bank", "fresh", task_dir, bank_hash, expected_key)
+        ctx.n_sequences = int(len(bank.sequence_meta))
+        return bank
 
-    bank_hash = cache_key_digest(expected_key)
-    _set_artifact_metadata(ctx, "sequence_bank", "fresh", task_dir, bank_hash, expected_key)
-    ctx.n_sequences = int(len(bank.sequence_meta))
-    return bank
+    return _materialize_fig6_artifact(
+        mode=mode,
+        task_dir=task_dir,
+        expected_key=expected_key,
+        load=load,
+        build=lambda: create(persist=True),
+        fresh=lambda: create(persist=False),
+    )
 
 
 def _run_task(

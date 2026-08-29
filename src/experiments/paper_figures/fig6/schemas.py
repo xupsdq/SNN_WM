@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.experiments.paper_figures.common.artifact_runtime import REUSE_MODES, normalize_reuse_mode
+
 SCHEMA_NAME = "fig6_runtime_artifacts"
 SCHEMA_VERSION = 1
 
@@ -34,8 +36,6 @@ TASK_IDS = (
     TASK_SCORE_SHUFFLE_NULL,
     TASK_OVERLAP_THRESHOLD_SENSITIVITY,
 )
-
-REUSE_MODES = ("off", "auto", "require", "force")
 
 TABLE_MANIFEST_COLUMNS = (
     "name",
@@ -80,14 +80,6 @@ SEQUENCE_BANK_ARRAY_FILES = (
     "update_history_matrix.npz",
     "final_support_maps.npz",
 )
-
-
-def normalize_reuse_mode(value: str) -> str:
-    mode = str(value).strip().lower()
-    if mode not in REUSE_MODES:
-        choices = ", ".join(REUSE_MODES)
-        raise ValueError(f"Unsupported reuse-artifacts mode: {value!r}. Expected one of: {choices}")
-    return mode
 
 
 __all__ = [
