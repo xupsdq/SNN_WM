@@ -99,14 +99,15 @@ def test_render_composed_figure_owns_layout_export_and_panel_qa(tmp_path: Path) 
         axis.set_xlabel("Input")
         axis.set_ylabel("Output")
 
-    result = render_composed_figure(
-        spec=_single_panel_spec(),
-        frames={"a": frame},
-        figure_dir=tmp_path,
-        svg_hashsalt="composition-probe",
-        custom_renderers={"probe_line": draw_probe},
-        export_mode="matplotlib",
-    )
+    with plt.rc_context({"savefig.bbox": "tight"}):
+        result = render_composed_figure(
+            spec=_single_panel_spec(),
+            frames={"a": frame},
+            figure_dir=tmp_path,
+            svg_hashsalt="composition-probe",
+            custom_renderers={"probe_line": draw_probe},
+            export_mode="matplotlib",
+        )
 
     assert result["plot_bboxes"] == {"a": (6.0, 6.0, 28.0, 18.0)}
     for kind in ("svg", "pdf", "png"):

@@ -4010,7 +4010,13 @@ def render_composed_figure(
     labels: dict[str, plt.Text] = {}
     auxiliary_axes: dict[str, tuple[plt.Axes, ...]] = {}
 
-    with plt.rc_context({**VECTOR_TEXT_RCPARAMS, "svg.hashsalt": svg_hashsalt}):
+    with plt.rc_context(
+        {
+            **VECTOR_TEXT_RCPARAMS,
+            "svg.hashsalt": svg_hashsalt,
+            "savefig.bbox": None,
+        }
+    ):
         fig = plt.figure(
             figsize=(canvas_width * MM_TO_INCH, canvas_height * MM_TO_INCH),
             dpi=300,
